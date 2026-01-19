@@ -1,0 +1,15 @@
+# Build directories
+**/bin/
+**/dist/
+**/node_modules/
+
+# Test coverage files
+coverage.out
+coverage.html
+
+## Environment Variables
+.env*
+!*.example
+
+# Intellij Configs
+**/.idea/**
