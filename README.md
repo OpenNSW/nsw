@@ -47,58 +47,6 @@ NSW offers powerful capabilities that streamline international trade processes:
 | **Identity Provider Integration** – Centralized account management for Traders, OGA officers, and NSW Admins | In Progress |
 | **Observability Stack** – Built-in OpenTelemetry for metrics, tracing, and logging | Planned |
 
-## Getting Started
-
-### Prerequisites
-- Go 1.21 or higher
-- Docker & Docker Compose
-- Access to an OIDC-compliant Identity Provider (e.g., Asgardeo) for managing Traders, OGA officers, and NSW Admins
-- PostgreSQL database (for NSW Core DB - stores process state)
-- Access to Postal service (for Email/SMS notifications)
-- Access to ASYCUDA system (for customs finalization)
-- NDX API access (optional for MVP - integration timing under evaluation)
-
-### Minimum Requirements
-- 8GB of memory
-- 4 CPU cores
-- 50GB disk space
-
-### Installation
-
-1. Clone the repository and navigate to the project directory:
-
-```bash
-git clone https://github.com/OpenNSW/nsw.git
-cd nsw
-```
-
-2. Set up environment variables:
-
-```bash
-# Copy example environment file
-cp .env.example .env
-# Edit .env with your configuration
-```
-
-3. Build the project:
-
-```bash
-make build
-```
-
-4. Run tests:
-
-```bash
-make test
-```
-
-5. Start services:
-
-```bash
-# Start all services using Docker Compose
-docker-compose up -d
-```
-
 ### Proposed Project Structure
 
 The NSW monorepo is organized as follows:
