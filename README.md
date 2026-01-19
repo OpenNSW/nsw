@@ -99,7 +99,7 @@ make test
 docker-compose up -d
 ```
 
-### Project Structure
+### Proposed Project Structure
 
 The NSW monorepo is organized as follows:
 
