@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@lsf/ui": [
+        "ui/src"
+      ]
+    }
+  },
+  "include": []
+}
