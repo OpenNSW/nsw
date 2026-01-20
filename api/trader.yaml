@@ -1,0 +1,553 @@
+openapi: 3.0.3
+info:
+  title: OpenNSW Trader Portal API
+  version: 0.1.0
+  description: >
+    API specification for the OpenNSW Trader Portal.
+    This API enables traders to manage consignments, submit forms, and track tasks.
+
+servers:
+  - url: "{{WE_PATH}}"
+    description: Workflow Engine base URL
+  - url: "{{TM_PATH}}"
+    description: Task Manager base URL
+
+paths:
+  /workflows:
+    get:
+      summary: Search Workflow Template
+      description: >
+        Search for workflow templates based on HS Code and consignment type.
+        Returns the WorkflowTemplateID that should be used for items with the specified HS Code.
+      tags:
+        - Workflow Engine
+      parameters:
+        - name: hsCode
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Harmonized System Code for the item
+        - name: type
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/ConsignmentType"
+          description: Type of consignment (IMPORT or EXPORT)
+      responses:
+        "200":
+          description: Workflow template found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowTemplateSearchResponse"
+        "400":
+          description: Bad request - missing or invalid parameters
+        "404":
+          description: No workflow template found for the specified HS Code and type
+        "500":
+          description: Internal server error
+
+  /consignments:
+    get:
+      summary: List Consignments
+      description: Get a list of consignments for the authenticated trader
+      tags:
+        - Workflow Engine
+      parameters:
+        - name: state
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ConsignmentState"
+          description: Filter by consignment state
+        - name: type
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ConsignmentType"
+          description: Filter by consignment type
+      responses:
+        "200":
+          description: List of consignments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ConsignmentResponse"
+        "400":
+          description: Bad request
+        "500":
+          description: Internal server error
+
+    post:
+      summary: Initialize Consignment
+      description: >
+        Create a new consignment and initialize all tasks for each item.  
+        Returns the consignment details including task IDs for each item.
+      tags:
+        - Workflow Engine
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConsignmentInitRequest"
+      responses:
+        "201":
+          description: Consignment initialized successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsignmentResponse"
+        "400":
+          description: Bad request - invalid consignment data
+        "500":
+          description: Internal server error
+
+  /consignments/{consignmentId}:
+    get:
+      summary: Get Consignment
+      description: Get details of a specific consignment
+      tags:
+        - Workflow Engine
+      parameters:
+        - name: consignmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Consignment ID
+      responses:
+        "200":
+          description: Consignment details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsignmentResponse"
+        "404":
+          description: Consignment not found
+        "500":
+          description: Internal server error
+
+  /tasks:
+    get:
+      summary: List Tasks
+      description: Get a list of tasks for the authenticated trader
+      tags:
+        - Task Manager
+      parameters:
+        - name: consignmentId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter by consignment ID
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/TaskStatus"
+          description: Filter by task status
+      responses:
+        "200":
+          description: List of tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TaskTraderViewResponse"
+        "400":
+          description: Bad request
+        "500":
+          description: Internal server error
+
+  /tasks/{taskId}:
+    get:
+      summary: Get Task Details
+      description: >
+        Returns task details for the authenticated trader.
+        Includes form template information and submission status.
+      tags:
+        - Task Manager
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Task ID
+      responses:
+        "200":
+          description: Task details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskTraderViewResponse"
+        "400":
+          description: Bad request
+        "403":
+          description: Forbidden - task does not belong to the authenticated trader
+        "404":
+          description: Task not found
+        "500":
+          description: Internal server error
+
+  /form-templates/{formTemplateId}:
+    get:
+      summary: Get Form Template
+      description: Get form template details including schema and UI schema
+      tags:
+        - Task Manager
+      parameters:
+        - name: formTemplateId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Form Template ID
+      responses:
+        "200":
+          description: Form template details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormTemplateResponse"
+        "404":
+          description: Form template not found
+        "500":
+          description: Internal server error
+
+  /form-submissions:
+    post:
+      summary: Submit Form
+      description: >
+        Create a new form submission for a task.
+        The form data must conform to the schema defined in the form template.
+      tags:
+        - Task Manager
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FormSubmissionRequest"
+      responses:
+        "201":
+          description: Form submission created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormSubmissionResponse"
+        "400":
+          description: Bad request - invalid form data or task not in correct state
+        "403":
+          description: Forbidden - task does not belong to the authenticated trader
+        "500":
+          description: Internal server error
+
+  /form-submissions/{formSubmissionId}:
+    get:
+      summary: Get Form Submission
+      description: Get details of a specific form submission
+      tags:
+        - Task Manager
+      parameters:
+        - name: formSubmissionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Form Submission ID
+      responses:
+        "200":
+          description: Form submission details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormSubmissionResponse"
+        "404":
+          description: Form submission not found
+        "500":
+          description: Internal server error
+
+components:
+  schemas:
+    ConsignmentType:
+      type: string
+      enum: [IMPORT, EXPORT]
+      description: Type of consignment
+
+    ConsignmentState:
+      type: string
+      enum: [IN_PROGRESS, FINISHED]
+      description: State of a consignment in the workflow
+
+    TaskStatus:
+      type: string
+      enum: [LOCKED, READY, SUBMITTED, APPROVED, REJECTED]
+      description: Status of a task within a workflow
+
+    FormType:
+      type: string
+      enum: [TRADER, OGA_OFFICER]
+      description: Type of form
+
+    FormSubmissionStatus:
+      type: string
+      enum: [PENDING, APPROVED, REJECTED]
+      description: Status of a form submission
+
+    WorkflowTemplateSearchResponse:
+      type: object
+      required:
+        - hsCodeId
+        - hsCode
+        - type
+        - workflowTemplateId
+      properties:
+        hsCodeId:
+          type: string
+          format: uuid
+          description: HS Code ID
+        hsCode:
+          type: string
+          description: Harmonized System Code
+        type:
+          $ref: "#/components/schemas/ConsignmentType"
+        workflowTemplateId:
+          type: string
+          format: uuid
+          description: Workflow Template ID to use for this HS Code and type
+
+    ConsignmentInitRequest:
+      type: object
+      required:
+        - type
+        - items
+      properties:
+        type:
+          $ref: "#/components/schemas/ConsignmentType"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ItemRequest"
+          minItems: 1
+          description: List of items in the consignment
+
+    ItemRequest:
+      type: object
+      required:
+        - hsCode
+        - metadata
+      properties:
+        hsCode:
+          type: string
+          description: Harmonized System Code for the item
+        metadata:
+          type: object
+          description: Information about the item (e.g., description, quantity, value)
+          additionalProperties: true
+
+    ConsignmentResponse:
+      type: object
+      required:
+        - id
+        - type
+        - state
+        - traderId
+        - items
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Consignment ID
+        type:
+          $ref: "#/components/schemas/ConsignmentType"
+        state:
+          $ref: "#/components/schemas/ConsignmentState"
+        traderId:
+          type: string
+          description: Trader ID
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ItemResponse"
+          description: List of items in the consignment
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when consignment was created
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp when consignment was last updated
+
+    ItemResponse:
+      type: object
+      required:
+        - hsCode
+        - metadata
+        - workflowTemplateId
+        - tasks
+      properties:
+        hsCode:
+          type: string
+          description: Harmonized System Code for the item
+        metadata:
+          type: object
+          description: Information about the item
+          additionalProperties: true
+        workflowTemplateId:
+          type: string
+          format: uuid
+          description: Workflow Template ID associated with this item
+        tasks:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: List of task IDs associated with this item
+
+    TaskTraderViewResponse:
+      type: object
+      required:
+        - id
+        - traderId
+        - consignmentId
+        - status
+        - traderFormTemplateId
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Task ID
+        traderId:
+          type: string
+          format: uuid
+          description: Trader ID
+        consignmentId:
+          type: string
+          format: uuid
+          description: Consignment ID
+        status:
+          $ref: "#/components/schemas/TaskStatus"
+        traderFormTemplateId:
+          type: string
+          format: uuid
+          description: Form Template ID for the trader form
+        traderFormSubmissionId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Form Submission ID if trader has submitted a form
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when task was created
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp when task was last updated
+
+    FormTemplateResponse:
+      type: object
+      required:
+        - id
+        - formType
+        - schema
+        - uiSchema
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Form Template ID
+        formType:
+          $ref: "#/components/schemas/FormType"
+        schema:
+          type: object
+          description: JSON Schema defining the form structure
+          additionalProperties: true
+        uiSchema:
+          type: object
+          description: UI Schema defining how the form should be rendered
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when form template was created
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp when form template was last updated
+
+    FormSubmissionRequest:
+      type: object
+      required:
+        - formTemplateId
+        - consignmentId
+        - data
+      properties:
+        formTemplateId:
+          type: string
+          format: uuid
+          description: Form Template ID
+        consignmentId:
+          type: string
+          format: uuid
+          description: Consignment ID
+        data:
+          type: object
+          description: Form data conforming to the form template schema
+          additionalProperties: true
+
+    FormSubmissionResponse:
+      type: object
+      required:
+        - id
+        - formTemplateId
+        - consignmentId
+        - data
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Form Submission ID
+        formTemplateId:
+          type: string
+          format: uuid
+          description: Form Template ID
+        consignmentId:
+          type: string
+          format: uuid
+          description: Consignment ID
+        data:
+          type: object
+          description: Submitted form data
+          additionalProperties: true
+        status:
+          $ref: "#/components/schemas/FormSubmissionStatus"
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when form submission was created
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp when form submission was last updated
