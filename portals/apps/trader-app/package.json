@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@lsf/ui": "workspace:*",
+    "@lsf/ui": "file:../../ui",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

@@ -97,7 +97,7 @@ function MyComponent() {
    ```json
    {
      "dependencies": {
-       "@lsf/ui": "*"
+       "@lsf/ui": "workspace:*"
      }
    }
    ```
