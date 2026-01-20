@@ -5,8 +5,7 @@ function App() {
 
   return (
     <div>
-      Trader Portal
-      <Button/>
+      <Button>Trader Portal Button</Button>
     </div>
   )
 }

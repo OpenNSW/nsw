@@ -1,5 +1,7 @@
-export function Card() {
+import type {ComponentProps} from 'react';
+
+export function Card({children, ...props}: ComponentProps<'div'>) {
   return (
-    <div>Hello</div>
+    <div {...props}>{children}</div>
   )
 }
