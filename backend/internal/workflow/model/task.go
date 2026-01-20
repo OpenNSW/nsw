@@ -6,13 +6,23 @@ import "github.com/google/uuid"
 
 type Task struct {
 	BaseModel
-	Trader   UserInfo   `gorm:"type:jsonb;column:trader;not null" json:"trader"`
-	Assignee UserInfo   `gorm:"type:jsonb;column:assignee;not null" json:"assignee"`
-	Status   TaskStatus `gorm:"type:varchar(20);column:status;not null" json:"status"` // Status of the task (e.g., PENDING, APPROVED, REJECTED)
+	TraderID                   uuid.UUID  `gorm:"type:uuid;column:trader_id;not null" json:"traderId"` // Reference to the Trader
+	TraderFormTemplateID       uuid.UUID  `gorm:"type:uuid;column:trader_form_template_id;not null" json:"traderFormTemplateId"`
+	TraderFormSubmissionID     *uuid.UUID `gorm:"type:uuid;column:trader_form_submission_id" json:"traderFormSubmissionId,omitempty"`
+	OGAOfficerID               uuid.UUID  `gorm:"type:uuid;column:oga_officer_id;not null" json:"ogaOfficerId"` // Reference to the OGA Officer
+	OGAOfficerFormTemplateID   uuid.UUID  `gorm:"type:uuid;column:oga_officer_form_template_id;not null" json:"ogaOfficerFormTemplateId"`
+	OGAOfficerFormSubmissionID *uuid.UUID `gorm:"type:uuid;column:oga_officer_form_submission_id" json:"ogaOfficerFormSubmissionId,omitempty"`
+	ConsignmentID              uuid.UUID  `gorm:"type:uuid;column:consignment_id;not null" json:"consignmentId"` // Reference to the Consignment
+	Status                     TaskStatus `gorm:"type:varchar(20);column:status;not null" json:"status"`         // Status of the task (e.g., LOCKED, READY, SUBMITTED, APPROVED, REJECTED)
+
+	// Relationships
+	Consignment              Consignment     `gorm:"foreignKey:ConsignmentID;references:ID" json:"consignment"`
+	TraderFormTemplate       FormTemplate    `gorm:"foreignKey:TraderFormTemplateID;references:ID" json:"traderFormTemplate"`
+	OGAOfficerFormTemplate   FormTemplate    `gorm:"foreignKey:OGAOfficerFormTemplateID;references:ID" json:"ogaOfficerFormTemplate"`
+	TraderFormSubmission     *FormSubmission `gorm:"foreignKey:TraderFormSubmissionID;references:ID" json:"traderFormSubmission,omitempty"`
+	OGAOfficerFormSubmission *FormSubmission `gorm:"foreignKey:OGAOfficerFormSubmissionID;references:ID" json:"ogaOfficerFormSubmission,omitempty"`
 }
 
-type UserInfo struct {
-	ID               uuid.UUID `gorm:"type:uuid;column:id;not null" json:"userId"`
-	FormTemplateID   uuid.UUID `gorm:"type:uuid;column:form_template_id;not null" json:"formTemplateId"`
-	FormSubmissionID uuid.UUID `gorm:"type:uuid;column:form_submission_id;not null" json:"formSubmissionId"`
+func (t *Task) TableName() string {
+	return "tasks"
 }
