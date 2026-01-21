@@ -3,19 +3,19 @@ package implementations
 import (
 	"fmt"
 
+	"github.com/OpenNSW/nsw/internal/task"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
-	"github.com/OpenNSW/nsw/internal/workflow/task_manager"
 )
 
 // taskFactory implements TaskFactory interface
 type taskFactory struct{}
 
 // NewTaskFactory creates a new TaskFactory instance
-func NewTaskFactory() task_manager.TaskFactory {
+func NewTaskFactory() task.TaskFactory {
 	return &taskFactory{}
 }
 
-func (f *taskFactory) CreateTask(taskType task_manager.TaskType, taskModel *model.Task) (task_manager.Task, error) {
+func (f *taskFactory) CreateTask(taskType task.TaskType, taskModel *model.Task) (task.Task, error) {
 	baseTask := BaseTask{
 		ID:        taskModel.ID,
 		TaskType:  taskType,
@@ -23,15 +23,13 @@ func (f *taskFactory) CreateTask(taskType task_manager.TaskType, taskModel *mode
 	}
 
 	switch taskType {
-	case task_manager.TaskTypeTraderForm:
+	case task.TaskTypeTraderForm:
 		return &TraderFormTask{BaseTask: baseTask}, nil
-	case task_manager.TaskTypeOGAForm:
+	case task.TaskTypeOGAForm:
 		return &OGAFormTask{BaseTask: baseTask}, nil
-	case task_manager.TaskTypeWaitForEvent:
+	case task.TaskTypeWaitForEvent:
 		return &WaitForEventTask{BaseTask: baseTask}, nil
-	case task_manager.TaskTypeDocumentSubmission:
-		return &DocumentSubmissionTask{BaseTask: baseTask}, nil
-	case task_manager.TaskTypePayment:
+	case task.TaskTypePayment:
 		return &PaymentTask{BaseTask: baseTask}, nil
 	default:
 		return nil, fmt.Errorf("unknown task type: %s", taskType)

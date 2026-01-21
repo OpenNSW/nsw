@@ -1,4 +1,4 @@
-package task_manager
+package task
 
 import (
 	"github.com/OpenNSW/nsw/internal/workflow/model"
@@ -8,11 +8,10 @@ import (
 type TaskType string
 
 const (
-	TaskTypeTraderForm         TaskType = "TRADER_FORM"
-	TaskTypeOGAForm            TaskType = "OGA_FORM"
-	TaskTypeWaitForEvent       TaskType = "WAIT_FOR_EVENT"
-	TaskTypeDocumentSubmission TaskType = "DOCUMENT_SUBMISSION"
-	TaskTypePayment            TaskType = "PAYMENT"
+	TaskTypeTraderForm   TaskType = "TRADER_FORM"
+	TaskTypeOGAForm      TaskType = "OGA_FORM"
+	TaskTypeWaitForEvent TaskType = "WAIT_FOR_EVENT"
+	TaskTypePayment      TaskType = "PAYMENT"
 )
 
 // TaskFactory creates task instances from task type and model

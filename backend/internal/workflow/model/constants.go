@@ -43,3 +43,12 @@ const (
 	FormSubmissionStatusApproved FormSubmissionStatus = "APPROVED" // Form submission has been approved
 	FormSubmissionStatusRejected FormSubmissionStatus = "REJECTED" // Form submission has been rejected
 )
+
+// WorkflowState represents the state of a task in the workflow from Workflow Manager's perspective
+type WorkflowState string
+
+const (
+	WorkflowStateInProgress WorkflowState = "INPROGRESS" // Task is in progress (for non-realtime tasks)
+	WorkflowStateCompleted  WorkflowState = "COMPLETED"  // Task has been completed
+	WorkflowStateRejected   WorkflowState = "REJECTED"   // Task has been rejected
+)
