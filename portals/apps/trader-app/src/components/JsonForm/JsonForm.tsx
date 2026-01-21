@@ -225,7 +225,7 @@ export function JsonForm({
   return (
     <form
       onSubmit={form.handleSubmit}
-      className={`max-w-md ${className}`}
+      className={className}
       noValidate
     >
       {schema.title && (

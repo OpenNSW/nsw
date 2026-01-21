@@ -1,6 +1,7 @@
 import { apiGet, apiPost, USE_MOCK } from './api'
 import type { Workflow, WorkflowQueryParams } from './types/workflow'
 import { mockWorkflows } from './mocks/workflowData'
+import { mockTaskDetails, type TaskDetails } from './mocks/taskData'
 
 export interface WorkflowResponse {
   import: Workflow[]
@@ -48,14 +49,11 @@ export async function getWorkflowById(id: string): Promise<Workflow | undefined>
 export async function executeTask(
   consignmentId: string,
   taskId: string
-): Promise<void> {
+): Promise<TaskDetails> {
   if (USE_MOCK) {
     // Simulate network delay
     await new Promise((resolve) => setTimeout(resolve, 500))
-    console.log(
-      `Mock execute task for consignment ${consignmentId}, task ${taskId}`
-    )
-    return
+    return mockTaskDetails
   }
-  return apiPost(`/workflows/${consignmentId}/tasks/${taskId}`, {})
+  return apiPost<Record<string, never>, TaskDetails>(`/workflows/${consignmentId}/tasks/${taskId}`, {})
 }

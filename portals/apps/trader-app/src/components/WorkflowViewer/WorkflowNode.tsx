@@ -1,7 +1,7 @@
 import { Handle, Position } from '@xyflow/react'
 import type { Node, NodeProps } from '@xyflow/react'
 import { Text } from '@radix-ui/themes'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import type {
   WorkflowStep,
@@ -85,6 +85,7 @@ const statusConfig: Record<
 export function WorkflowNode({ data }: NodeProps<WorkflowNodeType>) {
   const { step, status } = data
   const { consignmentId } = useParams<{ consignmentId: string }>()
+  const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(false)
 
   const typeConfig = stepTypeConfig[step.type]
@@ -124,11 +125,13 @@ export function WorkflowNode({ data }: NodeProps<WorkflowNodeType>) {
 
     setIsLoading(true)
     try {
-      await executeTask(consignmentId, step.id)
-      // TODO: Re-fetch workflow data to update status
+      const taskDetails = await executeTask(consignmentId, step.id)
+      // Navigate to the appropriate screen based on task type
+      if (taskDetails.type === 'OGA_FORM') {
+        navigate(`/consignments/${consignmentId}/tasks/${step.id}`)
+      }
     } catch (error) {
       console.error('Failed to execute task:', error)
-      // TODO: Show error to user
     } finally {
       setIsLoading(false)
     }
