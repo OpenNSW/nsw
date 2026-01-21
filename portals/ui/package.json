@@ -12,6 +12,11 @@
   "module": "dist/ui.es.js",
   "types": "dist/index.d.ts",
   "dependencies": {
+    "@radix-ui/themes": "^3.2.1",
+    "@tailwindcss/vite": "^4.1.18",
+    "tailwindcss": "^4.1.18"
+  },
+  "peerDependencies": {
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
