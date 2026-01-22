@@ -27,7 +27,6 @@ type Task interface {
 type TaskResult struct {
 	Status  model.TaskStatus `json:"status"`
 	Message string           `json:"message,omitempty"`
-	Data    interface{}      `json:"data,omitempty"` // Task-specific result data
 }
 
 // TaskContext provides context for task execution

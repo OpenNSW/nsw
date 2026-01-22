@@ -18,8 +18,10 @@ import (
 // - Task Manager notifies Workflow Engine on task completion via Go channel
 // - Workflow Engine uses Task Manager API for task database operations
 type TaskManager interface {
-	// ExecuteTask executes a task by ID
-	ExecuteTask(ctx context.Context, taskID uuid.UUID) (*TaskResult, error)
+	// InitTask initializes and executes a task using the provided TaskContext.
+	// TaskManager does not have direct access to Tasks table, so Workflow Manager
+	// must provide the TaskContext with the Task already loaded.
+	InitTask(ctx context.Context, taskCtx *TaskContext) (*TaskResult, error)
 
 	// UpdateTaskStatus updates the status of a task
 	UpdateTaskStatus(ctx context.Context, taskID uuid.UUID, status model.TaskStatus) error
@@ -33,7 +35,7 @@ type TaskManager interface {
 	// OnTaskCompleted is called when a task completes (for async workflows)
 	OnTaskCompleted(ctx context.Context, taskID uuid.UUID, result *TaskResult) error
 
-	// SubmitTaskCompletion handles task completion submission from Trader Portal (for realtime tasks)
+	// SubmitTaskCompletion handles task completion submission from Trader Portal.
 	// Validates form data, saves submission, updates task status, and notifies Workflow Manager
 	SubmitTaskCompletion(ctx context.Context, taskID uuid.UUID, formData map[string]interface{}) (*TaskResult, error)
 
@@ -70,22 +72,23 @@ func NewTaskManager(db *gorm.DB, factory TaskFactory, completionChan chan<- Task
 	}
 }
 
-// ExecuteTask executes a task based on whether it's realtime or non-realtime.
-// For realtime tasks: Returns form template/details immediately (task waits for Trader Portal submission).
-// For non-realtime tasks: Executes task, routes to external system, and notifies WM with INPROGRESS.
-func (tm *TaskManager) ExecuteTask(ctx context.Context, taskID uuid.UUID) (*TaskExecutionResult, error) {
-	taskModel, err := tm.getActiveTask(ctx, taskID)
-	if err != nil {
-		return nil, err
+// InitTask initializes and executes a task using the provided TaskContext.
+// TaskManager does not have direct access to Tasks table, so Workflow Manager
+// must provide the TaskContext with the Task already loaded.
+func (tm *taskManager) InitTask(ctx context.Context, taskCtx *TaskContext) (*TaskResult, error) {
+	if taskCtx == nil || taskCtx.Task == nil {
+		return nil, fmt.Errorf("task context and task must be provided")
 	}
 
-	// Execute specific task logic
-	return tm.execute(ctx, taskModel)
+	taskModel := taskCtx.Task
+
+	// Execute task and return result to Workflow Manager
+	return tm.execute(ctx, taskModel, nil)
 }
 
 // executeTaskInTx executes a task within an existing transaction.
 // It handles the common execution flow: create task instance, check CanExecute, execute, update status.
-// formData is optional and only used for form task submissions (realtime tasks).
+// formData is optional and only used for form task submissions.
 func (tm *taskManager) executeTaskInTx(ctx context.Context, tx *gorm.DB, taskModel *model.Task, formData map[string]interface{}) (*TaskResult, error) {
 	// 1. Create task instance from factory
 	task, err := tm.factory.CreateTask(TaskType(taskModel.Type), taskModel)
@@ -132,8 +135,8 @@ func (tm *taskManager) executeTaskInTx(ctx context.Context, tx *gorm.DB, taskMod
 
 // execute is a unified method that executes a task and returns the result.
 // It wraps executeTaskInTx in a transaction and handles Workflow Manager notifications.
-// formData is optional and only used for form task submissions (realtime tasks).
-// For non-realtime tasks, it notifies Workflow Manager with INPROGRESS state.
+// formData is optional and only used for form task submissions.
+// If formData is nil, it notifies Workflow Manager with INPROGRESS state.
 func (tm *taskManager) execute(ctx context.Context, taskModel *model.Task, formData map[string]interface{}) (*TaskResult, error) {
 	var result *TaskResult
 
@@ -147,8 +150,8 @@ func (tm *taskManager) execute(ctx context.Context, taskModel *model.Task, formD
 		return nil, err
 	}
 
-	// For non-realtime tasks, notify Workflow Manager with INPROGRESS state
-	// (Realtime tasks handle notification in SubmitTaskCompletion after form submission)
+	// Notify Workflow Manager with INPROGRESS state for tasks without form data
+	// (Tasks with form data handle notification in SubmitTaskCompletion after submission)
 	if formData == nil {
 		tm.notifyWorkflowManager(ctx, taskModel.ID, string(model.WorkflowStateInProgress))
 	}
@@ -156,10 +159,9 @@ func (tm *taskManager) execute(ctx context.Context, taskModel *model.Task, formD
 	return result, nil
 }
 
-// SubmitTaskCompletion handles task completion submission from Trader Portal (for realtime tasks)
+// SubmitTaskCompletion handles task completion submission from Trader Portal.
 func (tm *taskManager) SubmitTaskCompletion(ctx context.Context, taskID uuid.UUID, formData map[string]interface{}) (*TaskResult, error) {
 	var result *TaskResult
-	var consignmentID uuid.UUID
 
 	err := tm.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 1. Get task from cache or load from database
@@ -168,18 +170,7 @@ func (tm *taskManager) SubmitTaskCompletion(ctx context.Context, taskID uuid.UUI
 			return err
 		}
 
-		consignmentID = taskModel.ConsignmentID
-
-		// 2. Verify task is realtime
-		isRealtime, err := tm.isTaskRealtime(ctx, taskModel)
-		if err != nil {
-			isRealtime = tm.isRealtimeByTaskType(TaskType(taskModel.Type))
-		}
-		if !isRealtime {
-			return fmt.Errorf("task %s is not a realtime task and cannot be submitted via SubmitTaskCompletion", taskID)
-		}
-
-		// 3. Execute task with submitted form data using unified execution method
+		// 2. Execute task with submitted form data using unified execution method
 		result, err = tm.executeTaskInTx(ctx, tx, taskModel, formData)
 		if err != nil {
 			return err
@@ -192,7 +183,7 @@ func (tm *taskManager) SubmitTaskCompletion(ctx context.Context, taskID uuid.UUI
 		return nil, err
 	}
 
-	// 6. Determine workflow state and async notify Workflow Manager
+	// 3. Determine workflow state and async notify Workflow Manager
 	var workflowState string
 	if result.Status == model.TaskStatusApproved || result.Status == model.TaskStatusSubmitted {
 		workflowState = string(model.WorkflowStateCompleted)
@@ -358,52 +349,4 @@ func (tm *taskManager) getTaskModelByIDWithTx(ctx context.Context, tx *gorm.DB, 
 		return nil, err
 	}
 	return &taskModel, nil
-}
-
-// isTaskRealtime checks if a task is realtime by querying workflow metadata
-// Falls back to task type-based detection if metadata unavailable
-func (tm *taskManager) isTaskRealtime(ctx context.Context, taskModel *model.Task) (bool, error) {
-	if tm.workflowEngineClient == nil {
-		return tm.isRealtimeByTaskType(TaskType(taskModel.Type)), nil
-	}
-	metadata, err := tm.workflowEngineClient.GetWorkflowMetadata(ctx, taskModel.ConsignmentID)
-	if err != nil {
-		return false, err
-	}
-	// Find step in metadata and return IsRealtime flag, fallback to task type if not found
-	for _, step := range metadata.Steps {
-		if step.StepID == taskModel.StepID {
-			return step.IsRealtime, nil
-		}
-	}
-	return tm.isRealtimeByTaskType(TaskType(taskModel.Type)), nil
-}
-
-// isRealtimeByTaskType determines if a task type is realtime based on default behavior
-func (tm *taskManager) isRealtimeByTaskType(taskType TaskType) bool {
-	switch taskType {
-	case TaskTypeTraderForm:
-		return true // Trader forms are realtime (wait for trader submission)
-	case TaskTypeOGAForm:
-		return false // OGA forms are non-realtime (route to external system)
-	case TaskTypeWaitForEvent:
-		return false // Wait for event is non-realtime
-	case TaskTypePayment:
-		return true // Payment is realtime (wait for trader payment)
-	default:
-		return true // Default to realtime for safety
-	}
-}
-
-// getFormTemplateForTask returns the appropriate form template based on the task type
-func (tm *taskManager) getFormTemplateForTask(taskModel *model.Task) *model.FormTemplate {
-	taskType := TaskType(taskModel.Type)
-	switch taskType {
-	case TaskTypeTraderForm:
-		return &taskModel.TraderFormTemplate
-	case TaskTypeOGAForm:
-		return &taskModel.OGAOfficerFormTemplate
-	default:
-		return nil
-	}
 }
