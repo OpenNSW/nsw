@@ -16,7 +16,7 @@ const (
 type ConsignmentState string
 
 const (
-	ConsignmentStateInProgress     ConsignmentState = "INPROGRESS"
+	ConsignmentStateInProgress     ConsignmentState = "IN_PROGRESS"
 	ConsignmentStateRequiresRework ConsignmentState = "REQUIRES_REWORK" // At least one task has been rejected
 	ConsignmentStateFinished       ConsignmentState = "FINISHED"
 )
@@ -27,7 +27,7 @@ type Consignment struct {
 	Type     ConsignmentType  `gorm:"type:varchar(20);column:type;not null" json:"type"`             // Type of consignment: IMPORT, EXPORT
 	Items    []Item           `gorm:"type:jsonb;column:items;serializer:json;not null" json:"items"` // List of items in the consignment
 	TraderID string           `gorm:"type:varchar(255);column:trader_id;not null" json:"traderId"`   // Reference to the Trader
-	State    ConsignmentState `gorm:"type:varchar(20);column:state;not null" json:"state"`           // INPROGRESS, REQUIRES_REWORK, FINISHED
+	State    ConsignmentState `gorm:"type:varchar(20);column:state;not null" json:"state"`           // IN_PROGRESS, REQUIRES_REWORK, FINISHED
 }
 
 func (c *Consignment) TableName() string {

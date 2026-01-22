@@ -12,11 +12,11 @@ import (
 type TaskStatus string
 
 const (
-	TaskStatusLocked     TaskStatus = "LOCKED"     // Task is locked and cannot be worked on because previous tasks are incomplete
-	TaskStatusReady      TaskStatus = "READY"      // Task is ready to be worked on
-	TaskStatusInProgress TaskStatus = "INPROGRESS" // Task is in progress after being submitted by the trader to get some action from OGA officer
-	TaskStatusCompleted  TaskStatus = "COMPLETED"  // Task has been Completed to proceed with the next steps
-	TaskStatusRejected   TaskStatus = "REJECTED"   // Task has been rejected and needs rework
+	TaskStatusLocked     TaskStatus = "LOCKED"      // Task is locked and cannot be worked on because previous tasks are incomplete
+	TaskStatusReady      TaskStatus = "READY"       // Task is ready to be worked on
+	TaskStatusInProgress TaskStatus = "IN_PROGRESS" // Task is in progress after being submitted by the trader to get some action from OGA officer
+	TaskStatusCompleted  TaskStatus = "COMPLETED"   // Task has been Completed to proceed with the next steps
+	TaskStatusRejected   TaskStatus = "REJECTED"    // Task has been rejected and needs rework
 )
 
 // DependencyStatus represents the completion status of a dependency
