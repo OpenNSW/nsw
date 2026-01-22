@@ -69,15 +69,12 @@ type taskManager struct {
 
 // NewTaskManager creates a new TaskManager instance
 // completionChan is a channel for notifying Workflow Manager when tasks complete.
-func NewTaskManager() TaskManager {
+func NewTaskManager(completionChan chan<- TaskCompletionNotification) TaskManager {
 	return &taskManager{
-		factory:     NewTaskFactory(),
-		activeTasks: make(map[uuid.UUID]*model.Task),
+		factory:        NewTaskFactory(),
+		activeTasks:    make(map[uuid.UUID]*model.Task),
+		completionChan: completionChan,
 	}
-}
-
-func (tm *taskManager) RegisterCompletionChan(completionChan chan<- TaskCompletionNotification) {
-	tm.completionChan = completionChan
 }
 
 // HandleExecuteTask is an HTTP handler for executing a task via POST request
@@ -138,7 +135,10 @@ func (tm *taskManager) HandleExecuteTask(w http.ResponseWriter, r *http.Request)
 func writeJSONResponse(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
+	err := json.NewEncoder(w).Encode(data)
+	if err != nil {
+		return
+	}
 }
 
 func writeJSONError(w http.ResponseWriter, status int, message string) {
@@ -182,7 +182,7 @@ func (tm *taskManager) execute(ctx context.Context, taskModel *model.Task, formD
 	}
 
 	// 3. Check if task can execute
-	canExecute, err := task.CanExecute(ctx, taskCtx)
+	canExecute, err := task.CanExecute()
 	if err != nil {
 		return nil, err
 	}

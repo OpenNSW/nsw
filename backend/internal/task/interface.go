@@ -19,7 +19,7 @@ type Task interface {
 	GetID() uuid.UUID
 
 	// CanExecute checks if the task is ready to be executed
-	CanExecute(ctx context.Context, taskCtx *TaskContext) (bool, error)
+	CanExecute() (bool, error)
 }
 
 // TaskResult represents the outcome of task execution

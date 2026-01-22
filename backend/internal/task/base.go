@@ -1,8 +1,6 @@
 package task
 
 import (
-	"context"
-
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/google/uuid"
 )
@@ -22,6 +20,6 @@ func (b *BaseTask) GetType() TaskType {
 	return b.TaskType
 }
 
-func (b *BaseTask) CanExecute(ctx context.Context, taskCtx *TaskContext) (bool, error) {
+func (b *BaseTask) CanExecute() (bool, error) {
 	return b.TaskStatus == model.TaskStatusReady, nil
 }
