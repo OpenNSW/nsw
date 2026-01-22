@@ -85,7 +85,7 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 			}
 
 			// Save all tasks for this item using the transaction
-			taskIDs, err := s.createTasksInTx(ctx, tx, tasks)
+			taskIDs, err := s.ts.CreateTasksInTx(ctx, tx, tasks)
 			if err != nil {
 				return fmt.Errorf("failed to create tasks for item %d: %w", itemIdx, err)
 			}
@@ -145,25 +145,6 @@ func (s *ConsignmentService) buildTasksFromTemplate(consignmentID uuid.UUID, tem
 	return tasks, nil
 }
 
-// createTasksInTx creates multiple tasks within a transaction
-func (s *ConsignmentService) createTasksInTx(ctx context.Context, tx *gorm.DB, tasks []model.Task) ([]uuid.UUID, error) {
-	if len(tasks) == 0 {
-		return []uuid.UUID{}, nil
-	}
-
-	result := tx.WithContext(ctx).Create(&tasks)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-
-	taskIDs := make([]uuid.UUID, len(tasks))
-	for i, task := range tasks {
-		taskIDs[i] = task.ID
-	}
-
-	return taskIDs, nil
-}
-
 // UpdateTaskStatusAndPropagateChanges updates a task's status and propagates changes to dependent tasks and consignment state and return updated dependent tasks that state became READY
 func (s *ConsignmentService) UpdateTaskStatusAndPropagateChanges(ctx context.Context, taskID uuid.UUID, newStatus model.TaskStatus) ([]model.InitTaskInTaskManagerDTO, error) {
 	if taskID == uuid.Nil {
@@ -177,22 +158,19 @@ func (s *ConsignmentService) UpdateTaskStatusAndPropagateChanges(ctx context.Con
 
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Retrieve the task to be updated
-		var task model.Task
-		if err := tx.First(&task, "id = ?", taskID).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return fmt.Errorf("task %s not found", taskID)
-			}
-			return fmt.Errorf("failed to retrieve task: %w", err)
+		task, err := s.ts.GetTaskByIDInTx(ctx, tx, taskID)
+		if err != nil {
+			return err
 		}
 
 		// Update the task status
 		task.Status = newStatus
-		if err := tx.Save(&task).Error; err != nil {
+		if err := s.ts.UpdateTaskInTx(ctx, tx, task); err != nil {
 			return fmt.Errorf("failed to update task status: %w", err)
 		}
 
 		// Update dependent tasks
-		readyDependentTasks, err := s.updateDependentTasks(ctx, tx, task)
+		readyDependentTasks, err := s.updateDependentTasks(ctx, tx, *task)
 		if err != nil {
 			return fmt.Errorf("failed to update dependent tasks: %w", err)
 		}
@@ -229,9 +207,9 @@ func (s *ConsignmentService) updateDependentTasks(ctx context.Context, tx *gorm.
 	}
 
 	// Get all tasks in the same consignment
-	var allTasks []model.Task
-	if err := tx.WithContext(ctx).Where("consignment_id = ?", completedTask.ConsignmentID).Find(&allTasks).Error; err != nil {
-		return nil, fmt.Errorf("failed to retrieve consignment tasks: %w", err)
+	allTasks, err := s.ts.GetTasksByConsignmentID(ctx, completedTask.ConsignmentID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve tasks for consignment %s: %w", completedTask.ConsignmentID, err)
 	}
 
 	// Collect tasks that need updates for batch processing
@@ -281,7 +259,7 @@ func (s *ConsignmentService) updateDependentTasks(ctx context.Context, tx *gorm.
 
 	// Batch update all modified tasks using TaskService
 	if len(tasksToUpdate) > 0 {
-		if err := s.ts.updateTasksInTx(ctx, tx, tasksToUpdate); err != nil {
+		if err := s.ts.UpdateTasksInTx(ctx, tx, tasksToUpdate); err != nil {
 			return nil, fmt.Errorf("failed to update dependent tasks: %w", err)
 		}
 	}
@@ -315,19 +293,4 @@ func (s *ConsignmentService) GetConsignmentByID(ctx context.Context, consignment
 		return nil, fmt.Errorf("failed to retrieve consignment: %w", result.Error)
 	}
 	return &consignment, nil
-}
-
-// GetTasksByConsignmentID retrieves all tasks associated with a given consignment ID.
-func (s *ConsignmentService) GetTasksByConsignmentID(ctx context.Context, consignmentID uuid.UUID) ([]model.Task, error) {
-	if consignmentID == uuid.Nil {
-		return nil, fmt.Errorf("consignment ID cannot be nil")
-	}
-
-	var tasks []model.Task
-	result := s.db.WithContext(ctx).Where("consignment_id = ?", consignmentID).Find(&tasks)
-	if result.Error != nil {
-		return nil, fmt.Errorf("failed to retrieve tasks: %w", result.Error)
-	}
-	// Return empty slice instead of error when no tasks found
-	return tasks, nil
 }
