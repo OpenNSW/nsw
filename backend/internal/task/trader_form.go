@@ -1,10 +1,9 @@
-package implementations
+package task
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/OpenNSW/nsw/internal/task"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 )
 
@@ -12,7 +11,7 @@ type TraderFormTask struct {
 	BaseTask
 }
 
-func (t *TraderFormTask) Execute(ctx context.Context, taskCtx *task.TaskContext) (*task.TaskResult, error) {
+func (t *TraderFormTask) Execute(ctx context.Context, _ *TaskContext) (*TaskResult, error) {
 	// This method is called when Trader Portal submits the form via SubmitTaskCompletion
 	// 1. Get form data from context (set by SubmitTaskCompletion)
 	formData, ok := ctx.Value("formData").(map[string]interface{})
@@ -29,8 +28,8 @@ func (t *TraderFormTask) Execute(ctx context.Context, taskCtx *task.TaskContext)
 	// 3. Update task status to SUBMITTED
 	// The status update is handled by TaskManager in the transaction
 
-	return &task.TaskResult{
-		Status:  model.TaskStatusSubmitted,
+	return &TaskResult{
+		Status:  model.TaskStatusInProgress,
 		Message: "Trader form submitted successfully",
 	}, nil
 }

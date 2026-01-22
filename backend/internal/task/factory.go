@@ -1,9 +1,8 @@
-package implementations
+package task
 
 import (
 	"fmt"
 
-	"github.com/OpenNSW/nsw/internal/task"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 )
 
@@ -11,25 +10,24 @@ import (
 type taskFactory struct{}
 
 // NewTaskFactory creates a new TaskFactory instance
-func NewTaskFactory() task.TaskFactory {
+func NewTaskFactory() TaskFactory {
 	return &taskFactory{}
 }
 
-func (f *taskFactory) CreateTask(taskType task.TaskType, taskModel *model.Task) (task.Task, error) {
+func (f *taskFactory) CreateTask(taskType TaskType, taskModel *model.Task) (Task, error) {
 	baseTask := BaseTask{
-		ID:        taskModel.ID,
-		TaskType:  taskType,
-		TaskModel: taskModel,
+		ID:       taskModel.ID,
+		TaskType: taskType,
 	}
 
 	switch taskType {
-	case task.TaskTypeTraderForm:
+	case TaskTypeTraderForm:
 		return &TraderFormTask{BaseTask: baseTask}, nil
-	case task.TaskTypeOGAForm:
+	case TaskTypeOGAForm:
 		return &OGAFormTask{BaseTask: baseTask}, nil
-	case task.TaskTypeWaitForEvent:
+	case TaskTypeWaitForEvent:
 		return &WaitForEventTask{BaseTask: baseTask}, nil
-	case task.TaskTypePayment:
+	case TaskTypePayment:
 		return &PaymentTask{BaseTask: baseTask}, nil
 	default:
 		return nil, fmt.Errorf("unknown task type: %s", taskType)
