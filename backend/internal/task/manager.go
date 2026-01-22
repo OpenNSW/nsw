@@ -73,33 +73,14 @@ func NewTaskManager(db *gorm.DB, factory TaskFactory, completionChan chan<- Task
 // ExecuteTask executes a task based on whether it's realtime or non-realtime.
 // For realtime tasks: Returns form template/details immediately (task waits for Trader Portal submission).
 // For non-realtime tasks: Executes task, routes to external system, and notifies WM with INPROGRESS.
-func (tm *taskManager) ExecuteTask(ctx context.Context, taskID uuid.UUID) (*TaskResult, error) {
-	// 1. Get task from activeTasks cache, fallback to database if not found
+func (tm *TaskManager) ExecuteTask(ctx context.Context, taskID uuid.UUID) (*TaskExecutionResult, error) {
 	taskModel, err := tm.getActiveTask(ctx, taskID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 2. Determine if task is realtime from workflow metadata
-	isRealtime, err := tm.isTaskRealtime(ctx, taskModel)
-	if err != nil {
-		// If we can't determine, default based on task type
-		isRealtime = tm.isRealtimeByTaskType(TaskType(taskModel.Type))
-	}
-
-	// 3. Handle realtime vs non-realtime flows
-	if isRealtime {
-		// Realtime task: Return form template/details, wait for Trader Portal submission
-		formTemplate := tm.getFormTemplateForTask(taskModel)
-		return &TaskResult{
-			Status:  model.TaskStatusReady,
-			Message: "Task is ready for submission",
-			Data:    map[string]interface{}{"formTemplate": formTemplate},
-		}, nil
-	}
-
-	// Non-realtime task: Execute task, route to external system, notify WM with INPROGRESS
-	return tm.execute(ctx, taskModel, nil)
+	// Execute specific task logic
+	return tm.execute(ctx, taskModel)
 }
 
 // executeTaskInTx executes a task within an existing transaction.
