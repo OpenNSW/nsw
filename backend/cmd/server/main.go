@@ -9,16 +9,30 @@ import (
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 )
 
+const ChannelSize = 100
+const DbPath = "./taskmanager.db"
+
 func main() {
 
-	CHANNEL_SIZE := 100
+	ch := make(chan model.TaskCompletionNotification, ChannelSize)
 
-	ch := make(chan model.TaskCompletionNotification, CHANNEL_SIZE)
+	tm, err := task.NewTaskManager(DbPath, ch)
 
-	tm := task.NewTaskManager(ch)
+	defer func(tm task.TaskManager) {
+		err := tm.Close()
+		if err != nil {
+			log.Fatalf("failed to close task manager: %v", err)
+		}
+	}(tm)
 
-	wm := workflow.NewManager(tm, ch, nil) // Pass actual *gorm.DB instance here
+	if err != nil {
+		log.Fatalf("failed to create task manager: %v", err)
+	}
+
+	wm := workflow.NewManager(tm, ch, nil)
+	log.Println("Starting task update listener...")
 	wm.StartTaskUpdateListener()
+	log.Println("Task update listener started")
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/tasks", tm.HandleExecuteTask)
@@ -26,9 +40,8 @@ func main() {
 	mux.HandleFunc("POST /api/consignments", wm.HandleCreateConsignment)
 	mux.HandleFunc("GET /api/consignments/{consignmentID}", wm.HandleGetConsignment)
 
-	err := http.ListenAndServe(":8080", mux)
+	err = http.ListenAndServe(":8080", mux)
 	if err != nil {
-
 		log.Fatalf("failed to start server: %v", err)
 	}
 }

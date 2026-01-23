@@ -178,7 +178,7 @@ func (t *TraderFormTask) handleSubmitForm(commandSet *TraderFormCommandSet, form
 	}
 
 	// Return success with IN_PROGRESS status
-	// The workflow.json manager will handle task state transitions
+	// The workflow manager will handle task state transitions
 	return &ExecutionResult{
 		Status:  model.TaskStatusInProgress,
 		Message: "Trader form submitted successfully",

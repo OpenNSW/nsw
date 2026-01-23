@@ -53,8 +53,17 @@ func (m *Manager) StartTaskUpdateListener() {
 
 // registerTasks registers multiple tasks with Task Manager
 func (m *Manager) registerTasks(tasks []*model.Task) {
-	for _, task := range tasks {
-		m.tm.RegisterTask(task)
+	for _, t := range tasks {
+		initPayload := task.InitPayload{
+			TaskID:     t.ID,
+			Type:       task.Type(t.Type),
+			Status:     t.Status,
+			CommandSet: t.Config,
+		}
+		_, err := m.tm.RegisterTask(context.Background(), initPayload)
+		if err != nil {
+			return
+		}
 	}
 }
 
