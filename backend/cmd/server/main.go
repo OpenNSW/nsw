@@ -15,7 +15,7 @@ func main() {
 
 	tm := task.NewTaskManager(ch)
 
-	wm := workflow.NewManager(&ch, nil) // Pass actual *gorm.DB instance here
+	wm := workflow.NewManager(tm, &ch, nil) // Pass actual *gorm.DB instance here
 	wm.StartTaskUpdateListener()
 
 	mux := http.NewServeMux()

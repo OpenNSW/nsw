@@ -41,23 +41,25 @@ func (s *ConsignmentService) GetWorkFlowTemplate(ctx context.Context, hscode str
 }
 
 // InitializeConsignment creates a new consignment with all associated tasks based on workflow templates
-func (s *ConsignmentService) InitializeConsignment(ctx context.Context, createReq *model.CreateConsignmentDTO) (*model.Consignment, error) {
+// Returns the created consignment and a list of ready tasks that should be registered with Task Manager
+func (s *ConsignmentService) InitializeConsignment(ctx context.Context, createReq *model.CreateConsignmentDTO) (*model.Consignment, []*model.Task, error) {
 	if createReq == nil {
-		return nil, fmt.Errorf("create request cannot be nil")
+		return nil, nil, fmt.Errorf("create request cannot be nil")
 	}
 	if len(createReq.Items) == 0 {
-		return nil, fmt.Errorf("consignment must have at least one item")
+		return nil, nil, fmt.Errorf("consignment must have at least one item")
 	}
 	if createReq.TraderID == "" {
-		return nil, fmt.Errorf("trader ID cannot be empty")
+		return nil, nil, fmt.Errorf("trader ID cannot be empty")
 	}
 
 	// Use a transaction to ensure atomicity
 	return s.initializeConsignmentInTx(ctx, createReq)
 }
 
-func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, createReq *model.CreateConsignmentDTO) (*model.Consignment, error) {
+func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, createReq *model.CreateConsignmentDTO) (*model.Consignment, []*model.Task, error) {
 	var consignment *model.Consignment
+	var readyTasks []*model.Task
 
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Convert CreateWorkflowForItemDTO to Item
@@ -111,6 +113,14 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 				return fmt.Errorf("failed to create tasks for item %d: %w", itemIdx, err)
 			}
 
+			// Collect ready tasks for registration with Task Manager
+			for i, taskID := range taskIDs {
+				tasks[i].ID = taskID // Set the generated ID
+				if tasks[i].Status == model.TaskStatusReady {
+					readyTasks = append(readyTasks, &tasks[i])
+				}
+			}
+
 			// Store task IDs in the item
 			item.Tasks = taskIDs
 		}
@@ -124,10 +134,10 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return consignment, nil
+	return consignment, readyTasks, nil
 }
 
 // buildTasksFromTemplate creates task instances from a workflow template
@@ -167,7 +177,7 @@ func (s *ConsignmentService) buildTasksFromTemplate(consignmentID uuid.UUID, tem
 }
 
 // UpdateTaskStatusAndPropagateChanges updates a task's status and propagates changes to dependent tasks and consignment state and return updated dependent tasks that state became READY
-func (s *ConsignmentService) UpdateTaskStatusAndPropagateChanges(ctx context.Context, taskID uuid.UUID, newStatus model.TaskStatus) ([]model.InitTaskInTaskManagerDTO, error) {
+func (s *ConsignmentService) UpdateTaskStatusAndPropagateChanges(ctx context.Context, taskID uuid.UUID, newStatus model.TaskStatus) ([]*model.Task, error) {
 	if taskID == uuid.Nil {
 		return nil, fmt.Errorf("task ID cannot be nil")
 	}
@@ -175,7 +185,7 @@ func (s *ConsignmentService) UpdateTaskStatusAndPropagateChanges(ctx context.Con
 		return nil, fmt.Errorf("task status cannot be empty")
 	}
 
-	var newReadyStateDependentTasks []model.InitTaskInTaskManagerDTO
+	var newReadyStateDependentTasks []*model.Task
 
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Retrieve the task to be updated
@@ -208,10 +218,10 @@ func (s *ConsignmentService) UpdateTaskStatusAndPropagateChanges(ctx context.Con
 }
 
 // updateDependentTasks marks the completed task as COMPLETED in all dependent tasks' DependsOn maps
-func (s *ConsignmentService) updateDependentTasks(ctx context.Context, tx *gorm.DB, completedTask model.Task) ([]model.InitTaskInTaskManagerDTO, error) {
+func (s *ConsignmentService) updateDependentTasks(ctx context.Context, tx *gorm.DB, completedTask model.Task) ([]*model.Task, error) {
 	// If the completed task is not marked as COMPLETED, no need to update dependents
 	if completedTask.Status != model.TaskStatusCompleted {
-		return []model.InitTaskInTaskManagerDTO{}, nil
+		return []*model.Task{}, nil
 	}
 
 	// If the completed task has been marked as REJECTED, need to update consignment state to REQUIRES_REWORK
@@ -224,7 +234,7 @@ func (s *ConsignmentService) updateDependentTasks(ctx context.Context, tx *gorm.
 		if err := tx.Save(&consignment).Error; err != nil {
 			return nil, fmt.Errorf("failed to update consignment state: %w", err)
 		}
-		return []model.InitTaskInTaskManagerDTO{}, nil
+		return []*model.Task{}, nil
 	}
 
 	// Get all tasks in the same consignment
@@ -237,7 +247,7 @@ func (s *ConsignmentService) updateDependentTasks(ctx context.Context, tx *gorm.
 	tasksToUpdate := make([]*model.Task, 0)
 
 	// Collect the dependent tasks that became READY
-	var readyDependentTasks []model.InitTaskInTaskManagerDTO
+	var readyDependentTasks []*model.Task
 
 	// Variable to track if consignment state needs to be updated
 	isAllCompleted := true
@@ -263,12 +273,7 @@ func (s *ConsignmentService) updateDependentTasks(ctx context.Context, tx *gorm.
 			// If all dependencies are completed and task was locked, make it ready
 			if allDepsCompleted && dependentTask.Status == model.TaskStatusLocked {
 				dependentTask.Status = model.TaskStatusReady
-				readyDependentTasks = append(readyDependentTasks, model.InitTaskInTaskManagerDTO{
-					TaskID: dependentTask.ID,
-					Type:   dependentTask.Type,
-					Status: dependentTask.Status,
-					Config: dependentTask.Config,
-				})
+				readyDependentTasks = append(readyDependentTasks, dependentTask)
 			}
 
 			tasksToUpdate = append(tasksToUpdate, dependentTask)

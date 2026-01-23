@@ -11,12 +11,14 @@ import (
 )
 
 type WorkflowRouter struct {
-	cs *service.ConsignmentService
+	cs               *service.ConsignmentService
+	onTasksReadyFunc func(tasks []*model.Task) // Callback to register ready tasks
 }
 
-func NewWorkflowRouter(cs *service.ConsignmentService) *WorkflowRouter {
+func NewWorkflowRouter(cs *service.ConsignmentService, onTasksReadyFunc func(tasks []*model.Task)) *WorkflowRouter {
 	return &WorkflowRouter{
-		cs: cs,
+		cs:               cs,
+		onTasksReadyFunc: onTasksReadyFunc,
 	}
 }
 
@@ -58,10 +60,15 @@ func (wr *WorkflowRouter) HandleCreateConsignment(w http.ResponseWriter, r *http
 	}
 	defer r.Body.Close()
 
-	consignment, err := wr.cs.InitializeConsignment(r.Context(), &createReq)
+	consignment, readyTasks, err := wr.cs.InitializeConsignment(r.Context(), &createReq)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to create consignment: %v", err), http.StatusInternalServerError)
 		return
+	}
+
+	// Push ready tasks to Task Manager
+	if wr.onTasksReadyFunc != nil && len(readyTasks) > 0 {
+		wr.onTasksReadyFunc(readyTasks)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
