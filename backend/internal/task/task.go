@@ -20,24 +20,22 @@ type InitPayload struct {
 
 // ActiveTask represents a task that is currently active in the system.
 type ActiveTask struct {
-	TaskID          uuid.UUID
-	ConsignmentID   uuid.UUID
-	StepID          string
-	TaskExecutionID uuid.UUID
-	Type            Type
-	Status          model.TaskStatus
-	Executor        ExecutionUnit
+	TaskID        uuid.UUID
+	ConsignmentID uuid.UUID
+	StepID        string
+	Type          Type
+	Status        model.TaskStatus
+	Executor      ExecutionUnit
 }
 
 func NewActiveTask(payload InitPayload, executor ExecutionUnit) *ActiveTask {
 	return &ActiveTask{
-		TaskID:          payload.TaskID,
-		TaskExecutionID: uuid.New(),
-		Type:            payload.Type,
-		Status:          payload.Status,
-		Executor:        executor,
-		ConsignmentID:   payload.ConsignmentID,
-		StepID:          payload.StepID,
+		TaskID:        payload.TaskID,
+		ConsignmentID: payload.ConsignmentID,
+		StepID:        payload.StepID,
+		Type:          payload.Type,
+		Status:        payload.Status,
+		Executor:      executor,
 	}
 }
 

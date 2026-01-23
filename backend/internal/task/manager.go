@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"sync"
 
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/google/uuid"
@@ -32,9 +31,9 @@ type TaskManager interface {
 
 // ExecuteTaskRequest represents the request body for task execution
 type ExecuteTaskRequest struct {
-	ConsignmentID uuid.UUID              `json:"consignment_id"`
-	TaskID        uuid.UUID              `json:"task_id"`
-	FormData      map[string]interface{} `json:"form_data,omitempty"`
+	ConsignmentID uuid.UUID   `json:"consignment_id"`
+	TaskID        uuid.UUID   `json:"task_id"`
+	Payload       interface{} `json:"payload,omitempty"`
 }
 
 // ExecuteTaskResponse represents the response for task execution
@@ -45,10 +44,10 @@ type ExecuteTaskResponse struct {
 }
 
 type taskManager struct {
-	factory        TaskFactory
-	store          *TaskStore                              // SQLite storage for task executions
-	executors      map[uuid.UUID]ExecutionUnit             // In-memory cache for executors (can't be serialized)
-	executorsMu    sync.RWMutex                            // Mutex for thread-safe access to executors
+	factory   TaskFactory
+	store     *TaskStore                  // SQLite storage for task executions
+	executors map[uuid.UUID]ExecutionUnit // In-memory cache for executors (can't be serialized)
+	//executorsMu    sync.RWMutex                            // Mutex for thread-safe access to executors
 	completionChan chan<- model.TaskCompletionNotification // Channel to notify Workflow Manager of task completions
 }
 
@@ -62,9 +61,9 @@ func NewTaskManager(dbPath string, completionChan chan<- model.TaskCompletionNot
 	}
 
 	return &taskManager{
-		factory:        NewTaskFactory(),
-		store:          store,
-		executors:      make(map[uuid.UUID]ExecutionUnit),
+		factory: NewTaskFactory(),
+		store:   store,
+		//executors:      make(map[uuid.UUID]ExecutionUnit),
 		completionChan: completionChan,
 	}, nil
 }
@@ -119,7 +118,7 @@ func (tm *taskManager) HandleExecuteTask(w http.ResponseWriter, r *http.Request)
 
 	// Execute task
 	ctx := r.Context()
-	result, err := tm.execute(ctx, activeTask)
+	result, err := tm.execute(ctx, activeTask, req.Payload)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to execute task",
 			"taskID", req.TaskID,
@@ -165,10 +164,9 @@ func (tm *taskManager) RegisterTask(ctx context.Context, payload InitPayload) (*
 
 	// Create a task execution record
 	execution := &TaskRecord{
-		ID:            activeTask.TaskExecutionID,
+		ID:            activeTask.TaskID,
 		ConsignmentID: payload.ConsignmentID,
 		StepID:        payload.StepID,
-		TaskID:        payload.TaskID,
 		Type:          payload.Type,
 		Status:        payload.Status,
 		CommandSet:    payload.CommandSet,
@@ -182,32 +180,31 @@ func (tm *taskManager) RegisterTask(ctx context.Context, payload InitPayload) (*
 	// Create an ActiveTask for execution
 
 	// Cache executor in memory
-	tm.executorsMu.Lock()
-	tm.executors[activeTask.TaskExecutionID] = activeTask
-	tm.executorsMu.Unlock()
+	//tm.executorsMu.Lock()
+	//tm.executors[activeTask.TaskID] = activeTask
+	//tm.executorsMu.Unlock()
 
 	// Execute a task and return a result to Workflow Manager
-	return tm.execute(ctx, activeTask)
+	return tm.execute(ctx, activeTask, nil)
 }
 
 // execute is a unified method that executes a task and returns the result.
-func (tm *taskManager) execute(ctx context.Context, activeTask *ActiveTask) (*ExecutionResult, error) {
+func (tm *taskManager) execute(ctx context.Context, activeTask *ActiveTask, payload interface{}) (*ExecutionResult, error) {
 	// Check if a task can be executed
 	if !activeTask.IsExecutable() {
 		return nil, fmt.Errorf("task %s is not ready for execution", activeTask.TaskID)
 	}
 
 	// Execute task
-	result, err := activeTask.Execute(ctx, nil)
+	result, err := activeTask.Execute(ctx, payload)
 	if err != nil {
 		return nil, err
 	}
 
 	// Update task status in database
-	if err := tm.store.UpdateStatus(activeTask.TaskExecutionID, result.Status); err != nil {
+	if err := tm.store.UpdateStatus(activeTask.TaskID, result.Status); err != nil {
 		slog.ErrorContext(ctx, "failed to update task status in database",
 			"taskID", activeTask.TaskID,
-			"executionID", activeTask.TaskExecutionID,
 			"error", err)
 	}
 
@@ -223,42 +220,29 @@ func (tm *taskManager) execute(ctx context.Context, activeTask *ActiveTask) (*Ex
 // getTask retrieves a task from the store and combines it with the in-memory executor
 func (tm *taskManager) getTask(taskID uuid.UUID) (*ActiveTask, error) {
 	// Get executions for this task
-	executions, err := tm.store.GetByTaskID(taskID)
+	// Get executor from the memory cache
+	//tm.executorsMu.RLock()
+	//executor, exists := tm.executors[taskID]
+	//tm.executorsMu.RUnlock()
+
+	execution, err := tm.store.GetByID(taskID)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(executions) == 0 {
-		return nil, fmt.Errorf("no executions found for task %s", taskID)
-	}
-
-	// Get the most recent execution
-	execution := executions[len(executions)-1]
-
-	// Get executor from the memory cache
-	tm.executorsMu.RLock()
-	executor, exists := tm.executors[execution.ID]
-	tm.executorsMu.RUnlock()
-
-	if !exists {
-		// Rebuild executor if not in cache
-		executor, err = tm.factory.BuildExecutor(execution.Type, execution.CommandSet)
-		if err != nil {
-			return nil, fmt.Errorf("failed to rebuild executor: %w", err)
-		}
-
-		// Cache it
-		tm.executorsMu.Lock()
-		tm.executors[execution.ID] = executor
-		tm.executorsMu.Unlock()
+	// Rebuild executor
+	executor, err := tm.factory.BuildExecutor(execution.Type, execution.CommandSet)
+	if err != nil {
+		return nil, fmt.Errorf("failed to rebuild executor: %w", err)
 	}
 
 	return &ActiveTask{
-		TaskID:          execution.TaskID,
-		TaskExecutionID: execution.ID,
-		Type:            execution.Type,
-		Status:          execution.Status,
-		Executor:        executor,
+		TaskID:        execution.ID,
+		ConsignmentID: execution.ConsignmentID,
+		StepID:        execution.StepID,
+		Type:          execution.Type,
+		Status:        execution.Status,
+		Executor:      executor,
 	}, nil
 }
 

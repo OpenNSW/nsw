@@ -14,7 +14,6 @@ import (
 // TaskRecord represents a task execution record in the database
 type TaskRecord struct {
 	ID            uuid.UUID        `gorm:"type:uuid;primaryKey"`
-	TaskID        uuid.UUID        `gorm:"type:uuid;index;not null"`
 	StepID        string           `gorm:"type:varchar(50);not null"`
 	ConsignmentID uuid.UUID        `gorm:"type:uuid;index;not null"`
 	Type          Type             `gorm:"type:varchar(50);not null"`
@@ -65,20 +64,11 @@ func (s *TaskStore) Create(execution *TaskRecord) error {
 
 // GetByID retrieves a task execution by its ID
 func (s *TaskStore) GetByID(id uuid.UUID) (*TaskRecord, error) {
-	var execution TaskRecord
-	if err := s.db.First(&execution, "id = ?", id).Error; err != nil {
+	var taskRecord TaskRecord
+	if err := s.db.First(&taskRecord, "id = ?", id).Error; err != nil {
 		return nil, err
 	}
-	return &execution, nil
-}
-
-// GetByTaskID retrieves task executions by task ID
-func (s *TaskStore) GetByTaskID(taskID uuid.UUID) ([]TaskRecord, error) {
-	var executions []TaskRecord
-	if err := s.db.Where("task_id = ?", taskID).Find(&executions).Error; err != nil {
-		return nil, err
-	}
-	return executions, nil
+	return &taskRecord, nil
 }
 
 // UpdateStatus updates the status of a task execution

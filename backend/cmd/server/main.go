@@ -18,16 +18,16 @@ func main() {
 
 	tm, err := task.NewTaskManager(DbPath, ch)
 
+	if err != nil {
+		log.Fatalf("failed to create task manager: %v", err)
+	}
+
 	defer func(tm task.TaskManager) {
 		err := tm.Close()
 		if err != nil {
 			log.Fatalf("failed to close task manager: %v", err)
 		}
 	}(tm)
-
-	if err != nil {
-		log.Fatalf("failed to create task manager: %v", err)
-	}
 
 	wm := workflow.NewManager(tm, ch, nil)
 	log.Println("Starting task update listener...")
