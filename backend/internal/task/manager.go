@@ -40,12 +40,6 @@ type TaskManager interface {
 	HandleExecuteTask(w http.ResponseWriter, r *http.Request)
 }
 
-// TaskCompletionNotification represents a notification sent to Workflow Manager when a task completes
-type TaskCompletionNotification struct {
-	TaskID uuid.UUID
-	State  string // Workflow state: "IN_PROGRESS", "COMPLETED", "REJECTED"
-}
-
 // ExecuteTaskRequest represents the request body for task execution
 type ExecuteTaskRequest struct {
 	ConsignmentID uuid.UUID              `json:"consignment_id"`
@@ -62,14 +56,14 @@ type ExecuteTaskResponse struct {
 
 type taskManager struct {
 	factory        TaskFactory
-	completionChan chan<- TaskCompletionNotification // Channel to notify Workflow Manager of task completions
-	activeTasks    map[uuid.UUID]*model.Task         // In-memory cache of active tasks for fast lookup
-	activeTasksMu  sync.RWMutex                      // Mutex for thread-safe access to activeTasks
+	completionChan chan<- model.TaskCompletionNotification // Channel to notify Workflow Manager of task completions
+	activeTasks    map[uuid.UUID]*model.Task               // In-memory cache of active tasks for fast lookup
+	activeTasksMu  sync.RWMutex                            // Mutex for thread-safe access to activeTasks
 }
 
 // NewTaskManager creates a new TaskManager instance
 // completionChan is a channel for notifying Workflow Manager when tasks complete.
-func NewTaskManager(completionChan chan<- TaskCompletionNotification) TaskManager {
+func NewTaskManager(completionChan chan<- model.TaskCompletionNotification) TaskManager {
 	return &taskManager{
 		factory:        NewTaskFactory(),
 		activeTasks:    make(map[uuid.UUID]*model.Task),
@@ -208,7 +202,7 @@ func (tm *taskManager) execute(ctx context.Context, taskModel *model.Task, formD
 	// Notify Workflow Manager with IN_PROGRESS state for tasks without form data
 	// (Tasks with form data handle notification in SubmitTaskCompletion after submission)
 	if formData == nil {
-		tm.notifyWorkflowManager(ctx, taskModel.ID, string(model.TaskStatusInProgress))
+		tm.notifyWorkflowManager(ctx, taskModel.ID, model.TaskStatusInProgress)
 	}
 
 	return result, nil
@@ -228,7 +222,7 @@ func (tm *taskManager) SubmitTaskCompletion(ctx context.Context, taskID uuid.UUI
 		return nil, err
 	}
 
-	tm.notifyWorkflowManager(ctx, taskID, string(result.Status))
+	tm.notifyWorkflowManager(ctx, taskID, result.Status)
 
 	return result, nil
 }
@@ -267,7 +261,7 @@ func (tm *taskManager) GetTask(taskID uuid.UUID) (*model.Task, bool) {
 }
 
 // notifyWorkflowManager sends notification to Workflow Manager via Go channel
-func (tm *taskManager) notifyWorkflowManager(ctx context.Context, taskID uuid.UUID, state string) {
+func (tm *taskManager) notifyWorkflowManager(ctx context.Context, taskID uuid.UUID, state model.TaskStatus) {
 	if tm.completionChan == nil {
 		slog.WarnContext(ctx, "completion channel not configured, skipping notification",
 			"taskID", taskID,
@@ -275,7 +269,7 @@ func (tm *taskManager) notifyWorkflowManager(ctx context.Context, taskID uuid.UU
 		return
 	}
 
-	notification := TaskCompletionNotification{
+	notification := model.TaskCompletionNotification{
 		TaskID: taskID,
 		State:  state,
 	}
