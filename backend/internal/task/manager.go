@@ -33,12 +33,6 @@ type TaskManager interface {
 	Close() error
 }
 
-// CompletionNotification represents a notification sent to Workflow Manager when a task completes
-type CompletionNotification struct {
-	TaskID uuid.UUID
-	State  string // Workflow state: "IN_PROGRESS", "COMPLETED", "REJECTED"
-}
-
 // ExecuteTaskRequest represents the request body for task execution
 type ExecuteTaskRequest struct {
 	ConsignmentID uuid.UUID              `json:"consignment_id"`
