@@ -7,11 +7,10 @@ import (
 )
 
 type OGAFormTask struct {
-	BaseTask
-	ExternalAPIURL string // Will be loaded from config in later PR
+	CommandSet interface{}
 }
 
-func (t *OGAFormTask) Execute(_ context.Context, _ *TaskContext) (*TaskResult, error) {
+func (t *OGAFormTask) Execute(_ context.Context, payload interface{}) (*ExecutionResult, error) {
 	// This method is called for non-realtime OGA tasks
 	// 1. Route to external OGA system (AYUSCUDA, etc.)
 	// TODO: Implement actual HTTP call to external OGA API
@@ -21,8 +20,8 @@ func (t *OGAFormTask) Execute(_ context.Context, _ *TaskContext) (*TaskResult, e
 	// The actual status update happens when OGA calls NotifyTaskCompletion
 
 	// 3. Return IN_PROGRESS status
-	// Task Manager will notify Workflow Manager with INPROGRESS state
-	return &TaskResult{
+	// Executor Manager will notify Workflow Manager with INPROGRESS state
+	return &ExecutionResult{
 		Status:  model.TaskStatusInProgress, // Submitted to external system, waiting for OGA response
 		Message: "OGA form routed to external system",
 	}, nil

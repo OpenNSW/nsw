@@ -12,7 +12,7 @@ const (
 	ConsignmentTypeExport ConsignmentType = "EXPORT"
 )
 
-// ConsignmentState represents the state of a consignment in the workflow.
+// ConsignmentState represents the state of a consignment in the workflow.json.
 type ConsignmentState string
 
 const (
@@ -21,7 +21,7 @@ const (
 	ConsignmentStateFinished       ConsignmentState = "FINISHED"
 )
 
-// Consignment represents the state and data of a consignment in the workflow system.
+// Consignment represents the state and data of a consignment in the workflow.json system.
 type Consignment struct {
 	BaseModel
 	Type     ConsignmentType  `gorm:"type:varchar(20);column:type;not null" json:"type"`             // Type of consignment: IMPORT, EXPORT

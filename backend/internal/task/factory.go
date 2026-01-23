@@ -2,9 +2,12 @@ package task
 
 import (
 	"fmt"
-
-	"github.com/OpenNSW/nsw/internal/workflow/model"
 )
+
+// TaskFactory creates task instances from task type and model
+type TaskFactory interface {
+	BuildExecutor(taskType Type, commandSet interface{}) (ExecutionUnit, error)
+}
 
 // taskFactory implements TaskFactory interface
 type taskFactory struct{}
@@ -14,21 +17,17 @@ func NewTaskFactory() TaskFactory {
 	return &taskFactory{}
 }
 
-func (f *taskFactory) CreateTask(taskType TaskType, taskModel *model.Task) (Task, error) {
-	baseTask := BaseTask{
-		ID:       taskModel.ID,
-		TaskType: taskType,
-	}
+func (f *taskFactory) BuildExecutor(taskType Type, commandSet interface{}) (ExecutionUnit, error) {
 
 	switch taskType {
 	case TaskTypeTraderForm:
-		return &TraderFormTask{BaseTask: baseTask}, nil
+		return NewTraderFormTask(commandSet)
 	case TaskTypeOGAForm:
-		return &OGAFormTask{BaseTask: baseTask}, nil
+		return &OGAFormTask{CommandSet: commandSet}, nil
 	case TaskTypeWaitForEvent:
-		return &WaitForEventTask{BaseTask: baseTask}, nil
+		return &WaitForEventTask{CommandSet: commandSet}, nil
 	case TaskTypePayment:
-		return &PaymentTask{BaseTask: baseTask}, nil
+		return &PaymentTask{CommandSet: commandSet}, nil
 	default:
 		return nil, fmt.Errorf("unknown task type: %s", taskType)
 	}

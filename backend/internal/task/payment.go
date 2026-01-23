@@ -7,13 +7,13 @@ import (
 )
 
 type PaymentTask struct {
-	BaseTask
+	CommandSet interface{}
 }
 
-func (t *PaymentTask) Execute(_ context.Context, _ *TaskContext) (*TaskResult, error) {
+func (t *PaymentTask) Execute(_ context.Context, payload interface{}) (*ExecutionResult, error) {
 	// Handle payment processing
 	// Payment gateway integration will be added in later PR
-	return &TaskResult{
+	return &ExecutionResult{
 		Status:  model.TaskStatusInProgress,
 		Message: "Payment processed successfully",
 	}, nil

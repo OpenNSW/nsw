@@ -6,9 +6,9 @@ import (
 	"github.com/google/uuid"
 )
 
-// TaskType represents the type of a task within a workflow.
+// TaskType represents the type of a task within a workflow.json.
 
-// TaskStatus represents the status of a task within a workflow.
+// TaskStatus represents the status of a task within a workflow.json.
 type TaskStatus string
 
 const (
@@ -27,11 +27,11 @@ const (
 	DependencyStatusCompleted  DependencyStatus = "COMPLETED"  // Dependency has been completed
 )
 
-// Task represents a task instance within a consignment workflow.
+// Task represents a task instance within a consignment workflow.json.
 type Task struct {
 	BaseModel
 	ConsignmentID uuid.UUID                   `gorm:"type:uuid;column:consignment_id;not null" json:"consignmentId"`          // Reference to the Consignment
-	StepID        string                      `gorm:"type:varchar(100);column:step_id;not null" json:"stepId"`                // Step ID from the workflow template
+	StepID        string                      `gorm:"type:varchar(100);column:step_id;not null" json:"stepId"`                // Step ID from the workflow.json template
 	Type          StepType                    `gorm:"type:varchar(50);column:type;not null" json:"type"`                      // Type of the task (e.g., TRADER_FORM, OGA_FORM)
 	Status        TaskStatus                  `gorm:"type:varchar(20);column:status;not null" json:"status"`                  // Status of the task (e.g., LOCKED, READY, SUBMITTED, APPROVED, REJECTED)
 	Config        json.RawMessage             `gorm:"type:jsonb;column:config;not null" json:"config"`                        // Configuration specific to the task

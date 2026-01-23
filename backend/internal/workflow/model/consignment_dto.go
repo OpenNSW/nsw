@@ -1,6 +1,6 @@
 package model
 
-// CreateWorkflowForItemDTO represents the data required to create a workflow for an individual item within a consignment.
+// CreateWorkflowForItemDTO represents the data required to create a workflow.json for an individual item within a consignment.
 type CreateWorkflowForItemDTO struct {
 	HSCode             string `json:"hsCode" binding:"required"`             // HS Code of the item
 	WorkflowTemplateID string `json:"workflowTemplateId" binding:"required"` // Workflow Template ID associated with this item
