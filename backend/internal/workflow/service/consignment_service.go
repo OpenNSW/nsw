@@ -19,6 +19,27 @@ func NewConsignmentService(ts *TaskService, db *gorm.DB) *ConsignmentService {
 	return &ConsignmentService{ts: ts, db: db}
 }
 
+// GetWorkFlowTemplate retrieves a workflow template based on HS code and consignment type
+func (s *ConsignmentService) GetWorkFlowTemplate(ctx context.Context, hscode string, consignmentType model.ConsignmentType) (*model.WorkflowTemplate, error) {
+	if hscode == "" {
+		return nil, fmt.Errorf("HS code cannot be empty")
+	}
+	if consignmentType == "" {
+		return nil, fmt.Errorf("consignment type cannot be empty")
+	}
+
+	var workflowTemplate model.WorkflowTemplate
+	result := s.db.WithContext(ctx).Where("hscode = ? AND consignment_type = ?", hscode, consignmentType).First(&workflowTemplate)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("workflow template not found for HS code %s and consignment type %s", hscode, consignmentType)
+		}
+		return nil, fmt.Errorf("failed to retrieve workflow template: %w", result.Error)
+	}
+
+	return &workflowTemplate, nil
+}
+
 // InitializeConsignment creates a new consignment with all associated tasks based on workflow templates
 func (s *ConsignmentService) InitializeConsignment(ctx context.Context, createReq *model.CreateConsignmentDTO) (*model.Consignment, error) {
 	if createReq == nil {
