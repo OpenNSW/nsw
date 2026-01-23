@@ -2,7 +2,6 @@ package model
 
 import (
 	"encoding/json"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -17,7 +16,6 @@ type InitTaskInTaskManagerDTO struct {
 
 // TaskCompletionNotification represents a notification sent to Workflow Manager when a task completes
 type TaskCompletionNotification struct {
-	TaskID    uuid.UUID  `json:"taskId" binding:"required"`
-	State     TaskStatus `json:"state" binding:"required"`
-	Timestamp time.Time  `json:"timestamp" binding:"required"`
+	TaskID uuid.UUID  `json:"taskId" binding:"required"`
+	State  TaskStatus `json:"state" binding:"required"`
 }

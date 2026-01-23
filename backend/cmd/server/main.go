@@ -11,11 +11,13 @@ import (
 
 func main() {
 
-	ch := make(chan model.TaskCompletionNotification, 100)
+	CHANNEL_SIZE := 100
+
+	ch := make(chan model.TaskCompletionNotification, CHANNEL_SIZE)
 
 	tm := task.NewTaskManager(ch)
 
-	wm := workflow.NewManager(tm, &ch, nil) // Pass actual *gorm.DB instance here
+	wm := workflow.NewManager(tm, ch, nil) // Pass actual *gorm.DB instance here
 	wm.StartTaskUpdateListener()
 
 	mux := http.NewServeMux()

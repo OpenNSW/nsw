@@ -15,10 +15,10 @@ type Manager struct {
 	tm             task.TaskManager
 	cs             *service.ConsignmentService
 	wr             *router.WorkflowRouter
-	taskUpdateChan *chan model.TaskCompletionNotification
+	taskUpdateChan chan model.TaskCompletionNotification
 }
 
-func NewManager(tm task.TaskManager, taskUpdateChan *chan model.TaskCompletionNotification, db *gorm.DB) *Manager {
+func NewManager(tm task.TaskManager, taskUpdateChan chan model.TaskCompletionNotification, db *gorm.DB) *Manager {
 	ts := service.NewTaskService(db)
 	cs := service.NewConsignmentService(ts, db)
 
@@ -37,7 +37,7 @@ func NewManager(tm task.TaskManager, taskUpdateChan *chan model.TaskCompletionNo
 // StartTaskUpdateListener starts a goroutine that listens for task completion notifications
 func (m *Manager) StartTaskUpdateListener() {
 	go func() {
-		for update := range *m.taskUpdateChan {
+		for update := range m.taskUpdateChan {
 			newReadyTasks, _ := m.cs.UpdateTaskStatusAndPropagateChanges(
 				context.Background(),
 				update.TaskID,
