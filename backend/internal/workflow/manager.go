@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 
 	"github.com/OpenNSW/nsw/internal/task"
@@ -62,6 +63,7 @@ func (m *Manager) registerTasks(tasks []*model.Task) {
 		}
 		_, err := m.tm.RegisterTask(context.Background(), initPayload)
 		if err != nil {
+			slog.Error("failed to register task", "taskID", t.ID, "error", err)
 			return
 		}
 	}
