@@ -15,16 +15,13 @@ import (
 // TaskManager handles task execution and status management
 // Architecture: Trader Portal → Workflow Engine → ExecutionUnit Manager
 // - Workflow Engine triggers ExecutionUnit Manager to get task info (e.g., form schema)
-// - ExecutionUnit Manager executes tasks and determines next tasks to activate
+// - ExecutionUnit Manager executes tasks and determines the next tasks to activate
 // - ExecutionUnit Manager notifies Workflow Engine on task completion via Go channel
 type TaskManager interface {
 	// RegisterTask initializes and executes a task using the provided TaskContext.
-	// TaskManager does not have direct access to Tasks table, so Workflow Manager
+	// TaskManager does not have direct access to the Tasks table, so Workflow Manager
 	// must provide the TaskContext with the ExecutionUnit already loaded.
 	RegisterTask(ctx context.Context, payload InitPayload) (*ExecutionResult, error)
-
-	// UpdateTaskStatus updates the status of a task
-	UpdateTaskStatus(ctx context.Context, taskID uuid.UUID, status model.TaskStatus) error
 
 	// HandleExecuteTask is an HTTP handler for executing a task via POST request
 	HandleExecuteTask(w http.ResponseWriter, r *http.Request)
@@ -56,7 +53,7 @@ type taskManager struct {
 }
 
 // NewTaskManager creates a new TaskManager instance with SQLite persistence
-// dbPath is the path to the SQLite database file (use ":memory:" for in-memory database)
+// dbPath is the path to the SQLite database file (use ":memory:" for an in-memory database)
 // completionChan is a channel for notifying Workflow Manager when tasks complete.
 func NewTaskManager(dbPath string, completionChan chan<- model.TaskCompletionNotification) (TaskManager, error) {
 	store, err := NewTaskStore(dbPath)
@@ -113,7 +110,7 @@ func (tm *taskManager) HandleExecuteTask(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Get task from store
+	// Get task from the store
 	activeTask, err := tm.getTask(req.TaskID)
 	if err != nil {
 		writeJSONError(w, http.StatusNotFound, fmt.Sprintf("task %s not found: %v", req.TaskID, err))
@@ -155,7 +152,7 @@ func writeJSONError(w http.ResponseWriter, status int, message string) {
 }
 
 // RegisterTask initializes and executes a task using the provided TaskContext.
-// TaskManager does not have direct access to Tasks table, so Workflow Manager
+// TaskManager does not have direct access to the Tasks table, so Workflow Manager
 // must provide the TaskContext with the ExecutionUnit already loaded.
 func (tm *taskManager) RegisterTask(ctx context.Context, payload InitPayload) (*ExecutionResult, error) {
 	// Build the executor from the factory
@@ -164,14 +161,17 @@ func (tm *taskManager) RegisterTask(ctx context.Context, payload InitPayload) (*
 		return nil, fmt.Errorf("failed to build executor: %w", err)
 	}
 
-	// Create task execution record
-	executionID := uuid.New()
-	execution := &TaskExecution{
-		ID:         executionID,
-		TaskID:     payload.TaskID,
-		Type:       payload.Type,
-		Status:     payload.Status,
-		CommandSet: payload.CommandSet,
+	activeTask := NewActiveTask(payload, executor)
+
+	// Create a task execution record
+	execution := &TaskRecord{
+		ID:            activeTask.TaskExecutionID,
+		ConsignmentID: payload.ConsignmentID,
+		StepID:        payload.StepID,
+		TaskID:        payload.TaskID,
+		Type:          payload.Type,
+		Status:        payload.Status,
+		CommandSet:    payload.CommandSet,
 	}
 
 	// Store in SQLite
@@ -180,17 +180,10 @@ func (tm *taskManager) RegisterTask(ctx context.Context, payload InitPayload) (*
 	}
 
 	// Create an ActiveTask for execution
-	activeTask := &ActiveTask{
-		TaskID:          payload.TaskID,
-		TaskExecutionID: executionID,
-		Type:            payload.Type,
-		Status:          payload.Status,
-		Executor:        executor,
-	}
 
 	// Cache executor in memory
 	tm.executorsMu.Lock()
-	tm.executors[executionID] = activeTask
+	tm.executors[activeTask.TaskExecutionID] = activeTask
 	tm.executorsMu.Unlock()
 
 	// Execute a task and return a result to Workflow Manager
@@ -227,26 +220,6 @@ func (tm *taskManager) execute(ctx context.Context, activeTask *ActiveTask) (*Ex
 	return result, nil
 }
 
-func (tm *taskManager) UpdateTaskStatus(ctx context.Context, taskID uuid.UUID, status model.TaskStatus) error {
-	// Find executions for this task
-	executions, err := tm.store.GetByTaskID(taskID)
-	if err != nil {
-		return fmt.Errorf("failed to get task executions: %w", err)
-	}
-
-	if len(executions) == 0 {
-		return fmt.Errorf("task %s not found", taskID)
-	}
-
-	// Update the most recent execution
-	latestExecution := executions[len(executions)-1]
-	if err := tm.store.UpdateStatus(latestExecution.ID, status); err != nil {
-		return fmt.Errorf("failed to update task status: %w", err)
-	}
-
-	return nil
-}
-
 // getTask retrieves a task from the store and combines it with the in-memory executor
 func (tm *taskManager) getTask(taskID uuid.UUID) (*ActiveTask, error) {
 	// Get executions for this task
@@ -262,7 +235,7 @@ func (tm *taskManager) getTask(taskID uuid.UUID) (*ActiveTask, error) {
 	// Get the most recent execution
 	execution := executions[len(executions)-1]
 
-	// Get executor from memory cache
+	// Get executor from the memory cache
 	tm.executorsMu.RLock()
 	executor, exists := tm.executors[execution.ID]
 	tm.executorsMu.RUnlock()
@@ -303,7 +276,7 @@ func (tm *taskManager) notifyWorkflowManager(ctx context.Context, taskID uuid.UU
 		State:  state,
 	}
 
-	// Non-blocking send - if channel is full, log warning but don't block
+	// Non-blocking send - if a channel is full, log warning but don't block
 	select {
 	case tm.completionChan <- notification:
 		slog.DebugContext(ctx, "task completion notification sent via channel",

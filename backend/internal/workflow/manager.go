@@ -56,10 +56,12 @@ func (m *Manager) StartTaskUpdateListener() {
 func (m *Manager) registerTasks(tasks []*model.Task) {
 	for _, t := range tasks {
 		initPayload := task.InitPayload{
-			TaskID:     t.ID,
-			Type:       task.Type(t.Type),
-			Status:     t.Status,
-			CommandSet: t.Config,
+			TaskID:        t.ID,
+			Type:          task.Type(t.Type),
+			Status:        t.Status,
+			CommandSet:    t.Config,
+			ConsignmentID: t.ConsignmentID,
+			StepID:        t.StepID,
 		}
 		_, err := m.tm.RegisterTask(context.Background(), initPayload)
 		if err != nil {

@@ -10,15 +10,19 @@ import (
 
 // InitPayload represents the data required to initialize a task in the ExecutionUnit Manager system.
 type InitPayload struct {
-	TaskID     uuid.UUID        `json:"taskId" binding:"required"` // Unique identifier of the task
-	Type       Type             `json:"type" binding:"required"`   // Type of the task
-	Status     model.TaskStatus `json:"status" binding:"required"` // Current status of the task
-	CommandSet json.RawMessage  `json:"config" binding:"required"` // Configuration specific to the task
+	StepID        string           `json:"stepId" binding:"required"` // Unique identifier of the step within the workflow template
+	TaskID        uuid.UUID        `json:"taskId" binding:"required"` // Unique identifier of the task instance
+	ConsignmentID uuid.UUID        `json:"consignmentId" binding:"required"`
+	Type          Type             `json:"type" binding:"required"`   // Type of the task
+	Status        model.TaskStatus `json:"status" binding:"required"` // Current status of the task
+	CommandSet    json.RawMessage  `json:"config" binding:"required"` // Configuration specific to the task
 }
 
 // ActiveTask represents a task that is currently active in the system.
 type ActiveTask struct {
 	TaskID          uuid.UUID
+	ConsignmentID   uuid.UUID
+	StepID          string
 	TaskExecutionID uuid.UUID
 	Type            Type
 	Status          model.TaskStatus
@@ -32,6 +36,8 @@ func NewActiveTask(payload InitPayload, executor ExecutionUnit) *ActiveTask {
 		Type:            payload.Type,
 		Status:          payload.Status,
 		Executor:        executor,
+		ConsignmentID:   payload.ConsignmentID,
+		StepID:          payload.StepID,
 	}
 }
 
