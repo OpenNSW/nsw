@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Badge, Text, TextField, Spinner, Select } from '@radix-ui/themes'
 import { MagnifyingGlassIcon } from '@radix-ui/react-icons'
-import { fetchConsignmentsWithOGATasks, type Consignment } from '../api'
+import { fetchPendingApplications, type OGAApplication } from '../api'
 
 function getStatusColor(status: string): 'gray' | 'blue' | 'orange' | 'green' | 'red' {
   switch (status) {
@@ -23,17 +23,9 @@ function formatStatus(status: string): string {
   return status.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
-}
-
 export function ConsignmentListScreen() {
   const navigate = useNavigate()
-  const [consignments, setConsignments] = useState<Consignment[]>([])
+  const [applications, setApplications] = useState<OGAApplication[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -41,10 +33,10 @@ export function ConsignmentListScreen() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const data = await fetchConsignmentsWithOGATasks()
-        setConsignments(data)
+        const data = await fetchPendingApplications()
+        setApplications(data)
       } catch (error) {
-        console.error('Failed to fetch consignments:', error)
+        console.error('Failed to fetch applications:', error)
       } finally {
         setLoading(false)
       }
@@ -52,18 +44,18 @@ export function ConsignmentListScreen() {
 
     fetchData()
 
-    // Poll for new consignments
+    // Poll for new applications
     const interval = setInterval(fetchData, 10000)
     return () => clearInterval(interval)
   }, [])
 
-  const filteredConsignments = consignments.filter((c) => {
+  const filteredApplications = applications.filter((app) => {
     const matchesSearch =
       searchQuery === '' ||
-      c.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.traderId.toLowerCase().includes(searchQuery.toLowerCase())
+      app.consignmentId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      app.taskId.toLowerCase().includes(searchQuery.toLowerCase())
 
-    const matchesStatus = statusFilter === 'all' || c.state === statusFilter
+    const matchesStatus = statusFilter === 'all' || app.status === statusFilter
 
     return matchesSearch && matchesStatus
   })
@@ -73,7 +65,7 @@ export function ConsignmentListScreen() {
       <div className="flex items-center justify-center py-12">
         <Spinner size="3" />
         <Text size="3" color="gray" className="ml-3">
-          Loading consignments...
+          Loading applications...
         </Text>
       </div>
     )
@@ -88,7 +80,7 @@ export function ConsignmentListScreen() {
         </div>
         <div className="flex items-center gap-4">
           <Text size="2" color="gray">
-            {filteredConsignments.length} consignments pending
+            {filteredApplications.length} applications pending
           </Text>
         </div>
       </div>
@@ -99,7 +91,7 @@ export function ConsignmentListScreen() {
             <div className="flex-1">
               <TextField.Root
                 size="2"
-                placeholder="Search by ID or Trader..."
+                placeholder="Search by Consignment ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               >
@@ -115,20 +107,19 @@ export function ConsignmentListScreen() {
                   <Select.Item value="all">All Statuses</Select.Item>
                   <Select.Item value="IN_PROGRESS">In Progress</Select.Item>
                   <Select.Item value="PENDING">Pending</Select.Item>
-                  <Select.Item value="COMPLETED">Completed</Select.Item>
                 </Select.Content>
               </Select.Root>
             </div>
           </div>
         </div>
 
-        {filteredConsignments.length === 0 ? (
+        {filteredApplications.length === 0 ? (
           <div className="p-12 text-center">
             <div className="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
               <ArchiveIcon className="w-8 h-8 text-gray-300" />
             </div>
             <Text size="3" color="gray" weight="medium">
-              No consignments pending review at the moment.
+              No applications pending review at the moment.
             </Text>
           </div>
         ) : (
@@ -140,55 +131,42 @@ export function ConsignmentListScreen() {
                     Consignment ID
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Trader ID
+                    Task ID
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Trade Flow
+                    Form
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Submitted
-                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
-                {filteredConsignments.map((consignment) => (
+                {filteredApplications.map((app) => (
                   <tr
-                    key={consignment.id}
-                    onClick={() => navigate(`/consignments/${consignment.id}`)}
+                    key={app.taskId}
+                    onClick={() => navigate(`/consignments/${app.consignmentId}?taskId=${app.taskId}`)}
                     className="hover:bg-blue-50/30 cursor-pointer transition-colors group"
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Text size="2" weight="bold" className="text-primary-600 group-hover:text-primary-700">
-                        {consignment.id.substring(0, 8)}...
+                        {app.consignmentId.substring(0, 8)}...
                       </Text>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Text size="2" color="gray">
-                        {consignment.traderId}
+                        {app.taskId.substring(0, 8)}...
                       </Text>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge
-                        size="1"
-                        color={consignment.tradeFlow === 'IMPORT' ? 'blue' : 'green'}
-                        variant="soft"
-                        highContrast
-                      >
-                        {consignment.tradeFlow}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge size="1" color={getStatusColor(consignment.state)} variant="surface">
-                        {formatStatus(consignment.state)}
-                      </Badge>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Text size="2" color="gray">
-                        {formatDate(consignment.createdAt)}
+                        {app.formId}
                       </Text>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <Badge size="1" color={getStatusColor(app.status)} variant="surface">
+                        {formatStatus(app.status)}
+                      </Badge>
                     </td>
                   </tr>
                 ))}

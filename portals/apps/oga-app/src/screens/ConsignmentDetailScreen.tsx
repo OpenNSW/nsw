@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { Button, Badge, Spinner, Text, Card, Flex, Box, TextField, TextArea, Callout } from '@radix-ui/themes'
 import { ArrowLeftIcon, CheckCircledIcon, ExclamationTriangleIcon, InfoCircledIcon } from '@radix-ui/react-icons'
 import { fetchConsignmentDetail, approveTask, type ConsignmentDetail, type ApproveRequest } from '../api'
@@ -15,6 +15,11 @@ interface JsonSchema {
 export function ConsignmentDetailScreen() {
   const { consignmentId } = useParams<{ consignmentId: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  
+  // Extract taskId from query parameters
+  const queryParams = new URLSearchParams(location.search)
+  const taskId = queryParams.get('taskId')
 
   const [consignment, setConsignment] = useState<ConsignmentDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -30,7 +35,7 @@ export function ConsignmentDetailScreen() {
     async function fetchData() {
       if (!consignmentId) return
       try {
-        const data = await fetchConsignmentDetail(consignmentId)
+        const data = await fetchConsignmentDetail(consignmentId, taskId || undefined)
         setConsignment(data)
       } catch (err) {
         setError('Failed to load application details')
@@ -40,7 +45,7 @@ export function ConsignmentDetailScreen() {
       }
     }
     fetchData()
-  }, [consignmentId])
+  }, [consignmentId, taskId])
 
   const handleFormChange = (field: string, value: unknown) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -52,8 +57,10 @@ export function ConsignmentDetailScreen() {
       return
     }
 
-    const ogaTask = consignment?.ogaTasks?.[0]
-    if (!ogaTask) {
+    // Use the taskId from query params, or the first available ogaTask
+    const targetTaskId = taskId || consignment?.ogaTasks?.[0]?.id
+    
+    if (!targetTaskId) {
       setError('No pending OGA task found')
       return
     }
@@ -69,7 +76,7 @@ export function ConsignmentDetailScreen() {
         formData: formData,
         consignmentId: consignment!.id,
       }
-      await approveTask(ogaTask.id, requestBody)
+      await approveTask(targetTaskId, consignment!.id, requestBody)
       setSuccess(true)
       setTimeout(() => navigate('/consignments'), 2000)
     } catch (err) {
@@ -102,7 +109,10 @@ export function ConsignmentDetailScreen() {
     )
   }
 
-  const ogaTask = consignment.ogaTasks?.[0]
+  // Find the specific task we are reviewing
+  const currentOgaTask = taskId 
+    ? consignment.ogaTasks.find(t => t.id === taskId)
+    : consignment.ogaTasks?.[0]
 
   return (
     <div className="animate-fade-in max-w-5xl mx-auto">
@@ -111,7 +121,7 @@ export function ConsignmentDetailScreen() {
           <ArrowLeftIcon /> Back to Consignments
         </Button>
         <Badge size="2" color={consignment.tradeFlow === 'IMPORT' ? 'blue' : 'green'} highContrast>
-          {consignment.tradeFlow} APPLICATION
+          {consignment.tradeFlow}
         </Badge>
       </Flex>
 
@@ -166,7 +176,7 @@ export function ConsignmentDetailScreen() {
               <Text size="4" weight="bold">Officer Review Form</Text>
             </Flex>
 
-            {!ogaTask ? (
+            {!currentOgaTask ? (
               <Callout.Root color="amber">
                 <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
                 <Callout.Text>This application is not currently pending an OGA review task.</Callout.Text>

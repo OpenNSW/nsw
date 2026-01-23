@@ -6,23 +6,19 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/OpenNSW/nsw/internal/task"
-	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/OpenNSW/nsw/utils"
 	"github.com/google/uuid"
 )
 
 // OGAHandler handles HTTP requests for OGA portal operations
 type OGAHandler struct {
-	service     OGAService
-	taskManager task.TaskManager
+	service OGAService
 }
 
 // NewOGAHandler creates a new OGA handler instance
-func NewOGAHandler(service OGAService, taskManager task.TaskManager) *OGAHandler {
+func NewOGAHandler(service OGAService) *OGAHandler {
 	return &OGAHandler{
-		service:     service,
-		taskManager: taskManager,
+		service: service,
 	}
 }
 
@@ -91,9 +87,9 @@ func (h *OGAHandler) HandleGetApplication(w http.ResponseWriter, r *http.Request
 	utils.WriteJSONResponse(w, http.StatusOK, application)
 }
 
-// HandleApproveApplication handles POST /api/oga/applications/{taskId}/approve
-// OGA officer approves an application and submits form data
-func (h *OGAHandler) HandleApproveApplication(w http.ResponseWriter, r *http.Request) {
+// HandleTaskCompleted handles POST /api/oga/tasks/{taskId}/completed
+// Called by Task Manager when a task is completed/rejected to remove it from OGA list
+func (h *OGAHandler) HandleTaskCompleted(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		utils.WriteJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
@@ -104,57 +100,15 @@ func (h *OGAHandler) HandleApproveApplication(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var req struct {
-		FormData     map[string]interface{} `json:"formData"`     // Complete form data (trader + OGA merged)
-		Decision     string                 `json:"decision"`     // "APPROVED" or "REJECTED"
-		ReviewerName string                 `json:"reviewerName"`
-		Comments     string                 `json:"comments"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.WriteJSONError(w, http.StatusBadRequest, "Invalid request body: "+err.Error())
-		return
-	}
-
-	if req.Decision != "APPROVED" && req.Decision != "REJECTED" {
-		utils.WriteJSONError(w, http.StatusBadRequest, "decision must be APPROVED or REJECTED")
-		return
-	}
-
 	ctx := r.Context()
-
-	// Enrich form data with reviewer metadata
-	if req.FormData == nil {
-		req.FormData = make(map[string]interface{})
-	}
-	req.FormData["reviewerName"] = req.ReviewerName
-	req.FormData["comments"] = req.Comments
-	req.FormData["decision"] = req.Decision
-
-	// Call Task Manager callback with full form data
-	if h.taskManager != nil {
-		if err := h.taskManager.OnOGAFormSubmitted(ctx, taskID, req.FormData); err != nil {
-			slog.ErrorContext(ctx, "failed to notify TaskManager of OGA form submission",
-				"taskID", taskID,
-				"error", err)
-			utils.WriteJSONError(w, http.StatusInternalServerError, "Failed to submit form to Task Manager")
-			return
-		}
-	}
-
-	// Remove application from ready list
 	if err := h.service.RemoveApplication(ctx, taskID); err != nil {
 		slog.WarnContext(ctx, "failed to remove application from list",
 			"taskID", taskID,
 			"error", err)
-		// Don't fail the request, form is already submitted
+		// Return 404 if not found, but usually it's fine
 	}
 
-	// Return success response
-	utils.WriteJSONResponse(w, http.StatusOK, map[string]interface{}{
-		"success": true,
-		"message": "Application " + req.Decision + " successfully",
-	})
+	utils.WriteJSONResponse(w, http.StatusOK, map[string]interface{}{"success": true})
 }
 
 // HandleNotification handles POST /api/oga/notifications
@@ -165,7 +119,7 @@ func (h *OGAHandler) HandleNotification(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var notification model.OGATaskNotification
+	var notification OGATaskNotification
 
 	if err := json.NewDecoder(r.Body).Decode(&notification); err != nil {
 		utils.WriteJSONError(w, http.StatusBadRequest, "Invalid request body: "+err.Error())

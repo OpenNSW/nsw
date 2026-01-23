@@ -25,6 +25,12 @@ type TaskManager interface {
 	// HandleExecuteTask is an HTTP handler for executing a task via POST request
 	HandleExecuteTask(w http.ResponseWriter, r *http.Request)
 
+	// GetTask retrieves a task execution record by its ID
+	GetTask(taskID uuid.UUID) (*TaskRecord, error)
+
+	// GetTasksByConsignment retrieves task execution records by consignment ID
+	GetTasksByConsignment(consignmentID uuid.UUID) ([]TaskRecord, error)
+
 	// Close closes the task manager and releases resources
 	Close() error
 }
@@ -213,6 +219,18 @@ func (tm *taskManager) execute(ctx context.Context, activeTask *ActiveTask, payl
 			"error", err)
 	}
 
+	// Update result data in database if provided
+	if result.Data != nil {
+		dataBytes, err := json.Marshal(result.Data)
+		if err != nil {
+			slog.ErrorContext(ctx, "failed to marshal result data", "taskID", activeTask.TaskID, "error", err)
+		} else if err := tm.store.db.Model(&TaskRecord{}).Where("id = ?", activeTask.TaskID).Update("result_data", dataBytes).Error; err != nil {
+			slog.ErrorContext(ctx, "failed to update result data in database",
+				"taskID", activeTask.TaskID,
+				"error", err)
+		}
+	}
+
 	// Update in-memory status
 	activeTask.Status = result.Status
 
@@ -220,6 +238,16 @@ func (tm *taskManager) execute(ctx context.Context, activeTask *ActiveTask, payl
 	tm.notifyWorkflowManager(ctx, activeTask.TaskID, result.Status)
 
 	return result, nil
+}
+
+// GetTask retrieves a task execution record by its ID via the store
+func (tm *taskManager) GetTask(taskID uuid.UUID) (*TaskRecord, error) {
+	return tm.store.GetByID(taskID)
+}
+
+// GetTasksByConsignment retrieves task execution records by consignment ID via the store
+func (tm *taskManager) GetTasksByConsignment(consignmentID uuid.UUID) ([]TaskRecord, error) {
+	return tm.store.GetByConsignmentID(consignmentID)
 }
 
 // getTask retrieves a task from the store and combines it with the in-memory executor

@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/OpenNSW/nsw/internal/workflow/router"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
+	"github.com/OpenNSW/nsw/oga"
 	"gorm.io/gorm"
 )
 
@@ -17,11 +19,12 @@ type Manager struct {
 	cs             *service.ConsignmentService
 	wr             *router.WorkflowRouter
 	taskUpdateChan chan model.TaskCompletionNotification
+	ogaClient      oga.Client
 	ctx            context.Context
 	cancel         context.CancelFunc
 }
 
-func NewManager(tm task.TaskManager, taskUpdateChan chan model.TaskCompletionNotification, db *gorm.DB) *Manager {
+func NewManager(tm task.TaskManager, taskUpdateChan chan model.TaskCompletionNotification, db *gorm.DB, ogaClient oga.Client) *Manager {
 	ts := service.NewTaskService(db)
 	cs := service.NewConsignmentService(ts, db)
 
@@ -31,6 +34,7 @@ func NewManager(tm task.TaskManager, taskUpdateChan chan model.TaskCompletionNot
 		tm:             tm,
 		cs:             cs,
 		taskUpdateChan: taskUpdateChan,
+		ogaClient:      ogaClient,
 		ctx:            ctx,
 		cancel:         cancel,
 	}
@@ -86,6 +90,36 @@ func (m *Manager) registerTasks(tasks []*model.Task) {
 		if err != nil {
 			slog.Error("failed to register task", "taskID", t.ID, "error", err)
 			return
+		}
+
+		// Notify OGA Service if this is an OGA_FORM task that became IN_PROGRESS
+		// This logic is placed here to keep TaskManager decoupled from OGA Service dependency
+		if t.Type == "OGA_FORM" && t.Status == "IN_PROGRESS" && m.ogaClient != nil {
+			var config struct {
+				FormID string `json:"formId"`
+			}
+			// Best effort to parse config and get formID
+			if err := json.Unmarshal(t.Config, &config); err != nil {
+				slog.Warn("failed to parse task config for OGA notification", "taskID", t.ID, "error", err)
+				// Continue, maybe formID is optional or we can send without it? 
+				// The OGA service expects formID, so maybe we skip or send empty? 
+				// Let's log and proceed.
+			}
+
+			notification := oga.OGATaskNotification{
+				TaskID:        t.ID,
+				ConsignmentID: t.ConsignmentID,
+				FormID:        config.FormID,
+				Status:        string(t.Status),
+			}
+
+			go func() {
+				if err := m.ogaClient.NotifyApplicationReady(context.Background(), notification); err != nil {
+					slog.Warn("failed to notify OGA service", "taskID", t.ID, "error", err)
+				} else {
+					slog.Info("notified OGA service of new application", "taskID", t.ID)
+				}
+			}()
 		}
 	}
 }

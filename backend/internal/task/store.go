@@ -19,6 +19,7 @@ type TaskRecord struct {
 	Type          Type             `gorm:"type:varchar(50);not null"`
 	Status        model.TaskStatus `gorm:"type:varchar(50);not null"`
 	CommandSet    json.RawMessage  `gorm:"type:json"`
+	ResultData    json.RawMessage  `gorm:"type:json"`
 	CreatedAt     time.Time        `gorm:"autoCreateTime"`
 	UpdatedAt     time.Time        `gorm:"autoUpdateTime"`
 }
@@ -99,6 +100,15 @@ func (s *TaskStore) GetAll() ([]TaskRecord, error) {
 func (s *TaskStore) GetByStatus(status model.TaskStatus) ([]TaskRecord, error) {
 	var executions []TaskRecord
 	if err := s.db.Where("status = ?", status).Find(&executions).Error; err != nil {
+		return nil, err
+	}
+	return executions, nil
+}
+
+// GetByConsignmentID retrieves task executions by consignment ID
+func (s *TaskStore) GetByConsignmentID(consignmentID uuid.UUID) ([]TaskRecord, error) {
+	var executions []TaskRecord
+	if err := s.db.Where("consignment_id = ?", consignmentID).Find(&executions).Error; err != nil {
 		return nil, err
 	}
 	return executions, nil

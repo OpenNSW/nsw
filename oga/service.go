@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/google/uuid"
 )
 
@@ -17,7 +16,7 @@ var ErrApplicationNotFound = errors.New("application not found")
 // For MVP, this service does not persist to database - it only manages in-memory state
 type OGAService interface {
 	// AddApplication adds an application ready for review
-	AddApplication(ctx context.Context, notification model.OGATaskNotification) error
+	AddApplication(ctx context.Context, notification OGATaskNotification) error
 
 	// GetApplications returns all applications ready for review
 	GetApplications(ctx context.Context) ([]Application, error)
@@ -50,7 +49,7 @@ func NewOGAService() OGAService {
 }
 
 // AddApplication adds an application ready for review
-func (s *ogaService) AddApplication(ctx context.Context, notification model.OGATaskNotification) error {
+func (s *ogaService) AddApplication(ctx context.Context, notification OGATaskNotification) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
