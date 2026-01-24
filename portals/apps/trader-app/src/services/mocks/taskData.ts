@@ -6,6 +6,14 @@ export interface TaskDetails {
   payload: object
 }
 
+export function findTaskDetails(taskId: string): TaskDetails | undefined {
+  // For now, return the mock task details if ID matches or return it as default
+  if (taskId === mockTaskDetails.id || taskId) {
+    return mockTaskDetails
+  }
+  return undefined
+}
+
 export const mockTaskDetails: TaskDetails = {
   id: '-N_4-sZ63c-111111',
   name: 'Complete Export Declaration',

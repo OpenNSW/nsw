@@ -2,7 +2,7 @@ import { BellIcon, MagnifyingGlassIcon, PersonIcon } from '@radix-ui/react-icons
 
 export function TopBar() {
   return (
-    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
+    <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
       {/* Logo */}
       <div className="flex items-center">
         <span className="text-xl font-bold text-gray-900">Trader Portal</span>

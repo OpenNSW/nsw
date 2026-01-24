@@ -1,17 +1,29 @@
 import { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { JsonForm } from '../components/JsonForm'
-import { getTaskDetails } from '../services/task'
+import type { JsonSchema, UISchemaElement } from '../components/JsonForm'
+import { getTaskDetails, sendTaskCommand } from '../services/task'
 import type { TaskDetails } from '../services/mocks/taskData'
+import type { TaskCommand } from '../services/task'
+
+interface TaskPayload {
+  version: number
+  content: {
+    schema: JsonSchema
+    uischema: UISchemaElement
+  }
+}
 
 export function TaskDetailScreen() {
   const { consignmentId, taskId } = useParams<{
     consignmentId: string
     taskId: string
   }>()
+  const navigate = useNavigate()
   const [task, setTask] = useState<TaskDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     async function fetchTask() {
@@ -36,10 +48,44 @@ export function TaskDetailScreen() {
     fetchTask()
   }, [consignmentId, taskId])
 
-  const handleSubmit = (formData: unknown) => {
-    console.log('Form submitted!', formData)
-    // Here you would typically call an API to save the data
-    alert('Form submitted successfully! Check the console for the data.')
+  const handleCommand = async (command: TaskCommand, formData: Record<string, unknown>) => {
+    if (!task || !consignmentId || !taskId) return
+
+    try {
+      setSubmitting(true)
+      setError(null)
+
+      const response = await sendTaskCommand({
+        command,
+        taskId,
+        consignmentId,
+        data: formData,
+      })
+
+      if (response.success) {
+        if (command === 'SUBMISSION') {
+          alert('Task submitted successfully!')
+          navigate(-1)
+        } else {
+          alert('Draft saved successfully!')
+        }
+      } else {
+        setError(response.message || 'Operation failed.')
+      }
+    } catch (err) {
+      console.error('Task command error:', err)
+      setError('Operation failed. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleSubmit = async (formData: Record<string, unknown>) => {
+    await handleCommand('SUBMISSION', formData)
+  }
+
+  const handleSaveDraft = async (formData: Record<string, unknown>) => {
+    await handleCommand('DRAFT', formData)
   }
 
   if (loading) {
@@ -66,6 +112,9 @@ export function TaskDetailScreen() {
     )
   }
 
+  const payload = task.payload as TaskPayload
+  const { schema, uischema } = payload.content
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-full">
       <div className="max-w-4xl mx-auto">
@@ -75,10 +124,12 @@ export function TaskDetailScreen() {
         </div>
         <div className="bg-white rounded-lg shadow-md p-6">
           <JsonForm
-            schema={task.schema}
-            uischema={task.uischema}
+            schema={schema}
+            uischema={uischema}
             onSubmit={handleSubmit}
-            submitLabel="Complete Task"
+            onSaveDraft={handleSaveDraft}
+            submitLabel={submitting ? 'Submitting...' : 'Submit'}
+            showDraftButton
           />
         </div>
       </div>
