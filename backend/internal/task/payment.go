@@ -10,7 +10,7 @@ type PaymentTask struct {
 	CommandSet interface{}
 }
 
-func (t *PaymentTask) Execute(_ context.Context, payload interface{}) (*ExecutionResult, error) {
+func (t *PaymentTask) Execute(_ context.Context, payload *ExecutionPayload) (*ExecutionResult, error) {
 	// Handle payment processing
 	// Payment gateway integration will be added in later PR
 	return &ExecutionResult{

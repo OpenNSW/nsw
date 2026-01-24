@@ -1,0 +1,278 @@
+{
+  "title": "CUSDEC I & II Declaration Form",
+  "jsonSchema": {
+    "type": "object",
+    "properties": {
+      "header": {
+        "type": "object",
+        "title": "General Information",
+        "properties": {
+          "declarationType": { "type": "string", "title": "1. Declaration Type" },
+          "officeOfEntry": { "type": "string", "title": "29. Office of Entry/Exit" },
+          "customsReference": { "type": "string", "title": "Customs Reference No" },
+          "date": { "type": "string", "format": "date", "title": "Date" }
+        }
+      },
+      "parties": {
+        "type": "object",
+        "title": "Involved Parties",
+        "properties": {
+          "exporter": {
+            "type": "object",
+            "title": "2. Exporter",
+            "properties": {
+              "name": { "type": "string", "title": "Name/Address" },
+              "tin": { "type": "string", "title": "TIN" }
+            }
+          },
+          "consignee": {
+            "type": "object",
+            "title": "8. Consignee",
+            "properties": {
+              "name": { "type": "string", "title": "Name/Address" },
+              "tin": { "type": "string", "title": "TIN" }
+            }
+          },
+          "declarant": {
+            "type": "object",
+            "title": "14. Declarant/Representative",
+            "properties": {
+              "name": { "type": "string", "title": "Name/Address" },
+              "tin": { "type": "string", "title": "TIN" }
+            }
+          }
+        }
+      },
+      "transport": {
+        "type": "object",
+        "title": "Transport & Trading",
+        "properties": {
+          "vesselFlight": { "type": "string", "title": "18. Vessel/Flight" },
+          "voyageDate": { "type": "string", "title": "21. Voyage No/Date" },
+          "modeOfTransport": { "type": "string", "title": "25. Mode of Transport" },
+          "countryOfExport": { "type": "string", "title": "15. Country of Export" },
+          "countryOfOrigin": { "type": "string", "title": "16. Country of Origin" },
+          "countryOfDestination": { "type": "string", "title": "17. Country of Destination" },
+          "deliveryTerms": { "type": "string", "title": "20. Delivery Terms" },
+          "locationOfGoods": { "type": "string", "title": "30. Location of Goods" }
+        }
+      },
+      "items": {
+        "type": "array",
+        "title": "Goods Declaration Items",
+        "items": {
+          "type": "object",
+          "properties": {
+            "itemNo": { "type": "integer", "title": "32. Item No" },
+            "hsCode": { "type": "string", "title": "33. Commodity (HS) Code" },
+            "description": { "type": "string", "title": "31. Description of Goods", "format": "textarea" },
+            "grossMass": { "type": "number", "title": "35. Gross Mass (Kg)" },
+            "netMass": { "type": "number", "title": "38. Net Mass (Kg)" },
+            "countryOriginCode": { "type": "string", "title": "34. Cty. Orig. Code" },
+            "procedure": { "type": "string", "title": "37. Procedure" },
+            "packages": {
+              "type": "object",
+              "properties": {
+                "marksAndNumbers": { "type": "string", "title": "Marks & Numbers" },
+                "quantity": { "type": "number", "title": "Number of Pkgs" },
+                "kind": { "type": "string", "title": "Kind of Pkgs" }
+              }
+            },
+            "taxes": {
+              "type": "array",
+              "title": "47. Calculation of Taxes",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "type": { "type": "string", "title": "Type" },
+                  "taxBase": { "type": "number", "title": "Tax Base" },
+                  "rate": { "type": "number", "title": "Rate" },
+                  "amount": { "type": "number", "title": "Amount" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "valuation": {
+        "type": "object",
+        "title": "Valuation & Accounting",
+        "properties": {
+          "currency": { "type": "string", "title": "22. Currency" },
+          "totalInvoicedAmount": { "type": "number", "title": "22. Total Amount" },
+          "exchangeRate": { "type": "number", "title": "23. Exchange Rate" },
+          "bankDetails": {
+            "type": "object",
+            "title": "28. Financial Data",
+            "properties": {
+              "bankName": { "type": "string", "title": "Bank Name" },
+              "termsOfPayment": { "type": "string", "title": "Terms of Payment" }
+            }
+          },
+          "totals": {
+            "type": "object",
+            "title": "Section C totals",
+            "properties": {
+              "invoiceValue": { "type": "number", "title": "Invoice Value" },
+              "freight": { "type": "number", "title": "Freight" },
+              "insurance": { "type": "number", "title": "Insurance" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "formData": {
+    "meta_data": {
+      "form_type": "CUSDEC I & II",
+      "schedule": "Schedule II",
+      "customs_reference_number": null,
+      "office_use_only": {
+        "box_a_office_use": null,
+        "box_50_office_use": null,
+        "box_51_office_use": null,
+        "box_52_office_use": null
+      }
+    },
+    "header_general": {
+      "box_1_declaration_type": null,
+      "box_2_exporter": {
+        "name_address": null,
+        "tin": null
+      },
+      "box_3_forms_page_count": null,
+      "box_4_load_list_manifest": null,
+      "box_5_total_items": null,
+      "box_6_total_packages": null,
+      "box_7_declarants_sequence_number": null,
+      "box_8_consignee": {
+        "name_address": null,
+        "tin": null
+      },
+      "box_9_person_financial_settlement": {
+        "name_address": null,
+        "tin": null
+      },
+      "box_14_declarant_representative": {
+        "name_address": null,
+        "tin": null
+      }
+    },
+    "trading_details": {
+      "box_10_country_last_consignment": null,
+      "box_11_trading_country": null,
+      "box_13_cap": null,
+      "box_15_country_export": {
+        "name": null,
+        "code": null
+      },
+      "box_16_country_origin": null,
+      "box_17_country_destination": {
+        "name": null,
+        "code": null
+      },
+      "box_17a_country_destination_code": null
+    },
+    "transport_details": {
+      "box_18_vessel_flight": null,
+      "box_19_container_flag": null,
+      "box_20_delivery_terms": null,
+      "box_21_voyage_no_date": null,
+      "box_22_currency_total_amount_invoiced": null,
+      "box_23_exchange_rate": null,
+      "box_24_nature_of_transaction": null,
+      "box_25_mode_transport_border": null,
+      "box_26_inland_mode": null,
+      "box_27_place_loading_discharging": null,
+      "box_28_financial_banking_data": {
+        "bank_code": null,
+        "bank_name": null,
+        "branch": null,
+        "ref_no": null,
+        "terms_of_payment": null
+      },
+      "box_29_office_entry_exit": null,
+      "box_30_location_goods": null
+    },
+    "items": [
+      {
+        "box_32_item_no": 1,
+        "box_31_packages_description": {
+          "marks_and_numbers": null,
+          "container_nos": [],
+          "number_and_kind": null,
+          "description_of_goods": null
+        },
+        "box_33_commodity_hs_code": null,
+        "box_34_country_origin_code": null,
+        "box_35_gross_mass_kg": null,
+        "box_36_preference": null,
+        "box_37_procedure": null,
+        "box_38_net_mass_kg": null,
+        "box_39_quota": null,
+        "box_40_previous_document_bl_awb": null,
+        "box_41_uom_qty": [
+          { "uom": null, "qty": null },
+          { "uom": null, "qty": null },
+          { "uom": null, "qty": null }
+        ],
+        "box_43_valuation_method_code": null,
+        "box_44_additional_info_documents": {
+          "license_no": null,
+          "documents_produced": [],
+          "certificates": []
+        },
+        "box_45_adjustment": null,
+        "box_46_statistical_value": null,
+        "box_49_warehouse_id": null,
+        "value_details": {
+          "item_price": null,
+          "d_val": null,
+          "d_qty": null,
+          "ai_code": null
+        },
+        "box_47_calculation_of_taxes": [
+          {
+            "type": null,
+            "tax_base": null,
+            "rate": null,
+            "amount": null,
+            "mp": null
+          }
+        ],
+        "box_48_ac_number": null
+      }
+    ],
+    "accounting_summary_section_b": {
+      "assessment_number": null,
+      "date": null,
+      "receipt_number": null,
+      "mode_of_payment": null,
+      "guarantee": null,
+      "total_fees": null,
+      "total_declaration": null
+    },
+    "valuation_summary_section_c": {
+      "total_invoiced_amount_currency": null,
+      "invoice_value": null,
+      "freight": null,
+      "insurance": null,
+      "other_charges": null
+    },
+    "summary_of_taxes_continuation": {
+      "box_53a_summary": []
+    },
+    "signatures": {
+      "box_53_importer_agent_declaration": {
+        "text": "I do hereby confirm that all particulars entered by me or on my behalf in the CusDec and electronically transferred to the Sri Lanka Customs are true & correct...",
+        "signature": null,
+        "date": null
+      },
+      "box_54_submission_agent": {
+        "declarant_name": null,
+        "signature": null,
+        "id_number": null
+      }
+    }
+  }
+}
