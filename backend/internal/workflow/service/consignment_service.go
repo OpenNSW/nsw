@@ -140,17 +140,12 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 	var readyTasks []*model.Task
 
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Convert CreateWorkflowForItemDTO to Item
+		// Initialize items with HSCodeID only - Steps will be populated after tasks are created
 		items := make([]model.Item, len(createReq.Items))
 		for i, itemDTO := range createReq.Items {
-			workflowTemplateID, err := uuid.Parse(itemDTO.WorkflowTemplateID)
-			if err != nil {
-				return fmt.Errorf("invalid workflow template ID for item %d: %w", i, err)
-			}
 			items[i] = model.Item{
-				HSCodeID:           itemDTO.HSCodeID,
-				WorkflowTemplateID: workflowTemplateID,
-				Tasks:              []uuid.UUID{},
+				HSCodeID: itemDTO.HSCodeID,
+				Steps:    []model.ConsignmentStep{},
 			}
 		}
 
@@ -169,12 +164,19 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 		// Process each item in the consignment
 		for itemIdx := range consignment.Items {
 			item := &consignment.Items[itemIdx]
+			itemDTO := createReq.Items[itemIdx]
+
+			// Parse and validate workflow template ID
+			workflowTemplateID, err := uuid.Parse(itemDTO.WorkflowTemplateID)
+			if err != nil {
+				return fmt.Errorf("invalid workflow template ID for item %d: %w", itemIdx, err)
+			}
 
 			// Query the workflow template for this item
 			var workflowTemplate model.WorkflowTemplate
-			if err := tx.First(&workflowTemplate, "id = ?", item.WorkflowTemplateID).Error; err != nil {
+			if err := tx.First(&workflowTemplate, "id = ?", workflowTemplateID).Error; err != nil {
 				if errors.Is(err, gorm.ErrRecordNotFound) {
-					return fmt.Errorf("workflow template %s not found for item with HS code %s", item.WorkflowTemplateID, item.HSCodeID)
+					return fmt.Errorf("workflow template %s not found for item with HS code %s", workflowTemplateID, item.HSCodeID)
 				}
 				return fmt.Errorf("failed to query workflow template: %w", err)
 			}
@@ -191,21 +193,39 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 				return fmt.Errorf("failed to create tasks for item %d: %w", itemIdx, err)
 			}
 
-			// Collect ready tasks for registration with Task Manager
+			// Build ConsignmentSteps from created tasks
+			steps := make([]model.ConsignmentStep, len(tasks))
 			for i, taskID := range taskIDs {
 				tasks[i].ID = taskID // Set the generated ID
+
+				// Collect ready tasks for registration with Task Manager
 				if tasks[i].Status == model.TaskStatusReady {
 					readyTasks = append(readyTasks, &tasks[i])
 				}
+
+				// Convert DependsOn map keys to slice for ConsignmentStep
+				dependsOnSlice := make([]string, 0, len(tasks[i].DependsOn))
+				for stepID := range tasks[i].DependsOn {
+					dependsOnSlice = append(dependsOnSlice, stepID)
+				}
+
+				// Create ConsignmentStep
+				steps[i] = model.ConsignmentStep{
+					StepID:    tasks[i].StepID,
+					Type:      tasks[i].Type,
+					TaskID:    taskID,
+					Status:    tasks[i].Status,
+					DependsOn: dependsOnSlice,
+				}
 			}
 
-			// Store task IDs in the item
-			item.Tasks = taskIDs
+			// Store steps in the item
+			item.Steps = steps
 		}
 
-		// Update the consignment with the task IDs
+		// Update the consignment with the populated steps
 		if err := tx.Save(consignment).Error; err != nil {
-			return fmt.Errorf("failed to update consignment with task IDs: %w", err)
+			return fmt.Errorf("failed to update consignment with steps: %w", err)
 		}
 
 		return nil

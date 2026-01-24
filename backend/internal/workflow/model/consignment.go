@@ -34,9 +34,17 @@ func (c *Consignment) TableName() string {
 	return "consignments"
 }
 
+type ConsignmentStep struct {
+	StepID    string     `json:"stepId"`    // Step ID within the workflow template
+	Type      StepType   `json:"type"`      // Type of the task
+	TaskID    uuid.UUID  `json:"taskId"`    // Associated Task ID
+	Status    TaskStatus `json:"status"`    // Current status of the task
+	DependsOn []string   `json:"dependsOn"` // List of step IDs that this step depends on
+
+}
+
 // Item represents an individual item within a consignment.
 type Item struct {
-	HSCodeID           string      `json:"hsCodeID"`           // HS Code ID of the item
-	WorkflowTemplateID uuid.UUID   `json:"workflowTemplateId"` // Workflow Template ID associated with this item
-	Tasks              []uuid.UUID `json:"tasks"`              // List of task IDs associated with this item
+	HSCodeID string            `json:"hsCodeID"` // HS Code ID of the item
+	Steps    []ConsignmentStep `json:"steps"`    // List of steps associated with this item
 }
