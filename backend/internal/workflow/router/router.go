@@ -107,6 +107,11 @@ func (wr *WorkflowRouter) HandleCreateConsignment(w http.ResponseWriter, r *http
 	}
 	defer r.Body.Close()
 
+	// TODO: TraderID should be obtained from authenticated user context
+	// For now, set it to a default value
+	defaultTraderID := "trader-123"
+	createReq.TraderID = &defaultTraderID
+
 	consignment, readyTasks, err := wr.cs.InitializeConsignment(r.Context(), &createReq)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to create consignment: %v", err), http.StatusInternalServerError)

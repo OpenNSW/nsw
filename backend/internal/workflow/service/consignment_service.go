@@ -127,7 +127,7 @@ func (s *ConsignmentService) InitializeConsignment(ctx context.Context, createRe
 	if len(createReq.Items) == 0 {
 		return nil, nil, fmt.Errorf("consignment must have at least one item")
 	}
-	if createReq.TraderID == "" {
+	if createReq.TraderID == nil {
 		return nil, nil, fmt.Errorf("trader ID cannot be empty")
 	}
 
@@ -157,7 +157,7 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 		consignment = &model.Consignment{
 			TradeFlow: createReq.TradeFlow,
 			Items:     items,
-			TraderID:  createReq.TraderID,
+			TraderID:  *createReq.TraderID,
 			State:     model.ConsignmentStateInProgress,
 		}
 

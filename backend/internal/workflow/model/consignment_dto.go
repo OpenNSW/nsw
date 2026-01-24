@@ -10,5 +10,5 @@ type CreateWorkflowForItemDTO struct {
 type CreateConsignmentDTO struct {
 	TradeFlow TradeFlow                  `json:"tradeFlow" binding:"required,oneof=IMPORT EXPORT"` // Type of trade flow: IMPORT, EXPORT
 	Items     []CreateWorkflowForItemDTO `json:"items" binding:"required,dive,required"`           // List of items in the consignment
-	TraderID  string                     `json:"traderId" binding:"required"`                      // Reference to the Trader
+	TraderID  *string                    `json:"traderId,omitempty"`                               // Reference to the Trader
 }

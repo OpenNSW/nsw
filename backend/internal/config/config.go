@@ -81,18 +81,18 @@ func (c *Config) Validate() error {
 
 // DSN returns the database connection string
 func (c *DatabaseConfig) DSN() string {
-	// URL encode the password to handle special characters
-	encodedPassword := url.QueryEscape(c.Password)
-
-	return fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-		c.Host,
-		c.Port,
-		c.Username,
-		encodedPassword,
-		c.Name,
-		c.SSLMode,
-	)
+	// Using the URL format is more robust for handling special characters in passwords.
+	// format: postgres://user:password@host:port/dbname?sslmode=disable
+	dsn := url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(c.Username, c.Password),
+		Host:   fmt.Sprintf("%s:%d", c.Host, c.Port),
+		Path:   c.Name,
+	}
+	query := dsn.Query()
+	query.Add("sslmode", c.SSLMode)
+	dsn.RawQuery = query.Encode()
+	return dsn.String()
 }
 
 // getEnvOrDefault returns the value of an environment variable or a default value

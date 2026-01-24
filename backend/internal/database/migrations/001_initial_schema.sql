@@ -2,7 +2,7 @@
 -- Description: Create initial database schema for NSW workflow management system
 -- Created: 2026-01-24
 -- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- ============================================================================
 -- Table: hs_codes
 -- Description: Harmonized System codes for classifying traded products

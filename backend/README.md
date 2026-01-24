@@ -4,7 +4,7 @@ Go backend service for the NSW workflow management system.
 
 ## Prerequisites
 
-- Go 1.25 or higher
+- Go 1.22 or higher
 - PostgreSQL 12 or higher
 
 ## Setup
@@ -41,7 +41,7 @@ Run the migration script:
 
 ```bash
 # Load environment variables
-export $(cat .env | xargs)
+set -a; source .env; set +a
 
 # Run migration
 PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USERNAME -d $DB_NAME -f internal/database/migrations/001_initial_schema.sql
@@ -57,7 +57,7 @@ go mod download
 
 ```bash
 # Load environment variables
-export $(cat .env | xargs)
+set -a; source .env; set +a
 
 # Run the server
 go run ./cmd/server/main.go
