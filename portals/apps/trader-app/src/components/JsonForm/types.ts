@@ -97,6 +97,9 @@ export interface JsonFormProps {
   uischema: UISchemaElement;
   data?: FormValues;
   onSubmit: (values: FormValues) => void | Promise<void>;
+  onSaveDraft?: (values: FormValues) => void | Promise<void>;
   submitLabel?: string;
+  draftLabel?: string;
+  showDraftButton?: boolean;
   className?: string;
 }

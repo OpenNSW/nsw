@@ -1,7 +1,7 @@
 import { apiGet, apiPost, USE_MOCK } from './api'
 import type { Workflow, WorkflowQueryParams } from './types/workflow'
 import { mockWorkflows } from './mocks/workflowData'
-import { mockTaskDetails, type TaskDetails } from './mocks/taskData'
+import { findTaskDetails, type TaskDetails } from './mocks/taskData'
 
 export interface WorkflowResponse {
   import: Workflow[]
@@ -53,7 +53,14 @@ export async function executeTask(
   if (USE_MOCK) {
     // Simulate network delay
     await new Promise((resolve) => setTimeout(resolve, 500))
-    return mockTaskDetails
+
+    // Find the task details based on taskId
+    const taskDetails = findTaskDetails(taskId)
+    if (!taskDetails) {
+      throw new Error(`Task not found: ${taskId}`)
+    }
+
+    return taskDetails
   }
   return apiPost<Record<string, never>, TaskDetails>(`/workflows/${consignmentId}/tasks/${taskId}`, {})
 }
