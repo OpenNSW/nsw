@@ -18,3 +18,11 @@ type HSCodeFilter struct {
 	Offset           *int    `json:"offset,omitempty"`
 	Limit            *int    `json:"limit,omitempty"`
 }
+
+// HSCodeListResult represents the result of querying HS codes with pagination
+type HSCodeListResult struct {
+	TotalCount int      `json:"totalCount"`
+	HSCodes    []HSCode `json:"hsCodes"`
+	Offset     int      `json:"offset"`
+	Limit      int      `json:"limit"`
+}

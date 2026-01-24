@@ -20,14 +20,57 @@ func NewConsignmentService(ts *TaskService, db *gorm.DB) *ConsignmentService {
 }
 
 // GetAllHSCodes retrieves all HS codes from the database
-func (s *ConsignmentService) GetAllHSCodes(ctx context.Context, filter model.HSCodeFilter) ([]model.HSCode, error) {
-	// TODO: Implement Query Filter
+func (s *ConsignmentService) GetAllHSCodes(ctx context.Context, filter model.HSCodeFilter) (*model.HSCodeListResult, error) {
 	var hsCodes []model.HSCode
-	result := s.db.WithContext(ctx).Find(&hsCodes)
+	query := s.db.WithContext(ctx)
+
+	// Apply filter: HSCode starts with
+	if filter.HSCodeStartsWith != nil && *filter.HSCodeStartsWith != "" {
+		query = query.Where("hs_code LIKE ?", *filter.HSCodeStartsWith+"%")
+	}
+
+	// Apply pagination
+	if filter.Offset != nil {
+		query = query.Offset(*filter.Offset)
+	}
+	if filter.Limit != nil {
+		query = query.Limit(*filter.Limit)
+	}
+
+	result := query.Find(&hsCodes)
 	if result.Error != nil {
 		return nil, fmt.Errorf("failed to retrieve HS codes: %w", result.Error)
 	}
-	return hsCodes, nil
+
+	// Get total count for pagination (with filter applied)
+	var totalCount int64
+	countQuery := s.db.WithContext(ctx).Model(&model.HSCode{})
+
+	// Apply the same filter to the count query
+	if filter.HSCodeStartsWith != nil && *filter.HSCodeStartsWith != "" {
+		countQuery = countQuery.Where("hs_code LIKE ?", *filter.HSCodeStartsWith+"%")
+	}
+
+	countResult := countQuery.Count(&totalCount)
+	if countResult.Error != nil {
+		return nil, fmt.Errorf("failed to count HS codes: %w", countResult.Error)
+	}
+
+	// Prepare the result
+	hsCodeListResult := &model.HSCodeListResult{
+		TotalCount: int(totalCount),
+		HSCodes:    hsCodes,
+		Offset:     0,
+		Limit:      len(hsCodes),
+	}
+	if filter.Offset != nil {
+		hsCodeListResult.Offset = *filter.Offset
+	}
+	if filter.Limit != nil {
+		hsCodeListResult.Limit = *filter.Limit
+	}
+
+	return hsCodeListResult, nil
 }
 
 // GetWorkFlowTemplate retrieves a workflow template based on HS code and consignment type
