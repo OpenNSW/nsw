@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 )
 
-// StepType represents the type of a step within a workflow.
+// StepType represents the type of step within a workflow.
 type StepType string
 
 const (

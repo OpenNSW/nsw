@@ -73,6 +73,8 @@ func main() {
 	// Set up HTTP routes
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/tasks", tm.HandleExecuteTask)
+	mux.HandleFunc("GET /api/hscodes", wm.HandleGetHSCodes)
+	mux.HandleFunc("GET /api/hscodes/", wm.HandleGetHSCodes)
 	mux.HandleFunc("GET /api/workflow-template", wm.HandleGetWorkflowTemplate)
 	mux.HandleFunc("POST /api/consignments", wm.HandleCreateConsignment)
 	mux.HandleFunc("GET /api/consignments/{consignmentID}", wm.HandleGetConsignment)

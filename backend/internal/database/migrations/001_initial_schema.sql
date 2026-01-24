@@ -1,24 +1,23 @@
 -- Migration: 001_initial_schema.sql
 -- Description: Create initial database schema for NSW workflow management system
--- Created: 2026-01-23
-
+-- Created: 2026-01-24
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
 -- ============================================================================
 -- Table: hs_codes
 -- Description: Harmonized System codes for classifying traded products
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS hs_codes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    code VARCHAR(50) NOT NULL UNIQUE,
+    hs_code VARCHAR(50) NOT NULL UNIQUE,
     description TEXT,
+    category TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Index for faster lookups by code
-CREATE INDEX IF NOT EXISTS idx_hs_codes_code ON hs_codes(code);
+CREATE INDEX IF NOT EXISTS idx_hs_codes_hs_code ON hs_codes(hs_code);
 
 -- ============================================================================
 -- Table: workflow_templates
@@ -37,12 +36,12 @@ CREATE INDEX IF NOT EXISTS idx_workflow_templates_version ON workflow_templates(
 
 -- ============================================================================
 -- Table: workflow_template_maps
--- Description: Mapping between HS codes and workflow templates
+-- Description: Mapping between (HS code, Trade flow) and workflow templates
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS workflow_template_maps (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     hs_code_id UUID NOT NULL,
-    type VARCHAR(50) NOT NULL,
+    trade_flow VARCHAR(50) NOT NULL,
     workflow_template_id UUID NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -61,12 +60,12 @@ CREATE TABLE IF NOT EXISTS workflow_template_maps (
 
 -- Indexes for faster lookups
 CREATE INDEX IF NOT EXISTS idx_workflow_template_maps_hs_code_id ON workflow_template_maps(hs_code_id);
-CREATE INDEX IF NOT EXISTS idx_workflow_template_maps_type ON workflow_template_maps(type);
+CREATE INDEX IF NOT EXISTS idx_workflow_template_maps_trade_flow ON workflow_template_maps(trade_flow);
 CREATE INDEX IF NOT EXISTS idx_workflow_template_maps_workflow_template_id ON workflow_template_maps(workflow_template_id);
 
 -- Unique constraint to prevent duplicate mappings
 CREATE UNIQUE INDEX IF NOT EXISTS idx_workflow_template_maps_unique
-    ON workflow_template_maps(hs_code_id, type);
+    ON workflow_template_maps(hs_code_id, trade_flow);
 
 -- ============================================================================
 -- Table: consignments
@@ -74,7 +73,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_workflow_template_maps_unique
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS consignments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    type VARCHAR(20) NOT NULL CHECK (type IN ('IMPORT', 'EXPORT')),
+    trade_flow VARCHAR(20) NOT NULL CHECK (trade_flow IN ('IMPORT', 'EXPORT')),
     items JSONB NOT NULL,
     trader_id VARCHAR(255) NOT NULL,
     state VARCHAR(20) NOT NULL CHECK (state IN ('IN_PROGRESS', 'REQUIRES_REWORK', 'FINISHED')),
@@ -85,7 +84,7 @@ CREATE TABLE IF NOT EXISTS consignments (
 -- Indexes for faster lookups
 CREATE INDEX IF NOT EXISTS idx_consignments_trader_id ON consignments(trader_id);
 CREATE INDEX IF NOT EXISTS idx_consignments_state ON consignments(state);
-CREATE INDEX IF NOT EXISTS idx_consignments_type ON consignments(type);
+CREATE INDEX IF NOT EXISTS idx_consignments_trade_flow ON consignments(trade_flow);
 CREATE INDEX IF NOT EXISTS idx_consignments_created_at ON consignments(created_at DESC);
 
 -- GIN index for JSONB items column for faster JSON queries

@@ -71,6 +71,11 @@ func (m *Manager) registerTasks(tasks []*model.Task) {
 	}
 }
 
+// HandleGetHSCodes handles GET requests for HS codes
+func (m *Manager) HandleGetHSCodes(w http.ResponseWriter, r *http.Request) {
+	m.wr.HandleGetHSCodes(w, r)
+}
+
 // HandleGetWorkflowTemplate handles GET requests for workflow templates
 func (m *Manager) HandleGetWorkflowTemplate(w http.ResponseWriter, r *http.Request) {
 	m.wr.HandleGetWorkflowTemplate(w, r)

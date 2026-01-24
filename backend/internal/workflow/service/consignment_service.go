@@ -19,13 +19,39 @@ func NewConsignmentService(ts *TaskService, db *gorm.DB) *ConsignmentService {
 	return &ConsignmentService{ts: ts, db: db}
 }
 
-// GetWorkFlowTemplate retrieves a workflow template based on HS code and consignment type
-func (s *ConsignmentService) GetWorkFlowTemplate(ctx context.Context, hscode string, consignmentType model.ConsignmentType) (*model.WorkflowTemplate, error) {
-	if hscode == "" {
-		return nil, fmt.Errorf("HS code cannot be empty")
+// GetAllHSCodes retrieves all HS codes from the database
+func (s *ConsignmentService) GetAllHSCodes(ctx context.Context, filter model.HSCodeFilter) ([]model.HSCode, error) {
+	// TODO: Implement Query Filter
+	var hsCodes []model.HSCode
+	result := s.db.WithContext(ctx).Find(&hsCodes)
+	if result.Error != nil {
+		return nil, fmt.Errorf("failed to retrieve HS codes: %w", result.Error)
 	}
-	if consignmentType == "" {
-		return nil, fmt.Errorf("consignment type cannot be empty")
+	return hsCodes, nil
+}
+
+// GetWorkFlowTemplate retrieves a workflow template based on HS code and consignment type
+func (s *ConsignmentService) GetWorkFlowTemplate(ctx context.Context, hsCode *string, hsCodeID *uuid.UUID, tradeFlow model.TradeFlow) (*model.WorkflowTemplate, error) {
+	if hsCode == nil && hsCodeID == nil {
+		return nil, fmt.Errorf("either hscode or hscodeID must be provided")
+	}
+
+	if hsCodeID != nil {
+		// Query by HS code ID
+		var workflowTemplate model.WorkflowTemplate
+		err := s.db.WithContext(ctx).
+			Joins("JOIN workflow_template_maps ON workflow_templates.id = workflow_template_maps.workflow_template_id").
+			Where("workflow_template_maps.hs_code_id = ? AND workflow_template_maps.trade_flow = ?", *hsCodeID, tradeFlow).
+			First(&workflowTemplate).Error
+
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, fmt.Errorf("workflow template not found for HS code ID %s and consignment type %s", *hsCodeID, tradeFlow)
+			}
+			return nil, fmt.Errorf("failed to retrieve workflow template: %w", err)
+		}
+
+		return &workflowTemplate, nil
 	}
 
 	// SELECT workflow_templates.* FROM workflow_templates
@@ -36,12 +62,12 @@ func (s *ConsignmentService) GetWorkFlowTemplate(ctx context.Context, hscode str
 	err := s.db.WithContext(ctx).
 		Joins("JOIN workflow_template_maps ON workflow_templates.id = workflow_template_maps.workflow_template_id").
 		Joins("JOIN hs_codes ON hs_codes.id = workflow_template_maps.hs_code_id").
-		Where("hs_codes.code = ? AND workflow_template_maps.type = ?", hscode, consignmentType).
+		Where("hs_codes.hs_code = ? AND workflow_template_maps.trade_flow = ?", *hsCode, tradeFlow).
 		First(&workflowTemplate).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("workflow template not found for HS code %s and consignment type %s", hscode, consignmentType)
+			return nil, fmt.Errorf("workflow template not found for HS code %s and consignment type %s", *hsCode, tradeFlow)
 		}
 		return nil, fmt.Errorf("failed to retrieve workflow template: %w", err)
 	}
@@ -79,17 +105,17 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 				return fmt.Errorf("invalid workflow template ID for item %d: %w", i, err)
 			}
 			items[i] = model.Item{
-				HSCode:             itemDTO.HSCode,
+				HSCodeID:           itemDTO.HSCodeID,
 				WorkflowTemplateID: workflowTemplateID,
 				Tasks:              []uuid.UUID{},
 			}
 		}
 
 		consignment = &model.Consignment{
-			Type:     createReq.Type,
-			Items:    items,
-			TraderID: createReq.TraderID,
-			State:    model.ConsignmentStateInProgress,
+			TradeFlow: createReq.TradeFlow,
+			Items:     items,
+			TraderID:  createReq.TraderID,
+			State:     model.ConsignmentStateInProgress,
 		}
 
 		// Save the consignment to generate an ID
@@ -105,7 +131,7 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 			var workflowTemplate model.WorkflowTemplate
 			if err := tx.First(&workflowTemplate, "id = ?", item.WorkflowTemplateID).Error; err != nil {
 				if errors.Is(err, gorm.ErrRecordNotFound) {
-					return fmt.Errorf("workflow template %s not found for item with HS code %s", item.WorkflowTemplateID, item.HSCode)
+					return fmt.Errorf("workflow template %s not found for item with HS code %s", item.WorkflowTemplateID, item.HSCodeID)
 				}
 				return fmt.Errorf("failed to query workflow template: %w", err)
 			}
