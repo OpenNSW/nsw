@@ -28,13 +28,22 @@ func (s *ConsignmentService) GetWorkFlowTemplate(ctx context.Context, hscode str
 		return nil, fmt.Errorf("consignment type cannot be empty")
 	}
 
+	// SELECT workflow_templates.* FROM workflow_templates
+	// JOIN workflow_template_maps ON workflow_templates.id = workflow_template_maps.workflow_template_id
+	// JOIN hs_codes ON hs_codes.id = workflow_template_maps.hs_code_id
+	// WHERE hs_codes.code = ? AND workflow_template_maps.type = ?
 	var workflowTemplate model.WorkflowTemplate
-	result := s.db.WithContext(ctx).Where("hscode = ? AND consignment_type = ?", hscode, consignmentType).First(&workflowTemplate)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+	err := s.db.WithContext(ctx).
+		Joins("JOIN workflow_template_maps ON workflow_templates.id = workflow_template_maps.workflow_template_id").
+		Joins("JOIN hs_codes ON hs_codes.id = workflow_template_maps.hs_code_id").
+		Where("hs_codes.code = ? AND workflow_template_maps.type = ?", hscode, consignmentType).
+		First(&workflowTemplate).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("workflow template not found for HS code %s and consignment type %s", hscode, consignmentType)
 		}
-		return nil, fmt.Errorf("failed to retrieve workflow template: %w", result.Error)
+		return nil, fmt.Errorf("failed to retrieve workflow template: %w", err)
 	}
 
 	return &workflowTemplate, nil
