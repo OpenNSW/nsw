@@ -12,7 +12,7 @@ interface NavItem {
   icon: ReactNode
 }
 
-const navStructure: NavItem[] = [
+const navStructure: NavItemOrGroup[] = [
   { name: 'Dashboard', path: '/', icon: <DashboardIcon className="w-5 h-5" /> },
   { name: 'Consignments', path: '/consignments', icon: <ArchiveIcon className="w-5 h-5" /> },
 ]

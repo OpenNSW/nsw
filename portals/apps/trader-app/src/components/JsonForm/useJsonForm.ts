@@ -35,7 +35,7 @@ function getInitialValues(schema: JsonSchema, data?: FormValues): FormValues {
             break;
           case 'number':
           case 'integer':
-            values[name] = '';
+            values[name] = undefined;
             break;
           default:
             values[name] = '';
