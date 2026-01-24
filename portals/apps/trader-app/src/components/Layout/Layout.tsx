@@ -26,8 +26,8 @@ export function Layout() {
 
       {/* Main Content Area */}
       <main
-        style={{ marginLeft: `${sidebarWidth}px` }}
-        className="flex-1 transition-all duration-300 mt-16"
+        style={{ marginLeft: `${sidebarWidth}px`, width: `calc(100% - ${sidebarWidth}px)` }}
+        className="min-h-[calc(100vh-64px)] transition-all duration-300 mt-16"
       >
           <Outlet />
       </main>
