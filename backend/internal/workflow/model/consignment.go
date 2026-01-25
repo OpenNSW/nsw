@@ -45,6 +45,6 @@ type ConsignmentStep struct {
 
 // Item represents an individual item within a consignment.
 type Item struct {
-	HSCodeID string            `json:"hsCodeID"` // HS Code ID of the item
+	HSCodeID uuid.UUID         `json:"hsCodeID"` // HS Code ID of the item
 	Steps    []ConsignmentStep `json:"steps"`    // List of steps associated with this item
 }
