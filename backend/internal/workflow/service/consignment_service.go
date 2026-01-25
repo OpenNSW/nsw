@@ -58,7 +58,7 @@ func (s *ConsignmentService) GetAllHSCodes(ctx context.Context, filter model.HSC
 
 	// Prepare the result
 	hsCodeListResult := &model.HSCodeListResult{
-		TotalCount: int(totalCount),
+		TotalCount: totalCount,
 		HSCodes:    hsCodes,
 		Offset:     0,
 		Limit:      len(hsCodes),
