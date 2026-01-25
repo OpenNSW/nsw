@@ -1,7 +1,6 @@
-import { apiGet, apiPost, USE_MOCK } from './api'
-import type { Workflow, WorkflowQueryParams } from './types/workflow'
+import { apiGet, USE_MOCK } from './api'
+import type { Workflow, WorkflowTemplate, WorkflowQueryParams } from './types/workflow'
 import { mockWorkflows } from './mocks/workflowData'
-import { findTaskDetails, type TaskDetails } from './mocks/taskData'
 
 export interface WorkflowResponse {
   import: Workflow[]
@@ -22,6 +21,8 @@ function getMockWorkflows(params: WorkflowQueryParams): WorkflowResponse {
   }
 }
 
+const WORKFLOW_API_URL = 'http://localhost:8080/api/workflow-template'
+
 export async function getWorkflowsByHSCode(
   params: WorkflowQueryParams
 ): Promise<WorkflowResponse> {
@@ -31,9 +32,41 @@ export async function getWorkflowsByHSCode(
     return getMockWorkflows(params)
   }
 
-  return apiGet<WorkflowResponse>('/workflows', {
-    hs_code: params.hs_code,
-  })
+  // Fetch import and export workflows in parallel
+  const [importWorkflow, exportWorkflow] = await Promise.all([
+    fetchWorkflowByType(params.hs_code, 'IMPORT'),
+    fetchWorkflowByType(params.hs_code, 'EXPORT'),
+  ])
+
+  return {
+    import: importWorkflow ? [importWorkflow] : [],
+    export: exportWorkflow ? [exportWorkflow] : [],
+  }
+}
+
+async function fetchWorkflowByType(
+  hsCode: string,
+  tradeFlow: 'IMPORT' | 'EXPORT'
+): Promise<Workflow | null> {
+  const url = `${WORKFLOW_API_URL}?hsCode=${encodeURIComponent(hsCode)}&tradeFlow=${tradeFlow}`
+  const response = await fetch(url)
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      return null
+    }
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+
+  const template: WorkflowTemplate = await response.json()
+
+  // Transform WorkflowTemplate to Workflow
+  return {
+    id: template.id,
+    name: template.version,
+    type: tradeFlow.toLowerCase() as 'import' | 'export',
+    steps: template.steps,
+  }
 }
 
 export async function getWorkflowById(id: string): Promise<Workflow | undefined> {
@@ -44,23 +77,4 @@ export async function getWorkflowById(id: string): Promise<Workflow | undefined>
   }
 
   return apiGet<Workflow>(`/workflows/${id}`)
-}
-
-export async function executeTask(
-  consignmentId: string,
-  taskId: string
-): Promise<TaskDetails> {
-  if (USE_MOCK) {
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 500))
-
-    // Find the task details based on taskId
-    const taskDetails = findTaskDetails(taskId)
-    if (!taskDetails) {
-      throw new Error(`Task not found: ${taskId}`)
-    }
-
-    return taskDetails
-  }
-  return apiPost<Record<string, never>, TaskDetails>(`/workflows/${consignmentId}/tasks/${taskId}`, {})
 }

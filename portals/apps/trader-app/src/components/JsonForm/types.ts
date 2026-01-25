@@ -8,7 +8,7 @@ export interface JsonSchema {
 }
 
 export interface JsonSchemaProperty {
-  type?: 'string' | 'number' | 'integer' | 'boolean' | 'array';
+  type?: 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object';
   title?: string;
   description?: string;
   default?: unknown;
@@ -94,7 +94,7 @@ export interface FieldProps {
 // Main component props
 export interface JsonFormProps {
   schema: JsonSchema;
-  uischema: UISchemaElement;
+  uiSchema?: UISchemaElement;
   data?: FormValues;
   onSubmit: (values: FormValues) => void | Promise<void>;
   onSaveDraft?: (values: FormValues) => void | Promise<void>;

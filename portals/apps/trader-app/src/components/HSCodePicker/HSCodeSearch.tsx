@@ -9,30 +9,12 @@ interface HSCodeSearchProps {
   onChange: (hsCode: HSCode | null) => void
 }
 
-function getLevelLabel(level: number): string {
-  switch (level) {
-    case 1:
-      return 'Chapter'
-    case 2:
-      return 'Heading'
-    case 3:
-      return 'Subheading'
-    default:
-      return 'Item'
-  }
-}
-
-function getLevelColor(level: number): 'blue' | 'green' | 'orange' {
-  switch (level) {
-    case 1:
-      return 'blue'
-    case 2:
-      return 'green'
-    case 3:
-      return 'orange'
-    default:
-      return 'blue'
-  }
+function getCategoryColor(category: string): 'blue' | 'green' | 'orange' | 'purple' {
+  const lowerCategory = category.toLowerCase()
+  if (lowerCategory.includes('green tea')) return 'green'
+  if (lowerCategory.includes('black tea')) return 'orange'
+  if (lowerCategory.includes('instant') || lowerCategory.includes('value')) return 'purple'
+  return 'blue'
 }
 
 export function HSCodeSearch({ value, onChange }: HSCodeSearchProps) {
@@ -53,7 +35,7 @@ export function HSCodeSearch({ value, onChange }: HSCodeSearchProps) {
           hs_code: searchQuery,
           limit: 10,
         })
-        setHsCodes(result.data)
+        setHsCodes(result.hsCodes)
       } catch (error) {
         console.error('Failed to fetch HS codes:', error)
       } finally {
@@ -66,7 +48,7 @@ export function HSCodeSearch({ value, onChange }: HSCodeSearchProps) {
   }, [searchQuery])
 
   const handleSelect = (hsCode: HSCode) => {
-    setSearchQuery(`${hsCode.code} - ${hsCode.description}`)
+    setSearchQuery(`${hsCode.hsCode} - ${hsCode.description}`)
     onChange(hsCode)
     setIsFocused(false)
   }
@@ -155,14 +137,14 @@ export function HSCodeSearch({ value, onChange }: HSCodeSearchProps) {
                       <Box style={{ flex: 1, minWidth: 0 }}>
                         <Flex align="center" gap="2" mb="1">
                           <Text size="2" weight="medium">
-                            {hsCode.code}
+                            {hsCode.hsCode}
                           </Text>
                           <Badge
                             size="1"
-                            color={getLevelColor(hsCode.level)}
+                            color={getCategoryColor(hsCode.category)}
                             variant="soft"
                           >
-                            {getLevelLabel(hsCode.level)}
+                            {hsCode.category}
                           </Badge>
                         </Flex>
                         <Text size="1" color="gray" className="line-clamp-2">

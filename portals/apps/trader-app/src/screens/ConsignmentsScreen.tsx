@@ -3,30 +3,26 @@ import { useNavigate } from 'react-router-dom'
 import { Badge, Text, TextField, Spinner, Select, Button, AlertDialog, Box, Flex } from '@radix-ui/themes'
 import { MagnifyingGlassIcon, PlusIcon } from '@radix-ui/react-icons'
 import { HSCodePicker } from '../components/HSCodePicker'
-import {createConsignment, getAllConsignments} from "../services/consignment.ts";
-import type {Workflow} from "../services/types/workflow.ts";
-import type {HSCode} from "../services/types/hsCode.ts";
-import type {Consignment} from "../services/types/consignment.ts";
+import { createConsignment, getAllConsignments } from "../services/consignment.ts"
+import type { Workflow } from "../services/types/workflow.ts"
+import type { HSCode } from "../services/types/hsCode.ts"
+import type { Consignment, ConsignmentState, TradeFlow } from "../services/types/consignment.ts"
 
-function getStatusColor(status: Consignment['status']): 'gray' | 'blue' | 'orange' | 'green' | 'red' {
-  switch (status) {
-    case 'draft':
-      return 'gray'
-    case 'pending':
-      return 'blue'
-    case 'in_progress':
+function getStateColor(state: ConsignmentState): 'orange' | 'green' | 'gray' {
+  switch (state) {
+    case 'IN_PROGRESS':
       return 'orange'
-    case 'completed':
+    case 'COMPLETED':
       return 'green'
-    case 'rejected':
-      return 'red'
+    case 'CANCELLED':
+      return 'gray'
     default:
       return 'gray'
   }
 }
 
-function formatStatus(status: Consignment['status']): string {
-  return status.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+function formatState(state: ConsignmentState): string {
+  return state.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 function formatDate(dateString: string): string {
@@ -42,8 +38,8 @@ export function ConsignmentsScreen() {
   const [consignments, setConsignments] = useState<Consignment[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [typeFilter, setTypeFilter] = useState<string>('all')
+  const [stateFilter, setStateFilter] = useState<string>('all')
+  const [tradeFlowFilter, setTradeFlowFilter] = useState<string>('all')
 
   // New consignment state
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -66,17 +62,16 @@ export function ConsignmentsScreen() {
   }, [])
 
   const filteredConsignments = consignments.filter((c) => {
+    const hsCodeId = c.items[0]?.hsCodeID || ''
     const matchesSearch =
       searchQuery === '' ||
       c.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.hsCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.hsCodeDescription.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.workflowName.toLowerCase().includes(searchQuery.toLowerCase())
+      hsCodeId.toLowerCase().includes(searchQuery.toLowerCase())
 
-    const matchesStatus = statusFilter === 'all' || c.status === statusFilter
-    const matchesType = typeFilter === 'all' || c.workflowType === typeFilter
+    const matchesState = stateFilter === 'all' || c.state === stateFilter
+    const matchesTradeFlow = tradeFlowFilter === 'all' || c.tradeFlow === tradeFlowFilter
 
-    return matchesSearch && matchesStatus && matchesType
+    return matchesSearch && matchesState && matchesTradeFlow
   })
 
   const handleSelect = (hsCode: HSCode, workflow: Workflow) => {
@@ -93,14 +88,18 @@ export function ConsignmentsScreen() {
 
     try {
       const response = await createConsignment({
-        hsCode: hsCode.code,
-        hsCodeDescription: hsCode.description,
-        workflowId: workflow.id,
-        workflowName: workflow.name,
-        workflowType: workflow.type,
+        tradeFlow: workflow.type.toUpperCase() as TradeFlow,
+        traderId: 'trader-123', // TODO: Get from auth context
+        items: [
+          {
+            hsCodeId: hsCode.id,
+            metadata: {},
+            workflowTemplateId: workflow.id,
+          },
+        ],
       })
 
-      navigate(`/consignments/${response.consignmentId}`)
+      navigate(`/consignments/${response.id}`)
     } catch (error) {
       console.error('Failed to create consignment:', error)
     } finally {
@@ -142,7 +141,7 @@ export function ConsignmentsScreen() {
             <div className="flex-1">
               <TextField.Root
                 size="2"
-                placeholder="Search by ID, HS Code, or workflow..."
+                placeholder="Search by ID or HS Code..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               >
@@ -152,23 +151,21 @@ export function ConsignmentsScreen() {
               </TextField.Root>
             </div>
             <div className="flex gap-3">
-              <Select.Root value={statusFilter} onValueChange={setStatusFilter}>
-                <Select.Trigger placeholder="Status" />
+              <Select.Root value={stateFilter} onValueChange={setStateFilter}>
+                <Select.Trigger placeholder="State" />
                 <Select.Content>
-                  <Select.Item value="all">All Statuses</Select.Item>
-                  <Select.Item value="draft">Draft</Select.Item>
-                  <Select.Item value="pending">Pending</Select.Item>
-                  <Select.Item value="in_progress">In Progress</Select.Item>
-                  <Select.Item value="completed">Completed</Select.Item>
-                  <Select.Item value="rejected">Rejected</Select.Item>
+                  <Select.Item value="all">All States</Select.Item>
+                  <Select.Item value="IN_PROGRESS">In Progress</Select.Item>
+                  <Select.Item value="COMPLETED">Completed</Select.Item>
+                  <Select.Item value="CANCELLED">Cancelled</Select.Item>
                 </Select.Content>
               </Select.Root>
-              <Select.Root value={typeFilter} onValueChange={setTypeFilter}>
-                <Select.Trigger placeholder="Type" />
+              <Select.Root value={tradeFlowFilter} onValueChange={setTradeFlowFilter}>
+                <Select.Trigger placeholder="Trade Flow" />
                 <Select.Content>
                   <Select.Item value="all">All Types</Select.Item>
-                  <Select.Item value="import">Import</Select.Item>
-                  <Select.Item value="export">Export</Select.Item>
+                  <Select.Item value="IMPORT">Import</Select.Item>
+                  <Select.Item value="EXPORT">Export</Select.Item>
                 </Select.Content>
               </Select.Root>
             </div>
@@ -195,13 +192,13 @@ export function ConsignmentsScreen() {
                     HS Code
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Workflow
+                    Trade Flow
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
+                    State
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
+                    Steps
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Created
@@ -209,53 +206,54 @@ export function ConsignmentsScreen() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredConsignments.map((consignment) => (
-                  <tr
-                    key={consignment.id}
-                    onClick={() => navigate(`/consignments/${consignment.id}`)}
-                    className="hover:bg-gray-50 cursor-pointer transition-colors"
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Text size="2" weight="medium" className="text-blue-600">
-                        {consignment.id}
-                      </Text>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div>
+                {filteredConsignments.map((consignment) => {
+                  const item = consignment.items[0]
+                  const completedSteps = item?.steps.filter(s => s.status === 'COMPLETED').length || 0
+                  const totalSteps = item?.steps.length || 0
+
+                  return (
+                    <tr
+                      key={consignment.id}
+                      onClick={() => navigate(`/consignments/${consignment.id}`)}
+                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Text size="2" weight="medium" className="text-blue-600">
+                          {consignment.id.slice(0, 8)}...
+                        </Text>
+                      </td>
+                      <td className="px-6 py-4">
                         <Text size="2" weight="medium">
-                          {consignment.hsCode}
+                          {item?.hsCodeID || '-'}
                         </Text>
-                        <Text size="1" color="gray" className="block truncate max-w-xs">
-                          {consignment.hsCodeDescription}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Badge
+                          size="1"
+                          color={consignment.tradeFlow === 'IMPORT' ? 'blue' : 'green'}
+                          variant="soft"
+                        >
+                          {consignment.tradeFlow}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Badge size="1" color={getStateColor(consignment.state)}>
+                          {formatState(consignment.state)}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Text size="2" color="gray">
+                          {completedSteps}/{totalSteps}
                         </Text>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <Text size="2" className="truncate max-w-xs block">
-                        {consignment.workflowName}
-                      </Text>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge
-                        size="1"
-                        color={consignment.workflowType === 'import' ? 'blue' : 'green'}
-                        variant="soft"
-                      >
-                        {consignment.workflowType.charAt(0).toUpperCase() + consignment.workflowType.slice(1)}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge size="1" color={getStatusColor(consignment.status)}>
-                        {formatStatus(consignment.status)}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Text size="2" color="gray">
-                        {formatDate(consignment.createdAt)}
-                      </Text>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Text size="2" color="gray">
+                          {formatDate(consignment.createdAt)}
+                        </Text>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -284,7 +282,7 @@ export function ConsignmentsScreen() {
               <Flex direction="column" gap="2">
                 <Flex justify="between">
                   <Text size="2" color="gray">HS Code:</Text>
-                  <Text size="2" weight="medium">{pendingSelection.hsCode.code}</Text>
+                  <Text size="2" weight="medium">{pendingSelection.hsCode.hsCode}</Text>
                 </Flex>
                 <Flex justify="between">
                   <Text size="2" color="gray">Description:</Text>
@@ -297,8 +295,8 @@ export function ConsignmentsScreen() {
                   <Text size="2" weight="medium">{pendingSelection.workflow.name}</Text>
                 </Flex>
                 <Flex justify="between">
-                  <Text size="2" color="gray">Type:</Text>
-                  <Text size="2" weight="medium" style={{ textTransform: 'capitalize' }}>
+                  <Text size="2" color="gray">Trade Flow:</Text>
+                  <Text size="2" weight="medium" style={{ textTransform: 'uppercase' }}>
                     {pendingSelection.workflow.type}
                   </Text>
                 </Flex>

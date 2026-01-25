@@ -1,38 +1,29 @@
-import { apiGet, USE_MOCK, type PaginatedResponse } from './api'
+import type { HSCodePaginatedResponse } from './api'
 import type { HSCode, HSCodeQueryParams } from './types/hsCode'
-import { mockHSCodes } from './mocks/hsCodeData'
 
-function getMockHSCodes(params: HSCodeQueryParams): PaginatedResponse<HSCode> {
-  const { hs_code, limit = 10, offset = 0 } = params
-
-  let filtered = mockHSCodes
-
-  if (hs_code) {
-    filtered = mockHSCodes.filter((item) => item.code.startsWith(hs_code))
-  }
-
-  const paginated = filtered.slice(offset, offset + limit)
-
-  return {
-    data: paginated,
-    total: filtered.length,
-    limit,
-    offset,
-  }
-}
+const HS_CODES_API_URL = 'http://localhost:8080/api/hscodes'
 
 export async function getHSCodes(
   params: HSCodeQueryParams = {}
-): Promise<PaginatedResponse<HSCode>> {
-  if (USE_MOCK) {
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 300))
-    return getMockHSCodes(params)
+): Promise<HSCodePaginatedResponse<HSCode>> {
+  const searchParams = new URLSearchParams()
+
+  if (params.hs_code) {
+    searchParams.append('hsCodeStartsWith', params.hs_code)
+  }
+  if (params.limit !== undefined) {
+    searchParams.append('limit', String(params.limit))
+  }
+  if (params.offset !== undefined) {
+    searchParams.append('offset', String(params.offset))
   }
 
-  return apiGet<PaginatedResponse<HSCode>>('/hs-codes', {
-    hs_code: params.hs_code,
-    limit: params.limit,
-    offset: params.offset,
-  })
+  const queryString = searchParams.toString()
+  const url = `${HS_CODES_API_URL}${queryString ? `?${queryString}` : ''}`
+
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+  return response.json()
 }

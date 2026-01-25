@@ -133,6 +133,7 @@ function renderElement({
       return renderLabel(element as LabelElement);
 
     default:
+      console.log("Unknown element type:", element);
       return null;
   }
 }
@@ -214,7 +215,7 @@ function renderLabel(label: LabelElement): React.ReactNode {
 
 export function JsonForm({
   schema,
-  uischema,
+  uiSchema,
   data,
   onSubmit,
   onSaveDraft,
@@ -243,8 +244,8 @@ export function JsonForm({
         </h2>
       )}
 
-      {renderElement({
-        element: uischema,
+      {uiSchema && renderElement({
+        element: uiSchema,
         schema,
         values: form.values,
         errors: form.errors,

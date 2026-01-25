@@ -9,17 +9,12 @@ import {
 } from '@xyflow/react'
 import type { Edge, NodeTypes } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import type { WorkflowDefinition, WorkflowStep, WorkflowStepStatus } from '../../services/types/workflow'
+import type { ConsignmentStep } from '../../services/types/consignment'
 import { WorkflowNode } from './WorkflowNode'
 import type { WorkflowNodeType } from './WorkflowNode'
 
-export interface StepStatuses {
-  [stepId: string]: WorkflowStepStatus
-}
-
 interface WorkflowViewerProps {
-  definition: WorkflowDefinition
-  stepStatuses?: StepStatuses
+  steps: ConsignmentStep[]
   className?: string
 }
 
@@ -28,8 +23,8 @@ const nodeTypes: NodeTypes = {
 }
 
 function getNodePosition(
-  step: WorkflowStep,
-  allSteps: WorkflowStep[]
+  step: ConsignmentStep,
+  allSteps: ConsignmentStep[]
 ): { x: number; y: number } {
   // Calculate depth based on dependencies (topological layer)
   const depths = new Map<string, number>()
@@ -37,7 +32,7 @@ function getNodePosition(
   function calculateDepth(stepId: string): number {
     if (depths.has(stepId)) return depths.get(stepId)!
 
-    const s = allSteps.find((st) => st.id === stepId)
+    const s = allSteps.find((st) => st.stepId === stepId)
     if (!s || s.dependsOn.length === 0) {
       depths.set(stepId, 0)
       return 0
@@ -52,15 +47,15 @@ function getNodePosition(
   }
 
   // Calculate depths for all steps
-  allSteps.forEach((s) => calculateDepth(s.id))
+  allSteps.forEach((s) => calculateDepth(s.stepId))
 
-  const depth = depths.get(step.id) || 0
+  const depth = depths.get(step.stepId) || 0
 
   // Group steps by depth to calculate horizontal position
   const stepsAtSameDepth = allSteps.filter(
-    (s) => depths.get(s.id) === depth
+    (s) => depths.get(s.stepId) === depth
   )
-  const indexAtDepth = stepsAtSameDepth.findIndex((s) => s.id === step.id)
+  const indexAtDepth = stepsAtSameDepth.findIndex((s) => s.stepId === step.stepId)
   const totalAtDepth = stepsAtSameDepth.length
 
   // Center nodes vertically within their depth layer (horizontal flow)
@@ -74,50 +69,29 @@ function getNodePosition(
   }
 }
 
-function computeStepStatuses(
-  definition: WorkflowDefinition,
-  providedStatuses?: StepStatuses
-): StepStatuses {
-  // If statuses are provided, use them
-  if (providedStatuses) {
-    return providedStatuses
-  }
-
-  // Default: all steps are PENDING
-  const statuses: StepStatuses = {}
-  definition.steps.forEach((step) => {
-    statuses[step.id] = 'PENDING'
-  })
-  return statuses
-}
-
-function convertToReactFlow(
-  definition: WorkflowDefinition,
-  stepStatuses: StepStatuses
-): {
+function convertToReactFlow(steps: ConsignmentStep[]): {
   nodes: WorkflowNodeType[]
   edges: Edge[]
 } {
-  const nodes: WorkflowNodeType[] = definition.steps.map((step) => ({
-    id: step.id,
+  const nodes: WorkflowNodeType[] = steps.map((step) => ({
+    id: step.stepId,
     type: 'workflowStep' as const,
-    position: getNodePosition(step, definition.steps),
+    position: getNodePosition(step, steps),
     data: {
       step,
-      status: stepStatuses[step.id] || 'PENDING',
     },
   }))
 
   const edges: Edge[] = []
-  definition.steps.forEach((step) => {
+  steps.forEach((step) => {
     step.dependsOn.forEach((depId) => {
-      const sourceStatus = stepStatuses[depId] || 'PENDING'
-      const isCompleted = sourceStatus === 'COMPLETED'
+      const sourceStep = steps.find(s => s.stepId === depId)
+      const isCompleted = sourceStep?.status === 'COMPLETED'
 
       edges.push({
-        id: `${depId}-${step.id}`,
+        id: `${depId}-${step.stepId}`,
         source: depId,
-        target: step.id,
+        target: step.stepId,
         markerEnd: {
           type: MarkerType.ArrowClosed,
           width: 20,
@@ -135,17 +109,12 @@ function convertToReactFlow(
   return { nodes, edges }
 }
 
-export function WorkflowViewer({ definition, stepStatuses: providedStatuses, className = '' }: WorkflowViewerProps) {
+export function WorkflowViewer({ steps, className = '' }: WorkflowViewerProps) {
   const [isSpacePressed, setIsSpacePressed] = useState(false)
 
-  const stepStatuses = useMemo(
-    () => computeStepStatuses(definition, providedStatuses),
-    [definition, providedStatuses]
-  )
-
   const { nodes: initialNodes, edges: initialEdges } = useMemo(
-    () => convertToReactFlow(definition, stepStatuses),
-    [definition, stepStatuses]
+    () => convertToReactFlow(steps),
+    [steps]
   )
 
   const [nodes, , onNodesChange] = useNodesState(initialNodes)
@@ -178,7 +147,7 @@ export function WorkflowViewer({ definition, stepStatuses: providedStatuses, cla
   }, [])
 
   return (
-    <div className={`w-full h-125 bg-slate-50 rounded-lg border border-gray-200 ${className}`}>
+    <div className={`w-full h-80 bg-slate-50 rounded-lg border border-gray-200 ${className}`}>
       <ReactFlow
         nodes={nodes}
         edges={edges}

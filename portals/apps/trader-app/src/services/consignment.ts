@@ -1,74 +1,76 @@
-import { apiPost, apiGet, USE_MOCK } from './api'
+import { USE_MOCK } from './api'
 import type {
   Consignment,
   CreateConsignmentRequest,
   CreateConsignmentResponse,
+  ConsignmentStep,
 } from './types/consignment'
+
+const CONSIGNMENT_API_URL = 'http://localhost:8080/api/consignments'
 
 // In-memory store for mock consignments
 const mockConsignments: Map<string, Consignment> = new Map()
+
+// Sample mock steps
+const mockSteps: ConsignmentStep[] = [
+  {
+    stepId: 'cusdec_entry',
+    type: 'TRADER_FORM',
+    taskId: 'task-001',
+    status: 'COMPLETED',
+    dependsOn: [],
+  },
+  {
+    stepId: 'phytosanitary_cert',
+    type: 'OGA_FORM',
+    taskId: 'task-002',
+    status: 'READY',
+    dependsOn: ['cusdec_entry'],
+  },
+  {
+    stepId: 'tea_blend_sheet',
+    type: 'OGA_FORM',
+    taskId: 'task-003',
+    status: 'READY',
+    dependsOn: ['cusdec_entry'],
+  },
+  {
+    stepId: 'final_customs_clearance',
+    type: 'WAIT_FOR_EVENT',
+    taskId: 'task-004',
+    status: 'LOCKED',
+    dependsOn: ['phytosanitary_cert', 'tea_blend_sheet'],
+  },
+]
 
 // Initialize with some sample data
 const sampleConsignments: Consignment[] = [
   {
     id: 'CON-001',
-    hsCode: '09021011',
-    hsCodeDescription: 'Certified by Sri Lanka Tea Board as wholly of Sri Lanka origin, flavoured (≤4g packing)',
-    workflowId: 'wf-09021011-export',
-    workflowName: 'Tea Export Permit - Sri Lanka Certified Flavoured',
-    workflowType: 'export',
-    status: 'completed',
-    currentStepId: 'EndEvent_1',
     createdAt: '2024-01-15T10:30:00Z',
     updatedAt: '2024-01-18T14:20:00Z',
+    tradeFlow: 'EXPORT',
+    traderId: 'trader-123',
+    state: 'COMPLETED',
+    items: [{ hsCodeID: '09021011', steps: mockSteps }],
   },
   {
     id: 'CON-002',
-    hsCode: '09023011',
-    hsCodeDescription: 'Certified by Sri Lanka Tea Board as wholly of Sri Lanka origin, flavoured (≤4g packing)',
-    workflowId: 'wf-09023011-import',
-    workflowName: 'Tea Import Permit - Sri Lanka Certified Flavoured',
-    workflowType: 'import',
-    status: 'in_progress',
-    currentStepId: 'Task_2',
     createdAt: '2024-01-16T09:15:00Z',
     updatedAt: '2024-01-17T11:45:00Z',
+    tradeFlow: 'IMPORT',
+    traderId: 'trader-123',
+    state: 'IN_PROGRESS',
+    items: [{ hsCodeID: '09023011', steps: mockSteps }],
   },
   {
     id: 'CON-003',
-    hsCode: '09022019',
-    hsCodeDescription: 'Other (3kg-5kg packing)',
-    workflowId: 'wf-09022019-export',
-    workflowName: 'Tea Export Permit - Other',
-    workflowType: 'export',
-    status: 'pending',
-    currentStepId: 'Task_1',
     createdAt: '2024-01-17T14:00:00Z',
     updatedAt: '2024-01-17T14:00:00Z',
-  },
-  {
-    id: 'CON-004',
-    hsCode: '09024091',
-    hsCodeDescription: 'Certified by Sri Lanka Tea Board as wholly of Sri Lanka origin, flavoured (bulk)',
-    workflowId: 'wf-09024091-import',
-    workflowName: 'Tea Import Permit - Sri Lanka Certified Flavoured',
-    workflowType: 'import',
-    status: 'rejected',
-    currentStepId: 'EndEvent_2',
-    createdAt: '2024-01-10T08:30:00Z',
-    updatedAt: '2024-01-12T16:00:00Z',
-  },
-  {
-    id: 'CON-005',
-    hsCode: '09021031',
-    hsCodeDescription: 'Certified by Sri Lanka Tea Board as wholly of Sri Lanka origin, flavoured (1kg-3kg packing)',
-    workflowId: 'wf-09021031-export',
-    workflowName: 'Tea Export Permit - Sri Lanka Certified Flavoured',
-    workflowType: 'export',
-    status: 'completed',
-    currentStepId: 'EndEvent_1',
-    createdAt: '2024-01-05T11:20:00Z',
-    updatedAt: '2024-01-08T09:30:00Z',
+    tradeFlow: 'EXPORT',
+    traderId: 'trader-123',
+    state: 'IN_PROGRESS',
+    items: [{ hsCodeID: '09022019', steps: mockSteps }],
   },
 ]
 
@@ -76,9 +78,7 @@ const sampleConsignments: Consignment[] = [
 sampleConsignments.forEach((c) => mockConsignments.set(c.id, c))
 
 function generateConsignmentId(): string {
-  const timestamp = Date.now().toString(36)
-  const random = Math.random().toString(36).substring(2, 8)
-  return `CON-${timestamp}-${random}`.toUpperCase()
+  return crypto.randomUUID()
 }
 
 async function mockCreateConsignment(
@@ -89,20 +89,24 @@ async function mockCreateConsignment(
 
   const consignment: Consignment = {
     id: consignmentId,
-    hsCode: request.hsCode,
-    hsCodeDescription: request.hsCodeDescription,
-    workflowId: request.workflowId,
-    workflowName: request.workflowName,
-    workflowType: request.workflowType,
-    status: 'pending',
-    currentStepId: 'StartEvent_1',
     createdAt: now,
     updatedAt: now,
+    tradeFlow: request.tradeFlow,
+    traderId: request.traderId,
+    state: 'IN_PROGRESS',
+    items: request.items.map((item) => ({
+      hsCodeID: item.hsCodeId,
+      steps: mockSteps.map((step) => ({
+        ...step,
+        taskId: crypto.randomUUID(),
+        status: step.dependsOn.length === 0 ? 'READY' : 'LOCKED',
+      })),
+    })),
   }
 
   mockConsignments.set(consignmentId, consignment)
 
-  return { consignmentId }
+  return consignment
 }
 
 async function mockGetConsignment(id: string): Promise<Consignment | null> {
@@ -118,10 +122,19 @@ export async function createConsignment(
     return mockCreateConsignment(request)
   }
 
-  return apiPost<CreateConsignmentRequest, CreateConsignmentResponse>(
-    '/consignments',
-    request
-  )
+  const response = await fetch(CONSIGNMENT_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+  })
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+
+  return response.json()
 }
 
 export async function getConsignment(id: string): Promise<Consignment | null> {
@@ -131,7 +144,16 @@ export async function getConsignment(id: string): Promise<Consignment | null> {
     return mockGetConsignment(id)
   }
 
-  return apiGet<Consignment>(`/consignments/${id}`)
+  const response = await fetch(`${CONSIGNMENT_API_URL}/${id}`)
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      return null
+    }
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+
+  return response.json()
 }
 
 export async function getAllConsignments(): Promise<Consignment[]> {
@@ -144,5 +166,11 @@ export async function getAllConsignments(): Promise<Consignment[]> {
     )
   }
 
-  return apiGet<Consignment[]>('/consignments')
+  const response = await fetch(CONSIGNMENT_API_URL)
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+
+  return response.json()
 }

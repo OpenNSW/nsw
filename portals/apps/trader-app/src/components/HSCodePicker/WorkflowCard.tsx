@@ -21,7 +21,7 @@ export function WorkflowCard({ workflow, selected, onSelect }: WorkflowCardProps
         {workflow.name}
       </Text>
       <Text as="div" size="1" color="gray" mt="1">
-        {workflow.description}
+        {workflow.steps.length} steps
       </Text>
     </Card>
   )

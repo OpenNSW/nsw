@@ -8,6 +8,13 @@ export interface PaginatedResponse<T> {
   offset: number
 }
 
+export interface HSCodePaginatedResponse<T> {
+  hsCodes: T[]
+  totalCount: number
+  limit: number
+  offset: number
+}
+
 export interface QueryParams {
   [key:string]: string | number | undefined
 }

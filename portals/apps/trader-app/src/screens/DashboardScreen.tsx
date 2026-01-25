@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, AlertDialog, Box, Flex, Text } from '@radix-ui/themes'
 import { HSCodePicker } from '../components/HSCodePicker'
-import type {HSCode} from "../services/types/hsCode.ts";
-import type {Workflow} from "../services/types/workflow.ts";
-import type {Consignment} from "../services/types/consignment.ts";
-import {createConsignment, getAllConsignments} from "../services/consignment.ts";
+import type { HSCode } from "../services/types/hsCode.ts"
+import type { Workflow } from "../services/types/workflow.ts"
+import type { Consignment, TradeFlow } from "../services/types/consignment.ts"
+import { createConsignment, getAllConsignments } from "../services/consignment.ts"
 
 export function DashboardScreen() {
   const navigate = useNavigate()
@@ -46,15 +46,19 @@ export function DashboardScreen() {
 
     try {
       const response = await createConsignment({
-        hsCode: hsCode.code,
-        hsCodeDescription: hsCode.description,
-        workflowId: workflow.id,
-        workflowName: workflow.name,
-        workflowType: workflow.type,
+        tradeFlow: workflow.type.toUpperCase() as TradeFlow,
+        traderId: 'trader-123', // TODO: Get from auth context
+        items: [
+          {
+            hsCodeId: hsCode.id,
+            metadata: {},
+            workflowTemplateId: workflow.id,
+          },
+        ],
       })
 
       // Navigate to the consignment detail page
-      navigate(`/consignments/${response.consignmentId}`)
+      navigate(`/consignments/${response.id}`)
     } catch (error) {
       console.error('Failed to create consignment:', error)
       // Could show an error toast here
@@ -64,8 +68,8 @@ export function DashboardScreen() {
   }
 
   const totalConsignments = consignments.length
-  const inProgressConsignments = consignments.filter(c => c.status === 'in_progress').length
-  const completedConsignments = consignments.filter(c => c.status === 'completed').length
+  const inProgressConsignments = consignments.filter(c => c.state === 'IN_PROGRESS').length
+  const completedConsignments = consignments.filter(c => c.state === 'COMPLETED').length
 
   return (
     <div className="p-6">
@@ -112,7 +116,7 @@ export function DashboardScreen() {
               <Flex direction="column" gap="2">
                 <Flex justify="between">
                   <Text size="2" color="gray">HS Code:</Text>
-                  <Text size="2" weight="medium">{pendingSelection.hsCode.code}</Text>
+                  <Text size="2" weight="medium">{pendingSelection.hsCode.hsCode}</Text>
                 </Flex>
                 <Flex justify="between">
                   <Text size="2" color="gray">Description:</Text>
@@ -125,8 +129,8 @@ export function DashboardScreen() {
                   <Text size="2" weight="medium">{pendingSelection.workflow.name}</Text>
                 </Flex>
                 <Flex justify="between">
-                  <Text size="2" color="gray">Type:</Text>
-                  <Text size="2" weight="medium" style={{ textTransform: 'capitalize' }}>
+                  <Text size="2" color="gray">Trade Flow:</Text>
+                  <Text size="2" weight="medium" style={{ textTransform: 'uppercase' }}>
                     {pendingSelection.workflow.type}
                   </Text>
                 </Flex>

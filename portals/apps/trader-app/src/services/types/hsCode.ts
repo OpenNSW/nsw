@@ -1,9 +1,10 @@
 export interface HSCode {
   id: string
-  code: string
+  hsCode: string
   description: string
-  parentCode: string | null
-  level: number
+  category: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface HSCodeQueryParams {
