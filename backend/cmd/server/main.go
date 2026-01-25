@@ -13,6 +13,7 @@ import (
 
 	"github.com/OpenNSW/nsw/internal/config"
 	"github.com/OpenNSW/nsw/internal/database"
+	"github.com/OpenNSW/nsw/internal/middleware"
 	"github.com/OpenNSW/nsw/internal/task"
 	"github.com/OpenNSW/nsw/internal/workflow"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
@@ -32,7 +33,18 @@ func main() {
 		"db_port", cfg.Database.Port,
 		"db_name", cfg.Database.Name,
 		"db_sslmode", cfg.Database.SSLMode,
-		"server_port", cfg.Server.Port,
+	)
+
+	slog.Info("CORS configuration",
+		"allowed_origins", cfg.CORS.AllowedOrigins,
+		"allowed_methods", cfg.CORS.AllowedMethods,
+		"allowed_headers", cfg.CORS.AllowedHeaders,
+		"allow_credentials", cfg.CORS.AllowCredentials,
+		"max_age", cfg.CORS.MaxAge,
+	)
+
+	slog.Info("server configuration",
+		"port", cfg.Server.Port,
 	)
 
 	// Initialize database connection
@@ -82,9 +94,13 @@ func main() {
 
 	// Set up graceful shutdown
 	serverAddr := fmt.Sprintf(":%d", cfg.Server.Port)
+
+	// Wrap handler with CORS middleware
+	handler := middleware.CORS(&cfg.CORS)(mux)
+
 	server := &http.Server{
 		Addr:    serverAddr,
-		Handler: mux,
+		Handler: handler,
 	}
 
 	// Channel to listen for interrupt signals
