@@ -1,6 +1,8 @@
 -- Migration: 001_initial_schema.sql
 -- Description: Create initial database schema for NSW workflow management system
 -- Created: 2026-01-24
+-- Updated: 2026-01-25
+
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- ============================================================================

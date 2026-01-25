@@ -38,9 +38,9 @@ func New(cfg *config.DatabaseConfig) (*gorm.DB, error) {
 	}
 
 	// Configure connection pool
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetMaxOpenConns(100)
-	sqlDB.SetConnMaxLifetime(time.Hour)
+	sqlDB.SetMaxIdleConns(cfg.MaxIdleConns)
+	sqlDB.SetMaxOpenConns(cfg.MaxOpenConns)
+	sqlDB.SetConnMaxLifetime(time.Duration(cfg.MaxConnLifetimeSeconds) * time.Second)
 
 	// Test the connection
 	if err := sqlDB.Ping(); err != nil {

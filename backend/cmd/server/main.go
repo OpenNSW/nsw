@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"log/slog"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/OpenNSW/nsw/internal/config"
 	"github.com/OpenNSW/nsw/internal/database"
@@ -74,8 +76,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/tasks", tm.HandleExecuteTask)
 	mux.HandleFunc("GET /api/hscodes", wm.HandleGetHSCodes)
-	mux.HandleFunc("GET /api/hscodes/", wm.HandleGetHSCodes)
-	mux.HandleFunc("GET /api/workflow-template", wm.HandleGetWorkflowTemplate)
+	mux.HandleFunc("GET /api/workflows/templates", wm.HandleGetWorkflowTemplate)
 	mux.HandleFunc("POST /api/consignments", wm.HandleCreateConsignment)
 	mux.HandleFunc("GET /api/consignments/{consignmentID}", wm.HandleGetConsignment)
 
@@ -94,7 +95,8 @@ func main() {
 	go func() {
 		slog.Info("starting server", "port", cfg.Server.Port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("failed to start server: %v", err)
+			slog.Error("failed to start server", "error", err)
+			quit <- syscall.SIGTERM
 		}
 	}()
 
@@ -102,6 +104,20 @@ func main() {
 	<-quit
 	slog.Info("shutting down server...")
 
-	// Graceful shutdown would go here if needed
+	// Create a context with timeout for graceful shutdown
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Attempt graceful shutdown of HTTP server
+	if err := server.Shutdown(ctx); err != nil {
+		slog.Error("server forced to shutdown", "error", err)
+	} else {
+		slog.Info("server gracefully stopped")
+	}
+
+	// Stop the workflow manager's task update listener
+	slog.Info("stopping task update listener...")
+	wm.StopTaskUpdateListener()
+
 	slog.Info("server stopped")
 }

@@ -17,16 +17,22 @@ type Manager struct {
 	cs             *service.ConsignmentService
 	wr             *router.WorkflowRouter
 	taskUpdateChan chan model.TaskCompletionNotification
+	ctx            context.Context
+	cancel         context.CancelFunc
 }
 
 func NewManager(tm task.TaskManager, taskUpdateChan chan model.TaskCompletionNotification, db *gorm.DB) *Manager {
 	ts := service.NewTaskService(db)
 	cs := service.NewConsignmentService(ts, db)
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	m := &Manager{
 		tm:             tm,
 		cs:             cs,
 		taskUpdateChan: taskUpdateChan,
+		ctx:            ctx,
+		cancel:         cancel,
 	}
 
 	// Create router with callback to register tasks
@@ -38,18 +44,31 @@ func NewManager(tm task.TaskManager, taskUpdateChan chan model.TaskCompletionNot
 // StartTaskUpdateListener starts a goroutine that listens for task completion notifications
 func (m *Manager) StartTaskUpdateListener() {
 	go func() {
-		for update := range m.taskUpdateChan {
-			newReadyTasks, _ := m.cs.UpdateTaskStatusAndPropagateChanges(
-				context.Background(),
-				update.TaskID,
-				update.State,
-			)
-			// Register newly ready tasks with Task Manager
-			if len(newReadyTasks) > 0 {
-				m.registerTasks(newReadyTasks)
+		for {
+			select {
+			case <-m.ctx.Done():
+				slog.Info("task update listener stopped")
+				return
+			case update := <-m.taskUpdateChan:
+				newReadyTasks, _ := m.cs.UpdateTaskStatusAndPropagateChanges(
+					context.Background(),
+					update.TaskID,
+					update.State,
+				)
+				// Register newly ready tasks with Task Manager
+				if len(newReadyTasks) > 0 {
+					m.registerTasks(newReadyTasks)
+				}
 			}
 		}
 	}()
+}
+
+// StopTaskUpdateListener stops the task update listener by canceling the context
+func (m *Manager) StopTaskUpdateListener() {
+	if m.cancel != nil {
+		m.cancel()
+	}
 }
 
 // registerTasks registers multiple tasks with Task Manager
