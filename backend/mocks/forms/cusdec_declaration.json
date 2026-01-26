@@ -1,6 +1,6 @@
 {
   "title": "CUSDEC I & II Declaration Form",
-  "jsonSchema": {
+  "schema": {
     "type": "object",
     "properties": {
       "header": {
@@ -274,5 +274,193 @@
         "id_number": null
       }
     }
+  },
+  "uiSchema": {
+    "type": "Categorization",
+    "elements": [
+      {
+        "type": "Category",
+        "label": "1. General & Parties",
+        "elements": [
+          {
+            "type": "Group",
+            "label": "Header",
+            "elements": [
+              {
+                "type": "HorizontalLayout",
+                "elements": [
+                  { "type": "Control", "scope": "#/properties/header/properties/declarationType" },
+                  { "type": "Control", "scope": "#/properties/header/properties/customsReference" },
+                  { "type": "Control", "scope": "#/properties/header/properties/date" }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "Group",
+            "label": "Exporters & Consignees",
+            "elements": [
+              {
+                "type": "HorizontalLayout",
+                "elements": [
+                  {
+                    "type": "VerticalLayout",
+                    "elements": [
+                      { "type": "Control", "scope": "#/properties/parties/properties/exporter/properties/name" },
+                      { "type": "Control", "scope": "#/properties/parties/properties/exporter/properties/tin" }
+                    ]
+                  },
+                  {
+                    "type": "VerticalLayout",
+                    "elements": [
+                      { "type": "Control", "scope": "#/properties/parties/properties/consignee/properties/name" },
+                      { "type": "Control", "scope": "#/properties/parties/properties/consignee/properties/tin" }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "Group",
+                "label": "Declarant",
+                "elements": [
+                  { "type": "Control", "scope": "#/properties/parties/properties/declarant/properties/name" },
+                  { "type": "Control", "scope": "#/properties/parties/properties/declarant/properties/tin" }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Category",
+        "label": "2. Transport",
+        "elements": [
+          {
+            "type": "Group",
+            "label": "Journey Details",
+            "elements": [
+              {
+                "type": "HorizontalLayout",
+                "elements": [
+                  { "type": "Control", "scope": "#/properties/transport/properties/vesselFlight" },
+                  { "type": "Control", "scope": "#/properties/transport/properties/voyageDate" },
+                  { "type": "Control", "scope": "#/properties/transport/properties/modeOfTransport" }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "Group",
+            "label": "Locations",
+            "elements": [
+              {
+                "type": "HorizontalLayout",
+                "elements": [
+                  { "type": "Control", "scope": "#/properties/transport/properties/countryOfExport" },
+                  { "type": "Control", "scope": "#/properties/transport/properties/countryOfDestination" }
+                ]
+              },
+              {
+                "type": "HorizontalLayout",
+                "elements": [
+                  { "type": "Control", "scope": "#/properties/transport/properties/deliveryTerms" },
+                  { "type": "Control", "scope": "#/properties/header/properties/officeOfEntry" },
+                  { "type": "Control", "scope": "#/properties/transport/properties/locationOfGoods" }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Category",
+        "label": "3. Items",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/items",
+            "options": {
+              "detail": {
+                "type": "VerticalLayout",
+                "elements": [
+                  {
+                    "type": "HorizontalLayout",
+                    "elements": [
+                      { "type": "Control", "scope": "#/properties/itemNo" },
+                      { "type": "Control", "scope": "#/properties/hsCode" },
+                      { "type": "Control", "scope": "#/properties/procedure" }
+                    ]
+                  },
+                  { "type": "Control", "scope": "#/properties/description" },
+                  {
+                    "type": "HorizontalLayout",
+                    "elements": [
+                      { "type": "Control", "scope": "#/properties/grossMass" },
+                      { "type": "Control", "scope": "#/properties/netMass" },
+                      { "type": "Control", "scope": "#/properties/countryOriginCode" }
+                    ]
+                  },
+                  {
+                    "type": "Group",
+                    "label": "Packages",
+                    "elements": [
+                      {
+                        "type": "HorizontalLayout",
+                        "elements": [
+                          { "type": "Control", "scope": "#/properties/packages/properties/quantity" },
+                          { "type": "Control", "scope": "#/properties/packages/properties/kind" },
+                          { "type": "Control", "scope": "#/properties/packages/properties/marksAndNumbers" }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "Control",
+                    "scope": "#/properties/taxes",
+                    "label": "Tax Calculation for Item"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "type": "Category",
+        "label": "4. Valuation",
+        "elements": [
+          {
+            "type": "HorizontalLayout",
+            "elements": [
+              { "type": "Control", "scope": "#/properties/valuation/properties/currency" },
+              { "type": "Control", "scope": "#/properties/valuation/properties/exchangeRate" },
+              { "type": "Control", "scope": "#/properties/valuation/properties/totalInvoicedAmount" }
+            ]
+          },
+          {
+            "type": "Group",
+            "label": "Financial & Banking",
+            "elements": [
+              { "type": "Control", "scope": "#/properties/valuation/properties/bankDetails/properties/bankName" },
+              { "type": "Control", "scope": "#/properties/valuation/properties/bankDetails/properties/termsOfPayment" }
+            ]
+          },
+          {
+            "type": "Group",
+            "label": "Total Cost Breakdown",
+            "elements": [
+              {
+                "type": "HorizontalLayout",
+                "elements": [
+                  { "type": "Control", "scope": "#/properties/valuation/properties/totals/properties/invoiceValue" },
+                  { "type": "Control", "scope": "#/properties/valuation/properties/totals/properties/freight" },
+                  { "type": "Control", "scope": "#/properties/valuation/properties/totals/properties/insurance" }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
   }
 }

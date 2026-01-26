@@ -21,7 +21,7 @@ const (
 type TraderFormCommandSet struct {
 	FormID     string          `json:"formId"`             // Unique identifier for the form
 	Title      string          `json:"title"`              // Display title of the form
-	JSONSchema json.RawMessage `json:"jsonSchema"`         // JSON Schema defining the form structure and validation
+	JSONSchema json.RawMessage `json:"schema"`             // JSON Schema defining the form structure and validation
 	UISchema   json.RawMessage `json:"uiSchema,omitempty"` // UI Schema for rendering hints (optional)
 	FormData   json.RawMessage `json:"formData,omitempty"` // Default/pre-filled form data (optional)
 }
@@ -29,7 +29,7 @@ type TraderFormCommandSet struct {
 // TraderFormDefinition holds the complete form definition for a specific form
 type TraderFormDefinition struct {
 	Title      string          `json:"title"`
-	JSONSchema json.RawMessage `json:"jsonSchema"`
+	JSONSchema json.RawMessage `json:"schema"`
 	UISchema   json.RawMessage `json:"uiSchema,omitempty"`
 	FormData   json.RawMessage `json:"formData,omitempty"`
 }
@@ -61,7 +61,7 @@ type TraderFormResult struct {
 	*ExecutionResult
 	FormID     string          `json:"formId,omitempty"`
 	Title      string          `json:"title,omitempty"`
-	JSONSchema json.RawMessage `json:"jsonSchema,omitempty"`
+	JSONSchema json.RawMessage `json:"schema,omitempty"`
 	UISchema   json.RawMessage `json:"uiSchema,omitempty"`
 	FormData   json.RawMessage `json:"formData,omitempty"`
 }
