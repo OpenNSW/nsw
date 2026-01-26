@@ -63,7 +63,7 @@ function getMockStepStatuses(definition: WorkflowDefinition): StepStatuses {
 }
 
 export function ConsignmentDetailScreen() {
-  const { consignmentId } = useParams<{ consignmentId: string, taskId: string }>()
+  const { consignmentId } = useParams<{ consignmentId: string }>()
   const navigate = useNavigate()
   const [consignment, setConsignment] = useState<Consignment | null>(null)
   const [workflowDefinition, setWorkflowDefinition] = useState<WorkflowDefinition | null>(null)
