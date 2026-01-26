@@ -303,7 +303,10 @@ func (s *ConsignmentService) UpdateTaskStatusAndPropagateChanges(ctx context.Con
 		if err != nil {
 			return err
 		}
-
+		// If there is no status change, no-operation
+		if task.Status == newStatus {
+			return nil
+		}
 		// Update the task status
 		task.Status = newStatus
 		if err := s.ts.UpdateTaskInTx(ctx, tx, task); err != nil {
@@ -311,12 +314,25 @@ func (s *ConsignmentService) UpdateTaskStatusAndPropagateChanges(ctx context.Con
 		}
 
 		// Update dependent tasks
-		readyDependentTasks, err := s.updateDependentTasks(ctx, tx, *task)
+		readyDependentTasks, stepsToUpdate, consignmentState, err := s.updateDependentTasks(ctx, tx, *task)
 		if err != nil {
 			return fmt.Errorf("failed to update dependent tasks: %w", err)
 		}
-		newReadyStateDependentTasks = readyDependentTasks
 
+		// Add current task's steps to update if its status changed
+		stepsToUpdate = append(stepsToUpdate, &model.StepStatusUpdateDTO{
+			StepID:    task.StepID,
+			NewStatus: task.Status,
+		})
+
+		// Update consignment state and steps
+		if consignmentState != nil || len(stepsToUpdate) > 0 {
+			if err := s.updateConsignmentState(ctx, tx, task.ConsignmentID, consignmentState, stepsToUpdate); err != nil {
+				return fmt.Errorf("failed to update consignment state: %w", err)
+			}
+		}
+
+		newReadyStateDependentTasks = readyDependentTasks
 		return nil
 	})
 
@@ -327,34 +343,29 @@ func (s *ConsignmentService) UpdateTaskStatusAndPropagateChanges(ctx context.Con
 	return newReadyStateDependentTasks, nil
 }
 
-// updateDependentTasks marks the completed task as COMPLETED in all dependent tasks' DependsOn maps
-func (s *ConsignmentService) updateDependentTasks(ctx context.Context, tx *gorm.DB, completedTask model.Task) ([]*model.Task, error) {
-	// If the completed task is not marked as COMPLETED, no need to update dependents
-	if completedTask.Status != model.TaskStatusCompleted {
-		return []*model.Task{}, nil
-	}
-
+// updateDependentTasks updates tasks that depend on the completed task and returns newly READY tasks and whether consignment is completed or steps to update
+func (s *ConsignmentService) updateDependentTasks(ctx context.Context, tx *gorm.DB, completedTask model.Task) ([]*model.Task, []*model.StepStatusUpdateDTO, *model.ConsignmentState, error) {
 	// If the completed task has been marked as REJECTED, need to update consignment state to REQUIRES_REWORK
 	if completedTask.Status == model.TaskStatusRejected {
-		consignment, err := s.getConsignmentByID(ctx, completedTask.ConsignmentID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to retrieve consignment: %w", err)
-		}
-		consignment.State = model.ConsignmentStateRequiresRework
-		if err := tx.Save(&consignment).Error; err != nil {
-			return nil, fmt.Errorf("failed to update consignment state: %w", err)
-		}
-		return []*model.Task{}, nil
+		consignmentStatus := model.ConsignmentStateRequiresRework
+		return []*model.Task{}, []*model.StepStatusUpdateDTO{}, &consignmentStatus, nil
+	}
+	// If the completed task is not marked as COMPLETED, no need to update dependents
+	if completedTask.Status != model.TaskStatusCompleted {
+		return []*model.Task{}, []*model.StepStatusUpdateDTO{}, nil, nil
 	}
 
 	// Get all tasks in the same consignment
 	allTasks, err := s.ts.GetTasksByConsignmentID(ctx, completedTask.ConsignmentID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve tasks for consignment %s: %w", completedTask.ConsignmentID, err)
+		return nil, nil, nil, fmt.Errorf("failed to retrieve tasks for consignment %s: %w", completedTask.ConsignmentID, err)
 	}
 
 	// Collect tasks that need updates for batch processing
 	tasksToUpdate := make([]*model.Task, 0)
+
+	// Collect the steps that need to be updated in the consignment
+	stepsToUpdate := make([]*model.StepStatusUpdateDTO, 0)
 
 	// Collect the dependent tasks that became READY
 	var readyDependentTasks []*model.Task
@@ -387,6 +398,10 @@ func (s *ConsignmentService) updateDependentTasks(ctx context.Context, tx *gorm.
 			}
 
 			tasksToUpdate = append(tasksToUpdate, dependentTask)
+			stepsToUpdate = append(stepsToUpdate, &model.StepStatusUpdateDTO{
+				StepID:    dependentTask.StepID,
+				NewStatus: dependentTask.Status,
+			})
 		}
 		if dependentTask.Status != model.TaskStatusCompleted {
 			isAllCompleted = false
@@ -396,24 +411,20 @@ func (s *ConsignmentService) updateDependentTasks(ctx context.Context, tx *gorm.
 	// Batch update all modified tasks using TaskService
 	if len(tasksToUpdate) > 0 {
 		if err := s.ts.UpdateTasksInTx(ctx, tx, tasksToUpdate); err != nil {
-			return nil, fmt.Errorf("failed to update dependent tasks: %w", err)
+			return nil, nil, nil, fmt.Errorf("failed to update dependent tasks: %w", err)
 		}
 	}
 
-	// Update consignment state based on task completions
+	consignmentStatus := model.ConsignmentStateInProgress
+	// If all tasks in the consignment are completed, update consignment state to FINISHED
 	if isAllCompleted {
-		consignment, err := s.getConsignmentByID(ctx, completedTask.ConsignmentID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to retrieve consignment: %w", err)
-		}
-		consignment.State = model.ConsignmentStateFinished
-		if err := tx.Save(&consignment).Error; err != nil {
-			return nil, fmt.Errorf("failed to update consignment state: %w", err)
-		}
+		consignmentStatus = model.ConsignmentStateFinished
 	}
-	return readyDependentTasks, nil
+
+	return readyDependentTasks, stepsToUpdate, &consignmentStatus, nil
 }
 
+// getConsignmentByID retrieves a consignment by its ID from the database
 func (s *ConsignmentService) getConsignmentByID(ctx context.Context, consignmentID uuid.UUID) (*model.Consignment, error) {
 	var consignment model.Consignment
 	result := s.db.WithContext(ctx).First(&consignment, "id = ?", consignmentID)
@@ -424,6 +435,44 @@ func (s *ConsignmentService) getConsignmentByID(ctx context.Context, consignment
 		return nil, fmt.Errorf("failed to retrieve consignment: %w", result.Error)
 	}
 	return &consignment, nil
+}
+
+// updateConsignmentState updates the consignment state and steps in a transaction
+func (s *ConsignmentService) updateConsignmentState(ctx context.Context, tx *gorm.DB, consignmentID uuid.UUID, newState *model.ConsignmentState, stepsToUpdate []*model.StepStatusUpdateDTO) error {
+	var consignment model.Consignment
+	if err := tx.WithContext(ctx).First(&consignment, "id = ?", consignmentID).Error; err != nil {
+		return fmt.Errorf("failed to retrieve consignment %s: %w", consignmentID, err)
+	}
+
+	// Update consignment state if provided
+	if newState != nil {
+		consignment.State = *newState
+	}
+
+	// Update steps if any
+	if len(stepsToUpdate) > 0 {
+		stepMap := make(map[string]*model.ConsignmentStep)
+		for i := range consignment.Items {
+			item := &consignment.Items[i]
+			for j := range item.Steps {
+				step := &item.Steps[j]
+				stepMap[step.StepID] = step
+			}
+		}
+
+		for _, stepUpdate := range stepsToUpdate {
+			if step, ok := stepMap[stepUpdate.StepID]; ok {
+				step.Status = stepUpdate.NewStatus
+			}
+		}
+	}
+
+	// Save the updated consignment
+	if err := tx.WithContext(ctx).Save(&consignment).Error; err != nil {
+		return fmt.Errorf("failed to update consignment %s: %w", consignmentID, err)
+	}
+
+	return nil
 }
 
 // GetConsignmentByID retrieves a consignment by its ID.
