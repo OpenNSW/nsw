@@ -2,17 +2,38 @@
 
 A monorepo containing shared UI components and multiple applications built with React and Radix UI.
 
+> **📦 Using pnpm** - Faster installs, better disk usage, single lock file for the entire monorepo
+
+## Quick Start
+
+```bash
+# First time setup
+make setup      # Installs pnpm (if needed) + all dependencies
+
+# Start developing
+make dev-oga    # Start OGA app
+make dev-trader # Start Trader app
+make help       # See all available commands
+```
+
+### Migrating from npm?
+Run `make clean && make setup` to remove old npm artifacts and install with pnpm.
+
 ## Project Structure
 
 ```
 portals/
+├── Makefile               # Team development commands
+├── pnpm-workspace.yaml    # pnpm workspace configuration
+├── pnpm-lock.yaml         # Single lock file for entire monorepo
+├── package.json           # Root workspace configuration
+├── tsconfig.json          # Shared TypeScript configuration
 ├── ui/                    # Shared UI component library (@lsf/ui)
 │   └── src/
 │       └── components/    # Reusable components built on Radix UI
-├── apps/                  # Consumer applications
-│   └── trader-app/        # Trading application
-├── package.json           # Root workspace configuration
-└── tsconfig.json          # Shared TypeScript configuration
+└── apps/                  # Consumer applications
+    ├── oga-app/           # OGA portal application
+    └── trader-app/        # Trading application
 ```
 
 ## Overview
@@ -43,28 +64,70 @@ The `apps/` directory contains applications that consume the shared UI library. 
 ### Prerequisites
 
 - Node.js >= 18
-- npm >= 9
+- pnpm >= 9 (installed automatically via `make setup`)
 
-### Installation
-
-Install all dependencies from the root:
+### Setup
 
 ```bash
-npm install
+# First time setup (installs pnpm + dependencies)
+make setup
 ```
 
-### Building the UI Library
-
+If you prefer to install pnpm manually:
 ```bash
-cd ui
-npm run build
+npm install -g pnpm
+pnpm install
 ```
 
-### Running an App
+## Development Commands
+
+Run `make help` to see all available commands.
+
+### Common Tasks
 
 ```bash
-cd apps/trader-app
-npm run dev
+# Development
+make dev-oga        # Start OGA app
+make dev-trader     # Start Trader app
+make dev-all        # Start all apps in parallel
+
+# Building
+make build          # Build all workspaces
+make build-ui       # Build UI library only
+
+# Code quality
+make lint           # Run linter
+make lint-fix       # Auto-fix linting issues
+```
+
+### Adding Dependencies
+
+```bash
+# To a specific app
+pnpm --filter oga-app add axios
+
+# To UI library
+pnpm --filter @lsf/ui add lodash
+
+# To workspace root (dev dependencies)
+pnpm add -w prettier -D
+```
+
+### Troubleshooting
+
+**"pnpm: command not found"**
+```bash
+make setup  # Installs pnpm automatically
+```
+
+**"Cannot find module '@lsf/ui'"**
+```bash
+make build-ui  # Build the UI library first
+```
+
+**TypeScript errors after pulling**
+```bash
+make clean && make install && make build
 ```
 
 ## Using the UI Library
@@ -101,7 +164,7 @@ function MyComponent() {
      }
    }
    ```
-4. Run `npm install` from the root
+4. Run `pnpm install` from the root
 
 ## Tech Stack
 
@@ -109,4 +172,13 @@ function MyComponent() {
 - **Radix UI** - Unstyled, accessible component primitives
 - **TypeScript** - Type safety
 - **Vite** - Build tooling
+- **pnpm** - Fast, efficient package manager
+
+## Why pnpm?
+
+- ⚡ **2x faster** than npm
+- 💾 **30-50% less disk space** via content-addressable storage
+- 🔒 **Stricter** - prevents phantom dependencies
+- 🎯 **Single lock file** - better for monorepos
+- ✅ **Industry standard** - used by Vue, Vite, Svelte, and more
 - **npm Workspaces** - Monorepo management
