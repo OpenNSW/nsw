@@ -28,32 +28,42 @@ export function ConsignmentDetailScreen() {
   const navigate = useNavigate()
   const [consignment, setConsignment] = useState<Consignment | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    async function fetchConsignment() {
-      if (!consignmentId) {
-        setError('Consignment ID is required')
-        setLoading(false)
-        return
-      }
-
-      try {
-        const result = await getConsignment(consignmentId)
-        if (result) {
-          setConsignment(result)
-        } else {
-          setError('Consignment not found')
-        }
-      } catch (err) {
-        console.error('Failed to fetch consignment:', err)
-        setError('Failed to load consignment')
-      } finally {
-        setLoading(false)
-      }
+  const fetchConsignment = async () => {
+    if (!consignmentId) {
+      setError('Consignment ID is required')
+      setLoading(false)
+      return
     }
 
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await getConsignment(consignmentId)
+      if (result) {
+        setConsignment(result)
+      } else {
+        setError('Consignment not found')
+      }
+    } catch (err) {
+      console.error('Failed to fetch consignment:', err)
+      setError('Failed to load consignment')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
+
+  const handleRefresh = () => {
+    setRefreshing(true)
     fetchConsignment()
+  }
+
+  useEffect(() => {
+    fetchConsignment()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [consignmentId])
 
   if (loading) {
@@ -152,7 +162,7 @@ export function ConsignmentDetailScreen() {
         {steps.length > 0 && (
           <div className="p-6 border-t border-gray-200">
             <h3 className="text-sm font-medium text-gray-500 mb-4">Workflow Process</h3>
-            <WorkflowViewer steps={steps} />
+            <WorkflowViewer steps={steps} onRefresh={handleRefresh} refreshing={refreshing} />
           </div>
         )}
 

@@ -1,11 +1,11 @@
-import type { HSCodePaginatedResponse } from './api'
+import type {PaginatedResponse} from './api'
 import type { HSCode, HSCodeQueryParams } from './types/hsCode'
 
 const HS_CODES_API_URL = 'http://localhost:8080/api/hscodes'
 
 export async function getHSCodes(
   params: HSCodeQueryParams = {}
-): Promise<HSCodePaginatedResponse<HSCode>> {
+): Promise<PaginatedResponse<HSCode>> {
   const searchParams = new URLSearchParams()
 
   if (params.hs_code) {

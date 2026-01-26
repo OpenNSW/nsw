@@ -35,7 +35,7 @@ export function HSCodeSearch({ value, onChange }: HSCodeSearchProps) {
           hs_code: searchQuery,
           limit: 10,
         })
-        setHsCodes(result.hsCodes)
+        setHsCodes(result.items)
       } catch (error) {
         console.error('Failed to fetch HS codes:', error)
       } finally {

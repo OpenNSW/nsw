@@ -50,7 +50,7 @@ export function ConsignmentsScreen() {
     async function fetchConsignments() {
       try {
         const data = await getAllConsignments()
-        setConsignments(data)
+        setConsignments(data.items)
       } catch (error) {
         console.error('Failed to fetch consignments:', error)
       } finally {
@@ -248,7 +248,7 @@ export function ConsignmentsScreen() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <Text size="2" color="gray">
-                          {formatDate(consignment.createdAt)}
+                          {consignment.createdAt ? formatDate(consignment.createdAt) : '-'}
                         </Text>
                       </td>
                     </tr>

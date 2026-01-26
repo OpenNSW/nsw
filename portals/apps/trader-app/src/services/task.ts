@@ -1,4 +1,4 @@
-import { apiGet, apiPost, USE_MOCK } from './api'
+import { apiGet, USE_MOCK } from './api'
 import { findTaskDetails, type TaskDetails } from './mocks/taskData'
 import type { StepType } from './types/consignment'
 import type {JsonSchema, UISchemaElement} from "../components/JsonForm";
@@ -174,8 +174,27 @@ export async function sendTaskCommand(
     }
   }
 
-  return apiPost<TaskCommandRequest, TaskCommandResponse>(
-    `/tasks/${request.taskId}/command`,
-    request
-  )
+  // Use POST /api/tasks with action type and submission data
+  const action: TaskAction = request.command === 'DRAFT' ? 'DRAFT' : 'SUBMIT_FORM'
+
+  const response = await fetch(TASKS_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      task_id: request.taskId,
+      consignment_id: request.consignmentId,
+      payload: {
+        action,
+        content: request.data,
+      },
+    }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`)
+  }
+
+  return response.json()
 }

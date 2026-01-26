@@ -1,10 +1,13 @@
+import { useState } from 'react';
 import type {
   JsonFormProps,
   JsonSchema,
+  JsonSchemaProperty,
   UISchemaElement,
   Layout,
   ControlElement,
   LabelElement,
+  Categorization,
   ResolvedControl,
 } from './types';
 import { useJsonForm } from './useJsonForm';
@@ -16,10 +19,26 @@ import {
   CheckboxField,
 } from './fields';
 
-// Parse scope to get property name (e.g., "#/properties/name" -> "name")
-function scopeToPropertyName(scope: string): string {
-  const match = scope.match(/#\/properties\/(.+)/);
-  return match ? match[1] : scope;
+// Helper to get nested value from object using dot notation
+function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
+  const keys = path.split('.');
+  let value: unknown = obj;
+  for (const key of keys) {
+    if (value && typeof value === 'object' && key in value) {
+      value = (value as Record<string, unknown>)[key];
+    } else {
+      return undefined;
+    }
+  }
+  return value;
+}
+
+// Parse scope to navigate nested properties
+// e.g., "#/properties/header/properties/declarationType" -> ["header", "declarationType"]
+function parseScopePath(scope: string): string[] {
+  const path = scope.replace(/^#\//, '').split('/');
+  // Filter out "properties" keywords, keep only actual property names
+  return path.filter(segment => segment !== 'properties');
 }
 
 // Resolve a control element to get its schema property and metadata
@@ -27,12 +46,42 @@ function resolveControl(
   control: ControlElement,
   schema: JsonSchema
 ): ResolvedControl | null {
-  const propertyName = scopeToPropertyName(control.scope);
-  const property = schema.properties?.[propertyName];
+  const path = parseScopePath(control.scope);
+
+  if (path.length === 0) return null;
+
+  // Navigate through nested schema properties
+  let currentSchema: JsonSchema | JsonSchemaProperty = schema;
+  let property: JsonSchemaProperty | undefined;
+
+  for (let i = 0; i < path.length; i++) {
+    const segment = path[i];
+    property = currentSchema.properties?.[segment];
+
+    if (!property) {
+      console.log(`Property not found: ${control.scope}`, { path, segment, currentSchema });
+      return null;
+    }
+
+    // Move deeper if not at the end
+    if (i < path.length - 1) {
+      currentSchema = property;
+    }
+  }
 
   if (!property) return null;
 
-  const required = schema.required?.includes(propertyName) ?? false;
+  // Get the leaf property name
+  const propertyName = path[path.length - 1];
+
+  // Check if required in the immediate parent schema
+  const parentPath = path.slice(0, -1);
+  let parentSchema: JsonSchema | JsonSchemaProperty = schema;
+  for (const segment of parentPath) {
+    parentSchema = parentSchema.properties?.[segment] as JsonSchema;
+  }
+
+  const required = parentSchema.required?.includes(propertyName) ?? false;
 
   // Determine label
   let label: string;
@@ -44,8 +93,11 @@ function resolveControl(
     label = property.title ?? propertyName;
   }
 
+  // Create a unique name for form state using full path
+  const fullName = path.join('.');
+
   return {
-    name: propertyName,
+    name: fullName,
     label,
     property,
     required,
@@ -109,8 +161,27 @@ function renderElement({
   switch (element.type) {
     case 'VerticalLayout':
     case 'HorizontalLayout':
-    case 'Group':
       return renderLayout(element as Layout, {
+        schema,
+        values,
+        errors,
+        touched,
+        setValue,
+        setTouched,
+      });
+
+    case 'Group':
+      return renderGroup(element as Layout, {
+        schema,
+        values,
+        errors,
+        touched,
+        setValue,
+        setTouched,
+      });
+
+    case 'Categorization':
+      return renderCategorization(element as Categorization, {
         schema,
         values,
         errors,
@@ -143,12 +214,9 @@ function renderLayout(
   props: Omit<RenderElementProps, 'element'>
 ): React.ReactNode {
   const isHorizontal = layout.type === 'HorizontalLayout';
-  const isGroup = layout.type === 'Group';
 
-  const content = (
-    <div
-      className={`${isHorizontal ? 'flex gap-4' : ''}`}
-    >
+  return (
+    <div className={isHorizontal ? 'flex gap-4' : 'space-y-4'}>
       {layout.elements.map((element, index) => (
         <div key={index} className={isHorizontal ? 'flex-1' : ''}>
           {renderElement({ element, ...props })}
@@ -156,19 +224,88 @@ function renderLayout(
       ))}
     </div>
   );
+}
 
-  if (isGroup && layout.label) {
+function renderGroup(
+  group: Layout,
+  props: Omit<RenderElementProps, 'element'>
+): React.ReactNode {
+  const content = (
+    <>
+      {group.elements.map((element, index) => (
+        <div className="Hello Group" key={index}>
+          {renderElement({ element, ...props })}
+        </div>
+      ))}
+    </>
+  );
+
+  if (group.label) {
     return (
       <fieldset className="border border-gray-200 rounded-md p-4 mb-4">
         <legend className="text-sm font-medium text-gray-700 px-2">
-          {layout.label}
+          {group.label}
         </legend>
-        {content}
+        <div className="space-y-4">
+          {content}
+        </div>
       </fieldset>
     );
   }
 
-  return content;
+  return <div className="space-y-4">{content}</div>;
+}
+
+function renderCategorization(
+  categorization: Categorization,
+  props: Omit<RenderElementProps, 'element'>
+): React.ReactNode {
+  const [activeTab, setActiveTab] = useState(0);
+
+  const categories = categorization.elements;
+
+  return (
+    <div className="mb-4">
+      {/* Tab Headers */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex gap-6" aria-label="Tabs">
+          {categories.map((category, index) => (
+            <button
+              key={index}
+              type="button"
+              onClick={() => setActiveTab(index)}
+              className={`
+                whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors
+                ${
+                  activeTab === index
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }
+              `}
+            >
+              {category.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      <div className="mt-4">
+        {categories.map((category, index) => (
+          <div
+            key={index}
+            className={activeTab === index ? 'block' : 'hidden'}
+          >
+            {category.elements.map((element, elemIndex) => (
+              <div key={elemIndex}>
+                {renderElement({ element, ...props })}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function renderControl(
@@ -183,7 +320,7 @@ function renderControl(
   const fieldType = getFieldType(resolved);
   const fieldProps = {
     control: resolved,
-    value: values[resolved.name],
+    value: getNestedValue(values, resolved.name),
     error: errors[resolved.name],
     touched: touched[resolved.name] ?? false,
     onChange: (value: unknown) => setValue(resolved.name, value),

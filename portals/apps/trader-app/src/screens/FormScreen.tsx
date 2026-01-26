@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Button, Spinner, Text } from '@radix-ui/themes'
 import { ArrowLeftIcon } from '@radix-ui/react-icons'
 import { JsonForm } from '../components/JsonForm'
-import { executeTask } from '../services/task'
+import { executeTask, sendTaskCommand } from '../services/task'
 import type { TaskFormData } from '../services/task'
 
 export function FormScreen() {
@@ -31,8 +31,6 @@ export function FormScreen() {
 
         if (response.success && response.result.data) {
           setFormData(response.result.data)
-
-          console.log(response.result.data)
         } else {
           setError(response.result?.message || 'Failed to fetch form.')
         }
@@ -47,11 +45,35 @@ export function FormScreen() {
     fetchForm()
   }, [consignmentId, taskId])
 
-  const handleSubmit = (data: unknown) => {
-    console.log('Form submitted!', data)
-    // Here you would typically call an API to save the data
-    alert('Form submitted successfully!')
-    navigate(`/consignments/${consignmentId}`)
+  const handleSubmit = async (data: unknown) => {
+    if (!consignmentId || !taskId) {
+      setError('Consignment ID or Task ID is missing.')
+      return
+    }
+
+    try {
+      setError(null)
+
+      // Send form submission with SUBMIT_FORM action
+      const response = await sendTaskCommand({
+        command: 'SUBMISSION',
+        taskId,
+        consignmentId,
+        data: data as Record<string, unknown>,
+      })
+
+      if (response.success) {
+        console.log('Form submitted successfully:', response)
+        // Navigate back to consignment details with refresh flag
+        navigate(`/consignments/${consignmentId}`)
+      } else {
+        setError(response.message || 'Failed to submit form.')
+      }
+    } catch (err) {
+      console.error('Error submitting form:', err)
+      setError('Failed to submit form. Please try again.')
+    } finally {
+    }
   }
 
   if (loading) {

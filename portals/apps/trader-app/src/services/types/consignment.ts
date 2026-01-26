@@ -21,12 +21,12 @@ export interface ConsignmentItem {
 
 export interface Consignment {
   id: string
-  createdAt: string
-  updatedAt: string
   tradeFlow: TradeFlow
   traderId: string
   state: ConsignmentState
   items: ConsignmentItem[]
+  createdAt: string
+  updatedAt: string
 }
 
 export interface CreateConsignmentItemRequest {

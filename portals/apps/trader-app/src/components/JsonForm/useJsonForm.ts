@@ -2,6 +2,24 @@ import { useState, useCallback, useMemo } from 'react';
 import type { JsonSchema, FormValues, FormErrors, FormTouched, FormState } from './types';
 import { schemaToZod, validateProperty } from './schemaToZod';
 
+// Helper to set nested value in object using dot notation
+function setNestedValue(obj: Record<string, unknown>, path: string, value: unknown): Record<string, unknown> {
+  const keys = path.split('.');
+  const newObj = { ...obj };
+  let current: Record<string, unknown> = newObj;
+
+  for (let i = 0; i < keys.length - 1; i++) {
+    const key = keys[i];
+    if (!current[key] || typeof current[key] !== 'object') {
+      current[key] = {};
+    }
+    current = current[key] as Record<string, unknown>;
+  }
+
+  current[keys[keys.length - 1]] = value;
+  return newObj;
+}
+
 interface UseJsonFormOptions {
   schema: JsonSchema;
   data?: FormValues;
@@ -27,6 +45,12 @@ function getInitialValues(schema: JsonSchema, data?: FormValues): FormValues {
         values[name] = data[name];
       } else if (property.default !== undefined) {
         values[name] = property.default;
+      } else if (property.type === 'object' && property.properties) {
+        // Recursively initialize nested objects
+        values[name] = getInitialValues(
+          property as JsonSchema,
+          (data?.[name] as FormValues | undefined) || undefined
+        );
       } else {
         // Set appropriate default based on type
         switch (property.type) {
@@ -71,14 +95,32 @@ export function useJsonForm({
   }, [zodSchema, values]);
 
   const setValue = useCallback((name: string, value: unknown) => {
-    setValues((prev) => ({ ...prev, [name]: value }));
+    setValues((prev) => setNestedValue(prev, name, value));
 
-    const property = schema.properties?.[name];
+    // For validation, we need to navigate to the property in the schema
+    const path = name.split('.');
+    let property = schema.properties?.[path[0]];
+
+    // Navigate through nested properties
+    for (let i = 1; i < path.length && property; i++) {
+      property = property.properties?.[path[i]];
+    }
+
     if (property) {
-      const error = validateProperty(property, value, requiredFields.has(name));
+      const leafName = path[path.length - 1];
+      // Find parent to check if required
+      let parentSchema = schema;
+      for (let i = 0; i < path.length - 1; i++) {
+        const prop = parentSchema.properties?.[path[i]];
+        if (prop) {
+          parentSchema = prop as JsonSchema;
+        }
+      }
+      const isRequired = parentSchema.required?.includes(leafName) ?? false;
+      const error = validateProperty(property, value, isRequired);
       setErrors((prev) => ({ ...prev, [name]: error }));
     }
-  }, [schema.properties, requiredFields]);
+  }, [schema]);
 
   const setTouched = useCallback((name: string) => {
     setTouchedState((prev) => ({ ...prev, [name]: true }));

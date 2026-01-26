@@ -21,7 +21,7 @@ function getMockWorkflows(params: WorkflowQueryParams): WorkflowResponse {
   }
 }
 
-const WORKFLOW_API_URL = 'http://localhost:8080/api/workflow-template'
+const WORKFLOW_API_URL = 'http://localhost:8080/api/workflows/templates'
 
 export async function getWorkflowsByHSCode(
   params: WorkflowQueryParams

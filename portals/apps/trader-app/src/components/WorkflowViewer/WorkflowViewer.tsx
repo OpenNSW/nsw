@@ -9,6 +9,8 @@ import {
 } from '@xyflow/react'
 import type { Edge, NodeTypes } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { Button } from '@radix-ui/themes'
+import { ReloadIcon } from '@radix-ui/react-icons'
 import type { ConsignmentStep } from '../../services/types/consignment'
 import { WorkflowNode } from './WorkflowNode'
 import type { WorkflowNodeType } from './WorkflowNode'
@@ -16,6 +18,8 @@ import type { WorkflowNodeType } from './WorkflowNode'
 interface WorkflowViewerProps {
   steps: ConsignmentStep[]
   className?: string
+  onRefresh?: () => void
+  refreshing?: boolean
 }
 
 const nodeTypes: NodeTypes = {
@@ -109,7 +113,7 @@ function convertToReactFlow(steps: ConsignmentStep[]): {
   return { nodes, edges }
 }
 
-export function WorkflowViewer({ steps, className = '' }: WorkflowViewerProps) {
+export function WorkflowViewer({ steps, className = '', onRefresh, refreshing = false }: WorkflowViewerProps) {
   const [isSpacePressed, setIsSpacePressed] = useState(false)
 
   const { nodes: initialNodes, edges: initialEdges } = useMemo(
@@ -147,7 +151,21 @@ export function WorkflowViewer({ steps, className = '' }: WorkflowViewerProps) {
   }, [])
 
   return (
-    <div className={`w-full h-80 bg-slate-50 rounded-lg border border-gray-200 ${className}`}>
+    <div className={`w-full h-80 bg-slate-50 rounded-lg border border-gray-200 relative ${className}`}>
+      {onRefresh && (
+        <div className="absolute top-3 right-3 z-10">
+          <Button
+            variant="soft"
+            color="gray"
+            size="2"
+            onClick={onRefresh}
+            disabled={refreshing}
+          >
+            <ReloadIcon className={refreshing ? 'animate-spin' : ''} />
+            Refresh
+          </Button>
+        </div>
+      )}
       <ReactFlow
         nodes={nodes}
         edges={edges}
