@@ -44,9 +44,10 @@ install:
 # Clean all node_modules and lock files
 clean:
 	@echo "🧹 Cleaning workspace..."
-	@rm -rf node_modules pnpm-lock.yaml
+	@rm -rf node_modules
 	@rm -rf apps/*/node_modules
 	@rm -rf ui/node_modules
+	@rm -rf ui/dist apps/*/dist
 	@rm -rf apps/*/.turbo
 	@echo "✅ Cleaned!"
 
