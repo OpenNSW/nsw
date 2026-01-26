@@ -19,19 +19,19 @@ const (
 
 // TraderFormCommandSet contains the JSON Form configuration for the trader form
 type TraderFormCommandSet struct {
-	FormID     string          `json:"formId"`             // Unique identifier for the form
-	Title      string          `json:"title"`              // Display title of the form
-	JSONSchema json.RawMessage `json:"schema"`             // JSON Schema defining the form structure and validation
-	UISchema   json.RawMessage `json:"uiSchema,omitempty"` // UI Schema for rendering hints (optional)
-	FormData   json.RawMessage `json:"formData,omitempty"` // Default/pre-filled form data (optional)
+	FormID   string          `json:"formId"`             // Unique identifier for the form
+	Title    string          `json:"title"`              // Display title of the form
+	Schema   json.RawMessage `json:"schema"`             // JSON Schema defining the form structure and validation
+	UISchema json.RawMessage `json:"uiSchema,omitempty"` // UI Schema for rendering hints (optional)
+	FormData json.RawMessage `json:"formData,omitempty"` // Default/pre-filled form data (optional)
 }
 
 // TraderFormDefinition holds the complete form definition for a specific form
 type TraderFormDefinition struct {
-	Title      string          `json:"title"`
-	JSONSchema json.RawMessage `json:"schema"`
-	UISchema   json.RawMessage `json:"uiSchema,omitempty"`
-	FormData   json.RawMessage `json:"formData,omitempty"`
+	Title    string          `json:"title"`
+	Schema   json.RawMessage `json:"schema"`
+	UISchema json.RawMessage `json:"uiSchema,omitempty"`
+	FormData json.RawMessage `json:"formData,omitempty"`
 }
 
 // getFormDefinition retrieves the complete form definition for a given form ID
@@ -112,7 +112,7 @@ func parseTraderFormCommandSet(commandSet interface{}) (*TraderFormCommandSet, e
 	}
 
 	// If only formId is provided, populate from registry
-	if parsed.FormID != "" && parsed.JSONSchema == nil {
+	if parsed.FormID != "" && parsed.Schema == nil {
 		if err := populateFromRegistry(&parsed); err != nil {
 			return nil, err
 		}
@@ -129,7 +129,7 @@ func populateFromRegistry(cs *TraderFormCommandSet) error {
 	}
 
 	cs.Title = def.Title
-	cs.JSONSchema = def.JSONSchema
+	cs.Schema = def.Schema
 	cs.UISchema = def.UISchema
 	if cs.FormData == nil {
 		cs.FormData = def.FormData
@@ -208,7 +208,7 @@ func (t *TraderFormTask) handleFetchForm(commandSet *TraderFormCommandSet) (*Exe
 		Data: TraderFormResult{
 			FormID:     commandSet.FormID,
 			Title:      commandSet.Title,
-			JSONSchema: commandSet.JSONSchema,
+			JSONSchema: commandSet.Schema,
 			UISchema:   commandSet.UISchema,
 			FormData:   commandSet.FormData,
 		},
@@ -224,7 +224,7 @@ func (t *TraderFormTask) handleSubmitForm(commandSet *TraderFormCommandSet, form
 		}, fmt.Errorf("form data is required for submission")
 	}
 
-	// TODO: Validate formData against JSONSchema
+	// TODO: Validate formData against Schema
 	// For now, we accept any valid JSON data
 
 	// Convert formData to JSON for storage
