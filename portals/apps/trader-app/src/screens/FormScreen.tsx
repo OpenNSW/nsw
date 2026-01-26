@@ -3,17 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Button, Spinner, Text } from '@radix-ui/themes'
 import { ArrowLeftIcon } from '@radix-ui/react-icons'
 import { JsonForm } from '../components/JsonForm'
-import type { JsonSchema, Layout } from '../components/JsonForm'
-import { executeTask } from '../services/workflow'
-import type { TaskDetails } from '../services/mocks/taskData'
-
-interface FormPayload {
-  version: number
-  content: {
-    schema: JsonSchema
-    uischema: Layout
-  }
-}
+import { executeTask, sendTaskCommand } from '../services/task'
+import type { TaskFormData } from '../services/task'
 
 export function FormScreen() {
   const { consignmentId, taskId } = useParams<{
@@ -21,12 +12,12 @@ export function FormScreen() {
     taskId: string
   }>()
   const navigate = useNavigate()
-  const [task, setTask] = useState<TaskDetails | null>(null)
+  const [formData, setFormData] = useState<TaskFormData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    async function fetchTask() {
+    async function fetchForm() {
       if (!consignmentId || !taskId) {
         setError('Consignment ID or Task ID is missing.')
         setLoading(false)
@@ -35,24 +26,54 @@ export function FormScreen() {
 
       try {
         setLoading(true)
-        const taskDetails = await executeTask(consignmentId, taskId)
-        setTask(taskDetails)
+        // Execute task with FETCH_FORM action to get the form schema
+        const response = await executeTask(consignmentId, taskId, 'TRADER_FORM')
+
+        if (response.success && response.result.data) {
+          setFormData(response.result.data)
+        } else {
+          setError(response.result?.message || 'Failed to fetch form.')
+        }
       } catch (err) {
-        setError('Failed to fetch task details.')
+        setError('Failed to fetch form details.')
         console.error(err)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchTask()
+    fetchForm()
   }, [consignmentId, taskId])
 
-  const handleSubmit = (formData: unknown) => {
-    console.log('Form submitted!', formData)
-    // Here you would typically call an API to save the data
-    alert('Form submitted successfully!')
-    navigate(`/consignments/${consignmentId}`)
+  const handleSubmit = async (data: unknown) => {
+    if (!consignmentId || !taskId) {
+      setError('Consignment ID or Task ID is missing.')
+      return
+    }
+
+    try {
+      setError(null)
+
+      // Send form submission with SUBMIT_FORM action
+      const response = await sendTaskCommand({
+        command: 'SUBMISSION',
+        taskId,
+        consignmentId,
+        data: data as Record<string, unknown>,
+      })
+
+      if (response.success) {
+        console.log('Form submitted successfully:', response)
+        // Navigate back to consignment details with refresh flag
+        navigate(`/consignments/${consignmentId}`)
+      } else {
+        setError(response.message || 'Failed to submit form.')
+      }
+    } catch (err) {
+      console.error('Error submitting form:', err)
+      setError('Failed to submit form. Please try again.')
+    } finally {
+    }
   }
 
   if (loading) {
@@ -84,12 +105,12 @@ export function FormScreen() {
     )
   }
 
-  if (!task) {
+  if (!formData) {
     return (
       <div className="p-6">
         <div className="bg-white rounded-lg shadow p-6 text-center">
           <Text size="4" color="gray" weight="medium">
-            Task not found.
+            Form not found.
           </Text>
           <div className="mt-4">
             <Button variant="soft" onClick={() => navigate(-1)}>
@@ -102,8 +123,6 @@ export function FormScreen() {
     )
   }
 
-  const payload = task.payload as FormPayload
-
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-full">
       <div className="max-w-4xl mx-auto">
@@ -115,17 +134,17 @@ export function FormScreen() {
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">{task.name}</h1>
-          <p className="text-gray-600 mt-2">{task.description}</p>
+          <h1 className="text-2xl font-bold text-gray-800">{formData.title}</h1>
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-6">
-          <JsonForm
-            schema={payload.content.schema}
-            uischema={payload.content.uischema}
+          {<JsonForm
+            schema={formData.schema}
+            uiSchema={formData.uiSchema}
+            data={formData.formData}
             onSubmit={handleSubmit}
             submitLabel="Submit Form"
-          />
+          />}
         </div>
       </div>
     </div>

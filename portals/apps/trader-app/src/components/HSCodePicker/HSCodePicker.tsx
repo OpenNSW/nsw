@@ -48,7 +48,7 @@ export function HSCodePicker({
       setSelectedWorkflow(null)
 
       try {
-        const result = await getWorkflowsByHSCode({ hs_code: selectedHSCode.code })
+        const result = await getWorkflowsByHSCode({ hs_code: selectedHSCode.hsCode })
         setImportWorkflows(result.import)
         setExportWorkflows(result.export)
       } catch (error) {
@@ -193,7 +193,7 @@ export function HSCodePicker({
               <Flex direction="column" gap="1">
                 <Flex gap="2">
                   <Text size="1" color="gray" style={{ minWidth: '80px' }}>HS Code:</Text>
-                  <Text size="1" weight="medium">{selectedHSCode.code}</Text>
+                  <Text size="1" weight="medium">{selectedHSCode.hsCode}</Text>
                 </Flex>
                 <Flex gap="2">
                   <Text size="1" color="gray" style={{ minWidth: '80px' }}>Description:</Text>

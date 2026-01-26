@@ -9,6 +9,7 @@ export function Layout() {
     // Default to true if no saved state is found
     return savedState !== null ? savedState === 'true' : true;
   });
+
   const sidebarWidth = isSidebarExpanded ? 256 : 80; // w-64 = 256px, w-20 = 80px
   // Save sidebar state to localStorage when it changes
   const handleToggleSidebar = () => {

@@ -1,13 +1,10 @@
+import { useState } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import type { Node, NodeProps } from '@xyflow/react'
 import { Text } from '@radix-ui/themes'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
-import type {
-  WorkflowStep,
-  WorkflowStepType,
-  WorkflowStepStatus,
-} from '../../services/types/workflow'
+import type { ConsignmentStep, StepType, StepStatus } from '../../services/types/consignment'
+import { executeTask } from '../../services/task'
 import {
   FileTextIcon,
   GlobeIcon,
@@ -17,35 +14,33 @@ import {
   PlayIcon,
   UpdateIcon,
 } from '@radix-ui/react-icons'
-import { executeTask } from '../../services/workflow'
 
 export interface WorkflowNodeData extends Record<string, unknown> {
-  step: WorkflowStep
-  status: WorkflowStepStatus
+  step: ConsignmentStep
 }
 
 export type WorkflowNodeType = Node<WorkflowNodeData, 'workflowStep'>
 
 const stepTypeConfig: Record<
-  WorkflowStepType,
+  StepType,
   { label: string; icon: React.ReactNode }
 > = {
   TRADER_FORM: {
     label: 'Trader Form',
     icon: <FileTextIcon className="w-4 h-4" />,
   },
-  OGA_APPLICATION: {
-    label: 'OGA Application',
+  OGA_FORM: {
+    label: 'OGA Form',
     icon: <GlobeIcon className="w-4 h-4" />,
   },
-  SYSTEM_WAIT: {
-    label: 'System Wait',
+  WAIT_FOR_EVENT: {
+    label: 'Waiting',
     icon: <ClockIcon className="w-4 h-4" />,
   },
 }
 
 const statusConfig: Record<
-  WorkflowStepStatus,
+  StepStatus,
   {
     bgColor: string
     borderColor: string
@@ -61,17 +56,17 @@ const statusConfig: Record<
     iconColor: 'text-emerald-600',
     statusIcon: <CheckCircledIcon className="w-4 h-4 text-emerald-600" />,
   },
-  ACTIVE: {
+  READY: {
     bgColor: 'bg-blue-50',
     borderColor: 'border-blue-400',
     textColor: 'text-blue-700',
     iconColor: 'text-blue-600',
   },
-  PENDING: {
-    bgColor: 'bg-gray-50',
-    borderColor: 'border-gray-300',
-    textColor: 'text-gray-600',
-    iconColor: 'text-gray-400',
+  IN_PROGRESS: {
+    bgColor: 'bg-orange-50',
+    borderColor: 'border-orange-400',
+    textColor: 'text-orange-700',
+    iconColor: 'text-orange-600',
   },
   LOCKED: {
     bgColor: 'bg-slate-100',
@@ -83,37 +78,21 @@ const statusConfig: Record<
 }
 
 export function WorkflowNode({ data }: NodeProps<WorkflowNodeType>) {
-  const { step, status } = data
+  const { step } = data
   const { consignmentId } = useParams<{ consignmentId: string }>()
   const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(false)
 
   const typeConfig = stepTypeConfig[step.type]
-  const statusStyle = statusConfig[status]
+  const statusStyle = statusConfig[step.status]
 
-  const isExecutable =
-    (status === 'ACTIVE' || status === 'PENDING') &&
-    step.type !== 'SYSTEM_WAIT'
+  const isExecutable = step.status === 'READY' && step.type !== 'WAIT_FOR_EVENT'
 
   const getStepLabel = () => {
-    if (step.config.formId) {
-      return step.config.formId
-        .replace(/-/g, ' ')
-        .replace(/\b\w/g, (c: string) => c.toUpperCase())
-    }
-    if (step.config.agency && step.config.service) {
-      return `${step.config.agency} - ${step.config.service.replace(
-        /-/g,
-        ' '
-      )}`
-    }
-    if (step.config.event) {
-      return step.config.event
-        .replace(/_/g, ' ')
-        .toLowerCase()
-        .replace(/\b\w/g, (c: string) => c.toUpperCase())
-    }
-    return step.id.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
+    // Format stepId: cusdec_entry -> Cusdec Entry
+    return step.stepId
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (c: string) => c.toUpperCase())
   }
 
   const handleExecute = async (e: React.MouseEvent) => {
@@ -125,11 +104,8 @@ export function WorkflowNode({ data }: NodeProps<WorkflowNodeType>) {
 
     setIsLoading(true)
     try {
-      const taskDetails = await executeTask(consignmentId, step.id)
-      // Navigate to the appropriate screen based on task type
-      if (taskDetails.type === 'OGA_FORM') {
-        navigate(`/consignments/${consignmentId}/tasks/${step.id}`)
-      }
+      await executeTask(consignmentId, step.taskId, step.type)
+      navigate(`/consignments/${consignmentId}/tasks/${step.taskId}`)
     } catch (error) {
       console.error('Failed to execute task:', error)
     } finally {
@@ -142,7 +118,7 @@ export function WorkflowNode({ data }: NodeProps<WorkflowNodeType>) {
       className={`px-4 py-3 rounded-lg border-2 hover:cursor-default shadow-sm min-w-50 ${
         statusStyle.bgColor
       } ${statusStyle.borderColor} ${
-        status === 'ACTIVE' ? 'ring-2 ring-blue-300 ring-offset-2' : ''
+        step.status === 'READY' ? 'ring-2 ring-blue-300 ring-offset-2' : ''
       }`}
     >
       <Handle

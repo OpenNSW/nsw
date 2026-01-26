@@ -8,7 +8,7 @@ export interface JsonSchema {
 }
 
 export interface JsonSchemaProperty {
-  type?: 'string' | 'number' | 'integer' | 'boolean' | 'array';
+  type?: 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object';
   title?: string;
   description?: string;
   default?: unknown;
@@ -27,14 +27,29 @@ export interface JsonSchemaProperty {
   enum?: (string | number)[];
   // Array for oneOf select options
   oneOf?: { const: string | number; title: string }[];
+  // Object properties (for nested schemas)
+  properties?: Record<string, JsonSchemaProperty>;
+  required?: string[];
 }
 
 // UI Schema types (following JSON Forms standard)
-export type UISchemaElement = Layout | ControlElement | LabelElement;
+export type UISchemaElement = Layout | ControlElement | LabelElement | Categorization;
 
 export interface Layout {
   type: 'VerticalLayout' | 'HorizontalLayout' | 'Group';
   label?: string;
+  elements: UISchemaElement[];
+}
+
+export interface Categorization {
+  type: 'Categorization';
+  elements: Category[];
+  label?: string;
+}
+
+export interface Category {
+  type: 'Category';
+  label: string;
   elements: UISchemaElement[];
 }
 
@@ -94,7 +109,7 @@ export interface FieldProps {
 // Main component props
 export interface JsonFormProps {
   schema: JsonSchema;
-  uischema: UISchemaElement;
+  uiSchema?: UISchemaElement;
   data?: FormValues;
   onSubmit: (values: FormValues) => void | Promise<void>;
   onSaveDraft?: (values: FormValues) => void | Promise<void>;

@@ -1,24 +1,44 @@
+export type TradeFlow = 'IMPORT' | 'EXPORT'
+
+export type ConsignmentState = 'IN_PROGRESS' | 'REQUIRES_REWORK' | 'FINISHED'
+
+export type StepStatus = 'READY' | 'LOCKED' | 'IN_PROGRESS' | 'COMPLETED'
+
+export type StepType = 'TRADER_FORM' | 'OGA_FORM' | 'WAIT_FOR_EVENT'
+
+export interface ConsignmentStep {
+  stepId: string
+  type: StepType
+  taskId: string
+  status: StepStatus
+  dependsOn: string[]
+}
+
+export interface ConsignmentItem {
+  hsCodeID: string
+  steps: ConsignmentStep[]
+}
+
 export interface Consignment {
   id: string
-  hsCode: string
-  hsCodeDescription: string
-  workflowId: string
-  workflowName: string
-  workflowType: 'import' | 'export'
-  status: 'draft' | 'pending' | 'in_progress' | 'completed' | 'rejected'
-  currentStepId?: string
+  tradeFlow: TradeFlow
+  traderId: string
+  state: ConsignmentState
+  items: ConsignmentItem[]
   createdAt: string
   updatedAt: string
 }
 
-export interface CreateConsignmentRequest {
-  hsCode: string
-  hsCodeDescription: string
-  workflowId: string
-  workflowName: string
-  workflowType: 'import' | 'export'
+export interface CreateConsignmentItemRequest {
+  hsCodeId: string
+  metadata: Record<string, unknown>
+  workflowTemplateId: string
 }
 
-export interface CreateConsignmentResponse {
-  consignmentId: string
+export interface CreateConsignmentRequest {
+  tradeFlow: TradeFlow
+  traderId: string
+  items: CreateConsignmentItemRequest[]
 }
+
+export interface CreateConsignmentResponse extends Consignment {}
