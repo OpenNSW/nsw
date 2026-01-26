@@ -20,7 +20,7 @@ export function DashboardScreen() {
     async function fetchConsignments() {
       try {
         const data = await getAllConsignments()
-        setConsignments(data)
+        setConsignments(data.items)
       } catch (error) {
         console.error('Failed to fetch consignments:', error)
       } finally {

@@ -1,7 +1,7 @@
 import { apiGet, USE_MOCK } from './api'
-import { findTaskDetails, type TaskDetails } from './mocks/taskData'
 import type { StepType } from './types/consignment'
 import type {JsonSchema, UISchemaElement} from "../components/JsonForm";
+import type {TaskDetails} from "./types/taskData.ts";
 
 export type TaskAction = 'FETCH_FORM' | 'SUBMIT_FORM' | 'DRAFT'
 
@@ -137,19 +137,6 @@ export async function getTaskDetails(
   console.log(
     `Fetching task details for consignment: ${consignmentId}, task: ${taskId}`
   )
-
-  if (USE_MOCK) {
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 300))
-
-    // Find the task details based on taskId
-    const taskDetails = findTaskDetails(taskId)
-    if (!taskDetails) {
-      throw new Error(`Task not found: ${taskId}`)
-    }
-
-    return taskDetails
-  }
 
   return apiGet<TaskDetails>(`/workflows/${consignmentId}/tasks/${taskId}`)
 }
