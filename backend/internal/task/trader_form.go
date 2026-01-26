@@ -156,7 +156,6 @@ func (t *TraderFormTask) Execute(_ context.Context, payload *ExecutionPayload) (
 		return t.handleSubmitForm(t.commandSet, formPayload.FormData)
 	default:
 		return &ExecutionResult{
-			Status:  model.TaskStatusReady,
 			Message: fmt.Sprintf("Unknown action: %s", formPayload.Action),
 		}, fmt.Errorf("unknown action: %s", formPayload.Action)
 	}
@@ -175,15 +174,15 @@ func (t *TraderFormTask) parsePayload(payload *ExecutionPayload) (*TraderFormPay
 		action = TraderFormActionFetch
 	}
 
-	// Parse FormData from payload.Payload if action is SUBMIT_FORM
+	// Parse FormData from payload.Content if action is SUBMIT_FORM
 	var formData map[string]interface{}
-	if action == TraderFormActionSubmit && payload.Payload != nil {
-		switch p := payload.Payload.(type) {
+	if action == TraderFormActionSubmit && payload.Content != nil {
+		switch p := payload.Content.(type) {
 		case map[string]interface{}:
 			formData = p
 		default:
 			// Try to marshal and unmarshal to get map[string]interface{}
-			jsonBytes, err := json.Marshal(payload.Payload)
+			jsonBytes, err := json.Marshal(payload.Content)
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal payload: %w", err)
 			}
@@ -203,7 +202,6 @@ func (t *TraderFormTask) parsePayload(payload *ExecutionPayload) (*TraderFormPay
 func (t *TraderFormTask) handleFetchForm(commandSet *TraderFormCommandSet) (*ExecutionResult, error) {
 	// Return the form schema with READY status (task stays ready until form is submitted)
 	return &ExecutionResult{
-		Status:  model.TaskStatusReady,
 		Message: "Form schema retrieved successfully",
 		Data: TraderFormResult{
 			FormID:   commandSet.FormID,

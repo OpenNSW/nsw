@@ -56,7 +56,7 @@ func (a *ActiveTask) SetStatus(status model.TaskStatus) {
 }
 
 func (a *ActiveTask) IsExecutable() bool {
-	return a.Status == model.TaskStatusReady
+	return a.Status != model.TaskStatusLocked
 }
 
 func (a *ActiveTask) Execute(ctx context.Context, payload *ExecutionPayload) (*ExecutionResult, error) {

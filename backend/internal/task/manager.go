@@ -31,7 +31,7 @@ type TaskManager interface {
 
 type ExecutionPayload struct {
 	Action  string      `json:"action"`
-	Payload interface{} `json:"payload,omitempty"`
+	Content interface{} `json:"content,omitempty"`
 }
 
 // ExecuteTaskRequest represents the request body for task execution
