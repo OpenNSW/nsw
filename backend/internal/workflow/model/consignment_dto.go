@@ -49,3 +49,9 @@ type ConsignmentTraderFilter struct {
 	Offset   *int   `json:"offset,omitempty"`
 	Limit    *int   `json:"limit,omitempty"`
 }
+
+// StepStatusUpdateDTO represents the data required to update the status of a step within a consignment.
+type StepStatusUpdateDTO struct {
+	StepID    string     `json:"stepId" binding:"required"`                                               // Step ID to be updated
+	NewStatus TaskStatus `json:"newStatus" binding:"required,oneof=READY IN_PROGRESS COMPLETED REJECTED"` // New status for the step
+}
