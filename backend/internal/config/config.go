@@ -5,12 +5,14 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // Config holds all configuration for the application
 type Config struct {
 	Database DatabaseConfig
 	Server   ServerConfig
+	CORS     CORSConfig
 }
 
 // DatabaseConfig holds database connection configuration
@@ -29,6 +31,15 @@ type DatabaseConfig struct {
 // ServerConfig holds server configuration
 type ServerConfig struct {
 	Port int
+}
+
+// CORSConfig holds CORS configuration
+type CORSConfig struct {
+	AllowedOrigins   []string
+	AllowedMethods   []string
+	AllowedHeaders   []string
+	AllowCredentials bool
+	MaxAge           int
 }
 
 // Load reads configuration from environment variables
@@ -57,6 +68,13 @@ func Load() (*Config, error) {
 		},
 		Server: ServerConfig{
 			Port: serverPort,
+		},
+		CORS: CORSConfig{
+			AllowedOrigins:   parseCommaSeparated(getEnvOrDefault("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173")),
+			AllowedMethods:   parseCommaSeparated(getEnvOrDefault("CORS_ALLOWED_METHODS", "GET,POST,PUT,DELETE,OPTIONS")),
+			AllowedHeaders:   parseCommaSeparated(getEnvOrDefault("CORS_ALLOWED_HEADERS", "Content-Type,Authorization")),
+			AllowCredentials: getBoolOrDefault("CORS_ALLOW_CREDENTIALS", true),
+			MaxAge:           getIntOrDefault("CORS_MAX_AGE", 3600),
 		},
 	}
 
@@ -117,4 +135,30 @@ func getIntOrDefault(key string, defaultValue int) int {
 		}
 	}
 	return defaultValue
+}
+
+// getBoolOrDefault returns the boolean value of an environment variable or a default value
+func getBoolOrDefault(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		if boolValue, err := strconv.ParseBool(value); err == nil {
+			return boolValue
+		}
+	}
+	return defaultValue
+}
+
+// parseCommaSeparated splits a comma-separated string into a slice of trimmed strings
+func parseCommaSeparated(value string) []string {
+	if value == "" {
+		return []string{}
+	}
+	parts := strings.Split(value, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }
