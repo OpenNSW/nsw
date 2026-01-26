@@ -10,12 +10,12 @@ import (
 
 // InitPayload represents the data required to initialize a task in the ExecutionUnit Manager system.
 type InitPayload struct {
-	StepID        string           `json:"stepId" binding:"required"` // Unique identifier of the step within the workflow template
-	TaskID        uuid.UUID        `json:"taskId" binding:"required"` // Unique identifier of the task instance
-	ConsignmentID uuid.UUID        `json:"consignmentId" binding:"required"`
-	Type          Type             `json:"type" binding:"required"`   // Type of the task
-	Status        model.TaskStatus `json:"status" binding:"required"` // Current status of the task
-	CommandSet    json.RawMessage  `json:"config" binding:"required"` // Configuration specific to the task
+	StepID        string           `json:"stepId" binding:"required"`        // Unique identifier of the step within the workflow template
+	TaskID        uuid.UUID        `json:"taskId" binding:"required"`        // Unique identifier of the task instance
+	ConsignmentID uuid.UUID        `json:"consignmentId" binding:"required"` // Unique identifier of the instance of a workflow template
+	Type          Type             `json:"type" binding:"required"`          // Type of the task
+	Status        model.TaskStatus `json:"status" binding:"required"`        // Current status of the task
+	CommandSet    json.RawMessage  `json:"config" binding:"required"`        // Configuration specific to the task
 }
 
 // ActiveTask represents a task that is currently active in the system.
@@ -59,6 +59,6 @@ func (a *ActiveTask) IsExecutable() bool {
 	return a.Status == model.TaskStatusReady
 }
 
-func (a *ActiveTask) Execute(ctx context.Context, payload interface{}) (*ExecutionResult, error) {
+func (a *ActiveTask) Execute(ctx context.Context, payload *ExecutionPayload) (*ExecutionResult, error) {
 	return a.Executor.Execute(ctx, payload)
 }

@@ -10,7 +10,7 @@ type OGAFormTask struct {
 	CommandSet interface{}
 }
 
-func (t *OGAFormTask) Execute(_ context.Context, payload interface{}) (*ExecutionResult, error) {
+func (t *OGAFormTask) Execute(_ context.Context, payload *ExecutionPayload) (*ExecutionResult, error) {
 	// This method is called for non-realtime OGA tasks
 	// 1. Route to external OGA system (AYUSCUDA, etc.)
 	// TODO: Implement actual HTTP call to external OGA API

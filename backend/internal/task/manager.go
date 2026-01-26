@@ -29,11 +29,16 @@ type TaskManager interface {
 	Close() error
 }
 
+type ExecutionPayload struct {
+	Action  string      `json:"action"`
+	Payload interface{} `json:"payload,omitempty"`
+}
+
 // ExecuteTaskRequest represents the request body for task execution
 type ExecuteTaskRequest struct {
-	ConsignmentID uuid.UUID   `json:"consignment_id"`
-	TaskID        uuid.UUID   `json:"task_id"`
-	Payload       interface{} `json:"payload,omitempty"`
+	ConsignmentID uuid.UUID         `json:"consignment_id"`
+	TaskID        uuid.UUID         `json:"task_id"`
+	Payload       *ExecutionPayload `json:"payload,omitempty"`
 }
 
 // ExecuteTaskResponse represents the response for task execution
@@ -189,7 +194,7 @@ func (tm *taskManager) RegisterTask(ctx context.Context, payload InitPayload) (*
 }
 
 // execute is a unified method that executes a task and returns the result.
-func (tm *taskManager) execute(ctx context.Context, activeTask *ActiveTask, payload interface{}) (*ExecutionResult, error) {
+func (tm *taskManager) execute(ctx context.Context, activeTask *ActiveTask, payload *ExecutionPayload) (*ExecutionResult, error) {
 	// Check if a task can be executed
 	if !activeTask.IsExecutable() {
 		return nil, fmt.Errorf("task %s is not ready for execution", activeTask.TaskID)
