@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/OpenNSW/nsw/internal/workflow/model"
+	"github.com/OpenNSW/nsw/utils"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -21,28 +22,7 @@ func NewConsignmentService(ts *TaskService, db *gorm.DB) *ConsignmentService {
 
 // GetAllHSCodes retrieves all HS codes from the database
 func (s *ConsignmentService) GetAllHSCodes(ctx context.Context, filter model.HSCodeFilter) (*model.HSCodeListResult, error) {
-	var hsCodes []model.HSCode
-	query := s.db.WithContext(ctx)
-
-	// Apply filter: HSCode starts with
-	if filter.HSCodeStartsWith != nil && *filter.HSCodeStartsWith != "" {
-		query = query.Where("hs_code LIKE ?", *filter.HSCodeStartsWith+"%")
-	}
-
-	// Apply pagination
-	if filter.Offset != nil {
-		query = query.Offset(*filter.Offset)
-	}
-	if filter.Limit != nil {
-		query = query.Limit(*filter.Limit)
-	}
-
-	result := query.Find(&hsCodes)
-	if result.Error != nil {
-		return nil, fmt.Errorf("failed to retrieve HS codes: %w", result.Error)
-	}
-
-	// Get total count for pagination (with filter applied)
+	// Get total count first for pagination (with filter applied)
 	var totalCount int64
 	countQuery := s.db.WithContext(ctx).Model(&model.HSCode{})
 
@@ -56,18 +36,42 @@ func (s *ConsignmentService) GetAllHSCodes(ctx context.Context, filter model.HSC
 		return nil, fmt.Errorf("failed to count HS codes: %w", countResult.Error)
 	}
 
+	// If no HS codes found, return early
+	if totalCount == 0 {
+		return &model.HSCodeListResult{
+			TotalCount: 0,
+			Items:      []model.HSCode{},
+			Offset:     0,
+			Limit:      0,
+		}, nil
+	}
+
+	var hsCodes []model.HSCode
+	query := s.db.WithContext(ctx)
+
+	// Apply filter: HSCode starts with
+	if filter.HSCodeStartsWith != nil && *filter.HSCodeStartsWith != "" {
+		query = query.Where("hs_code LIKE ?", *filter.HSCodeStartsWith+"%")
+	}
+
+	// Apply pagination with defaults and limits
+	finalOffset, finalLimit := utils.GetPaginationParams(filter.Offset, filter.Limit)
+	query = query.Offset(finalOffset).Limit(finalLimit)
+
+	// Add ordering for consistent pagination
+	query = query.Order("hs_code ASC")
+
+	result := query.Find(&hsCodes)
+	if result.Error != nil {
+		return nil, fmt.Errorf("failed to retrieve HS codes: %w", result.Error)
+	}
+
 	// Prepare the result
 	hsCodeListResult := &model.HSCodeListResult{
 		TotalCount: totalCount,
-		HSCodes:    hsCodes,
-		Offset:     0,
-		Limit:      len(hsCodes),
-	}
-	if filter.Offset != nil {
-		hsCodeListResult.Offset = *filter.Offset
-	}
-	if filter.Limit != nil {
-		hsCodeListResult.Limit = *filter.Limit
+		Items:      hsCodes,
+		Offset:     finalOffset,
+		Limit:      finalLimit,
 	}
 
 	return hsCodeListResult, nil
@@ -332,7 +336,7 @@ func (s *ConsignmentService) updateDependentTasks(ctx context.Context, tx *gorm.
 
 	// If the completed task has been marked as REJECTED, need to update consignment state to REQUIRES_REWORK
 	if completedTask.Status == model.TaskStatusRejected {
-		consignment, err := s.GetConsignmentByID(ctx, completedTask.ConsignmentID)
+		consignment, err := s.getConsignmentByID(ctx, completedTask.ConsignmentID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to retrieve consignment: %w", err)
 		}
@@ -398,7 +402,7 @@ func (s *ConsignmentService) updateDependentTasks(ctx context.Context, tx *gorm.
 
 	// Update consignment state based on task completions
 	if isAllCompleted {
-		consignment, err := s.GetConsignmentByID(ctx, completedTask.ConsignmentID)
+		consignment, err := s.getConsignmentByID(ctx, completedTask.ConsignmentID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to retrieve consignment: %w", err)
 		}
@@ -410,12 +414,7 @@ func (s *ConsignmentService) updateDependentTasks(ctx context.Context, tx *gorm.
 	return readyDependentTasks, nil
 }
 
-// GetConsignmentByID retrieves a consignment by its ID.
-func (s *ConsignmentService) GetConsignmentByID(ctx context.Context, consignmentID uuid.UUID) (*model.Consignment, error) {
-	if consignmentID == uuid.Nil {
-		return nil, fmt.Errorf("consignment ID cannot be nil")
-	}
-
+func (s *ConsignmentService) getConsignmentByID(ctx context.Context, consignmentID uuid.UUID) (*model.Consignment, error) {
 	var consignment model.Consignment
 	result := s.db.WithContext(ctx).First(&consignment, "id = ?", consignmentID)
 	if result.Error != nil {
@@ -425,4 +424,71 @@ func (s *ConsignmentService) GetConsignmentByID(ctx context.Context, consignment
 		return nil, fmt.Errorf("failed to retrieve consignment: %w", result.Error)
 	}
 	return &consignment, nil
+}
+
+// GetConsignmentByID retrieves a consignment by its ID.
+func (s *ConsignmentService) GetConsignmentByID(ctx context.Context, consignmentID uuid.UUID) (*model.ConsignmentResponse, error) {
+	if consignmentID == uuid.Nil {
+		return nil, fmt.Errorf("consignment ID cannot be nil")
+	}
+
+	consignment, err := s.getConsignmentByID(ctx, consignmentID)
+	if err != nil {
+		return nil, err
+	}
+
+	response := consignment.ToConsignmentResponse()
+	return &response, nil
+}
+
+// GetConsignmentsByTraderID retrieves all consignments for a specific trader.
+func (s *ConsignmentService) GetConsignmentsByTraderID(ctx context.Context, filter model.ConsignmentTraderFilter) (model.ConsignmentListResponseDTO, error) {
+	if filter.TraderID == "" {
+		return model.ConsignmentListResponseDTO{}, fmt.Errorf("trader ID cannot be empty")
+	}
+
+	// Get total count first for pagination
+	var totalCount int64
+	countResult := s.db.WithContext(ctx).Model(&model.Consignment{}).Where("trader_id = ?", filter.TraderID).Count(&totalCount)
+	if countResult.Error != nil {
+		return model.ConsignmentListResponseDTO{}, fmt.Errorf("failed to count consignments: %w", countResult.Error)
+	}
+
+	// If no consignments found, return early
+	if totalCount == 0 {
+		return model.ConsignmentListResponseDTO{
+			TotalCount: 0,
+			Items:      []model.ConsignmentResponse{},
+			Offset:     0,
+			Limit:      0,
+		}, nil
+	}
+
+	var consignments []model.Consignment
+	query := s.db.WithContext(ctx).Where("trader_id = ?", filter.TraderID).Order("created_at DESC")
+
+	// Apply pagination with defaults and limits
+	finalOffset, finalLimit := utils.GetPaginationParams(filter.Offset, filter.Limit)
+	query = query.Offset(finalOffset).Limit(finalLimit)
+
+	result := query.Find(&consignments)
+	if result.Error != nil {
+		return model.ConsignmentListResponseDTO{}, fmt.Errorf("failed to retrieve consignments: %w", result.Error)
+	}
+
+	// Convert to response DTOs
+	responseItems := make([]model.ConsignmentResponse, len(consignments))
+	for i, consignment := range consignments {
+		responseItems[i] = consignment.ToConsignmentResponse()
+	}
+
+	// Prepare the result
+	consignmentListResult := model.ConsignmentListResponseDTO{
+		TotalCount: totalCount,
+		Items:      responseItems,
+		Offset:     finalOffset,
+		Limit:      finalLimit,
+	}
+
+	return consignmentListResult, nil
 }

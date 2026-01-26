@@ -33,15 +33,21 @@ func (wr *WorkflowRouter) HandleGetHSCodes(w http.ResponseWriter, r *http.Reques
 	}
 
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
-		if limit, err := strconv.Atoi(limitStr); err == nil {
-			filter.Limit = &limit
+		limit, err := strconv.Atoi(limitStr)
+		if err != nil {
+			http.Error(w, "invalid 'limit' query parameter, must be an integer", http.StatusBadRequest)
+			return
 		}
+		filter.Limit = &limit
 	}
 
 	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
-		if offset, err := strconv.Atoi(offsetStr); err == nil {
-			filter.Offset = &offset
+		offset, err := strconv.Atoi(offsetStr)
+		if err != nil {
+			http.Error(w, "invalid 'offset' query parameter, must be an integer", http.StatusBadRequest)
+			return
 		}
+		filter.Offset = &offset
 	}
 
 	hsCodes, err := wr.cs.GetAllHSCodes(r.Context(), filter)
@@ -154,6 +160,56 @@ func (wr *WorkflowRouter) HandleGetConsignment(w http.ResponseWriter, r *http.Re
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(consignment); err != nil {
+		http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+		return
+	}
+}
+
+// HandleGetConsignments handles GET /api/consignments?traderId={traderId}&offset={offset}&limit={limit} requests
+// TradeID is required
+// Optional Query Params: offset, limit
+func (wr *WorkflowRouter) HandleGetConsignments(w http.ResponseWriter, r *http.Request) {
+	traderID := r.URL.Query().Get("traderId")
+
+	// If traderID is provided, should validate the Authenticated user has access to it
+	// TODO: Implement authentication and authorization
+
+	// If TraderID is not provided, return as bad request for now
+	if traderID == "" {
+		http.Error(w, "missing traderId query parameter", http.StatusBadRequest)
+		return
+	}
+
+	var filter model.ConsignmentTraderFilter
+	filter.TraderID = traderID
+
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		limit, err := strconv.Atoi(limitStr)
+		if err != nil {
+			http.Error(w, "invalid 'limit' query parameter, must be an integer", http.StatusBadRequest)
+			return
+		}
+		filter.Limit = &limit
+	}
+
+	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
+		offset, err := strconv.Atoi(offsetStr)
+		if err != nil {
+			http.Error(w, "invalid 'offset' query parameter, must be an integer", http.StatusBadRequest)
+			return
+		}
+		filter.Offset = &offset
+	}
+
+	consignments, err := wr.cs.GetConsignmentsByTraderID(r.Context(), filter)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get consignments: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(consignments); err != nil {
 		http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
 		return
 	}

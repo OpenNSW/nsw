@@ -109,3 +109,8 @@ func (m *Manager) HandleCreateConsignment(w http.ResponseWriter, r *http.Request
 func (m *Manager) HandleGetConsignment(w http.ResponseWriter, r *http.Request) {
 	m.wr.HandleGetConsignment(w, r)
 }
+
+// HandleGetConsignments handles GET requests to retrieve consignments
+func (m *Manager) HandleGetConsignments(w http.ResponseWriter, r *http.Request) {
+	m.wr.HandleGetConsignments(w, r)
+}

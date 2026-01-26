@@ -90,6 +90,7 @@ func main() {
 	mux.HandleFunc("GET /api/hscodes", wm.HandleGetHSCodes)
 	mux.HandleFunc("GET /api/workflows/templates", wm.HandleGetWorkflowTemplate)
 	mux.HandleFunc("POST /api/consignments", wm.HandleCreateConsignment)
+	mux.HandleFunc("GET /api/consignments", wm.HandleGetConsignments)
 	mux.HandleFunc("GET /api/consignments/{consignmentID}", wm.HandleGetConsignment)
 
 	// Set up graceful shutdown
