@@ -59,11 +59,11 @@ type TraderFormPayload struct {
 // TraderFormResult extends ExecutionResult with form-specific response data
 type TraderFormResult struct {
 	*ExecutionResult
-	FormID     string          `json:"formId,omitempty"`
-	Title      string          `json:"title,omitempty"`
-	JSONSchema json.RawMessage `json:"schema,omitempty"`
-	UISchema   json.RawMessage `json:"uiSchema,omitempty"`
-	FormData   json.RawMessage `json:"formData,omitempty"`
+	FormID   string          `json:"formId,omitempty"`
+	Title    string          `json:"title,omitempty"`
+	Schema   json.RawMessage `json:"schema,omitempty"`
+	UISchema json.RawMessage `json:"uiSchema,omitempty"`
+	FormData json.RawMessage `json:"formData,omitempty"`
 }
 
 type TraderFormTask struct {
@@ -206,11 +206,11 @@ func (t *TraderFormTask) handleFetchForm(commandSet *TraderFormCommandSet) (*Exe
 		Status:  model.TaskStatusReady,
 		Message: "Form schema retrieved successfully",
 		Data: TraderFormResult{
-			FormID:     commandSet.FormID,
-			Title:      commandSet.Title,
-			JSONSchema: commandSet.Schema,
-			UISchema:   commandSet.UISchema,
-			FormData:   commandSet.FormData,
+			FormID:   commandSet.FormID,
+			Title:    commandSet.Title,
+			Schema:   commandSet.Schema,
+			UISchema: commandSet.UISchema,
+			FormData: commandSet.FormData,
 		},
 	}, nil
 }
