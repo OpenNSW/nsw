@@ -1,6 +1,6 @@
 export type TradeFlow = 'IMPORT' | 'EXPORT'
 
-export type ConsignmentState = 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+export type ConsignmentState = 'IN_PROGRESS' | 'REQUIRES_REWORK' | 'FINISHED'
 
 export type StepStatus = 'READY' | 'LOCKED' | 'IN_PROGRESS' | 'COMPLETED'
 
