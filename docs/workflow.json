@@ -1,0 +1,59 @@
+{
+  "workflowId": "sl-export-desiccated-coconut",
+  "version": "1.0",
+  "steps": [
+    {
+      "stepId": "cusdec",
+      "type": "TRADER_FORM",
+      "config": {
+        "formId": "customs-declaration"
+      },
+      "dependsOn": []
+    },
+    {
+      "stepId": "cda_license",
+      "type": "OGA_APPLICATION",
+      "config": {
+        "agency": "CDA",
+        "formId": "tea-permit",
+        "requestURL" : "...",
+        "service": "export-license"
+      },
+      "dependsOn": [
+        "cusdec"
+      ]
+    },
+    {
+      "stepId": "ie_license",
+      "type": "OGA_APPLICATION",
+      "config": {
+        "agency": "DOC",
+        "service": "ie-license"
+      },
+      "dependsOn": [
+        "cusdec"
+      ]
+    },
+    {
+      "stepId": "cargo_dispatch",
+      "type": "TRADER_FORM",
+      "config": {
+        "formId": "cdn-form"
+      },
+      "dependsOn": [
+        "cda_license",
+        "ie_license"
+      ]
+    },
+    {
+      "stepId": "customs_release",
+      "type": "SYSTEM_WAIT",
+      "config": {
+        "event": "CUSTOMS_RELEASED"
+      },
+      "dependsOn": [
+        "cargo_dispatch"
+      ]
+    }
+  ]
+}

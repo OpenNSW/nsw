@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -136,10 +137,13 @@
 
 /* Animation Keyframes */
 @keyframes bounce-gentle {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: translateY(0);
         animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
     }
+
     50% {
         transform: translateY(-10%);
         animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
@@ -147,10 +151,13 @@
 }
 
 @keyframes scale-pulse {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: scale(1);
         opacity: 1;
     }
+
     50% {
         transform: scale(1.05);
         opacity: 0.9;
@@ -158,14 +165,18 @@
 }
 
 @keyframes ping-slow {
-    75%, 100% {
+
+    75%,
+    100% {
         transform: scale(2);
         opacity: 0;
     }
 }
 
 @keyframes ping-slower {
-    75%, 100% {
+
+    75%,
+    100% {
         transform: scale(2.5);
         opacity: 0;
     }
@@ -176,6 +187,7 @@
         opacity: 0;
         transform: translateY(20px);
     }
+
     100% {
         opacity: 1;
         transform: translateY(0);
@@ -186,6 +198,7 @@
     0% {
         opacity: 0;
     }
+
     100% {
         opacity: 1;
     }
@@ -195,10 +208,28 @@
     0% {
         transform: translateX(-100%);
     }
+
     50% {
         transform: translateX(100%);
     }
+
     100% {
         transform: translateX(-100%);
     }
+}
+
+:root {
+    font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+    font-weight: 400;
+}
+
+body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+}
+
+#root {
+    width: 100%;
 }

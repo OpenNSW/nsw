@@ -1,0 +1,123 @@
+{
+  "formId": "tea-permit",
+  "name": "Tea Export Permit Application",
+  "description": "Form for applying for tea export permit from CDA",
+  "version": "1.0",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "applicantName": {
+        "type": "string",
+        "minLength": 3,
+        "description": "Name of the applicant"
+      },
+      "applicantLicenseNumber": {
+        "type": "string",
+        "minLength": 5,
+        "description": "License number of the applicant"
+      },
+      "teaType": {
+        "type": "string",
+        "enum": ["Black Tea", "Green Tea", "White Tea", "Oolong Tea", "Pu-erh Tea", "Other"],
+        "description": "Type of tea to be exported"
+      },
+      "quantity": {
+        "type": "number",
+        "minimum": 0.01,
+        "description": "Quantity in metric tons"
+      },
+      "destinationCountry": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 2,
+        "description": "Destination country (ISO 3166-1 alpha-2 code)"
+      },
+      "expectedExportDate": {
+        "type": "string",
+        "format": "date",
+        "description": "Expected date of export"
+      },
+      "certificationRequired": {
+        "type": "boolean",
+        "description": "Whether organic or quality certification is required"
+      },
+      "additionalNotes": {
+        "type": "string",
+        "maxLength": 1000,
+        "description": "Additional notes or special requirements"
+      }
+    },
+    "required": ["applicantName", "applicantLicenseNumber", "teaType", "quantity", "destinationCountry", "expectedExportDate"]
+  },
+  "uiSchema": {
+    "type": "VerticalLayout",
+    "elements": [
+      {
+        "type": "Label",
+        "text": "Applicant Information"
+      },
+      {
+        "type": "HorizontalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/applicantName",
+            "label": "Applicant Name"
+          },
+          {
+            "type": "Control",
+            "scope": "#/properties/applicantLicenseNumber",
+            "label": "License Number"
+          }
+        ]
+      },
+      {
+        "type": "Label",
+        "text": "Export Details"
+      },
+      {
+        "type": "HorizontalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/teaType",
+            "label": "Tea Type"
+          },
+          {
+            "type": "Control",
+            "scope": "#/properties/destinationCountry",
+            "label": "Destination Country"
+          }
+        ]
+      },
+      {
+        "type": "HorizontalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/quantity",
+            "label": "Quantity (Metric Tons)"
+          },
+          {
+            "type": "Control",
+            "scope": "#/properties/expectedExportDate",
+            "label": "Expected Export Date"
+          }
+        ]
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/certificationRequired",
+        "label": "Certification Required"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/additionalNotes",
+        "label": "Additional Notes",
+        "options": {
+          "multi": true
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,134 @@
+{
+  "formId": "oga-review",
+  "name": "OGA Officer Review Form",
+  "description": "Form for OGA officers to review and approve/reject applications",
+  "version": "1.0",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "reviewerName": {
+        "type": "string",
+        "minLength": 2,
+        "description": "Name of the reviewing officer"
+      },
+      "reviewerID": {
+        "type": "string",
+        "minLength": 5,
+        "description": "Officer ID"
+      },
+      "reviewDate": {
+        "type": "string",
+        "format": "date",
+        "description": "Date of review"
+      },
+      "decision": {
+        "type": "string",
+        "enum": ["APPROVED", "REJECTED", "REQUIRES_MORE_INFO"],
+        "description": "Review decision"
+      },
+      "comments": {
+        "type": "string",
+        "maxLength": 2000,
+        "description": "Review comments"
+      },
+      "conditions": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "description": "Any conditions attached to approval"
+      },
+      "rejectionReason": {
+        "type": "string",
+        "enum": [
+          "Incomplete Information",
+          "Non-compliance with Regulations",
+          "Missing Documentation",
+          "Other"
+        ],
+        "description": "Reason for rejection (if applicable)"
+      }
+    },
+    "required": ["reviewerName", "reviewerID", "reviewDate", "decision", "comments"],
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "decision": {
+              "const": "REJECTED"
+            }
+          }
+        },
+        "then": {
+          "required": ["rejectionReason"]
+        }
+      }
+    ]
+  },
+  "uiSchema": {
+    "type": "VerticalLayout",
+    "elements": [
+      {
+        "type": "Label",
+        "text": "Reviewer Information"
+      },
+      {
+        "type": "HorizontalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/reviewerName",
+            "label": "Reviewer Name"
+          },
+          {
+            "type": "Control",
+            "scope": "#/properties/reviewerID",
+            "label": "Officer ID"
+          },
+          {
+            "type": "Control",
+            "scope": "#/properties/reviewDate",
+            "label": "Review Date"
+          }
+        ]
+      },
+      {
+        "type": "Label",
+        "text": "Review Decision"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/decision",
+        "label": "Decision"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/comments",
+        "label": "Comments",
+        "options": {
+          "multi": true
+        }
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/conditions",
+        "label": "Conditions (if any)"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/rejectionReason",
+        "label": "Rejection Reason",
+        "rule": {
+          "effect": "SHOW",
+          "condition": {
+            "scope": "#/properties/decision",
+            "schema": {
+              "const": "REJECTED"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

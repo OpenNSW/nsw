@@ -1,0 +1,165 @@
+{
+  "formId": "customs-declaration",
+  "name": "Customs Declaration Form",
+  "description": "Form for declaring customs information for consignments",
+  "version": "1.0",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "consignmentType": {
+        "type": "string",
+        "enum": ["IMPORT", "EXPORT"],
+        "description": "Type of consignment"
+      },
+      "traderId": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Trader identifier"
+      },
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "hsCode": {
+              "type": "string",
+              "pattern": "^[0-9]{4,10}$",
+              "description": "HS Code of the item (4-10 digits)"
+            },
+            "description": {
+              "type": "string",
+              "minLength": 3,
+              "description": "Description of the item"
+            },
+            "quantity": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Quantity of items"
+            },
+            "value": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Value of the item"
+            },
+            "weight": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Weight in kilograms"
+            },
+            "originCountry": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 2,
+              "description": "Country of origin (ISO 3166-1 alpha-2 code)"
+            }
+          },
+          "required": ["hsCode", "description", "quantity", "value", "originCountry"]
+        },
+        "minItems": 1,
+        "description": "List of items in the consignment"
+      },
+      "declarationDate": {
+        "type": "string",
+        "format": "date",
+        "description": "Date of declaration"
+      },
+      "portOfEntry": {
+        "type": "string",
+        "minLength": 2,
+        "description": "Port of entry or exit"
+      }
+    },
+    "required": ["consignmentType", "traderId", "items", "declarationDate"]
+  },
+  "uiSchema": {
+    "type": "VerticalLayout",
+    "elements": [
+      {
+        "type": "HorizontalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/consignmentType",
+            "label": "Consignment Type"
+          },
+          {
+            "type": "Control",
+            "scope": "#/properties/traderId",
+            "label": "Trader ID"
+          }
+        ]
+      },
+      {
+        "type": "Label",
+        "text": "Items Information"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/items",
+        "label": "Items",
+        "options": {
+          "detail": {
+            "type": "VerticalLayout",
+            "elements": [
+              {
+                "type": "HorizontalLayout",
+                "elements": [
+                  {
+                    "type": "Control",
+                    "scope": "#/properties/hsCode",
+                    "label": "HS Code"
+                  },
+                  {
+                    "type": "Control",
+                    "scope": "#/properties/originCountry",
+                    "label": "Origin Country"
+                  }
+                ]
+              },
+              {
+                "type": "Control",
+                "scope": "#/properties/description",
+                "label": "Description"
+              },
+              {
+                "type": "HorizontalLayout",
+                "elements": [
+                  {
+                    "type": "Control",
+                    "scope": "#/properties/quantity",
+                    "label": "Quantity"
+                  },
+                  {
+                    "type": "Control",
+                    "scope": "#/properties/value",
+                    "label": "Value"
+                  },
+                  {
+                    "type": "Control",
+                    "scope": "#/properties/weight",
+                    "label": "Weight (kg)"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "type": "HorizontalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/declarationDate",
+            "label": "Declaration Date"
+          },
+          {
+            "type": "Control",
+            "scope": "#/properties/portOfEntry",
+            "label": "Port of Entry"
+          }
+        ]
+      }
+    ]
+  }
+}
