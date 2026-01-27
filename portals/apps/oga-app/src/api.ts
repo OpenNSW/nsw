@@ -1,7 +1,6 @@
 // API service for OGA Portal
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:8080';
-const OGA_API_BASE_URL = (import.meta.env.VITE_OGA_API_BASE_URL as string | undefined) ?? 'http://localhost:8081';
+const API_BASE_URL = (import.meta.env.VITE_OGA_API_BASE_URL as string | undefined) ?? 'http://localhost:8081';
 
 export interface Consignment {
   id: string;
@@ -65,37 +64,36 @@ export interface ApproveResponse {
 export interface OGAApplication {
   taskId: string;
   consignmentId: string;
-  stepId: string;
-  formId: string;
+  serviceUrl: string;
+  data: Record<string, unknown>;
   status: string;
+  reviewerNotes?: string;
+  reviewedAt?: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 // Fetch all consignments pending OGA review from OGA Service
-// OGA Service polls Backend and maintains its own database
-export async function fetchPendingApplications(signal?: AbortSignal): Promise<OGAApplication[]> {
-  try {
-    const response = await fetch(`${OGA_API_BASE_URL}/api/oga/applications`, { signal });
-    if (!response.ok) {
-      throw new Error(`Failed to fetch pending applications: ${response.statusText}`);
-    }
+export async function fetchPendingApplications(status?: string, signal?: AbortSignal): Promise<OGAApplication[]> {
+  const url = status
+    ? `${API_BASE_URL}/api/oga/applications?status=${status}`
+    : `${API_BASE_URL}/api/oga/applications`;
 
-    return response.json() as Promise<OGAApplication[]>;
-  } catch (error) {
-    if (signal?.aborted) throw error;
-    console.warn('Failed to fetch from OGA Service, returning MOCK data:', error);
-
-    return [
-      {
-        taskId: '550e8400-e29b-41d4-a716-446655440003',
-        consignmentId: '550e8400-e29b-41d4-a716-446655440000',
-        stepId: 'phytosanitary_cert',
-        formId: 'oga-export-permit',
-        status: 'READY',
-        createdAt: new Date().toISOString(),
-      }
-    ];
+  const response = await fetch(url, { signal });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch pending applications: ${response.statusText}`);
   }
+
+  return response.json() as Promise<OGAApplication[]>;
+}
+
+// Fetch application detail by taskId from OGA Service
+export async function fetchApplicationDetail(taskId: string, signal?: AbortSignal): Promise<OGAApplication> {
+  const response = await fetch(`${API_BASE_URL}/api/oga/applications/${taskId}`, { signal });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch application: ${response.statusText}`);
+  }
+  return response.json() as Promise<OGAApplication>;
 }
 
 // Fetch consignment details including tasks and forms
@@ -237,33 +235,37 @@ export async function fetchConsignmentDetail(consignmentId: string, taskId?: str
 }
 
 // Submit approval for a task via OGA Service
-// OGA Service forwards to Backend POST /api/tasks/{taskId}
+// OGA Service sends callback to the originating service
 export async function approveTask(
   taskId: string,
   _consignmentId: string,
   requestBody: ApproveRequest,
   signal?: AbortSignal
 ): Promise<ApproveResponse> {
-  // Call OGA Service approval endpoint
-  const response = await fetch(`${OGA_API_BASE_URL}/api/oga/applications/${taskId}/approve`, {
+  // Build reviewer notes from comments and reviewer name
+  const reviewerNotes = [
+    `Reviewer: ${requestBody.reviewerName}`,
+    requestBody.comments ? `Comments: ${requestBody.comments}` : '',
+    requestBody.formData && Object.keys(requestBody.formData).length > 0
+      ? `Form Data: ${JSON.stringify(requestBody.formData)}`
+      : ''
+  ].filter(Boolean).join('\n');
+
+  const response = await fetch(`${API_BASE_URL}/api/oga/applications/${taskId}/review`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       decision: requestBody.decision,
-      data: {
-        ...requestBody.formData,
-        reviewerName: requestBody.reviewerName,
-        comments: requestBody.comments,
-      },
+      reviewerNotes: reviewerNotes,
     }),
     signal,
   });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: response.statusText })) as { error?: string };
-    throw new Error(errorData.error ?? `Failed to approve task: ${response.statusText}`);
+    throw new Error(errorData.error ?? `Failed to submit review: ${response.statusText}`);
   }
 
   return response.json() as Promise<ApproveResponse>;

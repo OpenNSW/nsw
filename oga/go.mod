@@ -3,7 +3,6 @@ module github.com/OpenNSW/nsw/oga
 go 1.25
 
 require (
-	github.com/OpenNSW/nsw v0.0.0
 	github.com/google/uuid v1.6.0
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.1
@@ -15,5 +14,3 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	golang.org/x/text v0.20.0 // indirect
 )
-
-replace github.com/OpenNSW/nsw => ../backend

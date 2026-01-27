@@ -1,27 +1,17 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { Button, Badge, Spinner, Text, Card, Flex, Box, TextField, TextArea, Callout } from '@radix-ui/themes'
 import { ArrowLeftIcon, CheckCircledIcon, ExclamationTriangleIcon, InfoCircledIcon } from '@radix-ui/react-icons'
-import { fetchConsignmentDetail, approveTask, type ConsignmentDetail, type ApproveRequest } from '../api'
-
-interface JsonSchema {
-  properties?: Record<string, {
-    type?: string;
-    title?: string;
-    description?: string;
-  }>;
-}
+import { fetchApplicationDetail, approveTask, type OGAApplication, type ApproveRequest } from '../api'
 
 export function ConsignmentDetailScreen() {
-  const { consignmentId } = useParams<{ consignmentId: string }>()
   const navigate = useNavigate()
-  const location = useLocation()
 
-  // Extract taskId from query parameters
-  const queryParams = new URLSearchParams(location.search)
-  const taskId = queryParams.get('taskId')
+  // Extract taskId from URL params
+  const searchParams = new URLSearchParams(location.search)
+  const taskId = searchParams.get('taskId')
 
-  const [consignment, setConsignment] = useState<ConsignmentDetail | null>(null)
+  const [application, setApplication] = useState<OGAApplication | null>(null)
   const [loading, setLoading] = useState(true)
   const [formData, setFormData] = useState<Record<string, unknown>>({})
   const [reviewerName, setReviewerName] = useState('')
@@ -33,10 +23,15 @@ export function ConsignmentDetailScreen() {
 
   useEffect(() => {
     async function fetchData() {
-      if (!consignmentId) return
+      if (!taskId) {
+        setError('No task ID provided')
+        setLoading(false)
+        return
+      }
+
       try {
-        const data = await fetchConsignmentDetail(consignmentId, taskId || undefined)
-        setConsignment(data)
+        const data = await fetchApplicationDetail(taskId)
+        setApplication(data)
       } catch (err) {
         setError('Failed to load application details')
         console.error(err)
@@ -45,7 +40,7 @@ export function ConsignmentDetailScreen() {
       }
     }
     fetchData()
-  }, [consignmentId, taskId])
+  }, [taskId])
 
   const handleFormChange = (field: string, value: unknown) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -57,11 +52,8 @@ export function ConsignmentDetailScreen() {
       return
     }
 
-    // Use the taskId from query params, or the first available ogaTask
-    const targetTaskId = taskId || consignment?.ogaTasks?.[0]?.id
-
-    if (!targetTaskId) {
-      setError('No pending OGA task found')
+    if (!taskId || !application) {
+      setError('Application data not available')
       return
     }
 
@@ -74,9 +66,9 @@ export function ConsignmentDetailScreen() {
         comments: comments.trim() || undefined,
         reviewerName: reviewerName.trim(),
         formData: formData,
-        consignmentId: consignment!.id,
+        consignmentId: application.consignmentId,
       }
-      await approveTask(targetTaskId, consignment!.id, requestBody)
+      await approveTask(taskId, application.consignmentId, requestBody)
       setSuccess(true)
       setTimeout(() => navigate('/consignments'), 2000)
     } catch (err) {
@@ -95,12 +87,12 @@ export function ConsignmentDetailScreen() {
     )
   }
 
-  if (!consignment) {
+  if (error && !application) {
     return (
       <Box p="6">
         <Callout.Root color="red">
           <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
-          <Callout.Text>Consignment not found</Callout.Text>
+          <Callout.Text>{error}</Callout.Text>
         </Callout.Root>
         <Button variant="soft" mt="4" onClick={() => navigate('/consignments')}>
           <ArrowLeftIcon /> Back to List
@@ -109,10 +101,19 @@ export function ConsignmentDetailScreen() {
     )
   }
 
-  // Find the specific task we are reviewing
-  const currentOgaTask = taskId
-    ? consignment.ogaTasks.find(t => t.id === taskId)
-    : consignment.ogaTasks?.[0]
+  if (!application) {
+    return (
+      <Box p="6">
+        <Callout.Root color="red">
+          <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
+          <Callout.Text>Application not found</Callout.Text>
+        </Callout.Root>
+        <Button variant="soft" mt="4" onClick={() => navigate('/consignments')}>
+          <ArrowLeftIcon /> Back to List
+        </Button>
+      </Box>
+    )
+  }
 
   return (
     <div className="animate-fade-in max-w-5xl mx-auto">
@@ -121,8 +122,12 @@ export function ConsignmentDetailScreen() {
           <ArrowLeftIcon /> Back to Consignments
         </Button>
         <Flex gap="3">
-          <Badge size="2" color={consignment.tradeFlow === 'IMPORT' ? 'blue' : 'green'} highContrast>
-            {consignment.tradeFlow}
+          <Badge size="2" color={
+            application.status === 'APPROVED' ? 'green' :
+            application.status === 'REJECTED' ? 'red' :
+            'blue'
+          } highContrast>
+            {application.status}
           </Badge>
         </Flex>
       </Flex>
@@ -142,47 +147,66 @@ export function ConsignmentDetailScreen() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Info & Trader Submission */}
+        {/* Left Column: Info */}
         <div className="lg:col-span-1 space-y-6">
           <Card size="2">
             <Text size="2" weight="bold" color="gray" mb="3" as="div" className="uppercase tracking-wider">
-              Consignment Details
+              Application Details
             </Text>
             <div className="space-y-4 mt-4">
               <Box>
+                <Text size="1" color="gray" as="div" mb="1">Task ID</Text>
+                <Text size="2" weight="medium" className="break-all font-mono">{application.taskId}</Text>
+              </Box>
+              <Box>
                 <Text size="1" color="gray" as="div" mb="1">Consignment ID</Text>
-                <Text size="2" weight="medium" className="break-all">{consignment.id}</Text>
+                <Text size="2" weight="medium" className="break-all font-mono">{application.consignmentId}</Text>
               </Box>
               <Box>
-                <Text size="1" color="gray" as="div" mb="1">Progress</Text>
-                <Text size="2" weight="medium">
-                  {(() => {
-                    let total = 0
-                    let completed = 0
-                    consignment.items.forEach(i => {
-                      total += i.steps.length
-                      i.steps.forEach(s => {
-                        if (s.status === 'COMPLETED') completed++
-                      })
-                    })
-                    return `${completed}/${total} steps completed`
-                  })()}
-                </Text>
+                <Text size="1" color="gray" as="div" mb="1">Status</Text>
+                <Badge size="2" color={
+                  application.status === 'APPROVED' ? 'green' :
+                  application.status === 'REJECTED' ? 'red' :
+                  'blue'
+                }>
+                  {application.status}
+                </Badge>
               </Box>
               <Box>
-                <Text size="1" color="gray" as="div" mb="1">Created On</Text>
+                <Text size="1" color="gray" as="div" mb="1">Submitted On</Text>
                 <Text size="2" weight="medium">
                   {(() => {
-                    const date = new Date(consignment.createdAt)
+                    const date = new Date(application.createdAt)
                     const datePart = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
                     const timePart = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
                     return `${datePart} at ${timePart}`
                   })()}
                 </Text>
               </Box>
+              {application.reviewedAt && (
+                <Box>
+                  <Text size="1" color="gray" as="div" mb="1">Reviewed On</Text>
+                  <Text size="2" weight="medium">
+                    {(() => {
+                      const date = new Date(application.reviewedAt)
+                      const datePart = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                      const timePart = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+                      return `${datePart} at ${timePart}`
+                    })()}
+                  </Text>
+                </Box>
+              )}
             </div>
           </Card>
 
+          {application.reviewerNotes && application.status !== 'PENDING' && (
+            <Card size="2">
+              <Text size="2" weight="bold" color="gray" mb="3" as="div" className="uppercase tracking-wider">
+                Reviewer Notes
+              </Text>
+              <Text size="2" className="whitespace-pre-wrap">{application.reviewerNotes}</Text>
+            </Card>
+          )}
         </div>
 
         {/* Right Column: Review Form */}
@@ -190,152 +214,160 @@ export function ConsignmentDetailScreen() {
           <Card size="3">
             <Flex align="center" gap="2" mb="4">
               <InfoCircledIcon className="text-primary-600 w-5 h-5" />
-              <Text size="4" weight="bold">Officer Review Form</Text>
+              <Text size="4" weight="bold">
+                {application.status === 'PENDING' ? 'Review Application' : 'Application Details'}
+              </Text>
             </Flex>
 
-            {!currentOgaTask ? (
-              <Callout.Root color="amber">
-                <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
-                <Callout.Text>This application is not currently pending an OGA review task.</Callout.Text>
+            {application.status !== 'PENDING' ? (
+              <Callout.Root color={application.status === 'APPROVED' ? 'green' : 'red'} mb="6">
+                <Callout.Icon>
+                  {application.status === 'APPROVED' ? <CheckCircledIcon /> : <ExclamationTriangleIcon />}
+                </Callout.Icon>
+                <Callout.Text>
+                  This application has been {application.status.toLowerCase()}.
+                </Callout.Text>
               </Callout.Root>
-            ) : (
-              <div className="space-y-6 mt-6">
-                {/* Trader Submission Section */}
-                <div className="bg-gray-50 rounded-lg p-5 border border-gray-200">
-                  <Text size="2" weight="bold" color="gray" mb="4" as="div" className="uppercase tracking-wider flex items-center gap-2">
-                    <InfoCircledIcon />
-                    Trader Submission Details
+            ) : null}
+
+            <div className="space-y-6 mt-6">
+              {/* Submitted Data Section */}
+              <div className="bg-gray-50 rounded-lg p-5 border border-gray-200">
+                <Text size="2" weight="bold" color="gray" mb="4" as="div" className="uppercase tracking-wider flex items-center gap-2">
+                  <InfoCircledIcon />
+                  Submitted Information
+                </Text>
+
+                {application.data && Object.keys(application.data).length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.entries(application.data).map(([key, value]) => (
+                      <Box key={key} className="bg-white p-3 rounded border border-gray-100">
+                        <Text size="1" color="gray" as="div" className="capitalize mb-1">
+                          {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
+                        </Text>
+                        <Text size="2" weight="medium">
+                          {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                        </Text>
+                      </Box>
+                    ))}
+                  </div>
+                ) : (
+                  <Text size="2" color="gray" className="italic text-center py-2">
+                    No submission data available
                   </Text>
+                )}
+              </div>
 
-                  {consignment.traderForm && Object.keys(consignment.traderForm).length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {Object.entries(consignment.traderForm).map(([key, value]) => (
-                        <Box key={key} className="bg-white p-3 rounded border border-gray-100">
-                          <Text size="1" color="gray" as="div" className="capitalize mb-1">{key.replace(/([A-Z])/g, ' $1')}</Text>
-                          <Text size="2" weight="medium">{String(value)}</Text>
-                        </Box>
-                      ))}
-                    </div>
-                  ) : (
-                    <Text size="2" color="gray" className="italic text-center py-2">
-                      No trader submission data available
-                    </Text>
-                  )}
-                </div>
+              {application.status === 'PENDING' && (
+                <>
+                  <div className="border-t border-gray-100 my-4"></div>
 
-                <div className="border-t border-gray-100 my-4"></div>
+                  <Box>
+                    <Text as="label" size="2" weight="bold" mb="1" className="block">Reviewer Name *</Text>
+                    <TextField.Root
+                      placeholder="Enter your full name"
+                      value={reviewerName}
+                      onChange={(e) => setReviewerName(e.target.value)}
+                      disabled={isSubmitting || success}
+                      size="3"
+                    />
+                  </Box>
 
-                <Box>
-                  <Text as="label" size="2" weight="bold" mb="1" className="block">Reviewer Name *</Text>
-                  <TextField.Root
-                    placeholder="Enter your full name"
-                    value={reviewerName}
-                    onChange={(e) => setReviewerName(e.target.value)}
-                    disabled={isSubmitting || success}
-                    size="3"
-                  />
-                </Box>
-
-                {/* Dynamic Fields from OGA Form Schema */}
-                {consignment.ogaForm && (
-                  <div className="space-y-6 p-4 bg-blue-50/30 rounded-xl border border-blue-100/50">
+                  {/* Optional Review Fields */}
+                  <div className="space-y-4 p-4 bg-blue-50/30 rounded-xl border border-blue-100/50">
                     <Text size="2" weight="bold" color="blue" mb="2" as="div" className="uppercase tracking-wider flex items-center gap-2">
                       <div className="w-1 h-4 bg-blue-500 rounded-full" />
-                      Required Review Fields
+                      Review Information (Optional)
                     </Text>
 
-                    {(() => {
-                      const schema = consignment.ogaForm.schema as unknown as JsonSchema
-                      const properties = schema?.properties || {}
+                    <Box>
+                      <Text as="label" size="2" weight="bold" mb="1" className="block">Certificate Number</Text>
+                      <TextField.Root
+                        value={(formData.certificateNumber as string) || ''}
+                        onChange={(e) => handleFormChange('certificateNumber', e.target.value)}
+                        disabled={isSubmitting || success}
+                        size="2"
+                        placeholder="e.g., CERT-2024-001"
+                      />
+                    </Box>
 
-                      return Object.entries(properties).map(([key, fieldSchema]) => {
-                        const fieldType = fieldSchema.type || 'string'
-                        const fieldTitle = fieldSchema.title || key
+                    <Box>
+                      <Text as="label" size="2" weight="bold" mb="1" className="block">Inspection Date</Text>
+                      <TextField.Root
+                        type="date"
+                        value={(formData.inspectionDate as string) || ''}
+                        onChange={(e) => handleFormChange('inspectionDate', e.target.value)}
+                        disabled={isSubmitting || success}
+                        size="2"
+                      />
+                    </Box>
 
-                        return (
-                          <Box key={key}>
-                            <Text as="label" size="2" weight="bold" mb="1" className="block">{fieldTitle}</Text>
-                            {fieldType === 'string' && (
-                              <TextField.Root
-                                value={(formData[key] as string) || ''}
-                                onChange={(e) => handleFormChange(key, e.target.value)}
-                                disabled={isSubmitting || success}
-                                size="2"
-                              />
-                            )}
-                            {fieldType === 'boolean' && (
-                              <Flex align="center" gap="2">
-                                <input
-                                  type="checkbox"
-                                  className="w-4 h-4 text-blue-600 rounded"
-                                  checked={(formData[key] as boolean) || false}
-                                  onChange={(e) => handleFormChange(key, e.target.checked)}
-                                  disabled={isSubmitting || success}
-                                />
-                                <Text size="2">Confirmed</Text>
-                              </Flex>
-                            )}
-                            {fieldSchema.description && (
-                              <Text size="1" color="gray" mt="1" className="block italic">{fieldSchema.description}</Text>
-                            )}
-                          </Box>
-                        )
-                      })
-                    })()}
+                    <Box>
+                      <Flex align="center" gap="2">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 text-blue-600 rounded"
+                          checked={(formData.verified as boolean) || false}
+                          onChange={(e) => handleFormChange('verified', e.target.checked)}
+                          disabled={isSubmitting || success}
+                        />
+                        <Text size="2" weight="bold">All documents verified</Text>
+                      </Flex>
+                    </Box>
                   </div>
-                )}
 
-                <Box>
-                  <Text as="label" size="2" weight="bold" mb="1" className="block">Final Decision *</Text>
-                  <Flex gap="4" mt="2">
-                    <Button
-                      size="3"
-                      variant={decision === 'APPROVED' ? 'solid' : 'soft'}
-                      color="green"
-                      className="flex-1 cursor-pointer"
-                      onClick={() => setDecision('APPROVED')}
+                  <Box>
+                    <Text as="label" size="2" weight="bold" mb="1" className="block">Final Decision *</Text>
+                    <Flex gap="4" mt="2">
+                      <Button
+                        size="3"
+                        variant={decision === 'APPROVED' ? 'solid' : 'soft'}
+                        color="green"
+                        className="flex-1 cursor-pointer"
+                        onClick={() => setDecision('APPROVED')}
+                        disabled={isSubmitting || success}
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        size="3"
+                        variant={decision === 'REJECTED' ? 'solid' : 'soft'}
+                        color="red"
+                        className="flex-1 cursor-pointer"
+                        onClick={() => setDecision('REJECTED')}
+                        disabled={isSubmitting || success}
+                      >
+                        Reject
+                      </Button>
+                    </Flex>
+                  </Box>
+
+                  <Box>
+                    <Text as="label" size="2" weight="bold" mb="1" className="block">Comments</Text>
+                    <TextArea
+                      placeholder="Provide details about your decision..."
+                      value={comments}
+                      onChange={(e) => setComments(e.target.value)}
                       disabled={isSubmitting || success}
-                    >
-                      Approve
-                    </Button>
-                    <Button
+                      rows={4}
                       size="3"
-                      variant={decision === 'REJECTED' ? 'solid' : 'soft'}
-                      color="red"
-                      className="flex-1 cursor-pointer"
-                      onClick={() => setDecision('REJECTED')}
-                      disabled={isSubmitting || success}
+                    />
+                  </Box>
+
+                  <div className="pt-4 border-t border-gray-100">
+                    <Button
+                      size="4"
+                      className="w-full cursor-pointer"
+                      onClick={handleApprove}
+                      loading={isSubmitting}
+                      disabled={success || !reviewerName.trim()}
                     >
-                      Reject
+                      {success ? 'Review Submitted' : 'Submit Final Review'}
                     </Button>
-                  </Flex>
-                </Box>
-
-                <Box>
-                  <Text as="label" size="2" weight="bold" mb="1" className="block">Reviewer Comments</Text>
-                  <TextArea
-                    placeholder="Provide details about your decision..."
-                    value={comments}
-                    onChange={(e) => setComments(e.target.value)}
-                    disabled={isSubmitting || success}
-                    rows={4}
-                    size="3"
-                  />
-                </Box>
-
-                <div className="pt-4 border-t border-gray-100">
-                  <Button
-                    size="4"
-                    className="w-full cursor-pointer"
-                    onClick={handleApprove}
-                    loading={isSubmitting}
-                    disabled={success || !reviewerName.trim()}
-                  >
-                    {success ? 'Review Submitted' : 'Submit Final Review'}
-                  </Button>
-                </div>
-              </div>
-            )}
+                  </div>
+                </>
+              )}
+            </div>
           </Card>
         </div>
       </div>

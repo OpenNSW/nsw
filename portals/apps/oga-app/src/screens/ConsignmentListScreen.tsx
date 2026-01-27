@@ -2,57 +2,23 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Badge, Text, TextField, Spinner, Select } from '@radix-ui/themes'
 import { MagnifyingGlassIcon } from '@radix-ui/react-icons'
-import { fetchPendingApplications, fetchConsignmentDetail, type OGAApplication } from '../api'
+import { fetchPendingApplications, type OGAApplication } from '../api'
 
 
 
 export function ConsignmentListScreen() {
   const navigate = useNavigate()
-  const [applications, setApplications] = useState<(OGAApplication & { progress?: string, tradeFlow?: string, consignmentState?: string })[]>([])
+  const [applications, setApplications] = useState<OGAApplication[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<string>('PENDING')
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const apps = await fetchPendingApplications()
-
-        // Fetch full consignment details to calculate progress and get extra fields
-        const appsWithDetails = await Promise.all(
-          apps.map(async (app) => {
-            try {
-              const detail = await fetchConsignmentDetail(app.consignmentId)
-
-              // Calculate progress
-              let totalSteps = 0
-              let completedSteps = 0
-
-              detail.items.forEach((item: any) => {
-                totalSteps += item.steps.length
-                item.steps.forEach((step: any) => {
-                  if (step.status === 'COMPLETED') {
-                    completedSteps++
-                  }
-                })
-              })
-
-              return {
-                ...app,
-                progress: `${completedSteps}/${totalSteps}`,
-                tradeFlow: detail.tradeFlow,
-                consignmentState: detail.state,
-                updatedAt: detail.updatedAt,
-                createdAt: detail.createdAt, // Ensure we use the consignment created date
-              }
-            } catch (e) {
-              console.warn('Failed to fetch details for app', app.taskId, e)
-              return { ...app, progress: '?', tradeFlow: '?', consignmentState: '?' }
-            }
-          })
-        )
-
-        setApplications(appsWithDetails)
+        const filterStatus = statusFilter === 'all' ? undefined : statusFilter
+        const apps = await fetchPendingApplications(filterStatus)
+        setApplications(apps)
       } catch (error) {
         console.error('Failed to fetch applications:', error)
       } finally {
@@ -62,20 +28,15 @@ export function ConsignmentListScreen() {
 
     fetchData()
 
-    // Poll for new applications
+    // Poll for new applications every 10 seconds
     const interval = setInterval(fetchData, 10000)
     return () => clearInterval(interval)
-  }, [])
+  }, [statusFilter])
 
-  const filteredApplications = applications.filter((app: OGAApplication & { progress?: string, tradeFlow?: string, consignmentState?: string }) => {
-    const matchesSearch =
-      searchQuery === '' ||
+  const filteredApplications = applications.filter((app) => {
+    return searchQuery === '' ||
       app.consignmentId.toLowerCase().includes(searchQuery.toLowerCase()) ||
       app.taskId.toLowerCase().includes(searchQuery.toLowerCase())
-
-    const matchesStatus = statusFilter === 'all' || app.status === statusFilter
-
-    return matchesSearch && matchesStatus
   })
 
   // Format date: Jan 27, 2026
@@ -134,7 +95,9 @@ export function ConsignmentListScreen() {
               <Select.Trigger placeholder="Status" />
               <Select.Content>
                 <Select.Item value="all">All Statuses</Select.Item>
-                <Select.Item value="READY">Ready</Select.Item>
+                <Select.Item value="PENDING">Pending</Select.Item>
+                <Select.Item value="APPROVED">Approved</Select.Item>
+                <Select.Item value="REJECTED">Rejected</Select.Item>
               </Select.Content>
             </Select.Root>
           </div>
@@ -159,44 +122,50 @@ export function ConsignmentListScreen() {
                       Consignment ID
                     </th>
                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Trade Flow
+                      Task ID
                     </th>
                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      State
+                      Status
                     </th>
                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Steps
+                      Submitted
                     </th>
                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Created
+                      Last Updated
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
-                  {filteredApplications.map((app: OGAApplication & { progress?: string, tradeFlow?: string, consignmentState?: string, updatedAt?: string }) => (
+                  {filteredApplications.map((app) => (
                     <tr
                       key={app.taskId}
                       onClick={() => navigate(`/consignments/${app.consignmentId}?taskId=${app.taskId}`)}
                       className="hover:bg-blue-50/30 cursor-pointer transition-colors group text-sm"
                     >
                       <td className="px-6 py-4 whitespace-nowrap font-mono text-blue-600 font-medium hover:underline">
-                        {app.consignmentId}
+                        {app.consignmentId.substring(0, 13)}...
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap font-mono text-gray-600 text-xs">
+                        {app.taskId.substring(0, 8)}...
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge size="1" color={app.tradeFlow === 'IMPORT' ? 'blue' : 'green'} variant="surface">
-                          {app.tradeFlow}
+                        <Badge
+                          size="1"
+                          color={
+                            app.status === 'APPROVED' ? 'green' :
+                            app.status === 'REJECTED' ? 'red' :
+                            'blue'
+                          }
+                          variant="surface"
+                        >
+                          {app.status}
                         </Badge>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge size="1">
-                          {app.consignmentState?.replace('_', ' ') || 'IN PROGRESS'}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                        {app.progress}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-gray-600">
                         {formatDateForTable(app.createdAt)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">
+                        {formatDateForTable(app.updatedAt)}
                       </td>
                     </tr>
                   ))}

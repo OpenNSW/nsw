@@ -16,11 +16,6 @@ import (
 
 func main() {
 	// Load configuration from environment variables
-	backendURL := os.Getenv("BACKEND_URL")
-	if backendURL == "" {
-		backendURL = "http://localhost:8080"
-	}
-
 	dbPath := os.Getenv("OGA_DB_PATH")
 	if dbPath == "" {
 		dbPath = "./oga_applications.db"
@@ -32,7 +27,6 @@ func main() {
 	}
 
 	slog.Info("OGA service configuration",
-		"backend_url", backendURL,
 		"db_path", dbPath,
 		"port", port,
 	)
@@ -48,34 +42,27 @@ func main() {
 		}
 	}()
 
-	// Initialize backend client
-	backendClient := oga.NewBackendClient(backendURL)
-
 	// Initialize OGA service
-	service := oga.NewOGAService(store, backendClient)
+	service := oga.NewOGAService(store)
 	defer func() {
 		if err := service.Close(); err != nil {
 			slog.Error("failed to close service", "error", err)
 		}
 	}()
 
-	// Start sync worker to poll backend for tasks
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// Sync every 10 seconds
-	syncInterval := 10 * time.Second
-	go service.StartSyncWorker(ctx, syncInterval)
-	slog.Info("sync worker started", "interval", syncInterval)
-
 	// Initialize handler
-	handler := oga.NewOGAHandler(service, backendClient)
+	handler := oga.NewOGAHandler(service)
 
 	// Set up HTTP routes
 	mux := http.NewServeMux()
+	// Health check
+	mux.HandleFunc("GET /health", handler.HandleHealth)
+	// Endpoint for services to inject data
+	mux.HandleFunc("POST /api/oga/inject", handler.HandleInjectData)
+	// Endpoints for UI to fetch and manage applications
 	mux.HandleFunc("GET /api/oga/applications", handler.HandleGetApplications)
 	mux.HandleFunc("GET /api/oga/applications/{taskId}", handler.HandleGetApplication)
-	mux.HandleFunc("POST /api/oga/applications/{taskId}/approve", handler.HandleApproveApplication)
+	mux.HandleFunc("POST /api/oga/applications/{taskId}/review", handler.HandleReviewApplication)
 
 	// Set up graceful shutdown
 	serverAddr := fmt.Sprintf(":%s", port)
@@ -113,9 +100,6 @@ func main() {
 	// Wait for interrupt signal
 	<-quit
 	slog.Info("shutting down OGA service...")
-
-	// Stop sync worker
-	cancel()
 
 	// Create a context with timeout for graceful shutdown
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
