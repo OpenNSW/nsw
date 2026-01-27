@@ -8,10 +8,8 @@ import (
 type StepType string
 
 const (
-	StepTypeSimpleForm     StepType = "SIMPLE_FORM"         // Step for simple form submission
-	StepTypeWaitForEvent   StepType = "WAIT_FOR_EVENT"      // Step that waits for an external event to occur
-	StepTypeDocumentSubmit StepType = "DOCUMENT_SUBMISSION" // Step for document submission
-	StepTypePayment        StepType = "PAYMENT"             // Step for payment processing
+	StepTypeSimpleForm   StepType = "SIMPLE_FORM"    // Step for simple form submission
+	StepTypeWaitForEvent StepType = "WAIT_FOR_EVENT" // Step that waits for an external event to occur
 )
 
 // Step represents an individual step within a workflow template.
