@@ -91,7 +91,7 @@ func (m *Manager) registerTasks(tasks []*model.Task, consignmentGlobalContext ma
 			CommandSet:    t.Config,
 			ConsignmentID: t.ConsignmentID,
 			StepID:        t.StepID,
-			GlobalContext: &consignmentGlobalContext,
+			GlobalContext: consignmentGlobalContext,
 		}
 		_, err := m.tm.RegisterTask(context.Background(), initPayload)
 		if err != nil {

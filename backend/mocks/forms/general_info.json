@@ -1,0 +1,55 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "General Info",
+    "properties": {
+      "consigneeName": {
+        "type": "string",
+        "title": "Consignee Name"
+      },
+      "consigneeAddress": {
+        "type": "string",
+        "title": "Consignee Address"
+      },
+      "countryOfOrigin": {
+        "type": "string",
+        "title": "Country of Origin",
+        "enum": ["LK"]
+      },
+      "countryOfDestination": {
+        "type": "string",
+        "title": "Country of Destination"
+      }
+    },
+    "required": [
+      "consigneeName",
+      "consigneeAddress",
+      "countryOfOrigin",
+      "countryOfDestination"
+    ]
+  },
+  "uiSchema": {
+    "type": "VerticalLayout",
+    "elements": [
+      {
+        "type": "Control",
+        "scope": "#/properties/consigneeName"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/consigneeAddress",
+        "options": {
+          "multi": true
+        }
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/countryOfOrigin"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/countryOfDestination"
+      }
+    ]
+  }
+}

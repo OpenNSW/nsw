@@ -8,6 +8,13 @@ import (
 
 type WaitForEventTask struct {
 	CommandSet interface{}
+	globalCtx  interface{}
+}
+
+func NewWaitForEventTask(commandSet interface{}) *WaitForEventTask {
+	return &WaitForEventTask{
+		CommandSet: commandSet,
+	}
 }
 
 func (t *WaitForEventTask) Execute(_ context.Context, payload *ExecutionPayload) (*ExecutionResult, error) {

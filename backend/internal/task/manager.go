@@ -159,8 +159,17 @@ func writeJSONError(w http.ResponseWriter, status int, message string) {
 // TaskManager does not have direct access to the Tasks table, so Workflow Manager
 // must provide the TaskContext with the ExecutionUnit already loaded.
 func (tm *taskManager) RegisterTask(ctx context.Context, payload InitPayload) (*ExecutionResult, error) {
+
+	if payload.GlobalContext == nil {
+		payload.GlobalContext = make(map[string]interface{})
+	}
+
+	// append the taskId, consignmentId and StepId to the globalContext
+	payload.GlobalContext["taskId"] = payload.TaskID
+	payload.GlobalContext["consignmentId"] = payload.ConsignmentID
+
 	// Build the executor from the factory
-	executor, err := tm.factory.BuildExecutor(payload.Type, payload.CommandSet)
+	executor, err := tm.factory.BuildExecutor(payload.Type, payload.CommandSet, payload.GlobalContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build executor: %w", err)
 	}
@@ -177,17 +186,16 @@ func (tm *taskManager) RegisterTask(ctx context.Context, payload InitPayload) (*
 		CommandSet:    payload.CommandSet,
 	}
 
+	globalContextJSON, err := json.Marshal(payload.GlobalContext)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal global context: %w", err)
+	}
+	execution.GlobalContext = globalContextJSON
+
 	// Store in SQLite
 	if err := tm.store.Create(execution); err != nil {
 		return nil, fmt.Errorf("failed to store task execution: %w", err)
 	}
-
-	// Create an ActiveTask for execution
-
-	// Cache executor in memory
-	//tm.executorsMu.Lock()
-	//tm.executors[activeTask.TaskID] = activeTask
-	//tm.executorsMu.Unlock()
 
 	// Execute a task and return a result to Workflow Manager
 	return tm.execute(ctx, activeTask, nil)
@@ -217,7 +225,7 @@ func (tm *taskManager) execute(ctx context.Context, activeTask *ActiveTask, payl
 	activeTask.Status = result.Status
 
 	// Notify Workflow Manager
-	tm.notifyWorkflowManager(ctx, activeTask.TaskID, result.Status)
+	tm.notifyWorkflowManager(ctx, activeTask.TaskID, result.Status, result.GlobalContextData)
 
 	return result, nil
 }
@@ -235,8 +243,15 @@ func (tm *taskManager) getTask(taskID uuid.UUID) (*ActiveTask, error) {
 		return nil, err
 	}
 
+	// Unmarshal GlobalContext
+	var globalContext map[string]interface{}
+
+	if err := json.Unmarshal(execution.GlobalContext, &globalContext); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal global context: %w", err)
+	}
+
 	// Rebuild executor
-	executor, err := tm.factory.BuildExecutor(execution.Type, execution.CommandSet)
+	executor, err := tm.factory.BuildExecutor(execution.Type, execution.CommandSet, globalContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to rebuild executor: %w", err)
 	}
@@ -252,7 +267,7 @@ func (tm *taskManager) getTask(taskID uuid.UUID) (*ActiveTask, error) {
 }
 
 // notifyWorkflowManager sends notification to Workflow Manager via Go channel
-func (tm *taskManager) notifyWorkflowManager(ctx context.Context, taskID uuid.UUID, state model.TaskStatus) {
+func (tm *taskManager) notifyWorkflowManager(ctx context.Context, taskID uuid.UUID, state model.TaskStatus, globalContext map[string]interface{}) {
 	if tm.completionChan == nil {
 		slog.WarnContext(ctx, "completion channel not configured, skipping notification",
 			"taskID", taskID,
@@ -261,8 +276,9 @@ func (tm *taskManager) notifyWorkflowManager(ctx context.Context, taskID uuid.UU
 	}
 
 	notification := model.TaskCompletionNotification{
-		TaskID: taskID,
-		State:  state,
+		TaskID:              taskID,
+		State:               state,
+		AppendGlobalContext: globalContext,
 	}
 
 	// Non-blocking send - if a channel is full, log warning but don't block

@@ -14,7 +14,8 @@ type ExecutionUnit interface {
 
 // ExecutionResult represents the outcome of task execution
 type ExecutionResult struct {
-	Status  model.TaskStatus `json:"status"`
-	Message string           `json:"message,omitempty"`
-	Data    interface{}      `json:"data,omitempty"` // Additional data specific to the task type
+	Status            model.TaskStatus       `json:"status"`
+	Message           string                 `json:"message,omitempty"`
+	Data              interface{}            `json:"data,omitempty"` // Additional data specific to the task type
+	GlobalContextData map[string]interface{} `json:"globalContextData,omitempty"`
 }

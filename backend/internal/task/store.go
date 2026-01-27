@@ -19,6 +19,7 @@ type TaskRecord struct {
 	Type          Type             `gorm:"type:varchar(50);not null"`
 	Status        model.TaskStatus `gorm:"type:varchar(50);not null"`
 	CommandSet    json.RawMessage  `gorm:"type:json"`
+	GlobalContext json.RawMessage  `gorm:"type:json"`
 	CreatedAt     time.Time        `gorm:"autoCreateTime"`
 	UpdatedAt     time.Time        `gorm:"autoUpdateTime"`
 }

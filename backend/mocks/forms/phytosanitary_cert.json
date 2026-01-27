@@ -1,0 +1,47 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "Phytosanitary Application",
+    "properties": {
+      "exporterName": {
+        "type": "string",
+        "title": "Exporter Name",
+        "x-globalContext": "exporter.name"
+      },
+      "commodity": {
+        "type": "string",
+        "title": "Commodity"
+      },
+      "quantityKg": {
+        "type": "number",
+        "title": "Quantity (kg)"
+      },
+      "destinationCountry": {
+        "type": "string",
+        "title": "Destination Country"
+      },
+      "hsCode": {
+        "type": "string",
+        "title": "HS Code",
+        "x-globalContext": "hsCode"
+      },
+      "treatment": {
+        "type": "string",
+        "title": "Treatment Applied",
+        "enum": ["None", "Fumigation", "Heat Treatment", "Chemical Treatment"]
+      }
+    },
+    "required": ["exporterName", "commodity", "destinationCountry"]
+  },
+  "uiSchema": {
+    "type": "VerticalLayout",
+    "elements": [
+      { "type": "Control", "scope": "#/properties/exporterName" },
+      { "type": "Control", "scope": "#/properties/commodity" },
+      { "type": "Control", "scope": "#/properties/quantityKg" },
+      { "type": "Control", "scope": "#/properties/destinationCountry" },
+      { "type": "Control", "scope": "#/properties/hsCode" },
+      { "type": "Control", "scope": "#/properties/treatment" }
+    ]
+  }
+}
