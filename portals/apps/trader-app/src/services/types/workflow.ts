@@ -1,4 +1,4 @@
-export type WorkflowStepType = 'TRADER_FORM' | 'OGA_FORM' | 'WAIT_FOR_EVENT'
+export type WorkflowStepType = 'TRADER_FORM' | 'WAIT_FOR_EVENT'
 
 export type WorkflowStepStatus = 'READY' | 'IN_PROGRESS' | 'LOCKED' | 'COMPLETED' | 'REJECTED'
 

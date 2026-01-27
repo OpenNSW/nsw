@@ -4,7 +4,7 @@ export type ConsignmentState = 'IN_PROGRESS' | 'REQUIRES_REWORK' | 'FINISHED'
 
 export type StepStatus = 'READY' | 'LOCKED' | 'IN_PROGRESS' | 'COMPLETED'
 
-export type StepType = 'TRADER_FORM' | 'OGA_FORM' | 'WAIT_FOR_EVENT'
+export type StepType = 'SIMPLE_FORM' | 'OGA_FORM' | 'WAIT_FOR_EVENT'
 
 export interface ConsignmentStep {
   stepId: string

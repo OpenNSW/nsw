@@ -25,7 +25,7 @@ const stepTypeConfig: Record<
   StepType,
   { label: string; icon: React.ReactNode }
 > = {
-  TRADER_FORM: {
+  SIMPLE_FORM: {
     label: 'Trader Form',
     icon: <FileTextIcon className="w-4 h-4" />,
   },
@@ -124,7 +124,7 @@ export function WorkflowNode({ data }: NodeProps<WorkflowNodeType>) {
       <Handle
         type="target"
         position={Position.Left}
-        className="!bg-slate-400 !w-3 !h-3"
+        className="bg-slate-400! w-3! h-3!"
       />
 
       <div className="flex items-center justify-between gap-3">
