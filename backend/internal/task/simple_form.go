@@ -460,7 +460,6 @@ func (t *SimpleFormTask) handleSubmitForm(commandSet *SimpleFormCommandSet, form
 		if err != nil {
 			slog.Error("failed to marshal response data from submission", "formId", commandSet.FormID, "submissionUrl", commandSet.SubmissionURL, "error", err)
 			return &ExecutionResult{
-				Status:  model.TaskStatusReady,
 				Message: fmt.Sprintf("Failed to process submission response: %v", err),
 			}, err
 		}
