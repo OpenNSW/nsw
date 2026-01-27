@@ -1,0 +1,47 @@
+{
+  "schema": {
+    "type": "object",
+    "title": "Health Certificate Application",
+    "properties": {
+      "exporterName": {
+        "type": "string",
+        "title": "Exporter Name",
+        "x-globalContext": "exporter.name"
+      },
+      "product": {
+        "type": "string",
+        "title": "Product"
+      },
+      "batchNumber": {
+        "type": "string",
+        "title": "Batch Number"
+      },
+      "productionDate": {
+        "type": "string",
+        "format": "date",
+        "title": "Production Date"
+      },
+      "destinationCountry": {
+        "type": "string",
+        "title": "Destination Country"
+      },
+      "certifyingAuthority": {
+        "type": "string",
+        "title": "Certifying Authority",
+        "enum": ["MOH", "Veterinary Dept", "Food Safety Unit"]
+      }
+    },
+    "required": ["exporterName", "product", "destinationCountry"]
+  },
+  "uiSchema": {
+    "type": "VerticalLayout",
+    "elements": [
+      { "type": "Control", "scope": "#/properties/exporterName" },
+      { "type": "Control", "scope": "#/properties/product" },
+      { "type": "Control", "scope": "#/properties/batchNumber" },
+      { "type": "Control", "scope": "#/properties/productionDate" },
+      { "type": "Control", "scope": "#/properties/destinationCountry" },
+      { "type": "Control", "scope": "#/properties/certifyingAuthority" }
+    ]
+  }
+}

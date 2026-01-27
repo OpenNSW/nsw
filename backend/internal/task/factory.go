@@ -6,7 +6,7 @@ import (
 
 // TaskFactory creates task instances from task type and model
 type TaskFactory interface {
-	BuildExecutor(taskType Type, commandSet interface{}) (ExecutionUnit, error)
+	BuildExecutor(taskType Type, commandSet interface{}, globalCtx map[string]interface{}) (ExecutionUnit, error)
 }
 
 // taskFactory implements TaskFactory interface
@@ -17,17 +17,13 @@ func NewTaskFactory() TaskFactory {
 	return &taskFactory{}
 }
 
-func (f *taskFactory) BuildExecutor(taskType Type, commandSet interface{}) (ExecutionUnit, error) {
+func (f *taskFactory) BuildExecutor(taskType Type, commandSet interface{}, globalCtx map[string]interface{}) (ExecutionUnit, error) {
 
 	switch taskType {
-	case TaskTypeTraderForm:
-		return NewTraderFormTask(commandSet)
-	case TaskTypeOGAForm:
-		return &OGAFormTask{CommandSet: commandSet}, nil
+	case TaskTypeSimpleForm:
+		return NewSimpleFormTask(commandSet, globalCtx)
 	case TaskTypeWaitForEvent:
-		return &WaitForEventTask{CommandSet: commandSet}, nil
-	case TaskTypePayment:
-		return &PaymentTask{CommandSet: commandSet}, nil
+		return NewWaitForEventTask(commandSet), nil
 	default:
 		return nil, fmt.Errorf("unknown task type: %s", taskType)
 	}
