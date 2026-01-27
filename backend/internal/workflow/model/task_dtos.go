@@ -6,6 +6,7 @@ import (
 
 // TaskCompletionNotification represents a notification sent to Workflow Manager when a task completes
 type TaskCompletionNotification struct {
-	TaskID uuid.UUID  `json:"taskId" binding:"required"`
-	State  TaskStatus `json:"state" binding:"required"`
+	TaskID              uuid.UUID              `json:"taskId" binding:"required"`
+	State               TaskStatus             `json:"state" binding:"required"`
+	AppendGlobalContext map[string]interface{} `json:"appendGlobalContext,omitempty"` // Information to be appended to consignment global context
 }

@@ -8,8 +8,7 @@ import (
 type StepType string
 
 const (
-	StepTypeTraderForm     StepType = "TRADER_FORM"         // Step where trader fills out a form
-	StepTypeOGAForm        StepType = "OGA_FORM"            // Step where OGA officer fills out a form
+	StepTypeSimpleForm     StepType = "SIMPLE_FORM"         // Step for simple form submission
 	StepTypeWaitForEvent   StepType = "WAIT_FOR_EVENT"      // Step that waits for an external event to occur
 	StepTypeDocumentSubmit StepType = "DOCUMENT_SUBMISSION" // Step for document submission
 	StepTypePayment        StepType = "PAYMENT"             // Step for payment processing

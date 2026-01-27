@@ -24,10 +24,11 @@ const (
 // Consignment represents the state and data of a consignment in the workflow system.
 type Consignment struct {
 	BaseModel
-	TradeFlow TradeFlow        `gorm:"type:varchar(20);column:trade_flow;not null" json:"tradeFlow"`  // Type of trade flow: IMPORT or EXPORT
-	Items     []Item           `gorm:"type:jsonb;column:items;serializer:json;not null" json:"items"` // List of items in the consignment
-	TraderID  string           `gorm:"type:varchar(255);column:trader_id;not null" json:"traderId"`   // Reference to the Trader
-	State     ConsignmentState `gorm:"type:varchar(20);column:state;not null" json:"state"`           // IN_PROGRESS, REQUIRES_REWORK, FINISHED
+	TradeFlow     TradeFlow              `gorm:"type:varchar(20);column:trade_flow;not null" json:"tradeFlow"`                   // Type of trade flow: IMPORT or EXPORT
+	Items         []Item                 `gorm:"type:jsonb;column:items;serializer:json;not null" json:"items"`                  // List of items in the consignment
+	TraderID      string                 `gorm:"type:varchar(255);column:trader_id;not null" json:"traderId"`                    // Reference to the Trader
+	State         ConsignmentState       `gorm:"type:varchar(20);column:state;not null" json:"state"`                            // IN_PROGRESS, REQUIRES_REWORK, FINISHED
+	GlobalContext map[string]interface{} `gorm:"type:jsonb;column:global_context;serializer:json;not null" json:"globalContext"` // Global context for the consignment
 }
 
 func (c *Consignment) TableName() string {
@@ -45,6 +46,9 @@ type ConsignmentStep struct {
 
 // Item represents an individual item within a consignment.
 type Item struct {
-	HSCodeID uuid.UUID         `json:"hsCodeID"` // HS Code ID of the item
-	Steps    []ConsignmentStep `json:"steps"`    // List of steps associated with this item
+	HSCodeID          uuid.UUID         `json:"hsCodeID"`                 // HS Code ID of the item
+	HSCode            string            `json:"hsCode"`                   // HS Code of the item
+	HSCodeDescription string            `json:"hsCodeDescription"`        // Description of the HS Code
+	AdditionalData    interface{}       `json:"additionalData,omitempty"` // Additional item data
+	Steps             []ConsignmentStep `json:"steps"`                    // List of steps associated with this item
 }

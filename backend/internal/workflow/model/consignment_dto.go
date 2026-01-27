@@ -1,18 +1,23 @@
 package model
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // CreateWorkflowForItemDTO represents the data required to create a workflow for an individual item within a consignment.
 type CreateWorkflowForItemDTO struct {
-	HSCodeID           uuid.UUID  `json:"hsCodeId" binding:"required"`  // HS Code ID of the item
-	WorkflowTemplateID *uuid.UUID `json:"workflowTemplateId,omitempty"` // Workflow Template ID associated with this item (optional)
+	HSCodeID uuid.UUID   `json:"hsCodeId" binding:"required"` // HS Code ID of the item
+	ItemData interface{} `json:"itemData,omitempty"`          // Additional item data (optional)
 }
 
 // CreateConsignmentDTO is the data transfer object for creating a new consignment.
 type CreateConsignmentDTO struct {
-	TradeFlow TradeFlow                  `json:"tradeFlow" binding:"required,oneof=IMPORT EXPORT"` // Type of trade flow: IMPORT, EXPORT
-	Items     []CreateWorkflowForItemDTO `json:"items" binding:"required,dive,required"`           // List of items in the consignment
-	TraderID  *string                    `json:"traderId,omitempty"`                               // Reference to the Trader
+	TradeFlow     TradeFlow                  `json:"tradeFlow" binding:"required,oneof=IMPORT EXPORT"` // Type of trade flow: IMPORT, EXPORT
+	Items         []CreateWorkflowForItemDTO `json:"items" binding:"required,dive,required"`           // List of items in the consignment
+	TraderID      *string                    `json:"traderId,omitempty"`                               // Reference to the Trader (optional: If not provided, use from auth context)
+	GlobalContext map[string]interface{}     `json:"globalContext,omitempty"`                          // Global context for the consignment (optional)
 }
 
 // ConsignmentResponse represents the response data for a consignment.
@@ -22,6 +27,8 @@ type ConsignmentResponse struct {
 	Items     []Item           `json:"items"`     // List of items in the consignment
 	TraderID  string           `json:"traderId"`  // Reference to the Trader
 	State     ConsignmentState `json:"state"`     // IN_PROGRESS, REQUIRES_REWORK, FINISHED
+	CreatedAt string           `json:"createdAt"` // Timestamp of consignment creation
+	UpdatedAt string           `json:"updatedAt"` // Timestamp of last consignment update
 }
 
 // ToConsignmentResponse converts a Consignment model to a ConsignmentResponse DTO.
@@ -32,6 +39,8 @@ func (c *Consignment) ToConsignmentResponse() ConsignmentResponse {
 		Items:     c.Items,
 		TraderID:  c.TraderID,
 		State:     c.State,
+		CreatedAt: c.CreatedAt.Format(time.RFC3339),
+		UpdatedAt: c.UpdatedAt.Format(time.RFC3339),
 	}
 }
 

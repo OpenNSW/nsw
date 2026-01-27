@@ -13,10 +13,10 @@ import (
 
 type WorkflowRouter struct {
 	cs               *service.ConsignmentService
-	onTasksReadyFunc func(tasks []*model.Task) // Callback to register ready tasks
+	onTasksReadyFunc func(tasks []*model.Task, consignmentGlobalContext map[string]interface{}) // Callback to register ready tasks
 }
 
-func NewWorkflowRouter(cs *service.ConsignmentService, onTasksReadyFunc func(tasks []*model.Task)) *WorkflowRouter {
+func NewWorkflowRouter(cs *service.ConsignmentService, onTasksReadyFunc func(tasks []*model.Task, consignmentGlobalContext map[string]interface{})) *WorkflowRouter {
 	return &WorkflowRouter{
 		cs:               cs,
 		onTasksReadyFunc: onTasksReadyFunc,
@@ -59,6 +59,34 @@ func (wr *WorkflowRouter) HandleGetHSCodes(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(hsCodes); err != nil {
+		http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+		return
+	}
+}
+
+// HandleGetHSCodeID handles GET /api/hscodes/{hsCodeId} requests
+func (wr *WorkflowRouter) HandleGetHSCodeID(w http.ResponseWriter, r *http.Request) {
+	hsCodeIDStr := r.PathValue("hsCodeId")
+	if hsCodeIDStr == "" {
+		http.Error(w, "missing hsCodeId in path", http.StatusBadRequest)
+		return
+	}
+
+	hsCodeID, err := uuid.Parse(hsCodeIDStr)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("invalid hsCodeId: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	hsCode, err := wr.cs.GetHSCodeByID(r.Context(), hsCodeID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get HS code: %v", err), http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(hsCode); err != nil {
 		http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -126,7 +154,7 @@ func (wr *WorkflowRouter) HandleCreateConsignment(w http.ResponseWriter, r *http
 
 	// Push ready tasks to Task Manager
 	if wr.onTasksReadyFunc != nil && len(readyTasks) > 0 {
-		wr.onTasksReadyFunc(readyTasks)
+		wr.onTasksReadyFunc(readyTasks, consignment.GlobalContext)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

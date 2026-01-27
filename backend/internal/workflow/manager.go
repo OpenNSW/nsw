@@ -50,14 +50,24 @@ func (m *Manager) StartTaskUpdateListener() {
 				slog.Info("task update listener stopped")
 				return
 			case update := <-m.taskUpdateChan:
-				newReadyTasks, _ := m.cs.UpdateTaskStatusAndPropagateChanges(
+				newReadyTasks, consignment, err := m.cs.UpdateTaskStatusAndPropagateChanges(
 					context.Background(),
 					update.TaskID,
 					update.State,
+					update.AppendGlobalContext,
 				)
+				if err != nil {
+					slog.Error("failed to process task completion notification", "taskID", update.TaskID, "error", err)
+					continue
+				}
+
+				// Log if consignment is completed
+				if consignment != nil && consignment.State == model.ConsignmentStateFinished {
+					slog.Info("consignment finished", "consignmentID", consignment.ID)
+				}
 				// Register newly ready tasks with Task Manager
 				if len(newReadyTasks) > 0 {
-					m.registerTasks(newReadyTasks)
+					m.registerTasks(newReadyTasks, consignment.GlobalContext)
 				}
 			}
 		}
@@ -72,7 +82,7 @@ func (m *Manager) StopTaskUpdateListener() {
 }
 
 // registerTasks registers multiple tasks with Task Manager
-func (m *Manager) registerTasks(tasks []*model.Task) {
+func (m *Manager) registerTasks(tasks []*model.Task, consignmentGlobalContext map[string]interface{}) {
 	for _, t := range tasks {
 		initPayload := task.InitPayload{
 			TaskID:        t.ID,
@@ -81,6 +91,7 @@ func (m *Manager) registerTasks(tasks []*model.Task) {
 			CommandSet:    t.Config,
 			ConsignmentID: t.ConsignmentID,
 			StepID:        t.StepID,
+			GlobalContext: &consignmentGlobalContext,
 		}
 		_, err := m.tm.RegisterTask(context.Background(), initPayload)
 		if err != nil {
@@ -88,6 +99,11 @@ func (m *Manager) registerTasks(tasks []*model.Task) {
 			return
 		}
 	}
+}
+
+// HandleGetHSCode handles GET requests for a specific HS code by ID
+func (m *Manager) HandleGetHSCodeID(w http.ResponseWriter, r *http.Request) {
+	m.wr.HandleGetHSCodeID(w, r)
 }
 
 // HandleGetHSCodes handles GET requests for HS codes

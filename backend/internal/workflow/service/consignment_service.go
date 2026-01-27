@@ -77,6 +77,19 @@ func (s *ConsignmentService) GetAllHSCodes(ctx context.Context, filter model.HSC
 	return hsCodeListResult, nil
 }
 
+// GetHSCodeByID retrieves an HS code by its ID from the database
+func (s *ConsignmentService) GetHSCodeByID(ctx context.Context, hsCodeID uuid.UUID) (*model.HSCode, error) {
+	var hsCode model.HSCode
+	result := s.db.WithContext(ctx).First(&hsCode, "id = ?", hsCodeID)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("HS code with ID %s not found", hsCodeID)
+		}
+		return nil, fmt.Errorf("failed to retrieve HS code: %w", result.Error)
+	}
+	return &hsCode, nil
+}
+
 // GetWorkFlowTemplate retrieves a workflow template based on HS code and consignment type
 func (s *ConsignmentService) GetWorkFlowTemplate(ctx context.Context, hsCode *string, hsCodeID *uuid.UUID, tradeFlow model.TradeFlow) (*model.WorkflowTemplate, error) {
 	if hsCode == nil && hsCodeID == nil {
@@ -155,32 +168,39 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 			if err != nil {
 				return fmt.Errorf("failed to get workflow template for item %d: %w", i, err)
 			}
-
-			// If WorkflowTemplateID is provided, validate it matches the queried template
-			if createReq.Items[i].WorkflowTemplateID != nil {
-				if *createReq.Items[i].WorkflowTemplateID != workflowTemplate.ID {
-					return fmt.Errorf("workflow template ID mismatch for item %d: provided %s does not match expected %s for HS code ID %s and trade flow %s",
-						i, *createReq.Items[i].WorkflowTemplateID, workflowTemplate.ID, createReq.Items[i].HSCodeID, createReq.TradeFlow)
-				}
-			}
-
 			workflowTemplates[i] = workflowTemplate
 		}
 
 		// Initialize items with HSCodeID only - Steps will be populated after tasks are created
 		items := make([]model.Item, len(createReq.Items))
 		for i := range createReq.Items {
+			// fetch HSCode details from HSCodeID
+			hsCode, err := s.GetHSCodeByID(ctx, createReq.Items[i].HSCodeID)
+			if err != nil {
+				return fmt.Errorf("failed to get HS code for item %d: %w", i, err)
+			}
+
 			items[i] = model.Item{
-				HSCodeID: createReq.Items[i].HSCodeID,
-				Steps:    []model.ConsignmentStep{},
+				HSCodeID:          createReq.Items[i].HSCodeID,
+				HSCode:            hsCode.HSCode,
+				HSCodeDescription: hsCode.Description,
+				AdditionalData:    createReq.Items[i].ItemData,
+				Steps:             []model.ConsignmentStep{},
 			}
 		}
 
+		// Prepare global context
+		globalContext := make(map[string]interface{})
+		if createReq.GlobalContext != nil {
+			globalContext = createReq.GlobalContext
+		}
+
 		consignment = &model.Consignment{
-			TradeFlow: createReq.TradeFlow,
-			Items:     items,
-			TraderID:  *createReq.TraderID,
-			State:     model.ConsignmentStateInProgress,
+			TradeFlow:     createReq.TradeFlow,
+			Items:         items,
+			TraderID:      *createReq.TraderID,
+			State:         model.ConsignmentStateInProgress,
+			GlobalContext: globalContext,
 		}
 
 		// Save the consignment to generate an ID
@@ -287,15 +307,16 @@ func (s *ConsignmentService) buildTasksFromTemplate(consignmentID uuid.UUID, tem
 }
 
 // UpdateTaskStatusAndPropagateChanges updates a task's status and propagates changes to dependent tasks and consignment state and return updated dependent tasks that state became READY
-func (s *ConsignmentService) UpdateTaskStatusAndPropagateChanges(ctx context.Context, taskID uuid.UUID, newStatus model.TaskStatus) ([]*model.Task, error) {
+func (s *ConsignmentService) UpdateTaskStatusAndPropagateChanges(ctx context.Context, taskID uuid.UUID, newStatus model.TaskStatus, consignmentGlobalContext map[string]interface{}) ([]*model.Task, *model.Consignment, error) {
 	if taskID == uuid.Nil {
-		return nil, fmt.Errorf("task ID cannot be nil")
+		return nil, nil, fmt.Errorf("task ID cannot be nil")
 	}
 	if newStatus == "" {
-		return nil, fmt.Errorf("task status cannot be empty")
+		return nil, nil, fmt.Errorf("task status cannot be empty")
 	}
 
 	var newReadyStateDependentTasks []*model.Task
+	var consignment *model.Consignment
 
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Retrieve the task to be updated
@@ -303,10 +324,22 @@ func (s *ConsignmentService) UpdateTaskStatusAndPropagateChanges(ctx context.Con
 		if err != nil {
 			return err
 		}
-		// If there is no status change, no-operation
-		if task.Status == newStatus {
+
+		if task.Status == newStatus && consignmentGlobalContext == nil {
+			// No change in status and no global context update, nothing to do
 			return nil
 		}
+
+		// If no change in task status but global context needs to be updated
+		if task.Status == newStatus && consignmentGlobalContext != nil {
+			// Only update the consignment with the global context
+			consignment, err = s.updateConsignment(ctx, tx, task.ConsignmentID, nil, nil, &consignmentGlobalContext)
+			if err != nil {
+				return fmt.Errorf("failed to update consignment global context: %w", err)
+			}
+			return nil
+		}
+
 		// Update the task status
 		task.Status = newStatus
 		if err := s.ts.UpdateTaskInTx(ctx, tx, task); err != nil {
@@ -319,28 +352,28 @@ func (s *ConsignmentService) UpdateTaskStatusAndPropagateChanges(ctx context.Con
 			return fmt.Errorf("failed to update dependent tasks: %w", err)
 		}
 
-		// Add current task's steps to update if its status changed
+		// Add current task's status update to the steps to update
 		stepsToUpdate = append(stepsToUpdate, &model.StepStatusUpdateDTO{
 			StepID:    task.StepID,
 			NewStatus: task.Status,
 		})
 
-		// Update consignment state and steps
-		if consignmentState != nil || len(stepsToUpdate) > 0 {
-			if err := s.updateConsignmentState(ctx, tx, task.ConsignmentID, consignmentState, stepsToUpdate); err != nil {
-				return fmt.Errorf("failed to update consignment state: %w", err)
-			}
+		// Update the consignment state, steps, and global context
+		consignment, err = s.updateConsignment(ctx, tx, task.ConsignmentID, consignmentState, stepsToUpdate, &consignmentGlobalContext)
+		if err != nil {
+			return fmt.Errorf("failed to update consignment: %w", err)
 		}
 
+		// Return the newly READY dependent tasks
 		newReadyStateDependentTasks = readyDependentTasks
 		return nil
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return newReadyStateDependentTasks, nil
+	return newReadyStateDependentTasks, consignment, nil
 }
 
 // updateDependentTasks updates tasks that depend on the completed task and returns newly READY tasks and whether consignment is completed or steps to update
@@ -437,16 +470,26 @@ func (s *ConsignmentService) getConsignmentByID(ctx context.Context, consignment
 	return &consignment, nil
 }
 
-// updateConsignmentState updates the consignment state and steps in a transaction
-func (s *ConsignmentService) updateConsignmentState(ctx context.Context, tx *gorm.DB, consignmentID uuid.UUID, newState *model.ConsignmentState, stepsToUpdate []*model.StepStatusUpdateDTO) error {
+// updateConsignment updates the consignment state, steps status, and global context in a transaction
+func (s *ConsignmentService) updateConsignment(ctx context.Context, tx *gorm.DB, consignmentID uuid.UUID, newState *model.ConsignmentState, stepsToUpdate []*model.StepStatusUpdateDTO, appendGlobalContext *map[string]interface{}) (*model.Consignment, error) {
 	var consignment model.Consignment
 	if err := tx.WithContext(ctx).First(&consignment, "id = ?", consignmentID).Error; err != nil {
-		return fmt.Errorf("failed to retrieve consignment %s: %w", consignmentID, err)
+		return nil, fmt.Errorf("failed to retrieve consignment %s: %w", consignmentID, err)
 	}
 
 	// Update consignment state if provided
 	if newState != nil {
 		consignment.State = *newState
+	}
+	// Append to global context if provided
+	if appendGlobalContext != nil {
+		for k, v := range *appendGlobalContext {
+			// If there is a key conflict, raise an error
+			if _, exists := consignment.GlobalContext[k]; exists {
+				return nil, fmt.Errorf("key conflict in global context for key: %s", k)
+			}
+			consignment.GlobalContext[k] = v
+		}
 	}
 
 	// Update steps if any
@@ -469,10 +512,10 @@ func (s *ConsignmentService) updateConsignmentState(ctx context.Context, tx *gor
 
 	// Save the updated consignment
 	if err := tx.WithContext(ctx).Save(&consignment).Error; err != nil {
-		return fmt.Errorf("failed to update consignment %s: %w", consignmentID, err)
+		return nil, fmt.Errorf("failed to update consignment %s: %w", consignmentID, err)
 	}
 
-	return nil
+	return &consignment, nil
 }
 
 // GetConsignmentByID retrieves a consignment by its ID.
