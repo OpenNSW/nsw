@@ -7,7 +7,6 @@ import type { ConsignmentStep, StepType, StepStatus } from '../../services/types
 import { executeTask } from '../../services/task'
 import {
   FileTextIcon,
-  GlobeIcon,
   ClockIcon,
   CheckCircledIcon,
   LockClosedIcon,
@@ -26,12 +25,8 @@ const stepTypeConfig: Record<
   { label: string; icon: React.ReactNode }
 > = {
   SIMPLE_FORM: {
-    label: 'Trader Form',
+    label: 'FORM',
     icon: <FileTextIcon className="w-4 h-4" />,
-  },
-  OGA_FORM: {
-    label: 'OGA Form',
-    icon: <GlobeIcon className="w-4 h-4" />,
   },
   WAIT_FOR_EVENT: {
     label: 'Waiting',
@@ -74,6 +69,12 @@ const statusConfig: Record<
     textColor: 'text-slate-500',
     iconColor: 'text-slate-400',
     statusIcon: <LockClosedIcon className="w-3 h-3 text-slate-400" />,
+  },
+  REJECTED: {
+    bgColor: 'bg-red-50',
+    borderColor: 'border-red-400',
+    textColor: 'text-red-700',
+    iconColor: 'text-red-600',
   },
 }
 
