@@ -2,9 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Text, TextField, Spinner, Select, Badge } from '@radix-ui/themes'
 import { MagnifyingGlassIcon, PlusIcon } from '@radix-ui/react-icons'
-import { HSCodePicker } from '../components/HSCodePicker'
-import type { HSCode } from "../services/types/hsCode.ts"
-import type { Workflow } from "../services/types/workflow.ts"
+import { HSCodePicker, type SelectedItem } from '../components/HSCodePicker'
 import type { Consignment, TradeFlow } from "../services/types/consignment.ts"
 import { createConsignment, getAllConsignments } from "../services/consignment.ts"
 import { getStateColor, formatState, formatDate } from '../utils/consignmentUtils'
@@ -38,20 +36,23 @@ export function DashboardScreen() {
     fetchConsignments()
   }, [])
 
-  const handleSelect = async (hsCode: HSCode, workflow: Workflow) => {
+  const handleSelect = async (selectedItems: SelectedItem[]) => {
+    if (selectedItems.length === 0) return
+    
     setCreating(true)
 
     try {
+      // All items must have the same trade flow (enforced by the picker)
+      const tradeFlow = selectedItems[0].workflow.type.toUpperCase() as TradeFlow
+
       const response = await createConsignment({
-        tradeFlow: workflow.type.toUpperCase() as TradeFlow,
+        tradeFlow,
         traderId: 'trader-123', // TODO: Get from auth context
-        items: [
-          {
-            hsCodeId: hsCode.id,
-            metadata: {},
-            workflowTemplateId: workflow.id,
-          },
-        ],
+        items: selectedItems.map(item => ({
+          hsCodeId: item.hsCode.id,
+          metadata: {},
+          workflowTemplateId: item.workflow.id,
+        })),
       })
 
       setPickerOpen(false)
@@ -192,9 +193,9 @@ export function DashboardScreen() {
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredConsignments.map((consignment) => {
-                  const item = consignment.items[0]
-                  const completedSteps = item?.steps.filter(s => s.status === 'COMPLETED').length || 0
-                  const totalSteps = item?.steps.length || 0
+                  const allSteps = consignment.items.flatMap(item => item.steps)
+                  const completedSteps = allSteps.filter(s => s.status === 'COMPLETED').length
+                  const totalSteps = allSteps.length
 
                   return (
                     <tr
@@ -203,9 +204,16 @@ export function DashboardScreen() {
                       className="hover:bg-gray-50 cursor-pointer transition-colors"
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <Text size="2" weight="medium" className="text-blue-600 font-mono">
-                          {consignment.id}
-                        </Text>
+                        <div className="flex items-center gap-2">
+                          <Text size="2" weight="medium" className="text-blue-600 font-mono">
+                            {consignment.id}
+                          </Text>
+                          {consignment.items.length > 1 && (
+                            <Badge size="1" variant="soft" color="gray">
+                              {consignment.items.length} items
+                            </Badge>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <Badge

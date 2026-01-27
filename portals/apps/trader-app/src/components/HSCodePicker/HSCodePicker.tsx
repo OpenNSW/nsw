@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Dialog, Button, Box, Flex, Text, Spinner, IconButton, Badge } from '@radix-ui/themes'
-import { Cross2Icon, ArrowRightIcon } from '@radix-ui/react-icons'
+import { Cross2Icon, ArrowRightIcon, TrashIcon } from '@radix-ui/react-icons'
 import { HSCodeSearch } from './HSCodeSearch'
 import type {HSCode} from "../../services/types/hsCode.ts";
 import type {Workflow} from "../../services/types/workflow.ts";
@@ -8,10 +8,15 @@ import {getWorkflowsByHSCode} from "../../services/workflow.ts";
 
 type TradeFlow = 'IMPORT' | 'EXPORT'
 
+export interface SelectedItem {
+  hsCode: HSCode
+  workflow: Workflow
+}
+
 interface HSCodePickerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSelect: (hsCode: HSCode, workflow: Workflow) => void
+  onSelect: (items: SelectedItem[]) => void
   /** Whether a consignment is being created */
   isCreating?: boolean
   /** Dialog title */
@@ -33,15 +38,16 @@ export function HSCodePicker({
 }: HSCodePickerProps) {
   const [step, setStep] = useState<'trade-flow' | 'hs-code'>('trade-flow')
   const [tradeFlow, setTradeFlow] = useState<TradeFlow | null>(null)
-  const [selectedHSCode, setSelectedHSCode] = useState<HSCode | null>(null)
-  const [workflow, setWorkflow] = useState<Workflow | null>(null)
+  const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([])
+  const [currentHSCode, setCurrentHSCode] = useState<HSCode | null>(null)
+  const [currentWorkflow, setCurrentWorkflow] = useState<Workflow | null>(null)
   const [loadingWorkflow, setLoadingWorkflow] = useState(false)
   const [workflowError, setWorkflowError] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchWorkflow() {
-      if (!selectedHSCode || !tradeFlow) {
-        setWorkflow(null)
+      if (!currentHSCode || !tradeFlow) {
+        setCurrentWorkflow(null)
         setWorkflowError(null)
         return
       }
@@ -50,19 +56,19 @@ export function HSCodePicker({
       setWorkflowError(null)
 
       try {
-        const result = await getWorkflowsByHSCode({ hs_code: selectedHSCode.hsCode })
+        const result = await getWorkflowsByHSCode({ hs_code: currentHSCode.hsCode })
         const workflows = tradeFlow === 'IMPORT' ? result.import : result.export
         
         if (workflows.length > 0) {
-          setWorkflow(workflows[0])
+          setCurrentWorkflow(workflows[0])
           setWorkflowError(null)
         } else {
-          setWorkflow(null)
+          setCurrentWorkflow(null)
           setWorkflowError(`No ${tradeFlow.toLowerCase()} workflow available for this HS Code`)
         }
       } catch (error) {
         console.error('Failed to fetch workflow:', error)
-        setWorkflow(null)
+        setCurrentWorkflow(null)
         setWorkflowError('Failed to load workflow details')
       } finally {
         setLoadingWorkflow(false)
@@ -70,11 +76,29 @@ export function HSCodePicker({
     }
 
     fetchWorkflow()
-  }, [selectedHSCode, tradeFlow])
+  }, [currentHSCode, tradeFlow])
+
+  const handleAddItem = () => {
+    if (currentHSCode && currentWorkflow) {
+      // Check if this HS code is already added
+      const alreadyAdded = selectedItems.some(item => item.hsCode.id === currentHSCode.id)
+      if (!alreadyAdded) {
+        setSelectedItems([...selectedItems, { hsCode: currentHSCode, workflow: currentWorkflow }])
+      }
+      // Reset current selection
+      setCurrentHSCode(null)
+      setCurrentWorkflow(null)
+      setWorkflowError(null)
+    }
+  }
+
+  const handleRemoveItem = (hsCodeId: string) => {
+    setSelectedItems(selectedItems.filter(item => item.hsCode.id !== hsCodeId))
+  }
 
   const handleConfirm = () => {
-    if (selectedHSCode && workflow) {
-      onSelect(selectedHSCode, workflow)
+    if (selectedItems.length > 0) {
+      onSelect(selectedItems)
       onOpenChange(false)
       resetState()
     }
@@ -88,8 +112,9 @@ export function HSCodePicker({
   const handleBack = () => {
     if (step === 'hs-code') {
       setStep('trade-flow')
-      setSelectedHSCode(null)
-      setWorkflow(null)
+      setSelectedItems([])
+      setCurrentHSCode(null)
+      setCurrentWorkflow(null)
       setWorkflowError(null)
     }
   }
@@ -97,8 +122,9 @@ export function HSCodePicker({
   const resetState = () => {
     setStep('trade-flow')
     setTradeFlow(null)
-    setSelectedHSCode(null)
-    setWorkflow(null)
+    setSelectedItems([])
+    setCurrentHSCode(null)
+    setCurrentWorkflow(null)
     setWorkflowError(null)
   }
 
@@ -122,7 +148,7 @@ export function HSCodePicker({
             <Dialog.Description size="2" color="gray">
               {step === 'trade-flow' 
                 ? 'Select whether this is an import or export consignment.'
-                : `Search and select an HS code for your ${tradeFlow?.toLowerCase()} consignment.`}
+                : `Add one or more HS codes for your ${tradeFlow?.toLowerCase()} consignment.`}
             </Dialog.Description>
           </Box>
           <Dialog.Close>
@@ -183,23 +209,66 @@ export function HSCodePicker({
                 <Text size="1" color="gray">Selected Trade Flow</Text>
               </Flex>
 
+              {/* Selected Items List */}
+              {selectedItems.length > 0 && (
+                <Box mb="4">
+                  <Text size="2" weight="medium" mb="2">
+                    Selected Items ({selectedItems.length})
+                  </Text>
+                  <Flex direction="column" gap="2">
+                    {selectedItems.map((item) => (
+                      <Box
+                        key={item.hsCode.id}
+                        p="3"
+                        className="bg-gray-50 border border-gray-200 rounded-lg"
+                      >
+                        <Flex justify="between" align="start">
+                          <Box style={{ flex: 1 }}>
+                            <Flex gap="2" align="center" mb="1">
+                              <Text size="2" weight="bold">
+                                {item.hsCode.hsCode}
+                              </Text>
+                            </Flex>
+                            <Text size="1" color="gray">
+                              {item.hsCode.description}
+                            </Text>
+                          </Box>
+                          <IconButton
+                            size="1"
+                            variant="ghost"
+                            color="red"
+                            onClick={() => handleRemoveItem(item.hsCode.id)}
+                            disabled={isCreating}
+                          >
+                            <TrashIcon />
+                          </IconButton>
+                        </Flex>
+                      </Box>
+                    ))}
+                  </Flex>
+                </Box>
+              )}
+
               {/* HS Code Search */}
-              <Box mb="5">
-                <HSCodeSearch value={selectedHSCode} onChange={setSelectedHSCode} />
+              <Box mb="3">
+                <Text size="2" weight="medium" mb="2">
+                  {selectedItems.length > 0 ? 'Add Another Item' : 'Search HS Code'}
+                </Text>
+                <HSCodeSearch value={currentHSCode} onChange={setCurrentHSCode} />
               </Box>
 
-              {/* Workflow Details */}
-              {selectedHSCode && (
+              {/* Workflow Details for Current Selection */}
+              {currentHSCode && (
                 <Box>
                   {loadingWorkflow ? (
-                    <Flex align="center" justify="center" py="6">
+                    <Flex align="center" justify="center" py="4">
                       <Spinner size="2" />
                       <Text size="2" color="gray" ml="2">
                         Loading workflow details...
                       </Text>
                     </Flex>
                   ) : workflowError ? (
-                    <Flex align="center" justify="center" py="6" direction="column" gap="2">
+                    <Flex align="center" justify="center" py="4" direction="column" gap="2">
                       <Text size="2" color="red">
                         {workflowError}
                       </Text>
@@ -207,35 +276,31 @@ export function HSCodePicker({
                         Please select a different HS Code
                       </Text>
                     </Flex>
-                  ) : workflow ? (
-                    <Box p="4" className="bg-blue-50 border border-blue-200 rounded-lg">
-                      <Text size="2" weight="bold" className="text-blue-900 block mb-3">
-                        Workflow Details
-                      </Text>
-                      <Flex direction="column" gap="2">
-                        <Flex gap="2">
-                          <Text size="2" color="gray" style={{ minWidth: '100px' }}>HS Code:</Text>
-                          <Text size="2" weight="medium">{selectedHSCode.hsCode}</Text>
+                  ) : currentWorkflow ? (
+                    <Box>
+                      <Box p="3" className="bg-blue-50 border border-blue-200 rounded-lg" mb="2">
+                        <Flex direction="column" gap="2">
+                          <Flex gap="1">
+                            <Text size="2" color="gray" style={{ minWidth: '100px' }}>HS Code:</Text>
+                            <Text size="2" weight="medium">{currentHSCode.hsCode}</Text>
+                          </Flex>
+                          <Flex gap="1">
+                            <Text size="2" color="gray" style={{ minWidth: '100px' }}>Description:</Text>
+                            <Text size="2" className="text-gray-700" style={{ flex: 1 }}>{currentHSCode.description}</Text>
+                          </Flex>
                         </Flex>
-                        <Flex gap="2">
-                          <Text size="2" color="gray" style={{ minWidth: '100px' }}>Description:</Text>
-                          <Text size="2" className="text-gray-700" style={{ flex: 1 }}>{selectedHSCode.description}</Text>
-                        </Flex>
-                        <Flex gap="2">
-                          <Text size="2" color="gray" style={{ minWidth: '100px' }}>Trade Flow:</Text>
-                          <Text size="2" weight="medium" style={{ textTransform: 'uppercase' }}>
-                            {tradeFlow}
-                          </Text>
-                        </Flex>
-                        <Flex gap="2">
-                          <Text size="2" color="gray" style={{ minWidth: '100px' }}>Workflow:</Text>
-                          <Text size="2" weight="medium">{workflow.name}</Text>
-                        </Flex>
-                        <Flex gap="2">
-                          <Text size="2" color="gray" style={{ minWidth: '100px' }}>Steps:</Text>
-                          <Text size="2">{workflow.steps.length} step{workflow.steps.length !== 1 ? 's' : ''}</Text>
-                        </Flex>
-                      </Flex>
+                      </Box>
+                      <Button
+                        onClick={handleAddItem}
+                        size="2"
+                        variant="soft"
+                        disabled={isCreating || selectedItems.some(item => item.hsCode.id === currentHSCode.id)}
+                        style={{ width: '100%' }}
+                      >
+                        {selectedItems.some(item => item.hsCode.id === currentHSCode.id) 
+                          ? 'Already Added' 
+                          : 'Add Item'}
+                      </Button>
                     </Box>
                   ) : null}
                 </Box>
@@ -258,7 +323,7 @@ export function HSCodePicker({
           {step === 'hs-code' && (
             <Button
               onClick={handleConfirm}
-              disabled={!selectedHSCode || !workflow || loadingWorkflow || isCreating}
+              disabled={selectedItems.length === 0 || isCreating}
               loading={isCreating}
             >
               {isCreating ? 'Creating...' : confirmText}
