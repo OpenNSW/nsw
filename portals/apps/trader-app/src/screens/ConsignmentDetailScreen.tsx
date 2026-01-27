@@ -57,7 +57,7 @@ export function ConsignmentDetailScreen() {
       setLoading(true)
       const timer = setTimeout(() => {
         fetchConsignment()
-      }, 5000)
+      }, 3000)
       
       return () => clearTimeout(timer)
     } else {
