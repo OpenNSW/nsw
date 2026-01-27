@@ -1,6 +1,7 @@
 // API service for OGA Portal
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:8080';
+const OGA_API_BASE_URL = (import.meta.env.VITE_OGA_API_BASE_URL as string | undefined) ?? 'http://localhost:8081';
 
 export interface Consignment {
   id: string;
@@ -32,7 +33,7 @@ export interface Task {
 }
 
 export interface FormResponse {
-  formId: string;
+  id: string;
   name: string;
   schema: Record<string, unknown>;
   uiSchema: Record<string, unknown>;
@@ -54,144 +55,113 @@ export interface ApproveRequest {
   reviewerName: string;
   comments?: string;
 }
+
 export interface ApproveResponse {
   success: boolean;
   message?: string;
   error?: string;
 }
 
-// Fetch all consignments with pending OGA tasks
-// Fetch all consignments with pending OGA tasks
-export async function fetchConsignmentsWithOGATasks(signal?: AbortSignal): Promise<Consignment[]> {
+export interface OGAApplication {
+  taskId: string;
+  consignmentId: string;
+  stepId: string;
+  formId: string;
+  status: string;
+  createdAt: string;
+}
+
+// Fetch all consignments pending OGA review from OGA Service
+// OGA Service polls Backend and maintains its own database
+export async function fetchPendingApplications(signal?: AbortSignal): Promise<OGAApplication[]> {
   try {
-    // Use the available OGA service endpoint
-    const response = await fetch(`${API_BASE_URL}/api/oga/applications`, { signal });
+    const response = await fetch(`${OGA_API_BASE_URL}/api/oga/applications`, { signal });
     if (!response.ok) {
-      throw new Error(`Failed to fetch applications: ${response.statusText}`);
+      throw new Error(`Failed to fetch pending applications: ${response.statusText}`);
     }
 
-    const applications = await response.json() as Array<{
-      taskId: string;
-      consignmentId: string;
-      formId: string;
-      status: string;
-    }>;
-
-    // If empty or if request succeeded but returned no data we might want to mock 
-    // BUT user says "i'm getting an empty homepage now with failed to fetch"
-    // So usually we mock on ERROR. But if it returns empty list, maybe we should also mock for demo purposes?
-    // Let's stick to mocking on error first as that is explicit failure handling.
-
-    // Map minimal Application to rich Consignment structure
-    return applications.map(app => ({
-      id: app.consignmentId, // Use consignmentId as the main ID for the list
-      traderId: 'trader123', // Mock trader ID
-      tradeFlow: 'IMPORT', // Default to IMPORT
-      state: app.status,
-      createdAt: new Date().toISOString(), // Mock date
-      updatedAt: new Date().toISOString(),
-      items: [{
-        hsCodeID: 'HS123456',
-        steps: [{
-          stepId: 'oga-review',
-          type: 'OGA_FORM',
-          taskId: app.taskId,
-          status: app.status,
-          dependsOn: []
-        }]
-      }]
-    }));
+    return response.json() as Promise<OGAApplication[]>;
   } catch (error) {
     if (signal?.aborted) throw error;
-    console.warn('Failed to fetch from backend, returning MOCK data:', error);
+    console.warn('Failed to fetch from OGA Service, returning MOCK data:', error);
 
-    // Return MOCK data for user preview matching Trader App screenshot
     return [
       {
-        id: 'CON-003',
-        traderId: 'trader-123',
-        tradeFlow: 'EXPORT',
-        state: 'PENDING', // Waiting for OGA
-        createdAt: '2024-01-17T10:00:00Z',
-        updatedAt: new Date().toISOString(),
-        items: [{
-          hsCodeID: '0902.20.19',
-          steps: [{
-            stepId: 'oga-review',
-            type: 'OGA_FORM',
-            taskId: 'task-con-003',
-            status: 'IN_PROGRESS',
-            dependsOn: []
-          }]
-        }]
-      },
-      {
-        id: 'CON-002',
-        traderId: 'trader-456',
-        tradeFlow: 'IMPORT',
-        state: 'IN_PROGRESS',
-        createdAt: '2024-01-16T14:30:00Z',
-        updatedAt: new Date().toISOString(),
-        items: [{
-          hsCodeID: '0902.30.11',
-          steps: [{
-            stepId: 'oga-review',
-            type: 'OGA_FORM',
-            taskId: 'task-con-002',
-            status: 'IN_PROGRESS',
-            dependsOn: []
-          }]
-        }]
+        taskId: '550e8400-e29b-41d4-a716-446655440003',
+        consignmentId: '550e8400-e29b-41d4-a716-446655440000',
+        stepId: 'phytosanitary_cert',
+        formId: 'oga-export-permit',
+        status: 'READY',
+        createdAt: new Date().toISOString(),
       }
     ];
   }
 }
 
 // Fetch consignment details including tasks and forms
-export async function fetchConsignmentDetail(consignmentId: string, signal?: AbortSignal): Promise<ConsignmentDetail> {
+export async function fetchConsignmentDetail(consignmentId: string, taskId?: string, signal?: AbortSignal): Promise<ConsignmentDetail> {
   try {
-    // Since we don't have a direct consignment endpoint, fetch all and filter (inefficient but functional for MVP/In-Memory)
-    const consignments = await fetchConsignmentsWithOGATasks(signal);
-    const consignment = consignments.find(c => c.id === consignmentId);
-
-    if (!consignment) {
-      throw new Error('Consignment not found');
+    const response = await fetch(`${API_BASE_URL}/api/consignments/${consignmentId}`, { signal });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch consignment: ${response.statusText}`);
     }
 
-    // Extract OGA tasks from our mapped structure
+    const consignment = await response.json() as Consignment;
+
+    // Find all OGA_FORM tasks in the consignment that need review
     const ogaTasks: Task[] = [];
-    // We mapped it so we know the structure
-    const taskStep = consignment.items[0].steps[0];
-    ogaTasks.push({
-      id: taskStep.taskId,
-      consignmentId: consignment.id,
-      stepId: taskStep.stepId,
-      type: taskStep.type,
-      status: taskStep.status,
-      config: { formId: 'unknown' }, // We don't have the config here
-      dependsOn: {},
+    consignment.items.forEach(item => {
+      item.steps.forEach(step => {
+        // OGA_FORM tasks are READY when waiting for OGA officer review
+        if (step.type === 'OGA_FORM' && (step.status === 'READY' || step.status === 'IN_PROGRESS')) {
+          ogaTasks.push({
+            id: step.taskId,
+            consignmentId: consignment.id,
+            stepId: step.stepId,
+            type: step.type,
+            status: step.status,
+            config: {},
+            dependsOn: {},
+          });
+        }
+      });
     });
+
+    // Determine which task to fetch forms for
+    const targetTaskId = taskId || (ogaTasks.length > 0 ? ogaTasks[0].id : undefined);
 
     // Get trader form submission and OGA form
     let traderForm: Record<string, unknown> | undefined;
     let ogaForm: FormResponse | undefined;
 
-    if (ogaTasks.length > 0) {
-      const firstTask = ogaTasks[0];
-
+    if (targetTaskId) {
       // Fetch trader form submission
       try {
-        const traderFormResponse = await fetch(`${API_BASE_URL}/api/tasks/${firstTask.id}/trader-form`, { signal });
+        const traderFormResponse = await fetch(`${API_BASE_URL}/api/tasks/${targetTaskId}/trader-form`, { signal });
         if (traderFormResponse.ok) {
-          traderForm = await traderFormResponse.json() as Record<string, unknown>;
+          const data = await traderFormResponse.json() as Record<string, unknown>;
+          // Set traderForm if we got data with actual form fields (not just message/status)
+          if (data && typeof data === 'object') {
+            // Check if it's a placeholder message or actual form data
+            if ('message' in data && 'status' in data && Object.keys(data).length === 2) {
+              // This is a placeholder, don't set traderForm
+              console.warn('Trader form not available:', data);
+            } else {
+              // This is actual form data or mock data with fields
+              traderForm = data;
+            }
+          }
+        } else {
+          const errorText = await traderFormResponse.text();
+          console.warn(`Failed to fetch trader form: ${traderFormResponse.status} ${errorText}`);
         }
       } catch (error) {
         console.warn('Failed to fetch trader form:', error);
       }
 
-      // Fetch OGA form
+      // Fetch OGA form schema
       try {
-        const ogaFormResponse = await fetch(`${API_BASE_URL}/api/tasks/${firstTask.id}/form`, { signal });
+        const ogaFormResponse = await fetch(`${API_BASE_URL}/api/tasks/${targetTaskId}/form`, { signal });
         if (ogaFormResponse.ok) {
           ogaForm = await ogaFormResponse.json() as FormResponse;
         }
@@ -207,15 +177,16 @@ export async function fetchConsignmentDetail(consignmentId: string, signal?: Abo
       ogaForm,
     };
   } catch (error) {
+    if (signal?.aborted) throw error;
     console.warn('Failed to fetch details, returning MOCK detail:', error);
 
-    // Mock detail for CON-003 (Export)
-    if (consignmentId === 'CON-003') {
+    // Mock detail fallback for development
+    if (consignmentId === '550e8400-e29b-41d4-a716-446655440000') {
       return {
-        id: 'CON-003',
+        id: '550e8400-e29b-41d4-a716-446655440000',
         traderId: 'trader-123',
         tradeFlow: 'EXPORT',
-        state: 'PENDING',
+        state: 'IN_PROGRESS',
         createdAt: '2024-01-17T10:00:00Z',
         updatedAt: new Date().toISOString(),
         items: [{
@@ -223,14 +194,14 @@ export async function fetchConsignmentDetail(consignmentId: string, signal?: Abo
           steps: [{
             stepId: 'oga-review',
             type: 'OGA_FORM',
-            taskId: 'task-con-003',
+            taskId: '550e8400-e29b-41d4-a716-446655440003',
             status: 'IN_PROGRESS',
             dependsOn: []
           }]
         }],
         ogaTasks: [{
-          id: 'task-con-003',
-          consignmentId: 'CON-003',
+          id: '550e8400-e29b-41d4-a716-446655440003',
+          consignmentId: '550e8400-e29b-41d4-a716-446655440000',
           stepId: 'oga-review',
           type: 'OGA_FORM',
           status: 'IN_PROGRESS',
@@ -245,7 +216,7 @@ export async function fetchConsignmentDetail(consignmentId: string, signal?: Abo
           invoiceValue: 12500
         },
         ogaForm: {
-          formId: 'oga-export-permit',
+          id: 'oga-export-permit',
           name: 'Tea Export Permit Review',
           version: '1.0',
           schema: {
@@ -261,74 +232,32 @@ export async function fetchConsignmentDetail(consignmentId: string, signal?: Abo
       };
     }
 
-    // Mock detail for CON-002 (Import)
-    if (consignmentId === 'CON-002') {
-      return {
-        id: 'CON-002',
-        traderId: 'trader-456',
-        tradeFlow: 'IMPORT',
-        state: 'IN_PROGRESS',
-        createdAt: '2024-01-16T14:30:00Z',
-        updatedAt: new Date().toISOString(),
-        items: [{
-          hsCodeID: '0902.30.11',
-          steps: [{
-            stepId: 'oga-review',
-            type: 'OGA_FORM',
-            taskId: 'task-con-002',
-            status: 'IN_PROGRESS',
-            dependsOn: []
-          }]
-        }],
-        ogaTasks: [{
-          id: 'task-con-002',
-          consignmentId: 'CON-002',
-          stepId: 'oga-review',
-          type: 'OGA_FORM',
-          status: 'IN_PROGRESS',
-          config: {},
-          dependsOn: {}
-        }],
-        traderForm: {
-          importerName: 'Global Teas Inc',
-          originCountry: 'India',
-          packageCount: 200,
-          totalWeight: 10000
-        },
-        ogaForm: {
-          formId: 'oga-import-permit',
-          name: 'Tea Import Permit Review',
-          version: '1.0',
-          schema: {
-            type: 'object',
-            properties: {
-              phytosanitaryCheck: { type: 'boolean', title: 'Phytosanitary Certificate Verified' },
-              riskAssessment: { type: 'string', title: 'Risk Assessment (Low/Medium/High)', enum: ['Low', 'Medium', 'High'] },
-              approvedVolume: { type: 'number', title: 'Approved Volume (kg)' }
-            }
-          },
-          uiSchema: {}
-        }
-      };
-    }
-
-    // Default error rethrow if not a mock ID or generic fallback
     throw error;
   }
 }
 
-// Submit approval for a task
+// Submit approval for a task via OGA Service
+// OGA Service forwards to Backend POST /api/tasks/{taskId}
 export async function approveTask(
   taskId: string,
+  _consignmentId: string,
   requestBody: ApproveRequest,
   signal?: AbortSignal
 ): Promise<ApproveResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/oga/applications/${taskId}/approve`, {
+  // Call OGA Service approval endpoint
+  const response = await fetch(`${OGA_API_BASE_URL}/api/oga/applications/${taskId}/approve`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(requestBody),
+    body: JSON.stringify({
+      decision: requestBody.decision,
+      data: {
+        ...requestBody.formData,
+        reviewerName: requestBody.reviewerName,
+        comments: requestBody.comments,
+      },
+    }),
     signal,
   });
 

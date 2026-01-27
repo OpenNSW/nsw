@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { Button, Badge, Spinner, Text, Card, Flex, Box, TextField, TextArea, Callout } from '@radix-ui/themes'
 import { ArrowLeftIcon, CheckCircledIcon, ExclamationTriangleIcon, InfoCircledIcon } from '@radix-ui/react-icons'
 import { fetchConsignmentDetail, approveTask, type ConsignmentDetail, type ApproveRequest } from '../api'
@@ -15,6 +15,11 @@ interface JsonSchema {
 export function ConsignmentDetailScreen() {
   const { consignmentId } = useParams<{ consignmentId: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  // Extract taskId from query parameters
+  const queryParams = new URLSearchParams(location.search)
+  const taskId = queryParams.get('taskId')
 
   const [consignment, setConsignment] = useState<ConsignmentDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -30,7 +35,7 @@ export function ConsignmentDetailScreen() {
     async function fetchData() {
       if (!consignmentId) return
       try {
-        const data = await fetchConsignmentDetail(consignmentId)
+        const data = await fetchConsignmentDetail(consignmentId, taskId || undefined)
         setConsignment(data)
       } catch (err) {
         setError('Failed to load application details')
@@ -40,7 +45,7 @@ export function ConsignmentDetailScreen() {
       }
     }
     fetchData()
-  }, [consignmentId])
+  }, [consignmentId, taskId])
 
   const handleFormChange = (field: string, value: unknown) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -52,8 +57,10 @@ export function ConsignmentDetailScreen() {
       return
     }
 
-    const ogaTask = consignment?.ogaTasks?.[0]
-    if (!ogaTask) {
+    // Use the taskId from query params, or the first available ogaTask
+    const targetTaskId = taskId || consignment?.ogaTasks?.[0]?.id
+
+    if (!targetTaskId) {
       setError('No pending OGA task found')
       return
     }
@@ -69,7 +76,7 @@ export function ConsignmentDetailScreen() {
         formData: formData,
         consignmentId: consignment!.id,
       }
-      await approveTask(ogaTask.id, requestBody)
+      await approveTask(targetTaskId, consignment!.id, requestBody)
       setSuccess(true)
       setTimeout(() => navigate('/consignments'), 2000)
     } catch (err) {
@@ -102,7 +109,10 @@ export function ConsignmentDetailScreen() {
     )
   }
 
-  const ogaTask = consignment.ogaTasks?.[0]
+  // Find the specific task we are reviewing
+  const currentOgaTask = taskId
+    ? consignment.ogaTasks.find(t => t.id === taskId)
+    : consignment.ogaTasks?.[0]
 
   return (
     <div className="animate-fade-in max-w-5xl mx-auto">
@@ -110,9 +120,11 @@ export function ConsignmentDetailScreen() {
         <Button variant="ghost" color="gray" onClick={() => navigate('/consignments')}>
           <ArrowLeftIcon /> Back to Consignments
         </Button>
-        <Badge size="2" color={consignment.tradeFlow === 'IMPORT' ? 'blue' : 'green'} highContrast>
-          {consignment.tradeFlow} APPLICATION
-        </Badge>
+        <Flex gap="3">
+          <Badge size="2" color={consignment.tradeFlow === 'IMPORT' ? 'blue' : 'green'} highContrast>
+            {consignment.tradeFlow}
+          </Badge>
+        </Flex>
       </Flex>
 
       {error && (
@@ -142,16 +154,31 @@ export function ConsignmentDetailScreen() {
                 <Text size="2" weight="medium" className="break-all">{consignment.id}</Text>
               </Box>
               <Box>
-                <Text size="1" color="gray" as="div" mb="1">Trader ID</Text>
-                <Text size="2" weight="medium">{consignment.traderId}</Text>
+                <Text size="1" color="gray" as="div" mb="1">Progress</Text>
+                <Text size="2" weight="medium">
+                  {(() => {
+                    let total = 0
+                    let completed = 0
+                    consignment.items.forEach(i => {
+                      total += i.steps.length
+                      i.steps.forEach(s => {
+                        if (s.status === 'COMPLETED') completed++
+                      })
+                    })
+                    return `${completed}/${total} steps completed`
+                  })()}
+                </Text>
               </Box>
               <Box>
-                <Text size="1" color="gray" as="div" mb="1">Current State</Text>
-                <Badge color="orange">{consignment.state}</Badge>
-              </Box>
-              <Box>
-                <Text size="1" color="gray" as="div" mb="1">Submitted On</Text>
-                <Text size="2" weight="medium">{new Date(consignment.createdAt).toLocaleString()}</Text>
+                <Text size="1" color="gray" as="div" mb="1">Created On</Text>
+                <Text size="2" weight="medium">
+                  {(() => {
+                    const date = new Date(consignment.createdAt)
+                    const datePart = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                    const timePart = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+                    return `${datePart} at ${timePart}`
+                  })()}
+                </Text>
               </Box>
             </div>
           </Card>
@@ -166,7 +193,7 @@ export function ConsignmentDetailScreen() {
               <Text size="4" weight="bold">Officer Review Form</Text>
             </Flex>
 
-            {!ogaTask ? (
+            {!currentOgaTask ? (
               <Callout.Root color="amber">
                 <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
                 <Callout.Text>This application is not currently pending an OGA review task.</Callout.Text>

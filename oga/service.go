@@ -2,11 +2,11 @@ package oga
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
-	"sync"
+	"time"
 
-	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/google/uuid"
 )
 
@@ -14,10 +14,10 @@ import (
 var ErrApplicationNotFound = errors.New("application not found")
 
 // OGAService handles OGA portal operations
-// For MVP, this service does not persist to database - it only manages in-memory state
+// OGA service maintains its own database and syncs with backend via polling
 type OGAService interface {
-	// AddApplication adds an application ready for review
-	AddApplication(ctx context.Context, notification model.OGATaskNotification) error
+	// SyncApplications syncs applications from backend by polling GET /api/tasks
+	SyncApplications(ctx context.Context) error
 
 	// GetApplications returns all applications ready for review
 	GetApplications(ctx context.Context) ([]Application, error)
@@ -25,60 +25,100 @@ type OGAService interface {
 	// GetApplication returns a specific application by task ID
 	GetApplication(ctx context.Context, taskID uuid.UUID) (*Application, error)
 
-	// RemoveApplication removes an application from the ready list (after approval/rejection)
-	RemoveApplication(ctx context.Context, taskID uuid.UUID) error
+	// StartSyncWorker starts a background worker that periodically syncs applications
+	StartSyncWorker(ctx context.Context, interval time.Duration)
+
+	// Close closes the service and releases resources
+	Close() error
 }
 
 // Application represents an application ready for OGA review
 type Application struct {
 	TaskID        uuid.UUID `json:"taskId"`
 	ConsignmentID uuid.UUID `json:"consignmentId"`
+	StepID        string    `json:"stepId"`
 	FormID        string    `json:"formId"`
 	Status        string    `json:"status"`
 }
 
 type ogaService struct {
-	applications map[uuid.UUID]Application // In-memory store of applications ready for review
-	mu           sync.RWMutex              // Mutex for thread-safe access
+	store        *ApplicationStore
+	backendClient BackendClient
 }
 
-// NewOGAService creates a new OGA service instance
-func NewOGAService() OGAService {
+// NewOGAService creates a new OGA service instance with database storage
+func NewOGAService(store *ApplicationStore, backendClient BackendClient) OGAService {
 	return &ogaService{
-		applications: make(map[uuid.UUID]Application),
+		store:        store,
+		backendClient: backendClient,
 	}
 }
 
-// AddApplication adds an application ready for review
-func (s *ogaService) AddApplication(ctx context.Context, notification model.OGATaskNotification) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	application := Application{
-		TaskID:        notification.TaskID,
-		ConsignmentID: notification.ConsignmentID,
-		FormID:        notification.FormID,
-		Status:        notification.Status,
+// SyncApplications syncs applications from backend by polling GET /api/tasks
+// It fetches all OGA_FORM tasks with READY status and stores them in the database
+func (s *ogaService) SyncApplications(ctx context.Context) error {
+	// Fetch OGA_FORM tasks with READY status from backend
+	// READY means the task dependencies are satisfied and it's waiting for OGA officer action
+	tasks, err := s.backendClient.GetTasks(ctx, "OGA_FORM", "READY")
+	if err != nil {
+		return err
 	}
 
-	s.applications[notification.TaskID] = application
+	slog.InfoContext(ctx, "syncing applications from backend",
+		"count", len(tasks))
 
-	slog.InfoContext(ctx, "application added for OGA review",
-		"taskID", notification.TaskID,
-		"consignmentID", notification.ConsignmentID,
-		"formID", notification.FormID)
+	// Process each task and store/update in database
+	for _, task := range tasks {
+		// Extract formID from config
+		var config struct {
+			FormID string `json:"formId"`
+		}
+		if err := json.Unmarshal(task.Config, &config); err != nil {
+			slog.WarnContext(ctx, "failed to parse task config",
+				"taskID", task.ID,
+				"error", err)
+			continue
+		}
+
+		appRecord := &ApplicationRecord{
+			TaskID:        task.ID,
+			ConsignmentID: task.ConsignmentID,
+			StepID:        task.StepID,
+			FormID:        config.FormID,
+			Status:        task.Status,
+		}
+
+		if err := s.store.CreateOrUpdate(appRecord); err != nil {
+			slog.ErrorContext(ctx, "failed to store application",
+				"taskID", task.ID,
+				"error", err)
+			continue
+		}
+
+		slog.DebugContext(ctx, "synced application",
+			"taskID", task.ID,
+			"consignmentID", task.ConsignmentID)
+	}
 
 	return nil
 }
 
 // GetApplications returns all applications ready for review
 func (s *ogaService) GetApplications(ctx context.Context) ([]Application, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	records, err := s.store.GetAll()
+	if err != nil {
+		return nil, err
+	}
 
-	applications := make([]Application, 0, len(s.applications))
-	for _, app := range s.applications {
-		applications = append(applications, app)
+	applications := make([]Application, len(records))
+	for i, record := range records {
+		applications[i] = Application{
+			TaskID:        record.TaskID,
+			ConsignmentID: record.ConsignmentID,
+			StepID:        record.StepID,
+			FormID:        record.FormID,
+			Status:        record.Status,
+		}
 	}
 
 	return applications, nil
@@ -86,26 +126,46 @@ func (s *ogaService) GetApplications(ctx context.Context) ([]Application, error)
 
 // GetApplication returns a specific application by task ID
 func (s *ogaService) GetApplication(ctx context.Context, taskID uuid.UUID) (*Application, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	app, exists := s.applications[taskID]
-	if !exists {
+	record, err := s.store.GetByTaskID(taskID)
+	if err != nil {
 		return nil, ErrApplicationNotFound
 	}
 
-	return &app, nil
+	return &Application{
+		TaskID:        record.TaskID,
+		ConsignmentID: record.ConsignmentID,
+		FormID:        record.FormID,
+		Status:        record.Status,
+	}, nil
 }
 
-// RemoveApplication removes an application from the ready list
-func (s *ogaService) RemoveApplication(ctx context.Context, taskID uuid.UUID) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+// StartSyncWorker starts a background worker that periodically syncs applications from backend
+func (s *ogaService) StartSyncWorker(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
 
-	delete(s.applications, taskID)
+	// Initial sync
+	if err := s.SyncApplications(ctx); err != nil {
+		slog.ErrorContext(ctx, "initial sync failed", "error", err)
+	}
 
-	slog.InfoContext(ctx, "application removed from OGA review list",
-		"taskID", taskID)
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("sync worker stopped")
+			return
+		case <-ticker.C:
+			if err := s.SyncApplications(ctx); err != nil {
+				slog.ErrorContext(ctx, "sync failed", "error", err)
+			}
+		}
+	}
+}
 
+// Close closes the service and releases resources
+func (s *ogaService) Close() error {
+	if s.store != nil {
+		return s.store.Close()
+	}
 	return nil
 }

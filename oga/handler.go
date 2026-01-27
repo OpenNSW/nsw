@@ -6,23 +6,21 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/OpenNSW/nsw/internal/task"
-	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/OpenNSW/nsw/utils"
 	"github.com/google/uuid"
 )
 
 // OGAHandler handles HTTP requests for OGA portal operations
 type OGAHandler struct {
-	service     OGAService
-	taskManager task.TaskManager
+	service       OGAService
+	backendClient BackendClient
 }
 
 // NewOGAHandler creates a new OGA handler instance
-func NewOGAHandler(service OGAService, taskManager task.TaskManager) *OGAHandler {
+func NewOGAHandler(service OGAService, backendClient BackendClient) *OGAHandler {
 	return &OGAHandler{
-		service:     service,
-		taskManager: taskManager,
+		service:       service,
+		backendClient: backendClient,
 	}
 }
 
@@ -43,7 +41,7 @@ func (h *OGAHandler) parseTaskID(w http.ResponseWriter, r *http.Request) (uuid.U
 }
 
 // HandleGetApplications handles GET /api/oga/applications
-// Returns all applications ready for OGA review
+// Returns all applications ready for OGA review (from OGA's own database)
 func (h *OGAHandler) HandleGetApplications(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		utils.WriteJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
@@ -62,7 +60,7 @@ func (h *OGAHandler) HandleGetApplications(w http.ResponseWriter, r *http.Reques
 }
 
 // HandleGetApplication handles GET /api/oga/applications/{taskId}
-// Returns a specific application by task ID
+// Returns a specific application by task ID (from OGA's own database)
 func (h *OGAHandler) HandleGetApplication(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		utils.WriteJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
@@ -92,7 +90,7 @@ func (h *OGAHandler) HandleGetApplication(w http.ResponseWriter, r *http.Request
 }
 
 // HandleApproveApplication handles POST /api/oga/applications/{taskId}/approve
-// OGA officer approves an application and submits form data
+// Called when OGA officer approves/rejects an application - calls backend POST /api/tasks/{taskId}
 func (h *OGAHandler) HandleApproveApplication(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		utils.WriteJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
@@ -104,87 +102,51 @@ func (h *OGAHandler) HandleApproveApplication(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var req struct {
-		FormData     map[string]interface{} `json:"formData"`     // Complete form data (trader + OGA merged)
-		Decision     string                 `json:"decision"`     // "APPROVED" or "REJECTED"
-		ReviewerName string                 `json:"reviewerName"`
-		Comments     string                 `json:"comments"`
+	ctx := r.Context()
+
+	// Parse request body to get OGA form data
+	var requestBody struct {
+		Decision string                 `json:"decision"` // "APPROVED" or "REJECTED"
+		Data     map[string]interface{} `json:"data"`     // OGA form submission data
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
 		utils.WriteJSONError(w, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
 
-	if req.Decision != "APPROVED" && req.Decision != "REJECTED" {
-		utils.WriteJSONError(w, http.StatusBadRequest, "decision must be APPROVED or REJECTED")
-		return
+	// Prepare payload for backend
+	payload := &ExecutionPayload{
+		Action: "OGA_VERIFICATION",
+		Content: map[string]interface{}{
+			"decision": requestBody.Decision,
+			"data":     requestBody.Data,
+		},
 	}
 
-	ctx := r.Context()
-
-	// Enrich form data with reviewer metadata
-	if req.FormData == nil {
-		req.FormData = make(map[string]interface{})
-	}
-	req.FormData["reviewerName"] = req.ReviewerName
-	req.FormData["comments"] = req.Comments
-	req.FormData["decision"] = req.Decision
-
-	// Call Task Manager callback with full form data
-	if h.taskManager != nil {
-		if err := h.taskManager.OnOGAFormSubmitted(ctx, taskID, req.FormData); err != nil {
-			slog.ErrorContext(ctx, "failed to notify TaskManager of OGA form submission",
-				"taskID", taskID,
-				"error", err)
-			utils.WriteJSONError(w, http.StatusInternalServerError, "Failed to submit form to Task Manager")
-			return
-		}
-	}
-
-	// Remove application from ready list
-	if err := h.service.RemoveApplication(ctx, taskID); err != nil {
-		slog.WarnContext(ctx, "failed to remove application from list",
+	// Call backend POST /api/tasks/{taskId}
+	if err := h.backendClient.ExecuteTask(ctx, taskID, payload); err != nil {
+		slog.ErrorContext(ctx, "failed to execute task in backend",
 			"taskID", taskID,
 			"error", err)
-		// Don't fail the request, form is already submitted
-	}
-
-	// Return success response
-	utils.WriteJSONResponse(w, http.StatusOK, map[string]interface{}{
-		"success": true,
-		"message": "Application " + req.Decision + " successfully",
-	})
-}
-
-// HandleNotification handles POST /api/oga/notifications
-// Receives notifications from Task Manager when applications are ready for review
-func (h *OGAHandler) HandleNotification(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.WriteJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		utils.WriteJSONError(w, http.StatusInternalServerError, "Failed to approve application: "+err.Error())
 		return
 	}
 
-	var notification model.OGATaskNotification
-
-	if err := json.NewDecoder(r.Body).Decode(&notification); err != nil {
-		utils.WriteJSONError(w, http.StatusBadRequest, "Invalid request body: "+err.Error())
-		return
-	}
-
-	ctx := r.Context()
-
-	// Add application to service
-	if err := h.service.AddApplication(ctx, notification); err != nil {
-		slog.ErrorContext(ctx, "failed to add application",
-			"taskID", notification.TaskID,
-			"error", err)
-		utils.WriteJSONError(w, http.StatusInternalServerError, "Failed to add application")
-		return
-	}
+	slog.InfoContext(ctx, "application processed",
+		"taskID", taskID,
+		"decision", requestBody.Decision)
 
 	utils.WriteJSONResponse(w, http.StatusOK, map[string]interface{}{
 		"success": true,
-		"message": "Application added for review",
+		"message": "Application processed successfully",
 	})
 }
+
+// HandleApprove is an alias for HandleApproveApplication
+func (h *OGAHandler) HandleApprove(w http.ResponseWriter, r *http.Request) {
+	h.HandleApproveApplication(w, r)
+}
+
+
+
