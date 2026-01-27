@@ -168,10 +168,6 @@ func (tm *taskManager) RegisterTask(ctx context.Context, payload InitPayload) (*
 	payload.GlobalContext["taskId"] = payload.TaskID
 	payload.GlobalContext["consignmentId"] = payload.ConsignmentID
 
-	payload.GlobalContext["exporter"] = map[string]interface{}{
-		"name": "ACME Corporation",
-	}
-
 	// Build the executor from the factory
 	executor, err := tm.factory.BuildExecutor(payload.Type, payload.CommandSet, payload.GlobalContext)
 	if err != nil {
@@ -190,7 +186,11 @@ func (tm *taskManager) RegisterTask(ctx context.Context, payload InitPayload) (*
 		CommandSet:    payload.CommandSet,
 	}
 
-	execution.GlobalContext, _ = json.Marshal(payload.GlobalContext)
+	globalContextJSON, err := json.Marshal(payload.GlobalContext)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal global context: %w", err)
+	}
+	execution.GlobalContext = globalContextJSON
 
 	// Store in SQLite
 	if err := tm.store.Create(execution); err != nil {
