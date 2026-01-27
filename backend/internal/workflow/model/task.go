@@ -6,8 +6,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// TaskType represents the type of a task within a workflow.
-
 // TaskStatus represents the status of a task within a workflow.
 type TaskStatus string
 

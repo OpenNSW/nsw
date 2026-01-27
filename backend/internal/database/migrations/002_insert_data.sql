@@ -1,7 +1,7 @@
 -- Migration: 002_insert_data.sql
 -- Description: Insert initial HS codes and workflow templates for NSW workflow management system
 -- Created: 2026-01-24
--- Updated: 2026-01-25
+-- Updated: 2026-01-27
 
 -- Insert HS Codes
 INSERT INTO hs_codes (id, hs_code, description, category, created_at, updated_at) VALUES ('90b06747-cfa7-486b-a084-eaa1fc95595e', '0902.10', 'Green tea (not fermented) in immediate packings $\leq$ 3kg', 'Green Tea (Small)', '2026-01-24 07:23:06.575830 +00:00', '2026-01-24 07:23:06.575830 +00:00');
