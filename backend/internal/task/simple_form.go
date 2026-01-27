@@ -425,7 +425,14 @@ func (t *SimpleFormTask) handleSubmitForm(commandSet *SimpleFormCommandSet, form
 
 	// If submissionUrl is provided, send the form data to that URL
 	if commandSet.SubmissionURL != "" {
-		responseData, err := t.sendFormSubmission(commandSet.SubmissionURL, formData)
+		requestPayload := map[string]interface{}{
+			"data":          formDataJSON,
+			"taskId":        t.globalCtx["taskId"].(string),
+			"consignmentId": t.globalCtx["consignmentId"].(string),
+		}
+
+		responseData, err := t.sendFormSubmission(commandSet.SubmissionURL, requestPayload)
+
 		if err != nil {
 			slog.Error("failed to send form submission",
 				"formId", commandSet.FormID,
