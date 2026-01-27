@@ -484,11 +484,10 @@ func (s *ConsignmentService) updateConsignment(ctx context.Context, tx *gorm.DB,
 	// Append to global context if provided
 	if appendGlobalContext != nil {
 		for k, v := range *appendGlobalContext {
-			// If there is a key conflict, raise an error
-			if _, exists := consignment.GlobalContext[k]; exists {
-				return nil, fmt.Errorf("key conflict in global context for key: %s", k)
+			// TODO: Need to change back to erroring out if key already exists
+			if _, exists := consignment.GlobalContext[k]; !exists {
+				consignment.GlobalContext[k] = v
 			}
-			consignment.GlobalContext[k] = v
 		}
 	}
 

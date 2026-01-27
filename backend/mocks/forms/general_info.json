@@ -1,4 +1,5 @@
 {
+  "title": "General Information",
   "schema": {
     "type": "object",
     "title": "General Info",

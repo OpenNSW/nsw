@@ -221,11 +221,11 @@ func (tm *taskManager) execute(ctx context.Context, activeTask *ActiveTask, payl
 			"error", err)
 	}
 
-	// Update in-memory status
-	activeTask.Status = result.Status
-
-	// Notify Workflow Manager
-	tm.notifyWorkflowManager(ctx, activeTask.TaskID, result.Status, result.GlobalContextData)
+	if result.Status != "" {
+		// Update in-memory status
+		activeTask.Status = result.Status
+		tm.notifyWorkflowManager(ctx, activeTask.TaskID, result.Status, result.GlobalContextData)
+	}
 
 	return result, nil
 }

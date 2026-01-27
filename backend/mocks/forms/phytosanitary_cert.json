@@ -1,47 +1,70 @@
 {
+  "title": "Phytosanitary Certificate",
   "schema": {
     "type": "object",
-    "title": "Phytosanitary Application",
     "properties": {
-      "exporterName": {
+      "countryOfOrigin": {
         "type": "string",
-        "title": "Exporter Name",
-        "x-globalContext": "exporter.name"
+        "title": "Country of Origin",
+        "readOnly": true,
+        "x-globalContext": "countryOfOrigin"
       },
-      "commodity": {
+      "countryOfDestination": {
         "type": "string",
-        "title": "Commodity"
+        "title": "Country of Destination",
+        "readOnly": true,
+        "x-globalContext": "countryOfDestination"
       },
-      "quantityKg": {
-        "type": "number",
-        "title": "Quantity (kg)"
-      },
-      "destinationCountry": {
+      "distinguishingMarks": {
         "type": "string",
-        "title": "Destination Country"
+        "title": "Distinguishing Marks",
+        "example": "BWI-UK-LOT01"
       },
-      "hsCode": {
+      "disinfestationTreatment": {
         "type": "string",
-        "title": "HS Code",
-        "x-globalContext": "hsCode"
-      },
-      "treatment": {
-        "type": "string",
-        "title": "Treatment Applied",
-        "enum": ["None", "Fumigation", "Heat Treatment", "Chemical Treatment"]
+        "title": "Disinfestation Treatment",
+        "example": "Fumigation with Methyl Bromide (CH3Br) at 48g/m³ for 24 hrs"
       }
     },
-    "required": ["exporterName", "commodity", "destinationCountry"]
+    "required": [
+      "distinguishingMarks",
+      "disinfestationTreatment"
+    ]
   },
   "uiSchema": {
     "type": "VerticalLayout",
     "elements": [
-      { "type": "Control", "scope": "#/properties/exporterName" },
-      { "type": "Control", "scope": "#/properties/commodity" },
-      { "type": "Control", "scope": "#/properties/quantityKg" },
-      { "type": "Control", "scope": "#/properties/destinationCountry" },
-      { "type": "Control", "scope": "#/properties/hsCode" },
-      { "type": "Control", "scope": "#/properties/treatment" }
+      {
+        "type": "Label",
+        "text": "Phytosanitary Certificate"
+      },
+      {
+        "type": "HorizontalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/countryOfOrigin",
+            "options": {
+              "readOnly": true
+            }
+          },
+          {
+            "type": "Control",
+            "scope": "#/properties/countryOfDestination",
+            "options": {
+              "readOnly": true
+            }
+          }
+        ]
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/distinguishingMarks"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/disinfestationTreatment"
+      }
     ]
   }
 }

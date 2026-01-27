@@ -1,47 +1,96 @@
 {
+  "title": "Health Certificate",
   "schema": {
     "type": "object",
-    "title": "Health Certificate Application",
     "properties": {
-      "exporterName": {
+      "consigneeName": {
         "type": "string",
-        "title": "Exporter Name",
-        "x-globalContext": "exporter.name"
+        "title": "Consignee Name",
+        "readOnly": true,
+        "x-globalContext": "consigneeName"
       },
-      "product": {
+      "consigneeAddress": {
         "type": "string",
-        "title": "Product"
+        "title": "Consignee Address",
+        "readOnly": true,
+        "x-globalContext": "consigneeAddress"
       },
-      "batchNumber": {
+      "productDescription": {
         "type": "string",
-        "title": "Batch Number"
+        "title": "Product Description",
+        "description": "Organic Desiccated Coconut (Fine Grade)"
       },
-      "productionDate": {
+      "batchLotNumbers": {
         "type": "string",
-        "format": "date",
-        "title": "Production Date"
+        "title": "Batch / Lot Numbers",
+        "description": "DC-2026-JAN-05"
       },
-      "destinationCountry": {
+      "productionExpiryDates": {
         "type": "string",
-        "title": "Destination Country"
+        "title": "Production & Expiry Dates",
+        "description": "Example: Production: YYYY-MM-DD, Expiry: YYYY-MM-DD"
       },
-      "certifyingAuthority": {
+      "microbiologicalTestReportId": {
         "type": "string",
-        "title": "Certifying Authority",
-        "enum": ["MOH", "Veterinary Dept", "Food Safety Unit"]
+        "title": "Microbiological Test Report ID",
+        "description": "ITI/2026/LAB-9982"
+      },
+      "processingPlantRegistrationNo": {
+        "type": "string",
+        "title": "Processing Plant Registration No.",
+        "description": "CDA/REG/2025/158"
       }
     },
-    "required": ["exporterName", "product", "destinationCountry"]
+    "required": [
+      "productDescription",
+      "batchLotNumbers",
+      "productionExpiryDates",
+      "microbiologicalTestReportId",
+      "processingPlantRegistrationNo"
+    ]
   },
   "uiSchema": {
     "type": "VerticalLayout",
     "elements": [
-      { "type": "Control", "scope": "#/properties/exporterName" },
-      { "type": "Control", "scope": "#/properties/product" },
-      { "type": "Control", "scope": "#/properties/batchNumber" },
-      { "type": "Control", "scope": "#/properties/productionDate" },
-      { "type": "Control", "scope": "#/properties/destinationCountry" },
-      { "type": "Control", "scope": "#/properties/certifyingAuthority" }
+      {
+        "type": "Label",
+        "text": "Health Certificate"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/consigneeName",
+        "options": {
+          "readOnly": true
+        }
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/consigneeAddress",
+        "options": {
+          "readOnly": true,
+          "multi": true
+        }
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/productDescription"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/batchLotNumbers"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/productionExpiryDates"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/microbiologicalTestReportId"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/processingPlantRegistrationNo"
+      }
     ]
   }
 }
