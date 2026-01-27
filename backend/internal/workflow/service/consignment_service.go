@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/OpenNSW/nsw/utils"
@@ -528,8 +529,11 @@ func (s *ConsignmentService) GetConsignmentByID(ctx context.Context, consignment
 		return nil, err
 	}
 
-	response := consignment.ToConsignmentResponse()
-	return &response, nil
+	response, err := s.PopulateHSCodeDetails(ctx, *consignment)
+	if err != nil {
+		return nil, fmt.Errorf("failed to populate details: %w", err)
+	}
+	return response, nil
 }
 
 // GetConsignmentsByTraderID retrieves all consignments for a specific trader.
@@ -570,7 +574,14 @@ func (s *ConsignmentService) GetConsignmentsByTraderID(ctx context.Context, filt
 	// Convert to response DTOs
 	responseItems := make([]model.ConsignmentResponse, len(consignments))
 	for i, consignment := range consignments {
-		responseItems[i] = consignment.ToConsignmentResponse()
+		responseWithDetails, err := s.PopulateHSCodeDetails(ctx, consignment)
+		if err != nil {
+			// Log error but continue with partial data
+			slog.Error("failed to populate HS code details", "consignment_id", consignment.ID, "error", err)
+			responseItems[i] = consignment.ToConsignmentResponse()
+		} else {
+			responseItems[i] = *responseWithDetails
+		}
 	}
 
 	// Prepare the result
@@ -582,4 +593,39 @@ func (s *ConsignmentService) GetConsignmentsByTraderID(ctx context.Context, filt
 	}
 
 	return consignmentListResult, nil
+}
+
+// PopulateHSCodeDetails enriches the consignment response with HS Code details
+func (s *ConsignmentService) PopulateHSCodeDetails(ctx context.Context, consignment model.Consignment) (*model.ConsignmentResponse, error) {
+	response := consignment.ToConsignmentResponse()
+
+	if len(response.Items) > 0 {
+		// Collect all HS Code IDs to fetch in a single query
+		hsCodeIDs := make([]uuid.UUID, 0, len(response.Items))
+		for _, item := range response.Items {
+			hsCodeIDs = append(hsCodeIDs, item.HSCodeID)
+		}
+
+		// Fetch all HS codes at once
+		var hsCodes []model.HSCode
+		if err := s.db.WithContext(ctx).Where("id IN ?", hsCodeIDs).Find(&hsCodes).Error; err != nil {
+			return nil, fmt.Errorf("failed to retrieve HS codes: %w", err)
+		}
+
+		// Create a map for easy lookup
+		hsCodeMap := make(map[uuid.UUID]model.HSCode, len(hsCodes))
+		for _, hsCode := range hsCodes {
+			hsCodeMap[hsCode.ID] = hsCode
+		}
+
+		// Populate the details in the response
+		for i := range response.Items {
+			if hsCode, ok := hsCodeMap[response.Items[i].HSCodeID]; ok {
+				response.Items[i].HSCode = hsCode.HSCode
+				response.Items[i].HSCodeDescription = hsCode.Description
+			}
+		}
+	}
+
+	return &response, nil
 }

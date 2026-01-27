@@ -53,13 +53,9 @@ export function ConsignmentDetailScreen() {
       // Clear the navigation state to prevent re-triggering on refresh
       navigate(location.pathname, { replace: true, state: {} })
 
-      // Show loading state and wait 5 seconds before fetching
+      // Show loading state and fetch immediately
       setLoading(true)
-      const timer = setTimeout(() => {
-        fetchConsignment()
-      }, 5000)
-
-      return () => clearTimeout(timer)
+      fetchConsignment()
     } else {
       // Normal fetch without delay
       fetchConsignment()
@@ -124,13 +120,18 @@ export function ConsignmentDetailScreen() {
                 {consignment.id}
               </p>
               <p className="mt-1 text-sm text-gray-500">
-                Created on {new Date(consignment.createdAt).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+                Created on {(() => {
+                  const date = new Date(consignment.createdAt)
+                  return !isNaN(date.getTime())
+                    ? date.toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                    : '-'
+                })()}
               </p>
             </div>
             <div className="flex flex-col items-end gap-2">
@@ -145,15 +146,19 @@ export function ConsignmentDetailScreen() {
         </div>
 
         <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">HS Code</h3>
-              <p className="text-lg font-medium text-gray-900">{item?.hsCodeID || '-'}</p>
+              {item?.hsCode ? (
+                <div>
+                  <p className="text-lg font-medium text-gray-900">{item.hsCode}</p>
+                  <p className="text-sm text-gray-600">{item.hsCodeDescription}</p>
+                </div>
+              ) : (
+                <p className="text-lg font-medium text-gray-900">{item?.hsCodeID || '-'}</p>
+              )}
             </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Trader ID</h3>
-              <p className="text-lg font-medium text-gray-900">{consignment.traderId}</p>
-            </div>
+            {/* Trader ID Removed as per request */}
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">Progress</h3>
               <p className="text-lg font-medium text-gray-900">{completedSteps}/{totalSteps} steps completed</p>

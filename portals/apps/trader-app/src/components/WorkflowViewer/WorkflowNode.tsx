@@ -84,8 +84,17 @@ export function WorkflowNode({ data }: NodeProps<WorkflowNodeType>) {
   const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(false)
 
-  const typeConfig = stepTypeConfig[step.type]
-  const statusStyle = statusConfig[step.status]
+  const typeConfig = stepTypeConfig[step.type] || {
+    label: step.type,
+    icon: <FileTextIcon className="w-4 h-4" />
+  }
+
+  const statusStyle = statusConfig[step.status] || {
+    bgColor: 'bg-gray-50',
+    borderColor: 'border-gray-300',
+    textColor: 'text-gray-500',
+    iconColor: 'text-gray-400'
+  }
 
   const isExecutable = step.status === 'READY' && step.type !== 'WAIT_FOR_EVENT'
 
@@ -116,11 +125,9 @@ export function WorkflowNode({ data }: NodeProps<WorkflowNodeType>) {
 
   return (
     <div
-      className={`px-4 py-3 rounded-lg border-2 hover:cursor-default shadow-sm min-w-50 ${
-        statusStyle.bgColor
-      } ${statusStyle.borderColor} ${
-        step.status === 'READY' ? 'ring-2 ring-blue-300 ring-offset-2' : ''
-      }`}
+      className={`px-4 py-3 rounded-lg border-2 hover:cursor-default shadow-sm min-w-50 ${statusStyle.bgColor
+        } ${statusStyle.borderColor} ${step.status === 'READY' ? 'ring-2 ring-blue-300 ring-offset-2' : ''
+        }`}
     >
       <Handle
         type="target"
@@ -146,6 +153,9 @@ export function WorkflowNode({ data }: NodeProps<WorkflowNodeType>) {
           >
             {getStepLabel()}
           </Text>
+          <Text size="1" className={`${statusStyle.textColor} font-mono mt-1`}>
+            {step.status}
+          </Text>
         </div>
 
         {isExecutable && (
@@ -169,6 +179,6 @@ export function WorkflowNode({ data }: NodeProps<WorkflowNodeType>) {
         position={Position.Right}
         className="bg-slate-400! w-3! h-3!"
       />
-    </div>
+    </div >
   )
 }

@@ -16,6 +16,8 @@ export interface ConsignmentStep {
 
 export interface ConsignmentItem {
   hsCodeID: string
+  hsCode?: string
+  hsCodeDescription?: string
   steps: ConsignmentStep[]
 }
 
@@ -41,4 +43,4 @@ export interface CreateConsignmentRequest {
   items: CreateConsignmentItemRequest[]
 }
 
-export interface CreateConsignmentResponse extends Consignment {}
+export interface CreateConsignmentResponse extends Consignment { }
