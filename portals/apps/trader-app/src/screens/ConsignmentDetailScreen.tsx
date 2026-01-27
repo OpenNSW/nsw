@@ -158,7 +158,6 @@ export function ConsignmentDetailScreen() {
                 <p className="text-lg font-medium text-gray-900">{item?.hsCodeID || '-'}</p>
               )}
             </div>
-            {/* Trader ID Removed as per request */}
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">Progress</h3>
               <p className="text-lg font-medium text-gray-900">{completedSteps}/{totalSteps} steps completed</p>

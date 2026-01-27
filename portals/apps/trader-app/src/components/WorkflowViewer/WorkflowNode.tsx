@@ -179,6 +179,6 @@ export function WorkflowNode({ data }: NodeProps<WorkflowNodeType>) {
         position={Position.Right}
         className="bg-slate-400! w-3! h-3!"
       />
-    </div >
+    </div>
   )
 }

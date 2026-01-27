@@ -43,4 +43,4 @@ export interface CreateConsignmentRequest {
   items: CreateConsignmentItemRequest[]
 }
 
-export interface CreateConsignmentResponse extends Consignment { }
+export interface CreateConsignmentResponse extends Consignment {}
