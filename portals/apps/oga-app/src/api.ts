@@ -69,18 +69,33 @@ export interface OGAApplication {
   status: string;
 }
 
-// Fetch all applications pending OGA review from OGA service
+// Fetch all applications pending OGA review from Task Manager
 export async function fetchPendingApplications(signal?: AbortSignal): Promise<OGAApplication[]> {
   try {
-    const response = await fetch(`${OGA_API_BASE_URL}/api/oga/applications`, { signal });
+    const response = await fetch(`${API_BASE_URL}/api/tasks?type=OGA_FORM&status=IN_PROGRESS`, { signal });
     if (!response.ok) {
       throw new Error(`Failed to fetch pending applications: ${response.statusText}`);
     }
 
-    return await response.json() as OGAApplication[];
+    const tasks = await response.json() as Task[];
+    
+    // Transform tasks to OGAApplication format
+    const applications: OGAApplication[] = tasks.map(task => {
+      // Extract formId from config
+      const formId = (task.config?.formId as string) || 'unknown';
+      
+      return {
+        taskId: task.id,
+        consignmentId: task.consignmentId,
+        formId: formId,
+        status: task.status,
+      };
+    });
+
+    return applications;
   } catch (error) {
     if (signal?.aborted) throw error;
-    console.warn('Failed to fetch from OGA backend, returning MOCK data:', error);
+    console.warn('Failed to fetch from Task Manager, returning MOCK data:', error);
 
     return [
       {
@@ -235,10 +250,12 @@ export async function approveTask(
       payload: {
         action: 'OGA_VERIFICATION',
         content: {
+          // OGA Specific Values - formData contains all OGA-specific form fields
+          ...requestBody.formData,
+          // Include decision, reviewerName, and comments as part of OGA verification
+          decision: requestBody.decision,
           reviewerName: requestBody.reviewerName,
           comments: requestBody.comments,
-          decision: requestBody.decision,
-          ...requestBody.formData,
         },
       },
     }),

@@ -214,3 +214,23 @@ func (wr *WorkflowRouter) HandleGetConsignments(w http.ResponseWriter, r *http.R
 		return
 	}
 }
+
+// HandleGetTasks handles GET /api/tasks requests
+// Query params: type (optional), status (optional)
+func (wr *WorkflowRouter) HandleGetTasks(w http.ResponseWriter, r *http.Request) {
+	taskType := model.StepType(r.URL.Query().Get("type"))
+	status := model.TaskStatus(r.URL.Query().Get("status"))
+
+	tasks, err := wr.cs.GetTasksByTypeAndStatus(r.Context(), taskType, status)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get tasks: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(tasks); err != nil {
+		http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+		return
+	}
+}

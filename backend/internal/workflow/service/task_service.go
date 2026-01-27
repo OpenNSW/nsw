@@ -185,6 +185,25 @@ func (s *TaskService) GetTasksByConsignmentIDInTx(ctx context.Context, tx *gorm.
 	return tasks, nil
 }
 
+// GetTasksByTypeAndStatus retrieves tasks filtered by type and status
+func (s *TaskService) GetTasksByTypeAndStatus(ctx context.Context, taskType model.StepType, status model.TaskStatus) ([]model.Task, error) {
+	var tasks []model.Task
+	query := s.db.WithContext(ctx)
+	
+	if taskType != "" {
+		query = query.Where("type = ?", taskType)
+	}
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	
+	result := query.Find(&tasks)
+	if result.Error != nil {
+		return nil, fmt.Errorf("failed to retrieve tasks: %w", result.Error)
+	}
+	return tasks, nil
+}
+
 // GetTasksByConsignmentIDAndDependencyStepID retrieves tasks by consignment ID that depend on a specific step ID.
 // This uses the PostgreSQL JSONB ? operator (escaped as ?? in GORM) to check if a key exists in the depends_on JSONB column.
 func (s *TaskService) GetTasksByConsignmentIDAndDependencyStepID(ctx context.Context, consignmentID uuid.UUID, stepID string) ([]model.Task, error) {

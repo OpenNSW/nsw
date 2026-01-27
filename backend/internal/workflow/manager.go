@@ -6,11 +6,13 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/OpenNSW/nsw/internal/form"
 	"github.com/OpenNSW/nsw/internal/task"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/OpenNSW/nsw/internal/workflow/router"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
 	"github.com/OpenNSW/nsw/oga"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -20,11 +22,12 @@ type Manager struct {
 	wr             *router.WorkflowRouter
 	taskUpdateChan chan model.TaskCompletionNotification
 	ogaClient      oga.Client
+	formService    form.FormService
 	ctx            context.Context
 	cancel         context.CancelFunc
 }
 
-func NewManager(tm task.TaskManager, taskUpdateChan chan model.TaskCompletionNotification, db *gorm.DB, ogaClient oga.Client) *Manager {
+func NewManager(tm task.TaskManager, taskUpdateChan chan model.TaskCompletionNotification, db *gorm.DB, ogaClient oga.Client, formService form.FormService) *Manager {
 	ts := service.NewTaskService(db)
 	cs := service.NewConsignmentService(ts, db)
 
@@ -35,6 +38,7 @@ func NewManager(tm task.TaskManager, taskUpdateChan chan model.TaskCompletionNot
 		cs:             cs,
 		taskUpdateChan: taskUpdateChan,
 		ogaClient:      ogaClient,
+		formService:    formService,
 		ctx:            ctx,
 		cancel:         cancel,
 	}
@@ -147,4 +151,110 @@ func (m *Manager) HandleGetConsignment(w http.ResponseWriter, r *http.Request) {
 // HandleGetConsignments handles GET requests to retrieve consignments
 func (m *Manager) HandleGetConsignments(w http.ResponseWriter, r *http.Request) {
 	m.wr.HandleGetConsignments(w, r)
+}
+
+// HandleGetTasks handles GET requests to retrieve tasks with optional filters
+func (m *Manager) HandleGetTasks(w http.ResponseWriter, r *http.Request) {
+	m.wr.HandleGetTasks(w, r)
+}
+
+// HandleGetTaskForm returns the form schema for a task
+func (m *Manager) HandleGetTaskForm(w http.ResponseWriter, r *http.Request) {
+	taskIDStr := r.PathValue("taskId")
+	taskID, err := uuid.Parse(taskIDStr)
+	if err != nil {
+		m.writeJSONError(w, http.StatusBadRequest, "invalid taskId")
+		return
+	}
+
+	record, err := m.tm.GetTask(taskID)
+	if err != nil {
+		m.writeJSONError(w, http.StatusNotFound, "task not found")
+		return
+	}
+
+	var config struct {
+		FormID uuid.UUID `json:"formId"`
+	}
+	if err := json.Unmarshal(record.CommandSet, &config); err != nil {
+		m.writeJSONError(w, http.StatusInternalServerError, "failed to parse task config")
+		return
+	}
+
+	if config.FormID == uuid.Nil {
+		m.writeJSONError(w, http.StatusBadRequest, "task config does not contain formId")
+		return
+	}
+
+	if m.formService == nil {
+		m.writeJSONError(w, http.StatusInternalServerError, "form service not configured")
+		return
+	}
+
+	formResp, err := m.formService.GetFormByID(r.Context(), config.FormID)
+	if err != nil {
+		m.writeJSONError(w, http.StatusInternalServerError, "failed to retrieve form schema: "+err.Error())
+		return
+	}
+
+	m.writeJSONResponse(w, http.StatusOK, formResp)
+}
+
+// HandleGetTraderSubmission returns the data submitted by trader for a consignment
+func (m *Manager) HandleGetTraderSubmission(w http.ResponseWriter, r *http.Request) {
+	taskIDStr := r.PathValue("taskId")
+	taskID, err := uuid.Parse(taskIDStr)
+	if err != nil {
+		m.writeJSONError(w, http.StatusBadRequest, "invalid taskId")
+		return
+	}
+
+	ogaTask, err := m.tm.GetTask(taskID)
+	if err != nil {
+		m.writeJSONError(w, http.StatusNotFound, "OGA task not found")
+		return
+	}
+
+	// Get all tasks for this consignment
+	tasks, err := m.tm.GetTasksByConsignment(ogaTask.ConsignmentID)
+	if err != nil {
+		m.writeJSONError(w, http.StatusInternalServerError, "failed to retrieve tasks for consignment")
+		return
+	}
+
+	// Find TRADER_FORM task
+	var traderTask *task.TaskRecord
+	for i, t := range tasks {
+		if t.Type == "TRADER_FORM" {
+			traderTask = &tasks[i]
+			break
+		}
+	}
+
+	if traderTask == nil {
+		m.writeJSONError(w, http.StatusNotFound, "trader submission not found")
+		return
+	}
+
+	var resultData interface{}
+	if len(traderTask.ResultData) > 0 {
+		if err := json.Unmarshal(traderTask.ResultData, &resultData); err != nil {
+			m.writeJSONError(w, http.StatusInternalServerError, "failed to parse trader submission")
+			return
+		}
+	}
+
+	m.writeJSONResponse(w, http.StatusOK, resultData)
+}
+
+func (m *Manager) writeJSONResponse(w http.ResponseWriter, status int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		slog.Error("failed to encode JSON response", "error", err)
+	}
+}
+
+func (m *Manager) writeJSONError(w http.ResponseWriter, status int, message string) {
+	m.writeJSONResponse(w, status, map[string]string{"error": message})
 }

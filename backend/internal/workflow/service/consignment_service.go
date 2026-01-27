@@ -541,3 +541,8 @@ func (s *ConsignmentService) GetConsignmentsByTraderID(ctx context.Context, filt
 
 	return consignmentListResult, nil
 }
+
+// GetTasksByTypeAndStatus retrieves tasks filtered by type and status
+func (s *ConsignmentService) GetTasksByTypeAndStatus(ctx context.Context, taskType model.StepType, status model.TaskStatus) ([]model.Task, error) {
+	return s.ts.GetTasksByTypeAndStatus(ctx, taskType, status)
+}

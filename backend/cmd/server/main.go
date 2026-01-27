@@ -13,10 +13,12 @@ import (
 
 	"github.com/OpenNSW/nsw/internal/config"
 	"github.com/OpenNSW/nsw/internal/database"
+	"github.com/OpenNSW/nsw/internal/form"
 	"github.com/OpenNSW/nsw/internal/middleware"
 	"github.com/OpenNSW/nsw/internal/task"
 	"github.com/OpenNSW/nsw/internal/workflow"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
+	"github.com/OpenNSW/nsw/oga"
 )
 
 const ChannelSize = 100
@@ -78,8 +80,19 @@ func main() {
 		}
 	}()
 
+	// Create OGA HTTP client
+	ogaServiceURL := os.Getenv("OGA_SERVICE_URL")
+	if ogaServiceURL == "" {
+		ogaServiceURL = "http://localhost:8081"
+	}
+	slog.Info("initializing OGA client", "url", ogaServiceURL)
+	ogaClient := oga.NewClient(ogaServiceURL)
+
+	// Initialize Form Service
+	formService := form.NewFormService(db)
+
 	// Initialize workflow manager with database connection
-	wm := workflow.NewManager(tm, ch, db)
+	wm := workflow.NewManager(tm, ch, db, ogaClient, formService)
 	slog.Info("starting task update listener...")
 	wm.StartTaskUpdateListener()
 	slog.Info("task update listener started")
@@ -87,6 +100,9 @@ func main() {
 	// Set up HTTP routes
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/tasks", tm.HandleExecuteTask)
+	mux.HandleFunc("GET /api/tasks", wm.HandleGetTasks)
+	mux.HandleFunc("GET /api/tasks/{taskId}/form", wm.HandleGetTaskForm)
+	mux.HandleFunc("GET /api/tasks/{taskId}/trader-form", wm.HandleGetTraderSubmission)
 	mux.HandleFunc("GET /api/hscodes", wm.HandleGetHSCodes)
 	mux.HandleFunc("GET /api/workflows/templates", wm.HandleGetWorkflowTemplate)
 	mux.HandleFunc("POST /api/consignments", wm.HandleCreateConsignment)
