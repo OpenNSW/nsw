@@ -26,7 +26,7 @@ type ConsignmentResponse struct {
 	TradeFlow TradeFlow        `json:"tradeFlow"` // Type of trade flow: IMPORT or EXPORT
 	Items     []Item           `json:"items"`     // List of items in the consignment
 	TraderID  string           `json:"traderId"`  // Reference to the Trader
-	State     ConsignmentState `json:"state"`     // IN_PROGRESS, REQUIRES_REWORK, FINISHED	
+	State     ConsignmentState `json:"state"`     // IN_PROGRESS, REQUIRES_REWORK, FINISHED
 	CreatedAt string           `json:"createdAt"` // Timestamp of consignment creation
 	UpdatedAt string           `json:"updatedAt"` // Timestamp of last consignment update
 }
