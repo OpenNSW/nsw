@@ -22,6 +22,4 @@ require (
 	golang.org/x/text v0.20.0 // indirect
 )
 
-require github.com/OpenNSW/nsw/oga v0.0.0
-
 replace github.com/OpenNSW/nsw/oga => ../oga

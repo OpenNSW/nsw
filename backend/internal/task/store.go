@@ -14,19 +14,20 @@ import (
 // TaskRecord represents a task execution record in the database
 type TaskRecord struct {
 	ID            uuid.UUID        `gorm:"type:uuid;primaryKey"`
-	StepID        string           `gorm:"type:varchar(50);not null"`
-	ConsignmentID uuid.UUID        `gorm:"type:uuid;index;not null"`
+	StepID        string           `gorm:"type:varchar(50);not null;column:step_id"`
+	ConsignmentID uuid.UUID        `gorm:"type:uuid;index;not null;column:consignment_id"`
 	Type          Type             `gorm:"type:varchar(50);not null"`
 	Status        model.TaskStatus `gorm:"type:varchar(50);not null"`
-	CommandSet    json.RawMessage  `gorm:"type:json"`
-	ResultData    json.RawMessage  `gorm:"type:json"`
-	CreatedAt     time.Time        `gorm:"autoCreateTime"`
-	UpdatedAt     time.Time        `gorm:"autoUpdateTime"`
+	CommandSet    json.RawMessage  `gorm:"type:json;column:config"`
+	ResultData    json.RawMessage  `gorm:"type:json;column:result_data"`
+	DependsOn     json.RawMessage  `gorm:"type:json;column:depends_on"`
+	CreatedAt     time.Time        `gorm:"autoCreateTime;column:created_at"`
+	UpdatedAt     time.Time        `gorm:"autoUpdateTime;column:updated_at"`
 }
 
 // TableName returns the table name for TaskExecution
 func (TaskRecord) TableName() string {
-	return "task_executions"
+	return "tasks"
 }
 
 // TaskStore handles database operations for task executions

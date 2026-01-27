@@ -1,6 +1,10 @@
 package model
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // CreateWorkflowForItemDTO represents the data required to create a workflow for an individual item within a consignment.
 type CreateWorkflowForItemDTO struct {
@@ -22,6 +26,8 @@ type ConsignmentResponse struct {
 	Items     []Item           `json:"items"`     // List of items in the consignment
 	TraderID  string           `json:"traderId"`  // Reference to the Trader
 	State     ConsignmentState `json:"state"`     // IN_PROGRESS, REQUIRES_REWORK, FINISHED
+	CreatedAt time.Time        `json:"createdAt"` // When the consignment was created
+	UpdatedAt time.Time        `json:"updatedAt"` // When the consignment was last updated
 }
 
 // ToConsignmentResponse converts a Consignment model to a ConsignmentResponse DTO.
@@ -32,6 +38,8 @@ func (c *Consignment) ToConsignmentResponse() ConsignmentResponse {
 		Items:     c.Items,
 		TraderID:  c.TraderID,
 		State:     c.State,
+		CreatedAt: c.CreatedAt,
+		UpdatedAt: c.UpdatedAt,
 	}
 }
 

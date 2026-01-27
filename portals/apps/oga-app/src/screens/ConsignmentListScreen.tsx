@@ -80,7 +80,7 @@ export function ConsignmentListScreen() {
         </div>
         <div className="flex items-center gap-4">
           <Text size="2" color="gray">
-            {filteredApplications.length} applications pending
+            {filteredApplications.length} consignments pending
           </Text>
         </div>
       </div>
@@ -105,8 +105,7 @@ export function ConsignmentListScreen() {
                 <Select.Trigger placeholder="Status" />
                 <Select.Content>
                   <Select.Item value="all">All Statuses</Select.Item>
-                  <Select.Item value="IN_PROGRESS">In Progress</Select.Item>
-                  <Select.Item value="PENDING">Pending</Select.Item>
+                  <Select.Item value="READY">Ready</Select.Item>
                 </Select.Content>
               </Select.Root>
             </div>
@@ -119,7 +118,7 @@ export function ConsignmentListScreen() {
               <ArchiveIcon className="w-8 h-8 text-gray-300" />
             </div>
             <Text size="3" color="gray" weight="medium">
-              No applications pending review at the moment.
+              No consignments pending review at the moment.
             </Text>
           </div>
         ) : (
@@ -131,10 +130,7 @@ export function ConsignmentListScreen() {
                     Consignment ID
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Task ID
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Form
+                    Step
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Status
@@ -150,17 +146,12 @@ export function ConsignmentListScreen() {
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Text size="2" weight="bold" className="text-primary-600 group-hover:text-primary-700">
-                        {app.consignmentId.substring(0, 8)}...
+                        {app.consignmentId}
                       </Text>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Text size="2" color="gray">
-                        {app.taskId.substring(0, 8)}...
-                      </Text>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Text size="2" color="gray">
-                        {app.formId}
+                        {(app.stepId || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                       </Text>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

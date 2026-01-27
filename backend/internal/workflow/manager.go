@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/OpenNSW/nsw/internal/workflow/router"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
-	"github.com/OpenNSW/nsw/oga"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -21,13 +21,12 @@ type Manager struct {
 	cs             *service.ConsignmentService
 	wr             *router.WorkflowRouter
 	taskUpdateChan chan model.TaskCompletionNotification
-	ogaClient      oga.Client
 	formService    form.FormService
 	ctx            context.Context
 	cancel         context.CancelFunc
 }
 
-func NewManager(tm task.TaskManager, taskUpdateChan chan model.TaskCompletionNotification, db *gorm.DB, ogaClient oga.Client, formService form.FormService) *Manager {
+func NewManager(tm task.TaskManager, taskUpdateChan chan model.TaskCompletionNotification, db *gorm.DB, formService form.FormService) *Manager {
 	ts := service.NewTaskService(db)
 	cs := service.NewConsignmentService(ts, db)
 
@@ -37,11 +36,27 @@ func NewManager(tm task.TaskManager, taskUpdateChan chan model.TaskCompletionNot
 		tm:             tm,
 		cs:             cs,
 		taskUpdateChan: taskUpdateChan,
-		ogaClient:      ogaClient,
 		formService:    formService,
 		ctx:            ctx,
 		cancel:         cancel,
 	}
+
+	// Set up task fetcher callback for Task Manager to fetch tasks from workflow database
+	tm.SetTaskFetcher(func(ctx context.Context, taskID uuid.UUID) (*task.InitPayload, error) {
+		workflowTask, err := ts.GetTaskByID(ctx, taskID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch task from workflow database: %w", err)
+		}
+
+		return &task.InitPayload{
+			TaskID:        workflowTask.ID,
+			Type:          task.Type(workflowTask.Type),
+			Status:        workflowTask.Status,
+			CommandSet:    workflowTask.Config,
+			ConsignmentID: workflowTask.ConsignmentID,
+			StepID:        workflowTask.StepID,
+		}, nil
+	})
 
 	// Create router with callback to register tasks
 	m.wr = router.NewWorkflowRouter(cs, m.registerTasks)
@@ -80,6 +95,7 @@ func (m *Manager) StopTaskUpdateListener() {
 }
 
 // registerTasks registers multiple tasks with Task Manager
+// Note: OGA service now polls GET /api/tasks to discover OGA_FORM tasks, so no notification is needed
 func (m *Manager) registerTasks(tasks []*model.Task) {
 	for _, t := range tasks {
 		initPayload := task.InitPayload{
@@ -94,36 +110,6 @@ func (m *Manager) registerTasks(tasks []*model.Task) {
 		if err != nil {
 			slog.Error("failed to register task", "taskID", t.ID, "error", err)
 			return
-		}
-
-		// Notify OGA Service if this is an OGA_FORM task that became IN_PROGRESS
-		// This logic is placed here to keep TaskManager decoupled from OGA Service dependency
-		if t.Type == "OGA_FORM" && t.Status == "IN_PROGRESS" && m.ogaClient != nil {
-			var config struct {
-				FormID string `json:"formId"`
-			}
-			// Best effort to parse config and get formID
-			if err := json.Unmarshal(t.Config, &config); err != nil {
-				slog.Warn("failed to parse task config for OGA notification", "taskID", t.ID, "error", err)
-				// Continue, maybe formID is optional or we can send without it? 
-				// The OGA service expects formID, so maybe we skip or send empty? 
-				// Let's log and proceed.
-			}
-
-			notification := oga.OGATaskNotification{
-				TaskID:        t.ID,
-				ConsignmentID: t.ConsignmentID,
-				FormID:        config.FormID,
-				Status:        string(t.Status),
-			}
-
-			go func() {
-				if err := m.ogaClient.NotifyApplicationReady(context.Background(), notification); err != nil {
-					slog.Warn("failed to notify OGA service", "taskID", t.ID, "error", err)
-				} else {
-					slog.Info("notified OGA service of new application", "taskID", t.ID)
-				}
-			}()
 		}
 	}
 }
@@ -173,6 +159,51 @@ func (m *Manager) HandleGetTaskForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// For OGA_FORM tasks, return embedded form schema based on agency/service
+	if record.Type == "OGA_FORM" {
+		var ogaConfig struct {
+			Agency  string `json:"agency"`
+			Service string `json:"service"`
+		}
+		if err := json.Unmarshal(record.CommandSet, &ogaConfig); err == nil && ogaConfig.Agency != "" {
+			// Return embedded OGA review form
+			ogaForm := map[string]interface{}{
+				"id":      record.ID,
+				"name":    ogaConfig.Agency + " Review Form",
+				"version": "1.0",
+				"schema": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"inspectionDate": map[string]interface{}{
+							"type":  "string",
+							"title": "Inspection Date",
+						},
+						"certificateNumber": map[string]interface{}{
+							"type":  "string",
+							"title": "Certificate Number",
+						},
+						"inspectorName": map[string]interface{}{
+							"type":  "string",
+							"title": "Inspector Name",
+						},
+						"remarks": map[string]interface{}{
+							"type":  "string",
+							"title": "Remarks",
+						},
+					},
+				},
+				"uiSchema": map[string]interface{}{
+					"remarks": map[string]interface{}{
+						"ui:widget": "textarea",
+					},
+				},
+			}
+			m.writeJSONResponse(w, http.StatusOK, ogaForm)
+			return
+		}
+	}
+
+	// For TRADER_FORM tasks, look up form by formId
 	var config struct {
 		FormID uuid.UUID `json:"formId"`
 	}
@@ -209,30 +240,70 @@ func (m *Manager) HandleGetTraderSubmission(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	ctx := r.Context()
+
+	// Get OGA task to find consignment ID and step ID
 	ogaTask, err := m.tm.GetTask(taskID)
 	if err != nil {
 		m.writeJSONError(w, http.StatusNotFound, "OGA task not found")
 		return
 	}
 
-	// Get all tasks for this consignment
-	tasks, err := m.tm.GetTasksByConsignment(ogaTask.ConsignmentID)
+	// Get consignment from workflow database to access steps with dependencies
+	consignment, err := m.cs.GetConsignmentByID(ctx, ogaTask.ConsignmentID)
 	if err != nil {
-		m.writeJSONError(w, http.StatusInternalServerError, "failed to retrieve tasks for consignment")
+		m.writeJSONError(w, http.StatusNotFound, "consignment not found")
 		return
 	}
 
-	// Find TRADER_FORM task
-	var traderTask *task.TaskRecord
-	for i, t := range tasks {
-		if t.Type == "TRADER_FORM" {
-			traderTask = &tasks[i]
+	// Find the OGA_FORM step that matches this taskId
+	var ogaStep *model.ConsignmentStep
+	var ogaStepFound bool
+	for _, item := range consignment.Items {
+		for i := range item.Steps {
+			if item.Steps[i].TaskID == taskID && item.Steps[i].Type == "OGA_FORM" {
+				ogaStep = &item.Steps[i]
+				ogaStepFound = true
+				break
+			}
+		}
+		if ogaStepFound {
 			break
 		}
 	}
 
-	if traderTask == nil {
-		m.writeJSONError(w, http.StatusNotFound, "trader submission not found")
+	if !ogaStepFound || ogaStep == nil {
+		m.writeJSONError(w, http.StatusNotFound, "OGA step not found in consignment")
+		return
+	}
+
+	// Find TRADER_FORM step(s) that are dependencies of this OGA_FORM step
+	var traderTaskIDs []uuid.UUID
+	for _, item := range consignment.Items {
+		for _, step := range item.Steps {
+			// Check if this step is a dependency of the OGA_FORM step
+			for _, depStepID := range ogaStep.DependsOn {
+				if step.StepID == depStepID && step.Type == "TRADER_FORM" && step.Status == "COMPLETED" {
+					traderTaskIDs = append(traderTaskIDs, step.TaskID)
+				}
+			}
+		}
+	}
+
+	// If no trader task found in dependencies, return placeholder
+	if len(traderTaskIDs) == 0 {
+		m.writeJSONResponse(w, http.StatusOK, map[string]interface{}{
+			"message": "Trader has not yet submitted the required form",
+			"status":  "PENDING",
+		})
+		return
+	}
+
+	// Fetch trader submission from the first TRADER_FORM task (or merge multiple if needed)
+	traderTaskID := traderTaskIDs[0]
+	traderTask, err := m.tm.GetTask(traderTaskID)
+	if err != nil {
+		m.writeJSONError(w, http.StatusNotFound, "trader task not found")
 		return
 	}
 
@@ -242,6 +313,9 @@ func (m *Manager) HandleGetTraderSubmission(w http.ResponseWriter, r *http.Reque
 			m.writeJSONError(w, http.StatusInternalServerError, "failed to parse trader submission")
 			return
 		}
+	} else {
+		// Return empty object if no result data
+		resultData = map[string]interface{}{}
 	}
 
 	m.writeJSONResponse(w, http.StatusOK, resultData)

@@ -12,8 +12,8 @@ export function ApplicationList({ applications, selectedTaskId, onApplicationSel
   if (applications.length === 0) {
     return (
       <div className="empty-state">
-        <h3>No applications pending review</h3>
-        <p>All applications have been processed or there are no pending applications.</p>
+        <h3>No consignments pending review</h3>
+        <p>All consignments have been processed or there are no pending consignments.</p>
       </div>
     );
   }

@@ -11,6 +11,10 @@ import (
 	"github.com/google/uuid"
 )
 
+// TaskFetcher is a callback function to fetch task details from workflow database
+// Used when a task is not found in the execution database
+type TaskFetcher func(ctx context.Context, taskID uuid.UUID) (*InitPayload, error)
+
 // TaskManager handles task execution and status management
 // Architecture: Trader Portal → Workflow Engine → ExecutionUnit Manager
 // - Workflow Engine triggers ExecutionUnit Manager to get task info (e.g., form schema)
@@ -21,6 +25,9 @@ type TaskManager interface {
 	// TaskManager does not have direct access to the Tasks table, so Workflow Manager
 	// must provide the TaskContext with the ExecutionUnit already loaded.
 	RegisterTask(ctx context.Context, payload InitPayload) (*ExecutionResult, error)
+
+	// SetTaskFetcher sets a callback to fetch tasks from workflow database when not found in execution database
+	SetTaskFetcher(fetcher TaskFetcher)
 
 	// HandleExecuteTask is an HTTP handler for executing a task via POST request
 	HandleExecuteTask(w http.ResponseWriter, r *http.Request)
@@ -55,11 +62,12 @@ type ExecuteTaskResponse struct {
 }
 
 type taskManager struct {
-	factory   TaskFactory
-	store     *TaskStore                  // SQLite storage for task executions
-	executors map[uuid.UUID]ExecutionUnit // In-memory cache for executors (can't be serialized)
+	factory       TaskFactory
+	store         *TaskStore                  // SQLite storage for task executions
+	executors     map[uuid.UUID]ExecutionUnit // In-memory cache for executors (can't be serialized)
 	//executorsMu    sync.RWMutex                            // Mutex for thread-safe access to executors
 	completionChan chan<- model.TaskCompletionNotification // Channel to notify Workflow Manager of task completions
+	taskFetcher    TaskFetcher                             // Optional callback to fetch tasks from workflow database
 }
 
 // NewTaskManager creates a new TaskManager instance with SQLite persistence
@@ -72,10 +80,11 @@ func NewTaskManager(dbPath string, completionChan chan<- model.TaskCompletionNot
 	}
 
 	return &taskManager{
-		factory: NewTaskFactory(),
-		store:   store,
+		factory:        NewTaskFactory(),
+		store:          store,
 		//executors:      make(map[uuid.UUID]ExecutionUnit),
 		completionChan: completionChan,
+		taskFetcher:    nil, // Will be set by Workflow Manager if needed
 	}, nil
 }
 
@@ -86,6 +95,7 @@ func NewTaskManagerWithStore(store *TaskStore, completionChan chan<- model.TaskC
 		store:          store,
 		executors:      make(map[uuid.UUID]ExecutionUnit),
 		completionChan: completionChan,
+		taskFetcher:    nil,
 	}
 }
 
@@ -98,42 +108,46 @@ func (tm *taskManager) Close() error {
 }
 
 // HandleExecuteTask is an HTTP handler for executing a task via POST request
+// Route: POST /api/tasks/{taskId}
 func (tm *taskManager) HandleExecuteTask(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	var req ExecuteTaskRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSONError(w, http.StatusBadRequest, "Invalid request body: "+err.Error())
+	// Extract taskId from URL path
+	taskIDStr := r.PathValue("taskId")
+	if taskIDStr == "" {
+		writeJSONError(w, http.StatusBadRequest, "taskId is required in path")
 		return
 	}
 
-	// Validate required fields
-	if req.TaskID == uuid.Nil {
-		writeJSONError(w, http.StatusBadRequest, "task_id is required")
+	taskID, err := uuid.Parse(taskIDStr)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid taskId format")
 		return
 	}
-	if req.ConsignmentID == uuid.Nil {
-		writeJSONError(w, http.StatusBadRequest, "consignment_id is required")
-		return
+
+	// Parse request body for payload (optional)
+	var reqBody struct {
+		Payload *ExecutionPayload `json:"payload,omitempty"`
 	}
+	// Body might be empty, so we don't fail if decode fails
+	json.NewDecoder(r.Body).Decode(&reqBody)
 
 	// Get task from the store
-	activeTask, err := tm.getTask(req.TaskID)
+	activeTask, err := tm.getTask(taskID)
 	if err != nil {
-		writeJSONError(w, http.StatusNotFound, fmt.Sprintf("task %s not found: %v", req.TaskID, err))
+		writeJSONError(w, http.StatusNotFound, fmt.Sprintf("task %s not found: %v", taskID, err))
 		return
 	}
 
 	// Execute task
 	ctx := r.Context()
-	result, err := tm.execute(ctx, activeTask, req.Payload)
+	result, err := tm.execute(ctx, activeTask, reqBody.Payload)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to execute task",
-			"taskID", req.TaskID,
-			"consignmentID", req.ConsignmentID,
+			"taskID", taskID,
 			"error", err)
 		writeJSONError(w, http.StatusInternalServerError, "Failed to execute task: "+err.Error())
 		return
@@ -250,33 +264,70 @@ func (tm *taskManager) GetTasksByConsignment(consignmentID uuid.UUID) ([]TaskRec
 	return tm.store.GetByConsignmentID(consignmentID)
 }
 
+// SetTaskFetcher sets a callback to fetch tasks from workflow database when not found in execution database
+func (tm *taskManager) SetTaskFetcher(fetcher TaskFetcher) {
+	tm.taskFetcher = fetcher
+}
+
 // getTask retrieves a task from the store and combines it with the in-memory executor
+// If task is not found and a taskFetcher is set, it will try to fetch from workflow database and auto-register
 func (tm *taskManager) getTask(taskID uuid.UUID) (*ActiveTask, error) {
-	// Get executions for this task
-	// Get executor from the memory cache
-	//tm.executorsMu.RLock()
-	//executor, exists := tm.executors[taskID]
-	//tm.executorsMu.RUnlock()
-
 	execution, err := tm.store.GetByID(taskID)
-	if err != nil {
-		return nil, err
+	if err == nil {
+		// Task found in execution database, rebuild executor and return
+		executor, err := tm.factory.BuildExecutor(execution.Type, execution.CommandSet)
+		if err != nil {
+			return nil, fmt.Errorf("failed to rebuild executor: %w", err)
+		}
+
+		return &ActiveTask{
+			TaskID:        execution.ID,
+			ConsignmentID: execution.ConsignmentID,
+			StepID:        execution.StepID,
+			Type:          execution.Type,
+			Status:        execution.Status,
+			Executor:      executor,
+		}, nil
 	}
 
-	// Rebuild executor
-	executor, err := tm.factory.BuildExecutor(execution.Type, execution.CommandSet)
-	if err != nil {
-		return nil, fmt.Errorf("failed to rebuild executor: %w", err)
+	// Task not found in execution database, try to fetch from workflow database if fetcher is set
+	if tm.taskFetcher != nil {
+		ctx := context.Background()
+		payload, fetchErr := tm.taskFetcher(ctx, taskID)
+		if fetchErr == nil && payload != nil {
+			// Auto-register the task
+			slog.InfoContext(ctx, "auto-registering task from workflow database",
+				"taskID", taskID)
+			_, regErr := tm.RegisterTask(ctx, *payload)
+			if regErr != nil {
+				slog.WarnContext(ctx, "failed to auto-register task",
+					"taskID", taskID,
+					"error", regErr)
+				// Continue to try getting it again
+			} else {
+				// Try getting it again after registration
+				execution, err = tm.store.GetByID(taskID)
+				if err == nil {
+					executor, err := tm.factory.BuildExecutor(execution.Type, execution.CommandSet)
+					if err != nil {
+						return nil, fmt.Errorf("failed to rebuild executor: %w", err)
+					}
+
+					return &ActiveTask{
+						TaskID:        execution.ID,
+						ConsignmentID: execution.ConsignmentID,
+						StepID:        execution.StepID,
+						Type:          execution.Type,
+						Status:        execution.Status,
+						Executor:      executor,
+					}, nil
+				}
+			}
+		}
 	}
 
-	return &ActiveTask{
-		TaskID:        execution.ID,
-		ConsignmentID: execution.ConsignmentID,
-		StepID:        execution.StepID,
-		Type:          execution.Type,
-		Status:        execution.Status,
-		Executor:      executor,
-	}, nil
+	// Return original error if we couldn't fetch or register
+	return nil, err
 }
 
 // notifyWorkflowManager sends notification to Workflow Manager via Go channel

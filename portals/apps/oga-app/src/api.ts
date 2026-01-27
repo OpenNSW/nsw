@@ -65,44 +65,32 @@ export interface ApproveResponse {
 export interface OGAApplication {
   taskId: string;
   consignmentId: string;
+  stepId: string;
   formId: string;
   status: string;
 }
 
-// Fetch all applications pending OGA review from Task Manager
+// Fetch all consignments pending OGA review from OGA Service
+// OGA Service polls Backend and maintains its own database
 export async function fetchPendingApplications(signal?: AbortSignal): Promise<OGAApplication[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/tasks?type=OGA_FORM&status=IN_PROGRESS`, { signal });
+    const response = await fetch(`${OGA_API_BASE_URL}/api/oga/applications`, { signal });
     if (!response.ok) {
       throw new Error(`Failed to fetch pending applications: ${response.statusText}`);
     }
 
-    const tasks = await response.json() as Task[];
-    
-    // Transform tasks to OGAApplication format
-    const applications: OGAApplication[] = tasks.map(task => {
-      // Extract formId from config
-      const formId = (task.config?.formId as string) || 'unknown';
-      
-      return {
-        taskId: task.id,
-        consignmentId: task.consignmentId,
-        formId: formId,
-        status: task.status,
-      };
-    });
-
-    return applications;
+    return response.json() as Promise<OGAApplication[]>;
   } catch (error) {
     if (signal?.aborted) throw error;
-    console.warn('Failed to fetch from Task Manager, returning MOCK data:', error);
+    console.warn('Failed to fetch from OGA Service, returning MOCK data:', error);
 
     return [
       {
         taskId: '550e8400-e29b-41d4-a716-446655440003',
         consignmentId: '550e8400-e29b-41d4-a716-446655440000',
+        stepId: 'phytosanitary_cert',
         formId: 'oga-export-permit',
-        status: 'IN_PROGRESS',
+        status: 'READY',
       }
     ];
   }
@@ -118,11 +106,12 @@ export async function fetchConsignmentDetail(consignmentId: string, taskId?: str
 
     const consignment = await response.json() as Consignment;
 
-    // Find all OGA_FORM tasks in the consignment
+    // Find all OGA_FORM tasks in the consignment that need review
     const ogaTasks: Task[] = [];
     consignment.items.forEach(item => {
       item.steps.forEach(step => {
-        if (step.type === 'OGA_FORM' && step.status === 'IN_PROGRESS') {
+        // OGA_FORM tasks are READY when waiting for OGA officer review
+        if (step.type === 'OGA_FORM' && (step.status === 'READY' || step.status === 'IN_PROGRESS')) {
           ogaTasks.push({
             id: step.taskId,
             consignmentId: consignment.id,
@@ -231,32 +220,26 @@ export async function fetchConsignmentDetail(consignmentId: string, taskId?: str
   }
 }
 
-// Submit approval for a task
+// Submit approval for a task via OGA Service
+// OGA Service forwards to Backend POST /api/tasks/{taskId}
 export async function approveTask(
   taskId: string,
-  consignmentId: string,
+  _consignmentId: string,
   requestBody: ApproveRequest,
   signal?: AbortSignal
 ): Promise<ApproveResponse> {
-  // Call the centralized task execution endpoint
-  const response = await fetch(`${API_BASE_URL}/api/tasks`, {
+  // Call OGA Service approval endpoint
+  const response = await fetch(`${OGA_API_BASE_URL}/api/oga/applications/${taskId}/approve`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      task_id: taskId,
-      consignment_id: consignmentId,
-      payload: {
-        action: 'OGA_VERIFICATION',
-        content: {
-          // OGA Specific Values - formData contains all OGA-specific form fields
-          ...requestBody.formData,
-          // Include decision, reviewerName, and comments as part of OGA verification
-          decision: requestBody.decision,
-          reviewerName: requestBody.reviewerName,
-          comments: requestBody.comments,
-        },
+      decision: requestBody.decision,
+      data: {
+        ...requestBody.formData,
+        reviewerName: requestBody.reviewerName,
+        comments: requestBody.comments,
       },
     }),
     signal,
