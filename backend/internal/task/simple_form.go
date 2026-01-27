@@ -66,7 +66,6 @@ type SimpleFormPayload struct {
 
 // SimpleFormResult extends ExecutionResult with form-specific response data
 type SimpleFormResult struct {
-	*ExecutionResult
 	FormID   string          `json:"formId,omitempty"`
 	Title    string          `json:"title,omitempty"`
 	Schema   json.RawMessage `json:"schema,omitempty"`
@@ -150,7 +149,7 @@ func populateFromRegistry(cs *SimpleFormCommandSet) error {
 // and looking up values from globalCtx where x-globalContext is specified
 func (t *SimpleFormTask) prepopulateFormData(existingFormData json.RawMessage) (json.RawMessage, error) {
 	// If no global context, return existing form data as-is
-	if t.globalCtx == nil || len(t.globalCtx) == 0 {
+	if len(t.globalCtx) == 0 {
 		return existingFormData, nil
 	}
 
@@ -164,7 +163,7 @@ func (t *SimpleFormTask) prepopulateFormData(existingFormData json.RawMessage) (
 	formData := t.buildFormDataFromSchema(schema)
 
 	// If we have existing formData, merge it (existing formData takes priority)
-	if existingFormData != nil && len(existingFormData) > 0 {
+	if len(existingFormData) > 0 {
 		var existingData map[string]interface{}
 		if err := json.Unmarshal(existingFormData, &existingData); err == nil {
 			formData = t.mergeFormData(formData, existingData)
@@ -272,21 +271,18 @@ func splitPath(path string) []string {
 		return []string{}
 	}
 
-	// Simple split by dot
-	keys := []string{}
-	current := ""
-	for i := 0; i < len(path); i++ {
-		if path[i] == '.' {
-			if current != "" {
-				keys = append(keys, current)
-				current = ""
+	var keys []string
+	start := 0
+	for i, r := range path {
+		if r == '.' {
+			if i > start {
+				keys = append(keys, path[start:i])
 			}
-		} else {
-			current += string(path[i])
+			start = i + 1
 		}
 	}
-	if current != "" {
-		keys = append(keys, current)
+	if start < len(path) {
+		keys = append(keys, path[start:])
 	}
 
 	return keys
@@ -460,7 +456,14 @@ func (t *SimpleFormTask) handleSubmitForm(commandSet *SimpleFormCommandSet, form
 		}
 
 		// No OGA verification required - complete the task with response data
-		responseJSON, _ := json.Marshal(responseData)
+		responseJSON, err := json.Marshal(responseData)
+		if err != nil {
+			slog.Error("failed to marshal response data from submission", "formId", commandSet.FormID, "submissionUrl", commandSet.SubmissionURL, "error", err)
+			return &ExecutionResult{
+				Status:  model.TaskStatusReady,
+				Message: fmt.Sprintf("Failed to process submission response: %v", err),
+			}, err
+		}
 		slog.Info("form submitted and completed",
 			"formId", commandSet.FormID,
 			"submissionUrl", commandSet.SubmissionURL,
