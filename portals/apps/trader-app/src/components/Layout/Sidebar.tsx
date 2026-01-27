@@ -202,7 +202,7 @@ export function Sidebar({ isExpanded, onToggle }: SidebarProps) {
               {/*<img src={logoIcon} alt="Textura" className="w-8 h-8 flex-shrink-0" />*/}
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white truncate">NSW</p>
-                <p className="text-xs text-primary-200 truncate">v1.0.0</p>
+                <p className="text-xs text-primary-200 truncate">v0.1.0</p>
               </div>
             </div>
           </div>

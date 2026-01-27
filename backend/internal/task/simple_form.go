@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/OpenNSW/nsw/internal/config"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/OpenNSW/nsw/mocks"
 )
@@ -76,17 +77,22 @@ type SimpleFormResult struct {
 type SimpleFormTask struct {
 	commandSet *SimpleFormCommandSet
 	globalCtx  map[string]interface{}
+	config     config.Config
 }
 
 // NewSimpleFormTask creates a new SimpleFormTask with the provided command set.
 // The commandSet can be of type *SimpleFormCommandSet, SimpleFormCommandSet,
 // json.RawMessage, or map[string]interface{}.
-func NewSimpleFormTask(commandSet interface{}, globalCtx map[string]interface{}) (*SimpleFormTask, error) {
+func NewSimpleFormTask(commandSet interface{}, globalCtx map[string]interface{}, cfg *config.Config) (*SimpleFormTask, error) {
 	parsed, err := parseSimpleFormCommandSet(commandSet)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse command set: %w", err)
 	}
-	return &SimpleFormTask{commandSet: parsed, globalCtx: globalCtx}, nil
+	var config_ config.Config
+	if cfg != nil {
+		config_ = *cfg
+	}
+	return &SimpleFormTask{commandSet: parsed, globalCtx: globalCtx, config: config_}, nil
 }
 
 // parseSimpleFormCommandSet parses the command set into SimpleFormCommandSet.
@@ -426,9 +432,10 @@ func (t *SimpleFormTask) handleSubmitForm(commandSet *SimpleFormCommandSet, form
 	// If submissionUrl is provided, send the form data to that URL
 	if commandSet.SubmissionURL != "" {
 		requestPayload := map[string]interface{}{
-			"data":          formDataJSON,
+			"data":          formData,
 			"taskId":        t.globalCtx["taskId"].(string),
 			"consignmentId": t.globalCtx["consignmentId"].(string),
+			"serviceUrl":    fmt.Sprintf("%s/api/tasks", t.config.Server.ServiceURL), // Include service URL from config + "/api/tasks"
 		}
 
 		responseData, err := t.sendFormSubmission(commandSet.SubmissionURL, requestPayload)

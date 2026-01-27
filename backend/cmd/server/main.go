@@ -68,7 +68,7 @@ func main() {
 
 	// Initialize task manager (still using SQLite for now)
 	// TODO: Migrate task manager to use PostgreSQL
-	tm, err := task.NewTaskManager("./taskmanager.db", ch)
+	tm, err := task.NewTaskManager("./taskmanager.db", ch, cfg)
 	if err != nil {
 		log.Fatalf("failed to create task manager: %v", err)
 	}

@@ -30,7 +30,8 @@ type DatabaseConfig struct {
 
 // ServerConfig holds server configuration
 type ServerConfig struct {
-	Port int
+	Port       int
+	ServiceURL string
 }
 
 // CORSConfig holds CORS configuration
@@ -67,7 +68,8 @@ func Load() (*Config, error) {
 			MaxConnLifetimeSeconds: getIntOrDefault("DB_MAX_CONN_LIFETIME_SECONDS", 3600),
 		},
 		Server: ServerConfig{
-			Port: serverPort,
+			Port:       serverPort,
+			ServiceURL: getEnvOrDefault("SERVICE_URL", fmt.Sprintf("http://localhost:%d", serverPort)),
 		},
 		CORS: CORSConfig{
 			AllowedOrigins:   parseCommaSeparated(getEnvOrDefault("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173")),

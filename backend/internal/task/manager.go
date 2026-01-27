@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/OpenNSW/nsw/internal/config"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/google/uuid"
 )
@@ -54,32 +55,35 @@ type taskManager struct {
 	executors map[uuid.UUID]ExecutionUnit // In-memory cache for executors (can't be serialized)
 	//executorsMu    sync.RWMutex                            // Mutex for thread-safe access to executors
 	completionChan chan<- model.TaskCompletionNotification // Channel to notify Workflow Manager of task completions
+	config         *config.Config                          // Application configuration
 }
 
 // NewTaskManager creates a new TaskManager instance with SQLite persistence
 // dbPath is the path to the SQLite database file (use ":memory:" for an in-memory database)
 // completionChan is a channel for notifying Workflow Manager when tasks complete.
-func NewTaskManager(dbPath string, completionChan chan<- model.TaskCompletionNotification) (TaskManager, error) {
+func NewTaskManager(dbPath string, completionChan chan<- model.TaskCompletionNotification, cfg *config.Config) (TaskManager, error) {
 	store, err := NewTaskStore(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create task store: %w", err)
 	}
 
 	return &taskManager{
-		factory: NewTaskFactory(),
+		factory: NewTaskFactory(cfg),
 		store:   store,
 		//executors:      make(map[uuid.UUID]ExecutionUnit),
 		completionChan: completionChan,
+		config:         cfg,
 	}, nil
 }
 
 // NewTaskManagerWithStore creates a TaskManager with a provided store (useful for testing)
-func NewTaskManagerWithStore(store *TaskStore, completionChan chan<- model.TaskCompletionNotification) TaskManager {
+func NewTaskManagerWithStore(store *TaskStore, completionChan chan<- model.TaskCompletionNotification, cfg *config.Config) TaskManager {
 	return &taskManager{
-		factory:        NewTaskFactory(),
+		factory:        NewTaskFactory(cfg),
 		store:          store,
 		executors:      make(map[uuid.UUID]ExecutionUnit),
 		completionChan: completionChan,
+		config:         cfg,
 	}
 }
 
