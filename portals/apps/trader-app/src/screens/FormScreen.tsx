@@ -64,8 +64,10 @@ export function FormScreen() {
 
       if (response.success) {
         console.log('Form submitted successfully:', response)
-        // Navigate back to consignment details with refresh flag
-        navigate(`/consignments/${consignmentId}`)
+        // Navigate back to consignment details with a flag to trigger delayed refresh
+        navigate(`/consignments/${consignmentId}`, { 
+          state: { justSubmitted: true } 
+        })
       } else {
         setError(response.message || 'Failed to submit form.')
       }

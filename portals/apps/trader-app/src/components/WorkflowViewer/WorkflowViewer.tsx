@@ -121,8 +121,14 @@ export function WorkflowViewer({ steps, className = '', onRefresh, refreshing = 
     [steps]
   )
 
-  const [nodes, , onNodesChange] = useNodesState(initialNodes)
-  const [edges, , onEdgesChange] = useEdgesState(initialEdges)
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
+
+  // Update nodes and edges when steps change
+  useEffect(() => {
+    setNodes(initialNodes)
+    setEdges(initialEdges)
+  }, [initialNodes, initialEdges, setNodes, setEdges])
 
   const onInit = useCallback(() => {
     // Fit view is handled by ReactFlow's fitView prop

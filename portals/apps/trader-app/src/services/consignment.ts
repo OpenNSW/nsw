@@ -3,50 +3,37 @@ import type {
   CreateConsignmentRequest,
   CreateConsignmentResponse,
 } from './types/consignment'
-import type {PaginatedResponse} from "./api.ts";
+import type { PaginatedResponse } from './api'
+import { apiGet, apiPost } from './api'
 
-const CONSIGNMENT_API_URL = 'http://localhost:8080/api/consignments'
+// TODO: Get from auth context
+const DEFAULT_TRADER_ID = 'trader-123'
 
 export async function createConsignment(
   request: CreateConsignmentRequest
 ): Promise<CreateConsignmentResponse> {
-
-  const response = await fetch(CONSIGNMENT_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(request),
-  })
-
-  if (!response.ok) {
-    throw new Error(`API error: ${response.status} ${response.statusText}`)
-  }
-
-  return response.json()
+  return apiPost<CreateConsignmentRequest, CreateConsignmentResponse>(
+    '/consignments',
+    request
+  )
 }
 
 export async function getConsignment(id: string): Promise<Consignment | null> {
-
-  const response = await fetch(`${CONSIGNMENT_API_URL}/${id}`)
-
-  if (!response.ok) {
-    if (response.status === 404) {
+  try {
+    return await apiGet<Consignment>(`/consignments/${id}`)
+  } catch (error) {
+    // Return null for 404s, rethrow other errors
+    if (error instanceof Error && error.message.includes('404')) {
       return null
     }
-    throw new Error(`API error: ${response.status} ${response.statusText}`)
+    throw error
   }
-
-  return response.json()
 }
 
-export async function getAllConsignments(): Promise<PaginatedResponse<Consignment>> {
-
-  const response = await fetch(`${CONSIGNMENT_API_URL}?traderId=trader-123`)
-
-  if (!response.ok) {
-    throw new Error(`API error: ${response.status} ${response.statusText}`)
-  }
-
-  return await response.json()
+export async function getAllConsignments(
+  traderId: string = DEFAULT_TRADER_ID
+): Promise<PaginatedResponse<Consignment>> {
+  return apiGet<PaginatedResponse<Consignment>>('/consignments', {
+    traderId,
+  })
 }

@@ -69,7 +69,7 @@ export function DashboardScreen() {
 
   const totalConsignments = consignments.length
   const inProgressConsignments = consignments.filter(c => c.state === 'IN_PROGRESS').length
-  const completedConsignments = consignments.filter(c => c.state === 'COMPLETED').length
+  const completedConsignments = consignments.filter(c => c.state === 'FINISHED').length
 
   return (
     <div className="p-6">

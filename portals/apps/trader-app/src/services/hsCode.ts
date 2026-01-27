@@ -8,8 +8,8 @@ export async function getHSCodes(
 ): Promise<PaginatedResponse<HSCode>> {
   const searchParams = new URLSearchParams()
 
-  if (params.hs_code) {
-    searchParams.append('hsCodeStartsWith', params.hs_code)
+  if (params.hsCodeStartsWith) {
+    searchParams.append('hsCodeStartsWith', params.hsCodeStartsWith)
   }
   if (params.limit !== undefined) {
     searchParams.append('limit', String(params.limit))

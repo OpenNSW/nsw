@@ -8,7 +8,7 @@ export interface HSCode {
 }
 
 export interface HSCodeQueryParams {
-  hs_code?: string
+  hsCodeStartsWith?: string
   limit?: number
   offset?: number
 }

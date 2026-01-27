@@ -1,4 +1,4 @@
-import { apiGet, USE_MOCK } from './api'
+import { apiGet } from './api'
 import type { StepType } from './types/consignment'
 import type {JsonSchema, UISchemaElement} from "../components/JsonForm";
 import type {TaskDetails} from "./types/taskData.ts";
@@ -67,48 +67,6 @@ export async function executeTask(
 ): Promise<ExecuteTaskResponse> {
   const action = getActionForStepType(stepType)
 
-  if (USE_MOCK) {
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 500))
-
-    // Mock response
-    return {
-      success: true,
-      result: {
-        status: 'READY',
-        message: 'Form schema retrieved successfully',
-        data: {
-          title: 'CUSDEC I & II Declaration Form',
-          schema: {
-            type: 'object',
-            properties: {
-              header: {
-                type: 'object',
-                title: 'General Information'
-              },
-            },
-          },
-          uiSchema: {
-            type: 'VerticalLayout',
-            elements: [
-              {
-                type: 'Group',
-                label: 'General Information',
-                elements: [
-                  { type: 'Control', scope: '#/properties/header/properties/declarationType' },
-                  { type: 'Control', scope: '#/properties/header/properties/officeOfEntry' },
-                  { type: 'Control', scope: '#/properties/header/properties/customsReference' },
-                  { type: 'Control', scope: '#/properties/header/properties/date' },
-                ],
-              },
-            ],
-          },
-          formData: {},
-        },
-      },
-    }
-  }
-
   const response = await fetch(TASKS_API_URL, {
     method: 'POST',
     headers: {
@@ -145,21 +103,6 @@ export async function sendTaskCommand(
   request: TaskCommandRequest
 ): Promise<TaskCommandResponse> {
   console.log(`Sending ${request.command} command for task: ${request.taskId}`, request)
-
-  if (USE_MOCK) {
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 500))
-
-    // Mock successful response
-    return {
-      success: true,
-      message: request.command === 'DRAFT'
-        ? 'Draft saved successfully'
-        : 'Task submitted successfully',
-      taskId: request.taskId,
-      status: request.command === 'DRAFT' ? 'DRAFT' : 'SUBMITTED',
-    }
-  }
 
   // Use POST /api/tasks with action type and submission data
   const action: TaskAction = request.command === 'DRAFT' ? 'DRAFT' : 'SUBMIT_FORM'

@@ -32,8 +32,8 @@ export function HSCodeSearch({ value, onChange }: HSCodeSearchProps) {
       setLoading(true)
       try {
         const result = await getHSCodes({
-          hs_code: searchQuery,
-          limit: 10,
+          hsCodeStartsWith: searchQuery,
+          limit: 20,
         })
         setHsCodes(result.items)
       } catch (error) {

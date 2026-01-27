@@ -6,32 +6,8 @@ import { HSCodePicker } from '../components/HSCodePicker'
 import { createConsignment, getAllConsignments } from "../services/consignment.ts"
 import type { Workflow } from "../services/types/workflow.ts"
 import type { HSCode } from "../services/types/hsCode.ts"
-import type { Consignment, ConsignmentState, TradeFlow } from "../services/types/consignment.ts"
-
-function getStateColor(state: ConsignmentState): 'orange' | 'green' | 'gray' {
-  switch (state) {
-    case 'IN_PROGRESS':
-      return 'orange'
-    case 'COMPLETED':
-      return 'green'
-    case 'CANCELLED':
-      return 'gray'
-    default:
-      return 'gray'
-  }
-}
-
-function formatState(state: ConsignmentState): string {
-  return state.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
-}
+import type { Consignment, TradeFlow } from "../services/types/consignment.ts"
+import { getStateColor, formatState, formatDate } from '../utils/consignmentUtils'
 
 export function ConsignmentsScreen() {
   const navigate = useNavigate()
@@ -156,8 +132,8 @@ export function ConsignmentsScreen() {
                 <Select.Content>
                   <Select.Item value="all">All States</Select.Item>
                   <Select.Item value="IN_PROGRESS">In Progress</Select.Item>
-                  <Select.Item value="COMPLETED">Completed</Select.Item>
-                  <Select.Item value="CANCELLED">Cancelled</Select.Item>
+                  <Select.Item value="FINISHED">Finished</Select.Item>
+                  <Select.Item value="REQUIRES_REWORK">Requires Rework</Select.Item>
                 </Select.Content>
               </Select.Root>
               <Select.Root value={tradeFlowFilter} onValueChange={setTradeFlowFilter}>

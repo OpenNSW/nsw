@@ -5,13 +5,16 @@ import App from './App.tsx'
 import "@radix-ui/themes/styles.css";
 import {BrowserRouter} from 'react-router-dom';
 import {Theme} from '@radix-ui/themes';
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Theme scaling="110%">
-      <BrowserRouter>
-        <App/>
-      </BrowserRouter>
-    </Theme>
+    <ErrorBoundary>
+      <Theme scaling="110%">
+        <BrowserRouter>
+          <App/>
+        </BrowserRouter>
+      </Theme>
+    </ErrorBoundary>
   </StrictMode>,
 )
