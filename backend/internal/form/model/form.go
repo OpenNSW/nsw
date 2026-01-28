@@ -11,15 +11,17 @@ import (
 // BaseModel defines the base model structure with common fields for the form package.
 type BaseModel struct {
 	ID        uuid.UUID `gorm:"type:uuid;column:id;not null;primaryKey" json:"id"`
-	CreatedAt time.Time `gorm:"type:timestamptz;column:created_at;not null" json:"createdAt"`
-	UpdatedAt time.Time `gorm:"type:timestamptz;column:updated_at;not null" json:"updatedAt"`
+	CreatedAt time.Time `gorm:"column:created_at;not null" json:"createdAt"`
+	UpdatedAt time.Time `gorm:"column:updated_at;not null" json:"updatedAt"`
 }
 
 // BeforeCreate is a GORM hook that is triggered before a new record is created.
 func (base *BaseModel) BeforeCreate(tx *gorm.DB) (err error) {
-	base.ID, err = uuid.NewRandom()
-	if err != nil {
-		return
+	if base.ID == uuid.Nil {
+		base.ID, err = uuid.NewRandom()
+		if err != nil {
+			return
+		}
 	}
 	base.CreatedAt = time.Now().UTC()
 	base.UpdatedAt = time.Now().UTC()

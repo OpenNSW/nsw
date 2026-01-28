@@ -11,8 +11,9 @@ import (
 	"time"
 
 	"github.com/OpenNSW/nsw/internal/config"
+	"github.com/OpenNSW/nsw/internal/form"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
-	"github.com/OpenNSW/nsw/mocks"
+	"github.com/google/uuid"
 )
 
 // SimpleFormAction represents the action to perform on the trader form
@@ -21,6 +22,7 @@ type SimpleFormAction string
 const (
 	SimpleFormActionFetch     SimpleFormAction = "FETCH_FORM"
 	SimpleFormActionSubmit    SimpleFormAction = "SUBMIT_FORM"
+
 	SimpleFormActionOgaVerify SimpleFormAction = "OGA_VERIFICATION"
 )
 
@@ -43,22 +45,6 @@ type SimpleFormDefinition struct {
 	FormData json.RawMessage `json:"formData,omitempty"`
 }
 
-// getFormDefinition retrieves the complete form definition for a given form ID
-func getFormDefinition(formID string) (*SimpleFormDefinition, error) {
-	filePath := fmt.Sprintf("forms/%s.json", formID)
-	data, err := mocks.FS.ReadFile(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("form definition not found for formId: %s %w", formID, err)
-	}
-
-	var def SimpleFormDefinition
-	if err := json.Unmarshal(data, &def); err != nil {
-		return nil, fmt.Errorf("failed to parse form JSON: %w", err)
-	}
-
-	return &def, nil
-}
-
 // SimpleFormPayload represents the payload for trader form actions
 type SimpleFormPayload struct {
 	Action   SimpleFormAction       `json:"action"`             // Action to perform: FETCH_FORM, SUBMIT_FORM, or OGA_VERIFICATION
@@ -75,16 +61,17 @@ type SimpleFormResult struct {
 }
 
 type SimpleFormTask struct {
-	commandSet *SimpleFormCommandSet
-	globalCtx  map[string]interface{}
-	config     config.Config
+	commandSet  *SimpleFormCommandSet
+	globalCtx   map[string]interface{}
+	config      config.Config
+	formService form.FormService
 }
 
 // NewSimpleFormTask creates a new SimpleFormTask with the provided command set.
 // The commandSet can be of type *SimpleFormCommandSet, SimpleFormCommandSet,
 // json.RawMessage, or map[string]interface{}.
-func NewSimpleFormTask(commandSet interface{}, globalCtx map[string]interface{}, cfg *config.Config) (*SimpleFormTask, error) {
-	parsed, err := parseSimpleFormCommandSet(commandSet)
+func NewSimpleFormTask(ctx context.Context, commandSet interface{}, globalCtx map[string]interface{}, cfg *config.Config, formService form.FormService) (*SimpleFormTask, error) {
+	parsed, err := parseSimpleFormCommandSet(ctx, commandSet, formService)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse command set: %w", err)
 	}
@@ -92,12 +79,12 @@ func NewSimpleFormTask(commandSet interface{}, globalCtx map[string]interface{},
 	if cfg != nil {
 		config_ = *cfg
 	}
-	return &SimpleFormTask{commandSet: parsed, globalCtx: globalCtx, config: config_}, nil
+	return &SimpleFormTask{commandSet: parsed, globalCtx: globalCtx, config: config_, formService: formService}, nil
 }
 
 // parseSimpleFormCommandSet parses the command set into SimpleFormCommandSet.
 // If only formId is provided, it looks up the form definition from the registry.
-func parseSimpleFormCommandSet(commandSet interface{}) (*SimpleFormCommandSet, error) {
+func parseSimpleFormCommandSet(ctx context.Context, commandSet interface{}, formService form.FormService) (*SimpleFormCommandSet, error) {
 	if commandSet == nil {
 		return nil, fmt.Errorf("command set is nil")
 	}
@@ -127,7 +114,7 @@ func parseSimpleFormCommandSet(commandSet interface{}) (*SimpleFormCommandSet, e
 
 	// If only formId is provided, populate from registry
 	if parsed.FormID != "" && parsed.Schema == nil {
-		if err := populateFromRegistry(&parsed); err != nil {
+		if err := populateFromRegistry(ctx, &parsed, formService); err != nil {
 			return nil, err
 		}
 	}
@@ -136,18 +123,29 @@ func parseSimpleFormCommandSet(commandSet interface{}) (*SimpleFormCommandSet, e
 }
 
 // populateFromRegistry fills in the form definition from the registry based on formId
-func populateFromRegistry(cs *SimpleFormCommandSet) error {
-	def, err := getFormDefinition(cs.FormID)
-	if err != nil {
-		return err
+func populateFromRegistry(ctx context.Context, cs *SimpleFormCommandSet, formService form.FormService) error {
+	if formService == nil {
+		return fmt.Errorf("form service is required to populate form definition")
 	}
 
-	cs.Title = def.Title
+	// Parse form ID as UUID
+	formUUID, err := uuid.Parse(cs.FormID)
+	if err != nil {
+		return fmt.Errorf("invalid form ID format (expected UUID): %w", err)
+	}
+
+	// Get form from service
+	def, err := formService.GetFormByID(ctx, formUUID)
+	if err != nil {
+		return fmt.Errorf("failed to get form definition for formId %s: %w", cs.FormID, err)
+	}
+
+	cs.Title = def.Name
 	cs.Schema = def.Schema
 	cs.UISchema = def.UISchema
-	if cs.FormData == nil {
-		cs.FormData = def.FormData
-	}
+	// FormData is not stored in the form definition in the DB model currently,
+	// so we leave it as is (might be populated from commandSet or pre-population logic)
+
 	return nil
 }
 
@@ -337,6 +335,7 @@ func (t *SimpleFormTask) Execute(_ context.Context, payload *ExecutionPayload) (
 		return t.handleFetchForm(t.commandSet)
 	case SimpleFormActionSubmit:
 		return t.handleSubmitForm(t.commandSet, formPayload.FormData)
+
 	case SimpleFormActionOgaVerify:
 		return t.handleOgaVerification(formPayload.FormData)
 	default:
@@ -505,6 +504,8 @@ func (t *SimpleFormTask) handleSubmitForm(commandSet *SimpleFormCommandSet, form
 		GlobalContextData: formData,
 	}, nil
 }
+
+
 
 // sendFormSubmission sends the form data to the specified URL via HTTP POST and returns the response
 func (t *SimpleFormTask) sendFormSubmission(url string, formData map[string]interface{}) (map[string]interface{}, error) {

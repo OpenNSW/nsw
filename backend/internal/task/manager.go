@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/OpenNSW/nsw/internal/config"
+	"github.com/OpenNSW/nsw/internal/form"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/google/uuid"
 )
@@ -61,14 +62,14 @@ type taskManager struct {
 // NewTaskManager creates a new TaskManager instance with SQLite persistence
 // dbPath is the path to the SQLite database file (use ":memory:" for an in-memory database)
 // completionChan is a channel for notifying Workflow Manager when tasks complete.
-func NewTaskManager(dbPath string, completionChan chan<- model.TaskCompletionNotification, cfg *config.Config) (TaskManager, error) {
+func NewTaskManager(dbPath string, completionChan chan<- model.TaskCompletionNotification, cfg *config.Config, formService form.FormService) (TaskManager, error) {
 	store, err := NewTaskStore(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create task store: %w", err)
 	}
 
 	return &taskManager{
-		factory: NewTaskFactory(cfg),
+		factory: NewTaskFactory(cfg, formService),
 		store:   store,
 		//executors:      make(map[uuid.UUID]ExecutionUnit),
 		completionChan: completionChan,
@@ -77,9 +78,9 @@ func NewTaskManager(dbPath string, completionChan chan<- model.TaskCompletionNot
 }
 
 // NewTaskManagerWithStore creates a TaskManager with a provided store (useful for testing)
-func NewTaskManagerWithStore(store *TaskStore, completionChan chan<- model.TaskCompletionNotification, cfg *config.Config) TaskManager {
+func NewTaskManagerWithStore(store *TaskStore, completionChan chan<- model.TaskCompletionNotification, cfg *config.Config, formService form.FormService) TaskManager {
 	return &taskManager{
-		factory:        NewTaskFactory(cfg),
+		factory:        NewTaskFactory(cfg, formService),
 		store:          store,
 		executors:      make(map[uuid.UUID]ExecutionUnit),
 		completionChan: completionChan,
@@ -119,14 +120,14 @@ func (tm *taskManager) HandleExecuteTask(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Get task from the store
-	activeTask, err := tm.getTask(req.TaskID)
+	ctx := r.Context()
+	activeTask, err := tm.getTask(ctx, req.TaskID)
 	if err != nil {
 		writeJSONError(w, http.StatusNotFound, fmt.Sprintf("task %s not found: %v", req.TaskID, err))
 		return
 	}
 
 	// Execute task
-	ctx := r.Context()
 	result, err := tm.execute(ctx, activeTask, req.Payload)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to execute task",
@@ -173,7 +174,7 @@ func (tm *taskManager) RegisterTask(ctx context.Context, payload InitPayload) (*
 	payload.GlobalContext["consignmentId"] = payload.ConsignmentID
 
 	// Build the executor from the factory
-	executor, err := tm.factory.BuildExecutor(payload.Type, payload.CommandSet, payload.GlobalContext)
+	executor, err := tm.factory.BuildExecutor(ctx, payload.Type, payload.CommandSet, payload.GlobalContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build executor: %w", err)
 	}
@@ -235,7 +236,7 @@ func (tm *taskManager) execute(ctx context.Context, activeTask *ActiveTask, payl
 }
 
 // getTask retrieves a task from the store and combines it with the in-memory executor
-func (tm *taskManager) getTask(taskID uuid.UUID) (*ActiveTask, error) {
+func (tm *taskManager) getTask(ctx context.Context, taskID uuid.UUID) (*ActiveTask, error) {
 	// Get executions for this task
 	// Get executor from the memory cache
 	//tm.executorsMu.RLock()
@@ -255,7 +256,7 @@ func (tm *taskManager) getTask(taskID uuid.UUID) (*ActiveTask, error) {
 	}
 
 	// Rebuild executor
-	executor, err := tm.factory.BuildExecutor(execution.Type, execution.CommandSet, globalContext)
+	executor, err := tm.factory.BuildExecutor(ctx, execution.Type, execution.CommandSet, globalContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to rebuild executor: %w", err)
 	}

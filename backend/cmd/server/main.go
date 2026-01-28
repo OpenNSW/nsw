@@ -13,6 +13,7 @@ import (
 
 	"github.com/OpenNSW/nsw/internal/config"
 	"github.com/OpenNSW/nsw/internal/database"
+	"github.com/OpenNSW/nsw/internal/form"
 	"github.com/OpenNSW/nsw/internal/middleware"
 	"github.com/OpenNSW/nsw/internal/task"
 	"github.com/OpenNSW/nsw/internal/workflow"
@@ -66,9 +67,12 @@ func main() {
 	// Create task completion notification channel
 	ch := make(chan model.TaskCompletionNotification, ChannelSize)
 
+	// Initialize form service
+	formService := form.NewFormService(db)
+
 	// Initialize task manager (still using SQLite for now)
 	// TODO: Migrate task manager to use PostgreSQL
-	tm, err := task.NewTaskManager("./taskmanager.db", ch, cfg)
+	tm, err := task.NewTaskManager("./taskmanager.db", ch, cfg, formService)
 	if err != nil {
 		log.Fatalf("failed to create task manager: %v", err)
 	}
