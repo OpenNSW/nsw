@@ -22,6 +22,25 @@ CREATE TABLE IF NOT EXISTS hs_codes (
 CREATE INDEX IF NOT EXISTS idx_hs_codes_hs_code ON hs_codes(hs_code);
 
 -- ============================================================================
+-- Table: forms
+-- Description: Dynamic form definitions (Schema + UI Schema)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS forms (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    schema JSONB NOT NULL,
+    ui_schema JSONB NOT NULL,
+    version VARCHAR(50) NOT NULL DEFAULT '1.0',
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Index for active forms lookup
+CREATE INDEX IF NOT EXISTS idx_forms_active ON forms(active);
+
+-- ============================================================================
 -- Table: workflow_templates
 -- Description: Templates defining workflow steps and configurations
 -- ============================================================================

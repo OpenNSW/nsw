@@ -8,6 +8,7 @@ DROP TABLE IF EXISTS tasks CASCADE;
 DROP TABLE IF EXISTS consignments CASCADE;
 DROP TABLE IF EXISTS workflow_template_maps CASCADE;
 DROP TABLE IF EXISTS workflow_templates CASCADE;
+DROP TABLE IF EXISTS forms CASCADE;
 DROP TABLE IF EXISTS hs_codes CASCADE;
 
 -- Note: We don't drop the pgcrypto extension as it might be used by other schemas

@@ -164,23 +164,19 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 		workflowTemplates := make([]*model.WorkflowTemplate, len(createReq.Items))
 		for i := range createReq.Items {
 			// Query workflow template by HS code ID and trade flow
-			var workflowTemplate model.WorkflowTemplate
-			err := tx.WithContext(ctx).
-				Joins("JOIN workflow_template_maps ON workflow_templates.id = workflow_template_maps.workflow_template_id").
-				Where("workflow_template_maps.hs_code_id = ? AND workflow_template_maps.trade_flow = ?", createReq.Items[i].HSCodeID, createReq.TradeFlow).
-				First(&workflowTemplate).Error
+			workflowTemplate, err := s.GetWorkFlowTemplate(ctx, nil, &createReq.Items[i].HSCodeID, createReq.TradeFlow)
 			if err != nil {
 				return fmt.Errorf("failed to get workflow template for item %d: %w", i, err)
 			}
-			workflowTemplates[i] = &workflowTemplate
+			workflowTemplates[i] = workflowTemplate
 		}
 
 		// Initialize items with HSCodeID only - Steps will be populated after tasks are created
 		items := make([]model.Item, len(createReq.Items))
 		for i := range createReq.Items {
 			// fetch HSCode details from HSCodeID
-			var hsCode model.HSCode
-			if err := tx.WithContext(ctx).First(&hsCode, "id = ?", createReq.Items[i].HSCodeID).Error; err != nil {
+			hsCode, err := s.GetHSCodeByID(ctx, createReq.Items[i].HSCodeID)
+			if err != nil {
 				return fmt.Errorf("failed to get HS code for item %d: %w", i, err)
 			}
 
@@ -393,7 +389,7 @@ func (s *ConsignmentService) updateDependentTasks(ctx context.Context, tx *gorm.
 	}
 
 	// Get all tasks in the same consignment
-	allTasks, err := s.ts.GetTasksByConsignmentIDInTx(ctx, tx, completedTask.ConsignmentID)
+	allTasks, err := s.ts.GetTasksByConsignmentID(ctx, completedTask.ConsignmentID)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to retrieve tasks for consignment %s: %w", completedTask.ConsignmentID, err)
 	}
