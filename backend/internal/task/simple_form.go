@@ -21,6 +21,7 @@ type SimpleFormAction string
 const (
 	SimpleFormActionFetch     SimpleFormAction = "FETCH_FORM"
 	SimpleFormActionSubmit    SimpleFormAction = "SUBMIT_FORM"
+	SimpleFormActionReject    SimpleFormAction = "REJECT_FORM"
 	SimpleFormActionOgaVerify SimpleFormAction = "OGA_VERIFICATION"
 )
 
@@ -337,6 +338,8 @@ func (t *SimpleFormTask) Execute(_ context.Context, payload *ExecutionPayload) (
 		return t.handleFetchForm(t.commandSet)
 	case SimpleFormActionSubmit:
 		return t.handleSubmitForm(t.commandSet, formPayload.FormData)
+	case SimpleFormActionReject:
+		return t.handleRejectForm(formPayload.FormData)
 	case SimpleFormActionOgaVerify:
 		return t.handleOgaVerification(formPayload.FormData)
 	default:
@@ -555,6 +558,20 @@ func (t *SimpleFormTask) sendFormSubmission(url string, formData map[string]inte
 		"response", responseData)
 
 	return responseData, nil
+}
+
+// handleRejectForm marks the task as rejected
+func (t *SimpleFormTask) handleRejectForm(formData map[string]interface{}) (*ExecutionResult, error) {
+	formDataJSON, _ := json.Marshal(formData)
+	return &ExecutionResult{
+		Status:  model.TaskStatusRejected,
+		Message: "Form rejected",
+		Data: SimpleFormResult{
+			FormID:   t.commandSet.FormID,
+			FormData: formDataJSON,
+		},
+		GlobalContextData: formData,
+	}, nil
 }
 
 // handleOgaVerification handles the OGA_VERIFICATION action and marks the task as completed
