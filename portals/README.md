@@ -16,6 +16,9 @@ make dev-trader # Start Trader app
 make help       # See all available commands
 ```
 
+### 📚 New to the Project?
+See **[SETUP_WORKSPACE.md](./SETUP_WORKSPACE.md)** for detailed setup instructions, troubleshooting, and migration guides.
+
 ### Migrating from npm?
 Run `make clean && make setup` to remove old npm artifacts and install with pnpm.
 
@@ -63,19 +66,24 @@ The `apps/` directory contains applications that consume the shared UI library. 
 
 ### Prerequisites
 
-- Node.js >= 18
-- pnpm >= 9 (installed automatically via `make setup`)
+- **Node.js** v22.18.0 or higher (we recommend using [nvm](https://github.com/nvm-sh/nvm) to manage Node versions)
+- **pnpm** v10.28.1 (installed automatically via `make setup`)
+
+> **📌 Version Lock**: This project enforces specific versions to ensure consistent lockfile generation across all team members. See `.nvmrc` and `package.json#packageManager` for version requirements.
 
 ### Setup
 
 ```bash
 # First time setup (installs pnpm + dependencies)
 make setup
+
+# If using nvm, activate the correct Node version first
+nvm use
 ```
 
 If you prefer to install pnpm manually:
 ```bash
-npm install -g pnpm
+npm install -g pnpm@10.28.1
 pnpm install
 ```
 
@@ -128,6 +136,19 @@ make build-ui  # Build the UI library first
 **TypeScript errors after pulling**
 ```bash
 make clean && make install && make build
+```
+
+**Different lockfile changes on each `pnpm install`**
+This happens when team members use different Node or pnpm versions. To fix:
+```bash
+# Ensure you're using the correct Node version
+nvm use
+
+# Verify pnpm version matches package.json
+pnpm --version  # Should show 10.28.1
+
+# If not, reinstall pnpm
+npm install -g pnpm@10.28.1
 ```
 
 ## Using the UI Library
