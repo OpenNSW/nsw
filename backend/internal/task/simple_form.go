@@ -20,8 +20,8 @@ import (
 type SimpleFormAction string
 
 const (
-	SimpleFormActionFetch     SimpleFormAction = "FETCH_FORM"
-	SimpleFormActionSubmit    SimpleFormAction = "SUBMIT_FORM"
+	SimpleFormActionFetch  SimpleFormAction = "FETCH_FORM"
+	SimpleFormActionSubmit SimpleFormAction = "SUBMIT_FORM"
 
 	SimpleFormActionOgaVerify SimpleFormAction = "OGA_VERIFICATION"
 )
@@ -335,7 +335,6 @@ func (t *SimpleFormTask) Execute(_ context.Context, payload *ExecutionPayload) (
 		return t.handleFetchForm(t.commandSet)
 	case SimpleFormActionSubmit:
 		return t.handleSubmitForm(t.commandSet, formPayload.FormData)
-
 	case SimpleFormActionOgaVerify:
 		return t.handleOgaVerification(formPayload.FormData)
 	default:
@@ -504,8 +503,6 @@ func (t *SimpleFormTask) handleSubmitForm(commandSet *SimpleFormCommandSet, form
 		GlobalContextData: formData,
 	}, nil
 }
-
-
 
 // sendFormSubmission sends the form data to the specified URL via HTTP POST and returns the response
 func (t *SimpleFormTask) sendFormSubmission(url string, formData map[string]interface{}) (map[string]interface{}, error) {
