@@ -199,7 +199,7 @@ export function Sidebar({ isExpanded, onToggle }: SidebarProps) {
             <div className="flex items-center gap-3 px-4 py-3 rounded-md bg-primary-800/30 text-primary-100">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white truncate">NSW</p>
-                <p className="text-xs text-primary-200 truncate">v1.0.0</p>
+                <p className="text-xs text-primary-200 truncate">v0.1.0</p>
               </div>
             </div>
           </div>

@@ -116,5 +116,7 @@ export interface JsonFormProps {
   submitLabel?: string;
   draftLabel?: string;
   showDraftButton?: boolean;
+  showAutoFillButton?: boolean;
+  autoFillLabel?: string;
   className?: string;
 }
