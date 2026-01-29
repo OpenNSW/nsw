@@ -27,7 +27,7 @@ func (f *taskFactory) BuildExecutor(taskType Type, commandSet interface{}, globa
 	case TaskTypeSimpleForm:
 		return NewSimpleFormTask(commandSet, globalCtx, f.config)
 	case TaskTypeWaitForEvent:
-		return NewWaitForEventTask(commandSet, globalCtx), nil
+		return NewWaitForEventTask(commandSet, globalCtx)
 	default:
 		return nil, fmt.Errorf("unknown task type: %s", taskType)
 	}
