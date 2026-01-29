@@ -378,11 +378,7 @@ func (s *ConsignmentService) UpdateTaskStatusAndPropagateChanges(ctx context.Con
 
 // updateDependentTasks updates tasks that depend on the completed task and returns newly READY tasks and whether consignment is completed or steps to update
 func (s *ConsignmentService) updateDependentTasks(ctx context.Context, tx *gorm.DB, completedTask model.Task) ([]*model.Task, []*model.StepStatusUpdateDTO, *model.ConsignmentState, error) {
-	// If the completed task has been marked as REJECTED, need to update consignment state to REQUIRES_REWORK
-	if completedTask.Status == model.TaskStatusRejected {
-		consignmentStatus := model.ConsignmentStateRequiresRework
-		return []*model.Task{}, []*model.StepStatusUpdateDTO{}, &consignmentStatus, nil
-	}
+
 	// If the completed task is not marked as COMPLETED, no need to update dependents
 	if completedTask.Status != model.TaskStatusCompleted {
 		return []*model.Task{}, []*model.StepStatusUpdateDTO{}, nil, nil
@@ -451,7 +447,7 @@ func (s *ConsignmentService) updateDependentTasks(ctx context.Context, tx *gorm.
 	consignmentStatus := model.ConsignmentStateInProgress
 	// If all tasks in the consignment are completed, update consignment state to FINISHED
 	if isAllCompleted {
-		consignmentStatus = model.ConsignmentStateFinished
+		consignmentStatus = model.ConsignmentStateCompleted
 	}
 
 	return readyDependentTasks, stepsToUpdate, &consignmentStatus, nil
