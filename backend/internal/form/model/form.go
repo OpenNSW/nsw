@@ -17,9 +17,11 @@ type BaseModel struct {
 
 // BeforeCreate is a GORM hook that is triggered before a new record is created.
 func (base *BaseModel) BeforeCreate(tx *gorm.DB) (err error) {
-	base.ID, err = uuid.NewRandom()
-	if err != nil {
-		return
+	if base.ID == uuid.Nil {
+		base.ID, err = uuid.NewRandom()
+		if err != nil {
+			return
+		}
 	}
 	base.CreatedAt = time.Now().UTC()
 	base.UpdatedAt = time.Now().UTC()
