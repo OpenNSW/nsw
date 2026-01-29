@@ -17,8 +17,7 @@ type ConsignmentState string
 
 const (
 	ConsignmentStateInProgress     ConsignmentState = "IN_PROGRESS"
-	ConsignmentStateRequiresRework ConsignmentState = "REQUIRES_REWORK" // At least one task has been rejected
-	ConsignmentStateFinished       ConsignmentState = "FINISHED"
+	ConsignmentStateCompleted      ConsignmentState = "COMPLETED"
 )
 
 // Consignment represents the state and data of a consignment in the workflow system.

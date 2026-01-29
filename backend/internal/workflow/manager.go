@@ -62,8 +62,8 @@ func (m *Manager) StartTaskUpdateListener() {
 				}
 
 				// Log if consignment is completed
-				if consignment != nil && consignment.State == model.ConsignmentStateFinished {
-					slog.Info("consignment finished", "consignmentID", consignment.ID)
+				if consignment != nil && consignment.State == model.ConsignmentStateCompleted {
+					slog.Info("consignment completed", "consignmentID", consignment.ID)
 				}
 				// Register newly ready tasks with Task Manager
 				if len(newReadyTasks) > 0 {
