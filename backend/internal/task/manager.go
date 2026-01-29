@@ -11,6 +11,7 @@ import (
 	"github.com/OpenNSW/nsw/internal/form"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // TaskManager handles task execution and status management
@@ -26,9 +27,6 @@ type TaskManager interface {
 
 	// HandleExecuteTask is an HTTP handler for executing a task via POST request
 	HandleExecuteTask(w http.ResponseWriter, r *http.Request)
-
-	// Close closes the task manager and releases resources
-	Close() error
 }
 
 type ExecutionPayload struct {
@@ -51,49 +49,28 @@ type ExecuteTaskResponse struct {
 }
 
 type taskManager struct {
-	factory   TaskFactory
-	store     *TaskStore                  // SQLite storage for task executions
-	executors map[uuid.UUID]ExecutionUnit // In-memory cache for executors (can't be serialized)
-	//executorsMu    sync.RWMutex                            // Mutex for thread-safe access to executors
+	factory        TaskFactory
+	store          *TaskStore                              // Storage for task executions
+	executors      map[uuid.UUID]ExecutionUnit             // In-memory cache for executors (can't be serialized)
 	completionChan chan<- model.TaskCompletionNotification // Channel to notify Workflow Manager of task completions
 	config         *config.Config                          // Application configuration
 }
 
-// NewTaskManager creates a new TaskManager instance with SQLite persistence
-// dbPath is the path to the SQLite database file (use ":memory:" for an in-memory database)
+// NewTaskManager creates a new TaskManager instance with persistence data store.
+// db is the shared database connection
 // completionChan is a channel for notifying Workflow Manager when tasks complete.
-func NewTaskManager(dbPath string, completionChan chan<- model.TaskCompletionNotification, cfg *config.Config, formService form.FormService) (TaskManager, error) {
-	store, err := NewTaskStore(dbPath)
+func NewTaskManager(db *gorm.DB, completionChan chan<- model.TaskCompletionNotification, cfg *config.Config, formService form.FormService) (TaskManager, error) {
+	store, err := NewTaskStore(db)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create task store: %w", err)
 	}
 
 	return &taskManager{
-		factory: NewTaskFactory(cfg, formService),
-		store:   store,
-		//executors:      make(map[uuid.UUID]ExecutionUnit),
+		factory:        NewTaskFactory(cfg, formService),
+		store:          store,
 		completionChan: completionChan,
 		config:         cfg,
 	}, nil
-}
-
-// NewTaskManagerWithStore creates a TaskManager with a provided store (useful for testing)
-func NewTaskManagerWithStore(store *TaskStore, completionChan chan<- model.TaskCompletionNotification, cfg *config.Config, formService form.FormService) TaskManager {
-	return &taskManager{
-		factory:        NewTaskFactory(cfg, formService),
-		store:          store,
-		executors:      make(map[uuid.UUID]ExecutionUnit),
-		completionChan: completionChan,
-		config:         cfg,
-	}
-}
-
-// Close closes the task manager and releases resources
-func (tm *taskManager) Close() error {
-	if tm.store != nil {
-		return tm.store.Close()
-	}
-	return nil
 }
 
 // HandleExecuteTask is an HTTP handler for executing a task via POST request
@@ -181,8 +158,8 @@ func (tm *taskManager) RegisterTask(ctx context.Context, payload InitPayload) (*
 
 	activeTask := NewActiveTask(payload, executor)
 
-	// Create a task execution record
-	execution := &TaskRecord{
+	// Create a task info record
+	execution := &TaskInfo{
 		ID:            activeTask.TaskID,
 		ConsignmentID: payload.ConsignmentID,
 		StepID:        payload.StepID,
@@ -199,7 +176,7 @@ func (tm *taskManager) RegisterTask(ctx context.Context, payload InitPayload) (*
 
 	// Store in SQLite
 	if err := tm.store.Create(execution); err != nil {
-		return nil, fmt.Errorf("failed to store task execution: %w", err)
+		return nil, fmt.Errorf("failed to store task info: %w", err)
 	}
 
 	// Execute a task and return a result to Workflow Manager

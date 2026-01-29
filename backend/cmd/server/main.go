@@ -70,17 +70,11 @@ func main() {
 	// Initialize form service
 	formService := form.NewFormService(db)
 
-	// Initialize task manager (still using SQLite for now)
-	// TODO: Migrate task manager to use PostgreSQL
-	tm, err := task.NewTaskManager("./taskmanager.db", ch, cfg, formService)
+	// Initialize task manager with database connection
+	tm, err := task.NewTaskManager(db, ch, cfg, formService)
 	if err != nil {
 		log.Fatalf("failed to create task manager: %v", err)
 	}
-	defer func() {
-		if err := tm.Close(); err != nil {
-			slog.Error("failed to close task manager", "error", err)
-		}
-	}()
 
 	// Initialize workflow manager with database connection
 	wm := workflow.NewManager(tm, ch, db)
