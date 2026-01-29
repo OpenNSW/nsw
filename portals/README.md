@@ -16,8 +16,14 @@ make dev-trader # Start Trader app
 make help       # See all available commands
 ```
 
-### Migrating from npm?
-Run `make clean && make setup` to remove old npm artifacts and install with pnpm.
+### 📚 New to the Project?
+See **[SETUP_WORKSPACE.md](docs/SETUP_WORKSPACE.md)** for:
+- Complete setup instructions (new developers & existing team migration)
+- Version requirements and enforcement
+- Troubleshooting common issues
+- Verification checklist
+
+---
 
 ## Project Structure
 
@@ -57,33 +63,14 @@ The `ui` package is a shared component library built from the ground up using [R
 The `apps/` directory contains applications that consume the shared UI library. Each app is a standalone project that imports components from `@lsf/ui`.
 
 **Current apps:**
+- `oga-app` - OGA portal application
 - `trader-app` - Trading application
 
-## Getting Started
+---
 
-### Prerequisites
+## Development Workflow
 
-- Node.js >= 18
-- pnpm >= 9 (installed automatically via `make setup`)
-
-### Setup
-
-```bash
-# First time setup (installs pnpm + dependencies)
-make setup
-```
-
-If you prefer to install pnpm manually:
-```bash
-npm install -g pnpm
-pnpm install
-```
-
-## Development Commands
-
-Run `make help` to see all available commands.
-
-### Common Tasks
+### Common Commands
 
 ```bash
 # Development
@@ -113,22 +100,7 @@ pnpm --filter @lsf/ui add lodash
 pnpm add -w prettier -D
 ```
 
-### Troubleshooting
-
-**"pnpm: command not found"**
-```bash
-make setup  # Installs pnpm automatically
-```
-
-**"Cannot find module '@lsf/ui'"**
-```bash
-make build-ui  # Build the UI library first
-```
-
-**TypeScript errors after pulling**
-```bash
-make clean && make install && make build
-```
+---
 
 ## Using the UI Library
 
@@ -166,6 +138,8 @@ function MyComponent() {
    ```
 4. Run `pnpm install` from the root
 
+---
+
 ## Tech Stack
 
 - **React** 19
@@ -181,4 +155,11 @@ function MyComponent() {
 - 🔒 **Stricter** - prevents phantom dependencies
 - 🎯 **Single lock file** - better for monorepos
 - ✅ **Industry standard** - used by Vue, Vite, Svelte, and more
-- **npm Workspaces** - Monorepo management
+
+---
+
+## Need Help?
+
+- **Setup & Troubleshooting:** See [SETUP_WORKSPACE.md](docs/SETUP_WORKSPACE.md)
+- **Available Commands:** Run `make help`
+- **Issues:** Check the [troubleshooting section](docs/SETUP_WORKSPACE.md#troubleshooting) in SETUP_WORKSPACE.md
