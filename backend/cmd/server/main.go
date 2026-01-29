@@ -43,11 +43,6 @@ func main() {
 		"max_age", cfg.CORS.MaxAge,
 	)
 
-	var (
-		Version = "dev"
-		Commit  = "none"
-	)
-
 	slog.Info("server configuration",
 		"port", cfg.Server.Port,
 		"version", Version,
