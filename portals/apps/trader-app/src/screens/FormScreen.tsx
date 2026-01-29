@@ -146,6 +146,8 @@ export function FormScreen() {
             data={formData.formData}
             onSubmit={handleSubmit}
             submitLabel="Submit Form"
+            showAutoFillButton={import.meta.env.VITE_SHOW_AUTOFILL_BUTTON === 'true'}
+            autoFillLabel="Auto-Fill Form"
           />}
         </div>
       </div>
