@@ -1,4 +1,4 @@
--- Migration: 003_create_task_infos.sql
+-- Migration: 001_create_task_infos.sql
 -- Description: Create task_infos table for task execution tracking
 -- Created: 2026-01-29
 

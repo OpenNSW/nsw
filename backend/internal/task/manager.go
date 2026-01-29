@@ -51,7 +51,6 @@ type ExecuteTaskResponse struct {
 type taskManager struct {
 	factory        TaskFactory
 	store          *TaskStore                              // Storage for task executions
-	executors      map[uuid.UUID]ExecutionUnit             // In-memory cache for executors (can't be serialized)
 	completionChan chan<- model.TaskCompletionNotification // Channel to notify Workflow Manager of task completions
 	config         *config.Config                          // Application configuration
 }

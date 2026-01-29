@@ -1,32 +1,137 @@
 -- Migration: insert_data.sql
 -- Description: Insert initial HS codes, forms and workflow templates for NSW workflow management system
 -- Created: 2026-01-24
--- Updated: 2026-01-28
+-- Updated: 2026-01-30
 
 -- ============================================================================
 -- Seed Data: Insert HS Codes
 -- ============================================================================
-INSERT INTO hs_codes (id, hs_code, description, category) VALUES ('90b06747-cfa7-486b-a084-eaa1fc95595e', '0902.10', 'Green tea (not fermented) in immediate packings $\leq$ 3kg', 'Green Tea (Small)');
-INSERT INTO hs_codes (id, hs_code, description, category) VALUES ('3699f18c-832a-4026-ac31-3697c3a5235d', '0902.10.11', 'Certified Ceylon Green tea, flavoured, $\leq$ 4g (Tea bags)', 'Green Tea');
-INSERT INTO hs_codes (id, hs_code, description, category) VALUES ('1589b5b1-2db3-44ef-80c1-16151bb8d5b0', '0902.20', 'Green tea (not fermented) in immediate packings > 3kg', 'Green Tea (Bulk)');
-INSERT INTO hs_codes (id, hs_code, description, category) VALUES ('6aa146ba-dd72-4e5e-ae27-a1cb5d69caa5', '0902.30', 'Black tea (fermented) in immediate packings $\leq$ 3kg', 'Black Tea (Small)');
-INSERT INTO hs_codes (id, hs_code, description, category) VALUES ('2e173ef8-840b-4cc5-a667-03e1d80e04b9', '0902.30.21', 'Certified Ceylon Black tea, flavoured, 4g–1kg', 'Black Tea');
-INSERT INTO hs_codes (id, hs_code, description, category) VALUES ('851f0de7-0693-4cc1-9d92-19c39072bb53', '0902.40', 'Black tea (fermented) in immediate packings > 3kg', 'Black Tea (Bulk)');
-INSERT INTO hs_codes (id, hs_code, description, category) VALUES ('51e802c1-b57e-45ac-b563-1ae0fad06db5', '2101.20', 'Extracts, essences, and concentrates of tea (Instant Tea)', 'Value Added');
-INSERT INTO hs_codes (id, hs_code, description, category) VALUES ('cb34d1ac-c48f-4370-8260-a6585009ff7e', '2101.20.11', 'Instant tea, certified Ceylon origin, $\leq$ 4g', 'Instant Tea');
-INSERT INTO hs_codes (id, hs_code, description, category) VALUES ('36a58d44-8ff6-4bea-8c9b-3db84bb5a083', '0801.11.10', 'Edible Copra', 'Kernel');
-INSERT INTO hs_codes (id, hs_code, description, category) VALUES ('8a0783e4-82e6-488e-b96e-6140a8912f39', '0801.11.90', 'Desiccated Coconut (DC)', 'Kernel');
-INSERT INTO hs_codes (id, hs_code, description, category) VALUES ('4bdfb1f0-2b71-4ddc-8b99-f31c3d7660bc', '0801.12.00', 'Fresh Coconut (in the inner shell)', 'Fresh Fruit');
-INSERT INTO hs_codes (id, hs_code, description, category) VALUES ('b9e48207-2573-4c9b-89f6-06d4c22422be', '0801.19.30', 'King Coconut (Thambili)', 'Fresh Fruit');
-INSERT INTO hs_codes (id, hs_code, description, category) VALUES ('6b567998-4a57-4132-a595-577493aefb3f', '1106.30.10', 'Coconut Flour', 'Kernel');
-INSERT INTO hs_codes (id, hs_code, description, category) VALUES ('653c4c8f-8c39-4aee-86f5-7f3926d0d4c2', '1513.11.11', 'Virgin Coconut Oil (VCO) - In Bulk', 'Oils');
-INSERT INTO hs_codes (id, hs_code, description, category) VALUES ('bfa92119-64d3-41f4-b21c-fd0e2eb2966b', '1513.11.21', 'Virgin Coconut Oil (VCO) - Not in Bulk', 'Oils');
-INSERT INTO hs_codes (id, hs_code, description, category) VALUES ('5e0f2a51-8a1e-4d7d-a00b-4565e47535d2', '1513.19.10', 'Coconut Oil (Refined/Not crude) - In Bulk', 'Oils');
-INSERT INTO hs_codes (id, hs_code, description, category) VALUES ('4f4fac26-bf5c-42b0-9058-b17828dcba31', '2008.19.20', 'Liquid Coconut Milk', 'Edible Prep');
-INSERT INTO hs_codes (id, hs_code, description, category) VALUES ('1390c617-43d4-4eee-8fff-b9f10d038981', '2008.19.30', 'Coconut Milk Powder', 'Edible Prep');
-INSERT INTO hs_codes (id, hs_code, description, category) VALUES ('fd5a0de1-c547-4420-94b9-942a8349a463', '2106.90.97', 'Coconut Water', 'Beverages');
-INSERT INTO hs_codes (id, hs_code, description, category) VALUES ('7884654e-90e0-4b7c-a963-cf6d2b5d1c16', '1404.90.30', 'Coconut Shell Pieces', 'Non-Kernel');
-INSERT INTO hs_codes (id, hs_code, description, category) VALUES ('4ba1fd6b-f42f-438f-ab9f-0ee0054ee33c', '1404.90.50', 'Coconut Husk Chips', 'Non-Kernel');
+INSERT INTO hs_codes (id, hs_code, description, category) VALUES (
+    '90b06747-cfa7-486b-a084-eaa1fc95595e',
+    '0902.10',
+    'Green tea (not fermented) in immediate packings of content not exceeding ≤ 3kg',
+    'Green Tea (Small)'
+);
+INSERT INTO hs_codes (id, hs_code, description, category) VALUES (
+    '3699f18c-832a-4026-ac31-3697c3a5235d',
+    '0902.10.11',
+    'Certified Ceylon Green tea, flavoured, ≤ 4g (Tea bags)', 
+    'Green Tea'
+);
+INSERT INTO hs_codes (id, hs_code, description, category) VALUES (
+    '1589b5b1-2db3-44ef-80c1-16151bb8d5b0',
+    '0902.20',
+    'Green tea (not fermented) in immediate packings > 3kg',
+    'Green Tea (Bulk)'
+);
+INSERT INTO hs_codes (id, hs_code, description, category) VALUES (
+    '6aa146ba-dd72-4e5e-ae27-a1cb5d69caa5',
+    '0902.30',
+    'Black tea (fermented) in immediate packings ≤ 3kg',
+    'Black Tea (Small)'
+);
+INSERT INTO hs_codes (id, hs_code, description, category) VALUES (
+    '2e173ef8-840b-4cc5-a667-03e1d80e04b9',
+    '0902.30.21',
+    'Certified Ceylon Black tea, flavoured, 4g–1kg',
+    'Black Tea'
+);
+INSERT INTO hs_codes (id, hs_code, description, category) VALUES (
+    '851f0de7-0693-4cc1-9d92-19c39072bb53',
+    '0902.40',
+    'Black tea (fermented) in immediate packings > 3kg',
+    'Black Tea (Bulk)'
+);
+INSERT INTO hs_codes (id, hs_code, description, category) VALUES (
+    '51e802c1-b57e-45ac-b563-1ae0fad06db5',
+    '2101.20',
+    'Extracts, essences, and concentrates of tea (Instant Tea)',
+    'Value Added'
+);
+INSERT INTO hs_codes (id, hs_code, description, category) VALUES (
+    'cb34d1ac-c48f-4370-8260-a6585009ff7e',
+    '2101.20.11',
+    'Instant tea, certified Ceylon origin, ≤ 4g',
+    'Instant Tea'
+);
+INSERT INTO hs_codes (id, hs_code, description, category) VALUES (
+    '36a58d44-8ff6-4bea-8c9b-3db84bb5a083',
+    '0801.11.10',
+    'Edible Copra',
+    'Kernel'
+);
+INSERT INTO hs_codes (id, hs_code, description, category) VALUES (
+    '8a0783e4-82e6-488e-b96e-6140a8912f39',
+    '0801.11.90',
+    'Desiccated Coconut (DC)',
+    'Kernel'
+);
+INSERT INTO hs_codes (id, hs_code, description, category) VALUES (
+    '4bdfb1f0-2b71-4ddc-8b99-f31c3d7660bc',
+    '0801.12.00',
+    'Fresh Coconut (in the inner shell)',
+    'Fresh Fruit'
+);
+INSERT INTO hs_codes (id, hs_code, description, category) VALUES (
+    'b9e48207-2573-4c9b-89f6-06d4c22422be',
+    '0801.19.30',
+    'King Coconut (Thambili)',
+    'Fresh Fruit'
+);
+INSERT INTO hs_codes (id, hs_code, description, category) VALUES (
+    '6b567998-4a57-4132-a595-577493aefb3f',
+    '1106.30.10',
+    'Coconut Flour',
+    'Kernel'
+);
+INSERT INTO hs_codes (id, hs_code, description, category) VALUES (
+    '653c4c8f-8c39-4aee-86f5-7f3926d0d4c2',
+    '1513.11.11',
+    'Virgin Coconut Oil (VCO) - In Bulk',
+    'Oils'
+);
+INSERT INTO hs_codes (id, hs_code, description, category) VALUES (
+    'bfa92119-64d3-41f4-b21c-fd0e2eb2966b',
+    '1513.11.21',
+    'Virgin Coconut Oil (VCO) - Not in Bulk',
+    'Oils'
+);
+INSERT INTO hs_codes (id, hs_code, description, category) VALUES (
+    '5e0f2a51-8a1e-4d7d-a00b-4565e47535d2',
+    '1513.19.10',
+    'Coconut Oil (Refined/Not crude) - In Bulk',
+    'Oils'
+);
+INSERT INTO hs_codes (id, hs_code, description, category) VALUES (
+    '4f4fac26-bf5c-42b0-9058-b17828dcba31',
+    '2008.19.20',
+    'Liquid Coconut Milk',
+    'Edible Prep'
+);
+INSERT INTO hs_codes (id, hs_code, description, category) VALUES (
+    '1390c617-43d4-4eee-8fff-b9f10d038981',
+    '2008.19.30',
+    'Coconut Milk Powder',
+    'Edible Prep'
+);
+INSERT INTO hs_codes (id, hs_code, description, category) VALUES (
+    'fd5a0de1-c547-4420-94b9-942a8349a463',
+    '2106.90.97',
+    'Coconut Water',
+    'Beverages'
+);
+INSERT INTO hs_codes (id, hs_code, description, category) VALUES (
+    '7884654e-90e0-4b7c-a963-cf6d2b5d1c16',
+    '1404.90.30',
+    'Coconut Shell Pieces',
+    'Non-Kernel'
+);
+INSERT INTO hs_codes (id, hs_code, description, category) VALUES (
+    '4ba1fd6b-f42f-438f-ab9f-0ee0054ee33c',
+    '1404.90.50',
+    'Coconut Husk Chips',
+    'Non-Kernel'
+);
 
 -- ============================================================================
 -- Seed Data: Insert Forms
@@ -97,16 +202,59 @@ INSERT INTO forms (id, name, schema, ui_schema) VALUES (
 -- ============================================================================
 -- Insert Workflow Templates
 -- ============================================================================
-INSERT INTO workflow_templates (id, version, steps) VALUES ('d299f7e7-eca3-4399-9b22-2ae1d742109d', 'sl-export-tea-packaged-1.0', '[{"type": "SIMPLE_FORM", "config": {"formId": "11111111-1111-1111-1111-111111111111", "submissionUrl": "https://7b0eb5f0-1ee3-4a0c-8946-82a893cb60c2.mock.pstmn.io/api/cusdec"}, "stepId": "cusdec_entry", "dependsOn": []}, {"type": "SIMPLE_FORM", "config": {"formId": "22222222-2222-2222-2222-222222222222", "agency": "NPQS", "service": "plant-quarantine"}, "stepId": "phytosanitary_cert", "dependsOn": ["cusdec_entry"]}, {"type": "WAIT_FOR_EVENT", "config": {"agency": "SLTB", "service": "tea-blend-sheet"}, "stepId": "tea_blend_sheet", "dependsOn": ["cusdec_entry"]}, {"type": "WAIT_FOR_EVENT", "config": {"event": "WAIT_FOR_EVENT"}, "stepId": "final_customs_clearance", "dependsOn": ["phytosanitary_cert", "tea_blend_sheet"]}]');
-INSERT INTO workflow_templates (id, version, steps) VALUES ('eea36780-48f2-424c-9b55-0d7394e9677d', 'sl-import-coconut-oil-1.0', '[{"type": "WAIT_FOR_EVENT", "config": {"event": "IGM_RECEIVED"}, "stepId": "manifest_submission", "dependsOn": []}, {"type": "SIMPLE_FORM", "config": {"formId": "55555555-5555-5555-5555-555555555555"}, "stepId": "import_cusdec", "dependsOn": ["manifest_submission"]}, {"type": "SIMPLE_FORM", "config": {"formId": "77777777-7777-7777-7777-777777777777", "agency": "SLSI", "service": "quality-standard-verification"}, "stepId": "slsi_clearance", "dependsOn": ["import_cusdec"]}, {"type": "SIMPLE_FORM", "config": {"formId": "88888888-8888-8888-8888-888888888888", "agency": "MOH", "service": "health-clearance"}, "stepId": "food_control_unit", "dependsOn": ["import_cusdec"]}, {"type": "SIMPLE_FORM", "config": {"formId": "66666666-6666-6666-6666-666666666666"}, "stepId": "gate_pass", "dependsOn": ["slsi_clearance", "food_control_unit"]}]');
-INSERT INTO workflow_templates (id, version, steps) VALUES ('44bbe677-d327-4968-bf72-1d314246b486', 'sl-export-desiccated-coconut-1.0', '[{"type": "SIMPLE_FORM", "config": {"formId": "44444444-4444-4444-4444-444444444444"}, "stepId": "general_info", "dependsOn": []}, {"type": "SIMPLE_FORM", "config": {"formId": "11111111-1111-1111-1111-111111111111", "submissionUrl": "https://7b0eb5f0-1ee3-4a0c-8946-82a893cb60c2.mock.pstmn.io/api/cusdec"}, "stepId": "cusdec_entry", "dependsOn": ["general_info"]}, {"type": "SIMPLE_FORM", "config": {"agency": "NPQS", "formId": "22222222-2222-2222-2222-222222222222", "service": "plant-quarantine-phytosanitary", "submissionUrl": "http://localhost:8081/api/oga/inject", "requiresOgaVerification": true}, "stepId": "phytosanitary_cert", "dependsOn": ["cusdec_entry"]}, {"type": "SIMPLE_FORM", "config": {"agency": "EDB", "formId": "33333333-3333-3333-3333-333333333333", "service": "export-product-registration", "submissionUrl": "http://localhost:8082/api/oga/inject", "requiresOgaVerification": true}, "stepId": "health_cert", "dependsOn": ["cusdec_entry"]}, {"type": "WAIT_FOR_EVENT", "config": {"event": "WAIT_FOR_EVENT"}, "stepId": "final_customs_clearance", "dependsOn": ["phytosanitary_cert", "health_cert", "export_docs_and_shipping_note"]}]');
+INSERT INTO workflow_templates (id, version, steps) VALUES (
+    'd299f7e7-eca3-4399-9b22-2ae1d742109d',
+    'sl-export-tea-packaged-1.0',
+    '[{"type": "SIMPLE_FORM", "config": {"formId": "11111111-1111-1111-1111-111111111111", "submissionUrl": "https://7b0eb5f0-1ee3-4a0c-8946-82a893cb60c2.mock.pstmn.io/api/cusdec"}, "stepId": "cusdec_entry", "dependsOn": []}, {"type": "SIMPLE_FORM", "config": {"formId": "22222222-2222-2222-2222-222222222222", "agency": "NPQS", "service": "plant-quarantine"}, "stepId": "phytosanitary_cert", "dependsOn": ["cusdec_entry"]}, {"type": "WAIT_FOR_EVENT", "config": {"agency": "SLTB", "service": "tea-blend-sheet"}, "stepId": "tea_blend_sheet", "dependsOn": ["cusdec_entry"]}, {"type": "WAIT_FOR_EVENT", "config": {"event": "WAIT_FOR_EVENT"}, "stepId": "final_customs_clearance", "dependsOn": ["phytosanitary_cert", "tea_blend_sheet"]}]'
+);
+INSERT INTO workflow_templates (id, version, steps) VALUES (
+    'eea36780-48f2-424c-9b55-0d7394e9677d',
+    'sl-import-coconut-oil-1.0',
+    '[{"type": "WAIT_FOR_EVENT", "config": {"event": "IGM_RECEIVED"}, "stepId": "manifest_submission", "dependsOn": []}, {"type": "SIMPLE_FORM", "config": {"formId": "55555555-5555-5555-5555-555555555555"}, "stepId": "import_cusdec", "dependsOn": ["manifest_submission"]}, {"type": "SIMPLE_FORM", "config": {"formId": "77777777-7777-7777-7777-777777777777", "agency": "SLSI", "service": "quality-standard-verification"}, "stepId": "slsi_clearance", "dependsOn": ["import_cusdec"]}, {"type": "SIMPLE_FORM", "config": {"formId": "88888888-8888-8888-8888-888888888888", "agency": "MOH", "service": "health-clearance"}, "stepId": "food_control_unit", "dependsOn": ["import_cusdec"]}, {"type": "SIMPLE_FORM", "config": {"formId": "66666666-6666-6666-6666-666666666666"}, "stepId": "gate_pass", "dependsOn": ["slsi_clearance", "food_control_unit"]}]'
+);
+INSERT INTO workflow_templates (id, version, steps) VALUES (
+    '44bbe677-d327-4968-bf72-1d314246b486',
+    'sl-export-desiccated-coconut-1.0',
+    '[{"type": "SIMPLE_FORM", "config": {"formId": "44444444-4444-4444-4444-444444444444"}, "stepId": "general_info", "dependsOn": []}, {"type": "SIMPLE_FORM", "config": {"formId": "11111111-1111-1111-1111-111111111111", "submissionUrl": "https://7b0eb5f0-1ee3-4a0c-8946-82a893cb60c2.mock.pstmn.io/api/cusdec"}, "stepId": "cusdec_entry", "dependsOn": ["general_info"]}, {"type": "SIMPLE_FORM", "config": {"agency": "NPQS", "formId": "22222222-2222-2222-2222-222222222222", "service": "plant-quarantine-phytosanitary", "submissionUrl": "http://localhost:8081/api/oga/inject", "requiresOgaVerification": true}, "stepId": "phytosanitary_cert", "dependsOn": ["cusdec_entry"]}, {"type": "SIMPLE_FORM", "config": {"agency": "EDB", "formId": "33333333-3333-3333-3333-333333333333", "service": "export-product-registration", "submissionUrl": "http://localhost:8082/api/oga/inject", "requiresOgaVerification": true}, "stepId": "health_cert", "dependsOn": ["cusdec_entry"]}, {"type": "WAIT_FOR_EVENT", "config": {"event": "WAIT_FOR_EVENT", "externalServiceUrl": "http://localhost:3001/api/process-task"}, "stepId": "final_customs_clearance", "dependsOn": ["phytosanitary_cert", "health_cert"]}]'
+
+);
 
 -- ============================================================================
 -- Insert Workflow Template Maps
 -- ============================================================================
-INSERT INTO workflow_template_maps (id, hs_code_id, trade_flow, workflow_template_id) VALUES ('b527cff7-9caf-4756-b143-ecf62dbc4236', '6aa146ba-dd72-4e5e-ae27-a1cb5d69caa5', 'EXPORT', 'd299f7e7-eca3-4399-9b22-2ae1d742109d');
-INSERT INTO workflow_template_maps (id, hs_code_id, trade_flow, workflow_template_id) VALUES ('5a4c798a-d21f-47f6-a257-0c70a556da0e', '2e173ef8-840b-4cc5-a667-03e1d80e04b9', 'EXPORT', 'd299f7e7-eca3-4399-9b22-2ae1d742109d');
-INSERT INTO workflow_template_maps (id, hs_code_id, trade_flow, workflow_template_id) VALUES ('74ab852b-5077-4111-abfb-bef40fb5d488', '653c4c8f-8c39-4aee-86f5-7f3926d0d4c2', 'IMPORT', 'eea36780-48f2-424c-9b55-0d7394e9677d');
-INSERT INTO workflow_template_maps (id, hs_code_id, trade_flow, workflow_template_id) VALUES ('3c2361ca-baf4-4847-82cc-b1cf6d84096f', 'bfa92119-64d3-41f4-b21c-fd0e2eb2966b', 'IMPORT', 'eea36780-48f2-424c-9b55-0d7394e9677d');
-INSERT INTO workflow_template_maps (id, hs_code_id, trade_flow, workflow_template_id) VALUES ('5edbd5cb-b347-4272-9541-eee10ce9c387', '36a58d44-8ff6-4bea-8c9b-3db84bb5a083', 'EXPORT', '44bbe677-d327-4968-bf72-1d314246b486');
-INSERT INTO workflow_template_maps (id, hs_code_id, trade_flow, workflow_template_id) VALUES ('688574a0-e24c-48e4-86eb-1496d5d21da2', '8a0783e4-82e6-488e-b96e-6140a8912f39', 'EXPORT', '44bbe677-d327-4968-bf72-1d314246b486');
+INSERT INTO workflow_template_maps (id, hs_code_id, trade_flow, workflow_template_id) VALUES (
+    'b527cff7-9caf-4756-b143-ecf62dbc4236',
+    '6aa146ba-dd72-4e5e-ae27-a1cb5d69caa5',
+    'EXPORT',
+    'd299f7e7-eca3-4399-9b22-2ae1d742109d'
+);
+INSERT INTO workflow_template_maps (id, hs_code_id, trade_flow, workflow_template_id) VALUES (
+    '5a4c798a-d21f-47f6-a257-0c70a556da0e',
+    '2e173ef8-840b-4cc5-a667-03e1d80e04b9',
+    'EXPORT',
+    'd299f7e7-eca3-4399-9b22-2ae1d742109d'
+);
+INSERT INTO workflow_template_maps (id, hs_code_id, trade_flow, workflow_template_id) VALUES (
+    '74ab852b-5077-4111-abfb-bef40fb5d488', 
+    '653c4c8f-8c39-4aee-86f5-7f3926d0d4c2',
+    'IMPORT',
+    'eea36780-48f2-424c-9b55-0d7394e9677d'
+);
+INSERT INTO workflow_template_maps (id, hs_code_id, trade_flow, workflow_template_id) VALUES (
+    '3c2361ca-baf4-4847-82cc-b1cf6d84096f',
+    'bfa92119-64d3-41f4-b21c-fd0e2eb2966b',
+    'IMPORT',
+    'eea36780-48f2-424c-9b55-0d7394e9677d'
+);
+INSERT INTO workflow_template_maps (id, hs_code_id, trade_flow, workflow_template_id) VALUES (
+    '5edbd5cb-b347-4272-9541-eee10ce9c387',
+    '36a58d44-8ff6-4bea-8c9b-3db84bb5a083',
+    'EXPORT',
+    '44bbe677-d327-4968-bf72-1d314246b486'
+);
+INSERT INTO workflow_template_maps (id, hs_code_id, trade_flow, workflow_template_id) VALUES (
+    '688574a0-e24c-48e4-86eb-1496d5d21da2',
+    '8a0783e4-82e6-488e-b96e-6140a8912f39',
+    'EXPORT',
+    '44bbe677-d327-4968-bf72-1d314246b486'
+);
