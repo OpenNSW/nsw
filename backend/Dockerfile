@@ -15,9 +15,9 @@ RUN go mod download
 # Copy the rest of the source code
 COPY . .
 
-# Build the binary using the Makefile 'linux' target
-# This ensures consistency with local builds and injects version/commit info
-RUN make linux
+# Build the binary using the Makefile 'build-linux' target
+# This ensures consistency with local builds
+RUN make build-linux
 
 # ==============================================================================
 # Runtime Stage

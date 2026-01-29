@@ -1,54 +1,70 @@
-.PHONY: all run build linux test lint clean docker help
-
 # ==============================================================================
-# Main Configuration
+# Variables
 # ==============================================================================
-BINARY_NAME := server
+# Binary & Project
+BINARY_NAME  := server
 MAIN_PACKAGE := ./cmd/server/main.go
+BIN_DIR      := bin
 DOCKER_IMAGE := backend-service
 
-# Versioning (Injects Git info)
-VERSION := $(shell git describe --tags --always --dirty)
-COMMIT  := $(shell git rev-parse --short HEAD)
-LDFLAGS := -ldflags "-s -w -X main.Version=$(VERSION) -X main.Commit=$(COMMIT)"
+# Linker Flags
+# -s -w: Strips debug info for smaller binary size
+LDFLAGS := -ldflags "-s -w"
 
-# Tooling Versions
+# Tooling
 LINTER_VERSION := v1.63.4
 
-# Load .env if it exists
+# ==============================================================================
+# Environment Configuration
+# ==============================================================================
+# Load .env file if it exists, but do not error if it doesn't (useful for CI)
 ifneq (,$(wildcard ./.env))
-    include .env
-    export
+	include .env
+	export
 endif
 
 # ==============================================================================
 # Targets
 # ==============================================================================
+.PHONY: all run build build-linux deps test test-cov lint docker clean help
 
 .DEFAULT_GOAL := help
 
-all: build
+all: deps build ## Run dependencies check and build binary
 
-run: ## Run the server locally
+run: ## Run the server locally without compiling a binary
 	go run $(LDFLAGS) $(MAIN_PACKAGE)
 
-build: ## Build binary for current OS
-	go build $(LDFLAGS) -o bin/$(BINARY_NAME) $(MAIN_PACKAGE)
+build: ## Build binary for the current OS (Mac/Linux/Windows)
+	@echo "Building $(BINARY_NAME) for local OS..."
+	go build $(LDFLAGS) -o $(BIN_DIR)/$(BINARY_NAME) $(MAIN_PACKAGE)
 
-linux: ## Build binary for Linux (production/docker)
-	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o bin/$(BINARY_NAME)-linux $(MAIN_PACKAGE)
+build-linux: ## Build static binary for Linux/AMD64 (Best for Docker/Alpine)
+	@echo "Building static $(BINARY_NAME) for Linux..."
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BIN_DIR)/$(BINARY_NAME)-linux $(MAIN_PACKAGE)
 
-test: ## Run tests (includes race detection & vet)
-	go test -v -race ./...
+deps: ## Download and tidy Go modules
+	go mod tidy
+	go mod verify
 
-lint: ## Run linter (installs automatically via go run)
-	go run github.com/golangci/golangci-lint/cmd/golangci-lint@$(LINTER_VERSION) run
+test: ## Run unit tests (with race detection)
+	go test -race -v ./...
 
-docker: ## Build Docker image
-	docker build -t $(DOCKER_IMAGE):$(VERSION) .
+test-cov: ## Run tests with coverage reporting
+	go test -race -coverprofile=coverage.out -covermode=atomic ./...
+	go tool cover -func=coverage.out
 
-clean: ## Cleanup build artifacts
-	rm -rf bin/
+lint: ## Run golangci-lint (downloads binary to tmp)
+	@echo "Running Linter..."
+	go run github.com/golangci/golangci-lint/cmd/golangci-lint@$(LINTER_VERSION) run ./...
+
+docker: ## Build Docker image (Passes build args)
+	docker build \
+		-t $(DOCKER_IMAGE):latest .
+
+clean: ## Cleanup binaries and coverage files
+	rm -rf $(BIN_DIR) coverage.out
 
 help: ## Show this help message
+	@echo "Usage: make [target]"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
