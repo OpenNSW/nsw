@@ -8,7 +8,15 @@ import (
 	"github.com/google/uuid"
 )
 
-// InitPayload represents the data required to initialize a task in the ExecutionUnit Manager system.
+type TaskStatus string
+
+const (
+	TaskStatusSuspended TaskStatus = "SUSPENDED"
+	TaskStatusCompleted TaskStatus = "COMPLETED"
+	TaskStatusFailed    TaskStatus = "FAILED"
+)
+
+// InitPayload represents the data required to initialize a task.
 type InitPayload struct {
 	StepID        string           `json:"stepId" binding:"required"`        // Unique identifier of the step within the workflow template
 	TaskID        uuid.UUID        `json:"taskId" binding:"required"`        // Unique identifier of the task instance
@@ -19,47 +27,29 @@ type InitPayload struct {
 	GlobalContext map[string]interface{}
 }
 
-// ActiveTask represents a task that is currently active in the system.
-type ActiveTask struct {
-	TaskID        uuid.UUID
-	ConsignmentID uuid.UUID
-	StepID        string
-	Type          Type
-	Status        model.TaskStatus
-	Executor      ExecutionUnit
+// StateManager deals with state persistence.
+type StateManager interface {
+	Get(key string) any
+	Set(key string, value any)
+	GetAll() map[string]any
 }
 
-func NewActiveTask(payload InitPayload, executor ExecutionUnit) *ActiveTask {
-	return &ActiveTask{
-		TaskID:        payload.TaskID,
-		ConsignmentID: payload.ConsignmentID,
-		StepID:        payload.StepID,
-		Type:          payload.Type,
-		Status:        payload.Status,
-		Executor:      executor,
-	}
+// TaskContainer is created by TaskManager and loads the plugin. Abstraction for an instance of a Task
+type TaskContainer struct {
+	TaskID        string
+	Status        TaskStatus
+	InternalState StateManager
+	GlobalState   StateManager
 }
 
-func (a *ActiveTask) GetID() uuid.UUID {
-	return a.TaskID
+type TaskPluginReturnValue struct {
+	Status                 TaskStatus
+	StatusHumanReadableStr string
+	Data                   any
 }
 
-func (a *ActiveTask) GetType() Type {
-	return a.Type
-}
-
-func (a *ActiveTask) GetStatus() model.TaskStatus {
-	return a.Status
-}
-
-func (a *ActiveTask) SetStatus(status model.TaskStatus) {
-	a.Status = status
-}
-
-func (a *ActiveTask) IsExecutable() bool {
-	return a.Status != model.TaskStatusLocked
-}
-
-func (a *ActiveTask) Execute(ctx context.Context, payload *ExecutionPayload) (*ExecutionResult, error) {
-	return a.Executor.Execute(ctx, payload)
+type TaskPlugin interface {
+	Start(ctx context.Context, config map[string]any, is StateManager, gs StateManager) (*TaskPluginReturnValue, error)
+	// data is any information provided by callbacks, etc when the task gets resumed
+	Resume(ctx context.Context, is StateManager, gs StateManager, data map[string]any) (*TaskPluginReturnValue, error)
 }

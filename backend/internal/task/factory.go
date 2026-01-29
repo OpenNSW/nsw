@@ -9,8 +9,8 @@ import (
 )
 
 // TaskFactory creates task instances from task type and model
-type TaskFactory interface {
-	BuildExecutor(ctx context.Context, taskType Type, commandSet interface{}, globalCtx map[string]interface{}) (ExecutionUnit, error)
+	// BuildPlugin creates a TaskPlugin for the given task type
+	BuildPlugin(taskType string) (TaskPlugin, error)
 }
 
 // taskFactory implements TaskFactory interface
@@ -27,14 +27,15 @@ func NewTaskFactory(cfg *config.Config, formService form.FormService) TaskFactor
 	}
 }
 
-func (f *taskFactory) BuildExecutor(ctx context.Context, taskType Type, commandSet interface{}, globalCtx map[string]interface{}) (ExecutionUnit, error) {
+func (f *taskFactory) BuildPlugin(taskType string) (TaskPlugin, error) {
 
 	switch taskType {
-	case TaskTypeSimpleForm:
-		return NewSimpleFormTask(ctx, commandSet, globalCtx, f.config, f.formService)
-	case TaskTypeWaitForEvent:
-		return NewWaitForEventTask(commandSet, globalCtx)
+	case "SIMPLE_FORM":
+		return NewSimpleFormTask(f.config, f.formService)
+	case "WAIT_FOR_EVENT":
+		return &WaitForEventTask{}, nil
 	default:
 		return nil, fmt.Errorf("unknown task type: %s", taskType)
 	}
 }
+

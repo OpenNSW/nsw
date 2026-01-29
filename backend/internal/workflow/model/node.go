@@ -25,13 +25,13 @@ const (
 	DependencyStatusCompleted  DependencyStatus = "COMPLETED"  // Dependency has been completed
 )
 
-// Task represents a task instance within a consignment workflow.
-type Task struct {
+// Node represents a single process/task instance within a consignment workflow.
+type Node struct {
 	BaseModel
 	ConsignmentID uuid.UUID                   `gorm:"type:uuid;column:consignment_id;not null" json:"consignmentId"`          // Reference to the Consignment
-	StepID        string                      `gorm:"type:varchar(100);column:step_id;not null" json:"stepId"`                // Step ID from the workflow template
-	Type          StepType                    `gorm:"type:varchar(50);column:type;not null" json:"type"`                      // Type of the task (e.g., TRADER_FORM, OGA_FORM)
-	Status        TaskStatus                  `gorm:"type:varchar(20);column:status;not null" json:"status"`                  // Status of the task (e.g., LOCKED, READY, SUBMITTED, APPROVED, REJECTED)
+	StepID        string                      `gorm:"type:varchar(100);column:step_id;not null" json:"stepId"`                // Task ID from the workflow template
+	Type          TaskType                    `gorm:"type:varchar(50);column:type;not null" json:"type"`                      // Type of the task (e.g., TRADER_FORM, OGA_FORM)
+	Status        TaskStatus                  `gorm:"type:varchar(20);column:status;not null" json:"status"`                  // Status of the task
 	Config        json.RawMessage             `gorm:"type:jsonb;column:config;not null" json:"config"`                        // Configuration specific to the task
 	DependsOn     map[string]DependencyStatus `gorm:"type:jsonb;column:depends_on;serializer:json;not null" json:"dependsOn"` // Map of stepID to completion status
 
@@ -39,6 +39,6 @@ type Task struct {
 	Consignment Consignment `gorm:"foreignKey:ConsignmentID;references:ID" json:"consignment"`
 }
 
-func (t *Task) TableName() string {
-	return "tasks"
+func (n *Node) TableName() string {
+	return "nodes"
 }
