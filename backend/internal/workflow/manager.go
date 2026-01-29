@@ -62,8 +62,8 @@ func (m *Manager) StartTaskUpdateListener() {
 				}
 
 				// Log if consignment is completed
-				if consignment != nil && consignment.State == model.ConsignmentStateCompleted {
-					slog.Info("consignment completed", "consignmentID", consignment.ID)
+				if consignment != nil && consignment.State == model.ConsignmentStateFinished {
+					slog.Info("consignment finished", "consignmentID", consignment.ID)
 				}
 				// Register newly ready tasks with Task Manager
 				if len(newReadyTasks) > 0 {
@@ -86,17 +86,29 @@ func (m *Manager) registerTasks(tasks []*model.Task, consignmentGlobalContext ma
 	for _, t := range tasks {
 		initPayload := task.InitPayload{
 			TaskID:        t.ID,
-			Type:          task.Type(t.Type),
-			Status:        t.Status,
-			CommandSet:    t.Config,
+			Type:          string(t.Type),
+			Status:        string(t.Status),
+			Config:        t.Config,
 			ConsignmentID: t.ConsignmentID,
 			StepID:        t.StepID,
 			GlobalContext: consignmentGlobalContext,
 		}
-		_, err := m.tm.RegisterTask(context.Background(), initPayload)
+		container, err := m.tm.InitTaskContainer(context.Background(), initPayload)
 		if err != nil {
-			slog.Error("failed to register task", "taskID", t.ID, "error", err)
-			return
+			slog.Error("failed to init task container", "taskID", t.ID, "error", err)
+			continue
+		}
+
+		// Start the task
+		result, err := container.Start(context.Background())
+		if err != nil {
+			slog.Error("failed to start task", "taskID", t.ID, "error", err)
+			continue
+		}
+
+		// Notify state if changed
+		if result.Status != task.TaskStatusSuspended {
+			m.tm.NotifyState(context.Background(), t.ID, result.Status, container.GlobalState.(*task.SimpleMapStateManager).GetAll())
 		}
 	}
 }

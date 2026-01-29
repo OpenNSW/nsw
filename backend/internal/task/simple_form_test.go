@@ -22,7 +22,30 @@ func (m *MockFormService) GetFormByID(ctx context.Context, formID uuid.UUID) (*f
 	return nil, nil
 }
 
-func TestSimpleFormTask_FetchForm(t *testing.T) {
+// MockStateManager
+type MockStateManager struct {
+	data map[string]interface{}
+}
+
+func NewMockStateManager() *MockStateManager {
+	return &MockStateManager{data: make(map[string]interface{})}
+}
+
+func (m *MockStateManager) Get(key string) (interface{}, bool) {
+	val, ok := m.data[key]
+	return val, ok
+}
+
+func (m *MockStateManager) Set(key string, value interface{}) error {
+	m.data[key] = value
+	return nil
+}
+
+func (m *MockStateManager) GetAll() map[string]interface{} {
+	return m.data
+}
+
+func TestSimpleFormTask_Start_FetchForm(t *testing.T) {
 	// Setup
 	formID := uuid.New()
 	expectedTitle := "Test Form"
@@ -41,33 +64,43 @@ func TestSimpleFormTask_FetchForm(t *testing.T) {
 		},
 	}
 
-	commandSet := SimpleFormCommandSet{
-		FormID: formID.String(),
+	// Configuration with FormID
+	configMap := map[string]any{
+		"formId": formID.String(),
 	}
+	configBytes, _ := json.Marshal(configMap)
 
-	// execute NewSimpleFormTask which should trigger populateFromRegistry
-	task, err := NewSimpleFormTask(context.Background(), commandSet, nil, &config.Config{}, mockService)
+	task, err := NewSimpleFormTask(&config.Config{}, mockService)
 	if err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 
-	// Execute FETCH_FORM
-	payload := &ExecutionPayload{
-		Action: "FETCH_FORM",
-	}
+	is := NewMockStateManager()
+	gs := NewMockStateManager()
 
-	result, err := task.Execute(context.Background(), payload)
+	// Execute Start
+	result, err := task.Start(context.Background(), json.RawMessage(configBytes), is, gs)
 	if err != nil {
-		t.Fatalf("task execution failed: %v", err)
+		t.Fatalf("task start failed: %v", err)
 	}
 
 	// Verify
-	data, ok := result.Data.(SimpleFormResult)
+	dataMap, ok := result.Data.(map[string]any)
 	if !ok {
-		t.Fatalf("expected SimpleFormResult, got %T", result.Data)
+		// It returns map[string]any now in simple_form.go
+		t.Fatalf("expected map[string]any, got %T", result.Data)
 	}
 
-	if data.Title != expectedTitle {
-		t.Errorf("expected title %s, got %s", expectedTitle, data.Title)
+	if dataMap["title"] != expectedTitle {
+		t.Errorf("expected title %s, got %s", expectedTitle, dataMap["title"])
+	}
+	
+	// Verify internal state
+	formState, ok := is.Get("form")
+	if !ok {
+		t.Error("expected form state to be set")
+	}
+	if formState == nil {
+		t.Error("expected form state to be non-nil")
 	}
 }
