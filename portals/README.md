@@ -17,10 +17,13 @@ make help       # See all available commands
 ```
 
 ### 📚 New to the Project?
-See **[SETUP_WORKSPACE.md](./SETUP_WORKSPACE.md)** for detailed setup instructions, troubleshooting, and migration guides.
+See **[SETUP_WORKSPACE.md](docs/SETUP_WORKSPACE.md)** for:
+- Complete setup instructions (new developers & existing team migration)
+- Version requirements and enforcement
+- Troubleshooting common issues
+- Verification checklist
 
-### Migrating from npm?
-Run `make clean && make setup` to remove old npm artifacts and install with pnpm.
+---
 
 ## Project Structure
 
@@ -60,38 +63,14 @@ The `ui` package is a shared component library built from the ground up using [R
 The `apps/` directory contains applications that consume the shared UI library. Each app is a standalone project that imports components from `@lsf/ui`.
 
 **Current apps:**
+- `oga-app` - OGA portal application
 - `trader-app` - Trading application
 
-## Getting Started
+---
 
-### Prerequisites
+## Development Workflow
 
-- **Node.js** v22.18.0 or higher (we recommend using [nvm](https://github.com/nvm-sh/nvm) to manage Node versions)
-- **pnpm** v10.28.1 (installed automatically via `make setup`)
-
-> **📌 Version Lock**: This project enforces specific versions to ensure consistent lockfile generation across all team members. See `.nvmrc` and `package.json#packageManager` for version requirements.
-
-### Setup
-
-```bash
-# First time setup (installs pnpm + dependencies)
-make setup
-
-# If using nvm, activate the correct Node version first
-nvm use
-```
-
-If you prefer to install pnpm manually:
-```bash
-npm install -g pnpm@10.28.1
-pnpm install
-```
-
-## Development Commands
-
-Run `make help` to see all available commands.
-
-### Common Tasks
+### Common Commands
 
 ```bash
 # Development
@@ -121,35 +100,7 @@ pnpm --filter @lsf/ui add lodash
 pnpm add -w prettier -D
 ```
 
-### Troubleshooting
-
-**"pnpm: command not found"**
-```bash
-make setup  # Installs pnpm automatically
-```
-
-**"Cannot find module '@lsf/ui'"**
-```bash
-make build-ui  # Build the UI library first
-```
-
-**TypeScript errors after pulling**
-```bash
-make clean && make install && make build
-```
-
-**Different lockfile changes on each `pnpm install`**
-This happens when team members use different Node or pnpm versions. To fix:
-```bash
-# Ensure you're using the correct Node version
-nvm use
-
-# Verify pnpm version matches package.json
-pnpm --version  # Should show 10.28.1
-
-# If not, reinstall pnpm
-npm install -g pnpm@10.28.1
-```
+---
 
 ## Using the UI Library
 
@@ -187,6 +138,8 @@ function MyComponent() {
    ```
 4. Run `pnpm install` from the root
 
+---
+
 ## Tech Stack
 
 - **React** 19
@@ -202,4 +155,11 @@ function MyComponent() {
 - 🔒 **Stricter** - prevents phantom dependencies
 - 🎯 **Single lock file** - better for monorepos
 - ✅ **Industry standard** - used by Vue, Vite, Svelte, and more
-- **npm Workspaces** - Monorepo management
+
+---
+
+## Need Help?
+
+- **Setup & Troubleshooting:** See [SETUP_WORKSPACE.md](docs/SETUP_WORKSPACE.md)
+- **Available Commands:** Run `make help`
+- **Issues:** Check the [troubleshooting section](docs/SETUP_WORKSPACE.md#troubleshooting) in SETUP_WORKSPACE.md

@@ -1,3 +1,7 @@
 packages:
-  - 'apps/*'
-  - 'ui'
+  - apps/*
+  - ui
+
+onlyBuiltDependencies:
+  - '@swc/core'
+  - esbuild

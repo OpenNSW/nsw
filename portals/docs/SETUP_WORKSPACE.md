@@ -101,6 +101,27 @@ pnpm install
 # - ui package
 ```
 
+**You may see a build scripts warning:**
+```
+╭ Warning ───────────────────────────────────────────────────────────────╮
+│ Ignored build scripts: @swc/core@1.15.10, esbuild@0.27.2.              │
+│ Run "pnpm approve-builds" to pick which packages should be allowed...  │
+╰─────────────────────────────────────────────────────────────────────────╯
+```
+
+This is a pnpm security feature. Approve the build scripts:
+
+```bash
+pnpm approve-builds
+
+# Use <space> to select both:
+# ✓ @swc/core
+# ✓ esbuild
+# Then press <Enter>
+```
+
+This creates `.pnpm-build-scripts.json` (already in git) and allows these packages to download platform-specific binaries.
+
 ### Step 6: Build Shared Packages
 
 ```bash
@@ -218,6 +239,10 @@ pnpm --version
 # Install all dependencies with correct versions
 pnpm install
 
+# If prompted about build scripts, approve them
+pnpm approve-builds
+# Select both @swc/core and esbuild, then press Enter
+
 # Rebuild shared packages
 make build-ui
 
@@ -266,6 +291,35 @@ nvm use
 # Verify
 node --version  # Must be v22.18.0
 ```
+
+---
+
+### Problem: Build scripts warning during `pnpm install`
+
+**Symptoms:**
+```
+Ignored build scripts: @swc/core@1.15.10, esbuild@0.27.2.
+Run "pnpm approve-builds" to pick which packages should be allowed...
+```
+
+**What it is:**
+pnpm security feature that prevents packages from running scripts without approval.
+
+**Solution:**
+```bash
+# Approve the build scripts
+pnpm approve-builds
+
+# Select both packages (use spacebar):
+# ✓ @swc/core
+# ✓ esbuild
+# Then press Enter
+
+# This creates .pnpm-build-scripts.json and allows these packages
+# to download platform-specific native binaries
+```
+
+**Note:** This is normal and expected. The `.pnpm-build-scripts.json` file should already be in git.
 
 ---
 
@@ -453,7 +507,7 @@ If you're still stuck:
 - [pnpm Documentation](https://pnpm.io/)
 - [nvm Documentation](https://github.com/nvm-sh/nvm)
 - [Node.js Releases](https://nodejs.org/en/about/previous-releases)
-- [Makefile Commands](./Makefile) - Run `make help`
+- [Makefile Commands](../Makefile) - Run `make help`
 
 ---
 
@@ -471,3 +525,150 @@ When updating these versions, the team lead will:
 3. Update `.npmrc` if needed
 4. Regenerate `pnpm-lock.yaml`
 5. Notify all team members to migrate
+
+## 📈 Appendix: Version Update Recommendations
+
+This section tracks recommended future upgrades and the migration process.
+
+### Current Status (Jan 2026)
+- **Node.js:** `v22.18.0` (Locked)
+- **pnpm:** `v10.28.1` (Locked)
+
+### How to Update (Maintainer Guide)
+et's say we're going to `Update Node.js from v22.18.0 to v24.13.0` and `Update pnpm from 10.28.1 to 10.28.2`
+
+#### Step 1: Update Node.js to v24.13.0
+
+1. **Update `.nvmrc`:**
+   ```bash
+   echo "24.13.0" > .nvmrc
+   ```
+
+2. **Update `package.json` engines:**
+   ```json
+   {
+     "engines": {
+       "node": "24.13.0",
+       "pnpm": "10.28.2"
+     }
+   }
+   ```
+
+3. **Update `.npmrc`:**
+   ```ini
+   use-node-version=24.13.0
+   ```
+
+#### Step 2: Update pnpm to v10.28.2
+
+1. **Update `package.json` packageManager:**
+   ```json
+   {
+     "packageManager": "pnpm@10.28.2"
+   }
+   ```
+
+#### Step 3: Test Locally
+
+```bash
+# Install new Node version
+nvm install 24.13.0
+nvm use 24.13.0
+
+# Verify
+node --version  # Should show v24.13.0
+
+# Update pnpm
+corepack enable
+# OR manually
+npm install -g pnpm@10.28.2
+
+# Clean install
+rm -rf node_modules apps/*/node_modules ui/node_modules
+pnpm install
+
+# Run tests
+make build
+make dev-oga  # Verify app starts
+
+# Check lockfile changes
+git diff pnpm-lock.yaml
+```
+
+#### Step 4: Team Migration Plan
+
+1. **Create a branch:** `chore/update-node-pnpm-versions`
+2. **Update all version files** (as shown above)
+3. **Regenerate lockfile:** Run `pnpm install` on macOS/Linux to get canonical lockfile
+4. **Create PR** with clear migration instructions
+5. **Notify team** via Team before merging
+6. **Coordinate merge:** Pick a time when everyone can migrate together
+7. **Team updates:** Everyone follows "Existing Developer Migration" steps in this guide
+
+#### Step 5: Update Documentation
+
+Update version numbers in:
+- This file (SETUP_WORKSPACE.md)
+- README.md (if version numbers are mentioned)
+- Any CI/CD configuration files
+
+---
+
+### Testing Checklist Before Team Rollout
+
+Before rolling out version updates to the team, verify:
+
+- [ ] Fresh install works (`rm -rf node_modules && pnpm install`)
+- [ ] All apps build successfully (`make build`)
+- [ ] All apps run in dev mode (`make dev-oga`, `make dev-trader`)
+- [ ] Tests pass (if you have tests)
+- [ ] Linting passes (`make lint`)
+- [ ] No new warnings in console
+- [ ] Dependencies resolve correctly
+- [ ] Lockfile stable (run `pnpm install` twice, no changes)
+- [ ] Works on macOS
+- [ ] Works on Linux (test in CI or Docker)
+- [ ] Works on Windows (if team uses Windows)
+
+---
+
+### Rollback Plan
+
+If the upgrade causes issues:
+
+```bash
+# 1. Revert version files
+git checkout main -- .nvmrc package.json .npmrc
+
+# 2. Switch back to old Node version
+nvm use 22.18.0
+
+# 3. Reinstall old pnpm
+npm install -g pnpm@10.28.1
+
+# 4. Restore lockfile
+git checkout main -- pnpm-lock.yaml
+
+# 5. Clean reinstall
+rm -rf node_modules apps/*/node_modules ui/node_modules
+pnpm install
+```
+
+---
+
+### Summary
+
+**Current recommendation for your team:**
+
+1. **✅ Update pnpm to v10.28.2** - Safe patch update, minimal risk
+2. **🟡 Plan Node.js v24 upgrade** - Current LTS, but coordinate with team first
+3. **📝 Create migration plan** - Use this guide
+4. **🧪 Test thoroughly** - Run full test suite before team rollout
+5. **👥 Coordinate rollout** - Pick a time when team can update together
+
+**Next steps:**
+1. Discuss with team lead
+2. Create upgrade branch
+3. Test locally
+4. Schedule team migration
+5. Update all documentation
