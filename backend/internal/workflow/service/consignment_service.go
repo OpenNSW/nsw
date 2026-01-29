@@ -436,7 +436,7 @@ func (s *ConsignmentService) updateDependentTasks(ctx context.Context, tx *gorm.
 				NewStatus: dependentTask.Status,
 			})
 		}
-		if dependentTask.Status != model.TaskStatusCompleted {
+		if dependentTask.Status != model.TaskStatusCompleted && dependentTask.ID != completedTask.ID {
 			isAllCompleted = false
 		}
 	}

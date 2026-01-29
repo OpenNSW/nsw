@@ -572,6 +572,14 @@ func (t *SimpleFormTask) handleOgaVerification(verificationData map[string]inter
 		verificationJSON = jsonData
 	}
 
+	// If verificationJSON is nil, or verificationData.decision is not "APPROVED", reject the task
+	if verificationData == nil || verificationData["decision"] != "APPROVED" {
+		return &ExecutionResult{
+			Status:  model.TaskStatusRejected,
+			Message: "Verification data is required for OGA verification",
+		}, nil
+	}
+
 	// Mark task as COMPLETED
 	return &ExecutionResult{
 		Status:  model.TaskStatusCompleted,
