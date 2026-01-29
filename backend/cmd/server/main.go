@@ -45,6 +45,8 @@ func main() {
 
 	slog.Info("server configuration",
 		"port", cfg.Server.Port,
+		"version", Version,
+		"commit", Commit,
 	)
 
 	// Initialize database connection
