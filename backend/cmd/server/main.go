@@ -66,17 +66,11 @@ func main() {
 	// Create task completion notification channel
 	ch := make(chan model.TaskCompletionNotification, ChannelSize)
 
-	// Initialize task manager (still using SQLite for now)
-	// TODO: Migrate task manager to use PostgreSQL
-	tm, err := task.NewTaskManager("./taskmanager.db", ch, cfg)
+	// Initialize task manager with shared PostgreSQL connection
+	tm, err := task.NewTaskManager(db, ch, cfg)
 	if err != nil {
 		log.Fatalf("failed to create task manager: %v", err)
 	}
-	defer func() {
-		if err := tm.Close(); err != nil {
-			slog.Error("failed to close task manager", "error", err)
-		}
-	}()
 
 	// Initialize workflow manager with database connection
 	wm := workflow.NewManager(tm, ch, db)
