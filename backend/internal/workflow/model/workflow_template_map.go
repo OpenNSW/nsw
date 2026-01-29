@@ -10,8 +10,8 @@ type WorkflowTemplateMap struct {
 	WorkflowTemplateID uuid.UUID `gorm:"type:uuid;column:workflow_template_id;not null" json:"workflowTemplateId"`
 
 	// Relationships
-	HSCode           HSCode           `gorm:"foreignKey:HSCodeID;references:ID" json:"hsCode"`
-	WorkflowTemplate WorkflowTemplate `gorm:"foreignKey:WorkflowTemplateID;references:ID" json:"workflowTemplate"`
+	HSCode           HSCode         `gorm:"foreignKey:HSCodeID;references:ID" json:"hsCode"`
+	WorkflowTemplate HSCodeWorkflow `gorm:"foreignKey:WorkflowTemplateID;references:ID" json:"workflowTemplate"`
 }
 
 func (w *WorkflowTemplateMap) TableName() string {
