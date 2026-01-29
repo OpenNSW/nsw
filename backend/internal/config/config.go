@@ -13,6 +13,7 @@ type Config struct {
 	Database DatabaseConfig
 	Server   ServerConfig
 	CORS     CORSConfig
+	Tasks    TasksConfig
 }
 
 // DatabaseConfig holds database connection configuration
@@ -41,6 +42,11 @@ type CORSConfig struct {
 	AllowedHeaders   []string
 	AllowCredentials bool
 	MaxAge           int
+}
+
+// TasksConfig holds configuration for task execution
+type TasksConfig struct {
+	ExecutionTimeoutSeconds int
 }
 
 // Load reads configuration from environment variables
@@ -77,6 +83,9 @@ func Load() (*Config, error) {
 			AllowedHeaders:   parseCommaSeparated(getEnvOrDefault("CORS_ALLOWED_HEADERS", "Content-Type,Authorization")),
 			AllowCredentials: getBoolOrDefault("CORS_ALLOW_CREDENTIALS", true),
 			MaxAge:           getIntOrDefault("CORS_MAX_AGE", 3600),
+		},
+		Tasks: TasksConfig{
+			ExecutionTimeoutSeconds: getIntOrDefault("TASK_EXECUTION_TIMEOUT_SECONDS", 60),
 		},
 	}
 

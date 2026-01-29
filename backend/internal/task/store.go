@@ -15,9 +15,10 @@ type TaskInfo struct {
 	ID            uuid.UUID        `gorm:"type:uuid;primaryKey"`
 	StepID        string           `gorm:"type:varchar(50);not null"`
 	ConsignmentID uuid.UUID        `gorm:"type:uuid;index;not null"`
-	Type          Type             `gorm:"type:varchar(50);not null"`
+	Type          string           `gorm:"type:varchar(50);not null"`
 	Status        model.TaskStatus `gorm:"type:varchar(50);not null"`
 	CommandSet    json.RawMessage  `gorm:"type:json"`
+	InternalState json.RawMessage  `gorm:"type:json"`
 	GlobalContext json.RawMessage  `gorm:"type:json"`
 	CreatedAt     time.Time        `gorm:"autoCreateTime"`
 	UpdatedAt     time.Time        `gorm:"autoUpdateTime"`

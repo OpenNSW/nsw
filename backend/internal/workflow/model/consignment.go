@@ -16,8 +16,9 @@ const (
 type ConsignmentState string
 
 const (
-	ConsignmentStateInProgress ConsignmentState = "IN_PROGRESS"
-	ConsignmentStateCompleted  ConsignmentState = "COMPLETED"
+	ConsignmentStateInProgress     ConsignmentState = "IN_PROGRESS"
+	ConsignmentStateRequiresRework ConsignmentState = "REQUIRES_REWORK"
+	ConsignmentStateFinished       ConsignmentState = "FINISHED"
 )
 
 // Consignment represents the state and data of a consignment in the workflow system.
@@ -34,14 +35,20 @@ func (c *Consignment) TableName() string {
 	return "consignments"
 }
 
-// Node represents a single process in the workflow (runtime)
-
+// ConsignmentStep represents an individual step within a consignment workflow at runtime.
+type ConsignmentStep struct {
+	StepID    string     `json:"stepId"`    // Unique identifier for the step
+	Type      string     `json:"type"`      // Type of the step
+	TaskID    uuid.UUID  `json:"taskId"`    // ID of the task instance
+	Status    TaskStatus `json:"status"`    // Current status of the task
+	DependsOn []string   `json:"dependsOn"` // List of step IDs that this step depends on
+}
 
 // Item represents an individual item within a consignment.
 type Item struct {
-	HSCodeID          uuid.UUID   `json:"hsCodeID"`                 // HS Code ID of the item
-	HSCode            string      `json:"hsCode"`                   // HS Code of the item
-	HSCodeDescription string      `json:"hsCodeDescription"`        // Description of the HS Code
-	AdditionalData    interface{} `json:"additionalData,omitempty"` // Additional item data
-	Nodes             []Node      `json:"nodes"`                    // List of nodes associated with this item
+	HSCodeID          uuid.UUID         `json:"hsCodeId"`                 // HS Code ID of the item
+	HSCode            string            `json:"hsCode"`                   // HS Code of the item
+	HSCodeDescription string            `json:"hsCodeDescription"`        // Description of the HS Code
+	AdditionalData    interface{}       `json:"additionalData,omitempty"` // Additional item data
+	Steps             []ConsignmentStep `json:"steps"`                    // List of steps associated with this item
 }

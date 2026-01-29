@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 
@@ -62,8 +63,8 @@ func (m *Manager) StartTaskUpdateListener() {
 				}
 
 				// Log if consignment is completed
-				if consignment != nil && consignment.State == model.ConsignmentStateCompleted {
-					slog.Info("consignment completed", "consignmentID", consignment.ID)
+				if consignment != nil && consignment.State == model.ConsignmentStateFinished {
+					slog.Info("consignment finished", "consignmentID", consignment.ID)
 				}
 				// Register newly ready tasks with Task Manager
 				if len(newReadyTasks) > 0 {
@@ -86,17 +87,46 @@ func (m *Manager) registerTasks(tasks []*model.Task, consignmentGlobalContext ma
 	for _, t := range tasks {
 		initPayload := task.InitPayload{
 			TaskID:        t.ID,
-			Type:          task.Type(t.Type),
-			Status:        t.Status,
-			CommandSet:    t.Config,
+			Type:          string(t.Type),
+			Status:        string(t.Status),
+			Config:        t.Config,
 			ConsignmentID: t.ConsignmentID,
 			StepID:        t.StepID,
 			GlobalContext: consignmentGlobalContext,
 		}
-		_, err := m.tm.RegisterTask(context.Background(), initPayload)
+		container, err := m.tm.InitTaskContainer(context.Background(), initPayload)
 		if err != nil {
-			slog.Error("failed to register task", "taskID", t.ID, "error", err)
-			return
+			slog.Error("failed to init task container", "taskID", t.ID, "error", err)
+			continue
+		}
+
+
+		// Prepare config map
+		// We need to unmarshal the container config and merge it with global context identifiers
+		var configMap map[string]any
+		if len(t.Config) > 0 {
+			if err := json.Unmarshal(t.Config, &configMap); err != nil {
+				slog.Error("failed to unmarshal task config, skipping task start", "taskID", t.ID, "error", err)
+				continue
+			}
+		} else {
+			configMap = make(map[string]any)
+		}
+		
+		// Add context IDs to config
+		configMap["taskId"] = t.ID.String()
+		configMap["consignmentId"] = t.ConsignmentID.String()
+
+		// Start the task via Supervisor Execute
+		status, _, err := container.Execute(context.Background(), configMap)
+		if err != nil {
+			slog.Error("failed to start task", "taskID", t.ID, "error", err)
+			continue
+		}
+
+		// Notify state if changed
+		if status != task.TaskStatusAwaitingInput {
+			m.tm.NotifyState(context.Background(), t.ID, status, container.GlobalState.GetAll())
 		}
 	}
 }
