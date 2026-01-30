@@ -71,6 +71,7 @@ func main() {
 	formService := form.NewFormService(db)
 
 	// Initialize task manager (still using SQLite for now)
+	// Initialize task manager (still using SQLite for now)
 	// TODO: Migrate task manager to use PostgreSQL
 	tm, err := task.NewTaskManager("./taskmanager.db", ch, cfg, formService)
 	if err != nil {

@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/google/uuid"
 )
 
@@ -19,93 +18,74 @@ type WaitForEventConfig struct {
 }
 
 type WaitForEventTask struct {
-	CommandSet interface{}
-	globalCtx  map[string]interface{}
-	config     *WaitForEventConfig
 }
 
-// ExternalServiceRequest represents the payload sent to the external service
-type ExternalServiceRequest struct {
-	ConsignmentID uuid.UUID `json:"consignmentId"`
-	TaskID        uuid.UUID `json:"taskId"`
-}
-
-func NewWaitForEventTask(commandSet interface{}, globalCtx map[string]interface{}) (*WaitForEventTask, error) {
-	var config WaitForEventConfig
-
-	// Parse the command set configuration
-	if commandSet != nil {
-		configBytes, err := json.Marshal(commandSet)
-		if err != nil {
-			slog.Error("failed to marshal command set", "error", err)
-			return nil, fmt.Errorf("failed to marshal command set: %w", err)
-		} else {
-			if err := json.Unmarshal(configBytes, &config); err != nil {
-				slog.Error("failed to unmarshal wait for event config", "error", err)
-				return nil, fmt.Errorf("failed to unmarshal wait for event config: %w", err)
-			}
-		}
+// Start initializes the task, sends notification to external service, and suspends
+func (t *WaitForEventTask) Start(ctx context.Context, config json.RawMessage, is StateManager, gs StateManager) (*TaskPluginReturnValue, error) {
+	// Parse config
+	var configStruct WaitForEventConfig
+	if err := json.Unmarshal(config, &configStruct); err != nil {
+		return nil, fmt.Errorf("failed to parse task config: %w", err)
 	}
-
-	return &WaitForEventTask{
-		CommandSet: commandSet,
-		globalCtx:  globalCtx,
-		config:     &config,
-	}, nil
-}
-
-func (t *WaitForEventTask) Execute(ctx context.Context, payload *ExecutionPayload) (*ExecutionResult, error) {
-	// Handle completion action from external service callback
-	if payload != nil && payload.Action == "complete" {
-		slog.InfoContext(ctx, "task completion received from external service",
-			"taskId", t.globalCtx["taskId"],
-			"consignmentId", t.globalCtx["consignmentId"])
-
-		return &ExecutionResult{
-			Status:  model.TaskStatusCompleted,
-			Message: "Task completed by external service",
-		}, nil
-	}
-
-	// Extract task and consignment IDs from global context
-	taskID, ok := t.globalCtx["taskId"].(uuid.UUID)
-	if !ok {
-		return nil, fmt.Errorf("taskId not found in global context")
-	}
-
-	consignmentID, ok := t.globalCtx["consignmentId"].(uuid.UUID)
-	if !ok {
-		return nil, fmt.Errorf("consignmentId not found in global context")
-	}
-
-	// Validate external service URL
-	if t.config.ExternalServiceURL == "" {
+	
+	if configStruct.ExternalServiceURL == "" {
 		return nil, fmt.Errorf("externalServiceUrl not configured in task config")
 	}
 
-	// Send task information to external service asynchronously
-	// Use background context with timeout to ensure notification completes
-	// independently of the Execute method's context lifecycle
+	// Extract IDs from global state
+	taskIDVal, _ := gs.Get("taskId")
+	taskIDStr, _ := taskIDVal.(string)
+
+	consignmentIDVal, _ := gs.Get("consignmentId")
+	consignmentIDStr, _ := consignmentIDVal.(string)
+	
+	if taskIDStr == "" || consignmentIDStr == "" {
+		return nil, fmt.Errorf("taskId or consignmentId missing from global context")
+	}
+	
+	taskID, err := uuid.Parse(taskIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid taskId: %w", err)
+	}
+	consignmentID, err := uuid.Parse(consignmentIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid consignmentId: %w", err)
+	}
+
+	// Notify external service asynchronously
+	// We use a detached context or background context to ensure it runs even if Start returns quickly
 	notifyCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	go func() {
 		defer cancel()
-		t.notifyExternalService(notifyCtx, taskID, consignmentID)
+		t.notifyExternalService(notifyCtx, taskID, consignmentID, configStruct.ExternalServiceURL)
 	}()
 
-	// Return IN_PROGRESS status immediately (non-blocking)
-	// Task will be completed when external service calls back with action="complete"
-	return &ExecutionResult{
-		Status:  model.TaskStatusInProgress,
-		Message: "Notified external service, waiting for callback",
+	return &TaskPluginReturnValue{
+		Status:                 TaskStatusSuspended,
+		StatusHumanReadableStr: "Waiting for external event",
+	}, nil
+}
+
+func (t *WaitForEventTask) Resume(ctx context.Context, is StateManager, gs StateManager, data map[string]interface{}) (*TaskPluginReturnValue, error) {
+	// Resume is called when the event occurs
+	return &TaskPluginReturnValue{
+		Status:                 TaskStatusCompleted,
+		StatusHumanReadableStr: "Event received, task completed",
 	}, nil
 }
 
 // notifyExternalService sends task information to the configured external service with retry logic
-func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID, consignmentID uuid.UUID) {
+func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID, consignmentID uuid.UUID, serviceURL string) {
 	const (
 		maxRetries     = 3
 		initialBackoff = 1 * time.Second
 	)
+
+	// ExternalServiceRequest represents the payload sent to the external service
+	type ExternalServiceRequest struct {
+		ConsignmentID uuid.UUID `json:"consignmentId"`
+		TaskID        uuid.UUID `json:"taskId"`
+	}
 
 	request := ExternalServiceRequest{
 		ConsignmentID: consignmentID,
@@ -142,12 +122,12 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID, co
 		}
 
 		// Create HTTP request
-		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, t.config.ExternalServiceURL, bytes.NewBuffer(requestBody))
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, serviceURL, bytes.NewBuffer(requestBody))
 		if err != nil {
 			slog.ErrorContext(ctx, "failed to create HTTP request",
 				"taskId", taskID,
 				"consignmentId", consignmentID,
-				"url", t.config.ExternalServiceURL,
+				"url", serviceURL,
 				"attempt", attempt+1,
 				"error", err)
 			lastErr = err
@@ -162,7 +142,7 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID, co
 			slog.WarnContext(ctx, "failed to send request to external service",
 				"taskId", taskID,
 				"consignmentId", consignmentID,
-				"url", t.config.ExternalServiceURL,
+				"url", serviceURL,
 				"attempt", attempt+1,
 				"maxRetries", maxRetries,
 				"error", err)
@@ -188,7 +168,7 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID, co
 			slog.InfoContext(ctx, "successfully notified external service",
 				"taskId", taskID,
 				"consignmentId", consignmentID,
-				"url", t.config.ExternalServiceURL,
+				"url", serviceURL,
 				"status", resp.StatusCode,
 				"attempt", attempt+1)
 			return
@@ -200,7 +180,7 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID, co
 			slog.WarnContext(ctx, "external service returned retryable error status",
 				"taskId", taskID,
 				"consignmentId", consignmentID,
-				"url", t.config.ExternalServiceURL,
+				"url", serviceURL,
 				"status", resp.StatusCode,
 				"attempt", attempt+1,
 				"maxRetries", maxRetries)
@@ -223,7 +203,7 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID, co
 			slog.ErrorContext(ctx, "external service returned non-retryable error status",
 				"taskId", taskID,
 				"consignmentId", consignmentID,
-				"url", t.config.ExternalServiceURL,
+				"url", serviceURL,
 				"status", resp.StatusCode)
 			break
 		}
@@ -233,7 +213,7 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID, co
 	slog.ErrorContext(ctx, "failed to notify external service after all retries - task may be stuck in IN_PROGRESS",
 		"taskId", taskID,
 		"consignmentId", consignmentID,
-		"url", t.config.ExternalServiceURL,
+		"url", serviceURL,
 		"maxRetries", maxRetries,
 		"error", lastErr)
 }

@@ -244,7 +244,7 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 				// Create ConsignmentStep
 				steps[i] = model.ConsignmentStep{
 					StepID:    tasks[i].StepID,
-					Type:      tasks[i].Type,
+					Type:      string(tasks[i].Type),
 					TaskID:    taskID,
 					Status:    tasks[i].Status,
 					DependsOn: dependsOnSlice,
@@ -272,32 +272,32 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 
 // buildTasksFromTemplate creates task instances from a workflow template
 func (s *ConsignmentService) buildTasksFromTemplate(consignmentID uuid.UUID, template model.WorkflowTemplate) ([]model.Task, error) {
-	if len(template.Steps) == 0 {
-		return nil, fmt.Errorf("workflow template has no steps")
+	if len(template.Nodes) == 0 {
+		return nil, fmt.Errorf("workflow template has no nodes")
 	}
 
-	tasks := make([]model.Task, 0, len(template.Steps))
+	tasks := make([]model.Task, 0, len(template.Nodes))
 
-	for _, step := range template.Steps {
+	for _, node := range template.Nodes {
 		// Determine task status based on dependencies
 		status := model.TaskStatusReady
 		dependsOnMap := make(map[string]model.DependencyStatus)
 
-		if len(step.DependsOn) > 0 {
+		if len(node.DependsOn) > 0 {
 			status = model.TaskStatusLocked
 			// Initialize all dependencies as INCOMPLETE
-			for _, depStepID := range step.DependsOn {
-				dependsOnMap[depStepID] = model.DependencyStatusIncomplete
+			for _, depNodeID := range node.DependsOn {
+				dependsOnMap[depNodeID] = model.DependencyStatusIncomplete
 			}
 		}
 
 		// Create the task
 		task := model.Task{
 			ConsignmentID: consignmentID,
-			StepID:        step.StepID,
-			Type:          step.Type,
+			StepID:        node.NodeID,
+			Type:          node.Type,
 			Status:        status,
-			Config:        step.Config,
+			Config:        node.Config,
 			DependsOn:     dependsOnMap,
 		}
 		tasks = append(tasks, task)

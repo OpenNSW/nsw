@@ -4,62 +4,64 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/google/uuid"
 )
 
-// InitPayload represents the data required to initialize a task in the ExecutionUnit Manager system.
-type InitPayload struct {
-	StepID        string           `json:"stepId" binding:"required"`        // Unique identifier of the step within the workflow template
-	TaskID        uuid.UUID        `json:"taskId" binding:"required"`        // Unique identifier of the task instance
-	ConsignmentID uuid.UUID        `json:"consignmentId" binding:"required"` // Unique identifier of the instance of a workflow template
-	Type          Type             `json:"type" binding:"required"`          // Type of the task
-	Status        model.TaskStatus `json:"status" binding:"required"`        // Current status of the task
-	CommandSet    json.RawMessage  `json:"config" binding:"required"`        // Configuration specific to the task
-	GlobalContext map[string]interface{}
+type TaskStatus string
+
+const (
+	TaskStatusSuspended TaskStatus = "SUSPENDED"
+	TaskStatusCompleted TaskStatus = "COMPLETED"
+	TaskStatusFailed    TaskStatus = "FAILED"
+)
+
+// StateManager interface for getting/setting state (Internal and Global)
+type StateManager interface {
+	Get(key string) (interface{}, bool)
+	Set(key string, value interface{}) error
+	GetAll() map[string]interface{}
 }
 
-// ActiveTask represents a task that is currently active in the system.
-type ActiveTask struct {
+// TaskPluginReturnValue struct for plugin results
+type TaskPluginReturnValue struct {
+	Status                 TaskStatus
+	StatusHumanReadableStr string
+	Data                   interface{}
+}
+
+// TaskPlugin is the interface that all task types must implement.
+type TaskPlugin interface {
+	Start(ctx context.Context, config json.RawMessage, is StateManager, gs StateManager) (*TaskPluginReturnValue, error)
+	// data is any information provided by callbacks, etc when the task gets resumed
+	Resume(ctx context.Context, is StateManager, gs StateManager, data map[string]interface{}) (*TaskPluginReturnValue, error)
+}
+
+// TaskContainer is created by TaskManager and loads the plugin. Abstraction for an instance of a Task
+type TaskContainer struct {
 	TaskID        uuid.UUID
 	ConsignmentID uuid.UUID
-	StepID        string
-	Type          Type
-	Status        model.TaskStatus
-	Executor      ExecutionUnit
+	Status        TaskStatus
+	InternalState StateManager
+	GlobalState   StateManager
+	Plugin        TaskPlugin
+	Config        json.RawMessage
 }
 
-func NewActiveTask(payload InitPayload, executor ExecutionUnit) *ActiveTask {
-	return &ActiveTask{
-		TaskID:        payload.TaskID,
-		ConsignmentID: payload.ConsignmentID,
-		StepID:        payload.StepID,
-		Type:          payload.Type,
-		Status:        payload.Status,
-		Executor:      executor,
-	}
+func (tc *TaskContainer) Start(ctx context.Context) (*TaskPluginReturnValue, error) {
+	return tc.Plugin.Start(ctx, tc.Config, tc.InternalState, tc.GlobalState)
 }
 
-func (a *ActiveTask) GetID() uuid.UUID {
-	return a.TaskID
+func (tc *TaskContainer) Resume(ctx context.Context, data map[string]interface{}) (*TaskPluginReturnValue, error) {
+	return tc.Plugin.Resume(ctx, tc.InternalState, tc.GlobalState, data)
 }
 
-func (a *ActiveTask) GetType() Type {
-	return a.Type
-}
-
-func (a *ActiveTask) GetStatus() model.TaskStatus {
-	return a.Status
-}
-
-func (a *ActiveTask) SetStatus(status model.TaskStatus) {
-	a.Status = status
-}
-
-func (a *ActiveTask) IsExecutable() bool {
-	return a.Status != model.TaskStatusLocked
-}
-
-func (a *ActiveTask) Execute(ctx context.Context, payload *ExecutionPayload) (*ExecutionResult, error) {
-	return a.Executor.Execute(ctx, payload)
+// InitPayload represents the data required to initialize a task in the system.
+type InitPayload struct {
+	StepID        string          `json:"stepId" binding:"required"`        // Unique identifier of the step within the workflow template
+	TaskID        uuid.UUID       `json:"taskId" binding:"required"`        // Unique identifier of the task instance
+	ConsignmentID uuid.UUID       `json:"consignmentId" binding:"required"` // Unique identifier of the instance of a workflow template
+	Type          string          `json:"type" binding:"required"`          // Type of the task
+	Status        string          `json:"status" binding:"required"`        // Current status of the task
+	Config        json.RawMessage `json:"config" binding:"required"`        // Configuration specific to the task
+	GlobalContext map[string]interface{}
 }
