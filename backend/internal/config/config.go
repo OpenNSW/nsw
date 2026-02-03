@@ -13,6 +13,7 @@ type Config struct {
 	Database DatabaseConfig
 	Server   ServerConfig
 	CORS     CORSConfig
+	Storage  StorageConfig
 }
 
 // DatabaseConfig holds database connection configuration
@@ -41,6 +42,19 @@ type CORSConfig struct {
 	AllowedHeaders   []string
 	AllowCredentials bool
 	MaxAge           int
+}
+
+type StorageConfig struct {
+	Type            string // "local" or "s3"
+	LocalBaseDir    string
+	LocalPublicURL  string
+	S3Endpoint      string
+	S3Bucket        string
+	S3Region        string
+	S3AccessKey     string
+	S3SecretKey     string
+	S3UseSSL        bool
+	S3PublicURL     string
 }
 
 // Load reads configuration from environment variables
@@ -77,6 +91,18 @@ func Load() (*Config, error) {
 			AllowedHeaders:   parseCommaSeparated(getEnvOrDefault("CORS_ALLOWED_HEADERS", "Content-Type,Authorization")),
 			AllowCredentials: getBoolOrDefault("CORS_ALLOW_CREDENTIALS", true),
 			MaxAge:           getIntOrDefault("CORS_MAX_AGE", 3600),
+		},
+		Storage: StorageConfig{
+			Type:           getEnvOrDefault("STORAGE_TYPE", "local"),
+			LocalBaseDir:   getEnvOrDefault("STORAGE_LOCAL_BASE_DIR", "./uploads"),
+			LocalPublicURL: getEnvOrDefault("STORAGE_LOCAL_PUBLIC_URL", "/uploads"),
+			S3Endpoint:     os.Getenv("STORAGE_S3_ENDPOINT"),
+			S3Bucket:       getEnvOrDefault("STORAGE_S3_BUCKET", "nsw-uploads"),
+			S3Region:       getEnvOrDefault("STORAGE_S3_REGION", "us-east-1"),
+			S3AccessKey:    os.Getenv("STORAGE_S3_ACCESS_KEY"),
+			S3SecretKey:    os.Getenv("STORAGE_S3_SECRET_KEY"),
+			S3UseSSL:       getBoolOrDefault("STORAGE_S3_USE_SSL", true),
+			S3PublicURL:    os.Getenv("STORAGE_S3_PUBLIC_URL"),
 		},
 	}
 

@@ -1,0 +1,50 @@
+package uploads
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+
+	"github.com/OpenNSW/nsw/internal/config"
+	"github.com/OpenNSW/nsw/internal/uploads/drivers"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+)
+
+// NewStorageFromConfig creates a storage instance based on the provided configuration
+func NewStorageFromConfig(ctx context.Context, cfg config.StorageConfig) (StorageDriver, error) {
+	switch cfg.Type {
+	case "local":
+		slog.Info("Initializing local storage", "dir", cfg.LocalBaseDir)
+		return drivers.NewLocalFSDriver(cfg.LocalBaseDir, cfg.LocalPublicURL)
+	case "s3":
+		slog.Info("Initializing S3 storage", "endpoint", cfg.S3Endpoint, "bucket", cfg.S3Bucket)
+		
+		opts := []func(*awsconfig.LoadOptions) error{
+			awsconfig.WithRegion(cfg.S3Region),
+		}
+
+		if cfg.S3AccessKey != "" && cfg.S3SecretKey != "" {
+			creds := credentials.NewStaticCredentialsProvider(cfg.S3AccessKey, cfg.S3SecretKey, "")
+			opts = append(opts, awsconfig.WithCredentialsProvider(creds))
+		}
+
+		awsCfg, err := awsconfig.LoadDefaultConfig(ctx, opts...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load AWS config: %w", err)
+		}
+
+		client := s3.NewFromConfig(awsCfg, func(o *s3.Options) {
+			if cfg.S3Endpoint != "" {
+				o.BaseEndpoint = aws.String(cfg.S3Endpoint)
+			}
+			o.UsePathStyle = true
+		})
+
+		return drivers.NewS3Driver(client, cfg.S3Bucket, cfg.S3PublicURL), nil
+	default:
+		return nil, fmt.Errorf("unsupported storage type: %s", cfg.Type)
+	}
+}
