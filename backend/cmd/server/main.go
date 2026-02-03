@@ -82,8 +82,16 @@ func main() {
 	wm.StartTaskUpdateListener()
 	slog.Info("task update listener started")
 
+	// Initialize refactored workflow manager (v1 API)
+	r_wm := workflow.NewR_Manager(tm, db)
+	slog.Info("starting workflow node update listener...")
+	r_wm.StartWorkflowNodeUpdateListener()
+	slog.Info("workflow node update listener started")
+
 	// Set up HTTP routes
 	mux := http.NewServeMux()
+
+	// Legacy API routes (keep existing endpoints for backward compatibility)
 	mux.HandleFunc("POST /api/tasks", tm.HandleExecuteTask)
 	mux.HandleFunc("GET /api/hscodes", wm.HandleGetHSCodes)
 	mux.HandleFunc("GET /api/hscodes/{hsCodeId}", wm.HandleGetHSCodeID)
@@ -91,6 +99,10 @@ func main() {
 	mux.HandleFunc("POST /api/consignments", wm.HandleCreateConsignment)
 	mux.HandleFunc("GET /api/consignments", wm.HandleGetConsignments)
 	mux.HandleFunc("GET /api/consignments/{consignmentID}", wm.HandleGetConsignment)
+
+	// V1 API routes (new refactored architecture)
+	mux.HandleFunc("GET /api/v1/hscodes", r_wm.HandleGetAllHSCodes)
+	mux.HandleFunc("POST /api/v1/consignments", r_wm.HandleCreateConsignment)
 
 	// Set up graceful shutdown
 	serverAddr := fmt.Sprintf(":%d", cfg.Server.Port)
@@ -134,6 +146,10 @@ func main() {
 	// Stop the workflow manager's task update listener
 	slog.Info("stopping task update listener...")
 	wm.StopTaskUpdateListener()
+
+	// Stop the refactored workflow manager's node update listener
+	slog.Info("stopping workflow node update listener...")
+	r_wm.StopWorkflowNodeUpdateListener()
 
 	slog.Info("server stopped")
 }
