@@ -1,4 +1,4 @@
-package task
+package plugin
 
 import (
 	"context"
@@ -8,9 +8,9 @@ import (
 	"github.com/OpenNSW/nsw/internal/form"
 )
 
-// TaskFactory creates task instances from task type and model
+// TaskFactory creates task instances from the task type and model
 type TaskFactory interface {
-	BuildExecutor(ctx context.Context, taskType Type, commandSet interface{}, globalCtx map[string]interface{}) (ExecutionUnit, error)
+	BuildExecutor(ctx context.Context, taskType Type, config map[string]any) (Plugin, error)
 }
 
 // taskFactory implements TaskFactory interface
@@ -27,13 +27,13 @@ func NewTaskFactory(cfg *config.Config, formService form.FormService) TaskFactor
 	}
 }
 
-func (f *taskFactory) BuildExecutor(ctx context.Context, taskType Type, commandSet interface{}, globalCtx map[string]interface{}) (ExecutionUnit, error) {
+func (f *taskFactory) BuildExecutor(ctx context.Context, taskType Type, config map[string]any) (Plugin, error) {
 
 	switch taskType {
 	case TaskTypeSimpleForm:
-		return NewSimpleFormTask(ctx, commandSet, globalCtx, f.config, f.formService)
+		return NewSimpleForm(config, f.config, f.formService)
 	case TaskTypeWaitForEvent:
-		return NewWaitForEventTask(commandSet, globalCtx)
+		return NewWaitForEventTask(config)
 	default:
 		return nil, fmt.Errorf("unknown task type: %s", taskType)
 	}
