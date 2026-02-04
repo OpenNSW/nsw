@@ -38,25 +38,15 @@ type ExternalServiceRequest struct {
 	TaskID        uuid.UUID `json:"taskId"`
 }
 
-func NewWaitForEventTask(config map[string]any) (*WaitForEventTask, error) {
-	var parsedConfig WaitForEventConfig
+func NewWaitForEventTask(raw json.RawMessage) (*WaitForEventTask, error) {
+	var cfg WaitForEventConfig
 
-	// Parse the command set configuration
-	if config != nil {
-		configBytes, err := json.Marshal(config)
-		if err != nil {
-			slog.Error("failed to marshal command set", "error", err)
-			return nil, fmt.Errorf("failed to marshal command set: %w", err)
-		} else {
-			if err := json.Unmarshal(configBytes, &config); err != nil {
-				slog.Error("failed to unmarshal wait for event config", "error", err)
-				return nil, fmt.Errorf("failed to unmarshal wait for event config: %w", err)
-			}
-		}
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		return nil, err
 	}
 
 	return &WaitForEventTask{
-		config: config,
+		config: cfg,
 	}, nil
 }
 

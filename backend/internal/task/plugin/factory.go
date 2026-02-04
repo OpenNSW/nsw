@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/OpenNSW/nsw/internal/config"
@@ -10,7 +11,7 @@ import (
 
 // TaskFactory creates task instances from the task type and model
 type TaskFactory interface {
-	BuildExecutor(ctx context.Context, taskType Type, config map[string]any) (Plugin, error)
+	BuildExecutor(ctx context.Context, taskType Type, config json.RawMessage) (Plugin, error)
 }
 
 // taskFactory implements TaskFactory interface
@@ -27,7 +28,7 @@ func NewTaskFactory(cfg *config.Config, formService form.FormService) TaskFactor
 	}
 }
 
-func (f *taskFactory) BuildExecutor(ctx context.Context, taskType Type, config map[string]any) (Plugin, error) {
+func (f *taskFactory) BuildExecutor(ctx context.Context, taskType Type, config json.RawMessage) (Plugin, error) {
 
 	switch taskType {
 	case TaskTypeSimpleForm:

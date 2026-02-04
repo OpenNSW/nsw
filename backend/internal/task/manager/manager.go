@@ -22,7 +22,7 @@ type InitTaskRequest struct {
 	StepID        string      `json:"step_id"`
 	Type          plugin.Type `json:"type"`
 	GlobalState   map[string]any
-	Config        map[string]any `json:"config"`
+	Config        json.RawMessage `json:"config"`
 }
 
 type InitTaskResponse struct {
@@ -244,7 +244,7 @@ func (tm *taskManager) getTask(ctx context.Context, taskID uuid.UUID) (*containe
 		return nil, err
 	}
 
-	taskConfig := map[string]any{}
+	taskConfig := json.RawMessage{}
 
 	// Only unmarshal if Config is not empty
 	if len(execution.Config) > 0 {

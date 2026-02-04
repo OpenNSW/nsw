@@ -59,12 +59,7 @@ type SimpleForm struct {
 	formService form.FormService
 }
 
-func NewSimpleForm(configMap map[string]any, cfg *config.Config, formService form.FormService) (*SimpleForm, error) {
-	// Parse config from map
-	configJSON, err := json.Marshal(configMap)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal config: %w", err)
-	}
+func NewSimpleForm(configJSON json.RawMessage, cfg *config.Config, formService form.FormService) (*SimpleForm, error) {
 
 	var formConfig Config
 	if err := json.Unmarshal(configJSON, &formConfig); err != nil {
