@@ -1,6 +1,11 @@
 package r_model
 
-import "github.com/google/uuid"
+import (
+	"encoding/json"
+
+	taskPlugin "github.com/OpenNSW/nsw/internal/task/plugin"
+	"github.com/google/uuid"
+)
 
 type WorkflowNodeType string
 
@@ -22,9 +27,9 @@ const (
 // WorkflowNodeTemplate represents a template for a workflow node.
 type WorkflowNodeTemplate struct {
 	BaseModel
-	Type      WorkflowNodeType `json:"type"`       // Type of the workflow node
-	Config    map[string]any   `json:"config"`     // Configuration specific to the workflow node type
-	DependsOn []uuid.UUID      `json:"depends_on"` // Array of workflow node template IDs this node depends on
+	Type      taskPlugin.Type `json:"type"`       // Type of the workflow node
+	Config    json.RawMessage `json:"config"`     // Configuration specific to the workflow node type
+	DependsOn []uuid.UUID     `json:"depends_on"` // Array of workflow node template IDs this node depends on
 }
 
 func (wnt *WorkflowNodeTemplate) TableName() string {
@@ -48,7 +53,6 @@ func (wn *WorkflowNode) TableName() string {
 	return "workflow_nodes"
 }
 
-// TODO: Should use from Task module
 // UpdateWorkflowNodeDTO is used to update the state of a workflow node.
 type UpdateWorkflowNodeDTO struct {
 	WorkflowNodeID      uuid.UUID         `json:"workflowNodeId" binding:"required"` // Workflow Node ID

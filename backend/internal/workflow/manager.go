@@ -5,128 +5,128 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/OpenNSW/nsw/internal/task"
-	"github.com/OpenNSW/nsw/internal/workflow/model"
-	"github.com/OpenNSW/nsw/internal/workflow/router"
-	"github.com/OpenNSW/nsw/internal/workflow/service"
+	taskManager "github.com/OpenNSW/nsw/internal/task/manager"
+	"github.com/OpenNSW/nsw/internal/workflow/r_model"
+	"github.com/OpenNSW/nsw/internal/workflow/r_router"
+	"github.com/OpenNSW/nsw/internal/workflow/r_service"
 	"gorm.io/gorm"
 )
 
+// Manager is the refactored workflow manager that coordinates between services, routers, and task manager
 type Manager struct {
-	tm             task.TaskManager
-	cs             *service.ConsignmentService
-	wr             *router.WorkflowRouter
-	taskUpdateChan chan model.TaskCompletionNotification
-	ctx            context.Context
-	cancel         context.CancelFunc
+	tm                     taskManager.TaskManager
+	hsCodeService          *r_service.HSCodeService
+	consignmentService     *r_service.ConsignmentService
+	workflowNodeService    *r_service.WorkflowNodeService
+	templateService        *r_service.TemplateService
+	hsCodeRouter           *r_router.HSCodeRouter
+	consignmentRouter      *r_router.ConsignmentRouter
+	workflowNodeUpdateChan chan taskManager.WorkflowManagerNotification
+	ctx                    context.Context
+	cancel                 context.CancelFunc
 }
 
-func NewManager(tm task.TaskManager, taskUpdateChan chan model.TaskCompletionNotification, db *gorm.DB) *Manager {
-	ts := service.NewTaskService(db)
-	cs := service.NewConsignmentService(ts, db)
+// NewManager creates a new refactored workflow manager
+func NewManager(tm taskManager.TaskManager, ch chan taskManager.WorkflowManagerNotification, db *gorm.DB) *Manager {
+	// Initialize services
+	hsCodeService := r_service.NewHSCodeService(db)
+	consignmentService := r_service.NewConsignmentService(db)
+	workflowNodeService := r_service.NewWorkflowNodeService(db)
+	templateService := r_service.NewTemplateService(db)
 
+	// Create context for lifecycle management
 	ctx, cancel := context.WithCancel(context.Background())
 
 	m := &Manager{
-		tm:             tm,
-		cs:             cs,
-		taskUpdateChan: taskUpdateChan,
-		ctx:            ctx,
-		cancel:         cancel,
+		tm:                     tm,
+		hsCodeService:          hsCodeService,
+		consignmentService:     consignmentService,
+		workflowNodeService:    workflowNodeService,
+		templateService:        templateService,
+		workflowNodeUpdateChan: ch,
+		ctx:                    ctx,
+		cancel:                 cancel,
 	}
 
-	// Create router with callback to register tasks
-	m.wr = router.NewWorkflowRouter(cs, m.registerTasks)
+	// Initialize routers
+	m.hsCodeRouter = r_router.NewHSCodeRouter(hsCodeService)
+	m.consignmentRouter = r_router.NewConsignmentRouter(consignmentService, m.registerWorkflowNodesWithTaskManager)
+
+	// Start listening for workflow node updates
+	m.StartWorkflowNodeUpdateListener()
 
 	return m
 }
 
-// StartTaskUpdateListener starts a goroutine that listens for task completion notifications
-func (m *Manager) StartTaskUpdateListener() {
+// StartWorkflowNodeUpdateListener starts a goroutine that listens for workflow node updates
+func (m *Manager) StartWorkflowNodeUpdateListener() {
 	go func() {
 		for {
 			select {
 			case <-m.ctx.Done():
-				slog.Info("task update listener stopped")
+				slog.Info("workflow node update listener stopped")
 				return
-			case update := <-m.taskUpdateChan:
-				newReadyTasks, consignment, err := m.cs.UpdateTaskStatusAndPropagateChanges(
-					context.Background(),
-					update.TaskID,
-					update.State,
-					update.AppendGlobalContext,
-				)
+			case update := <-m.workflowNodeUpdateChan:
+				updateReq := r_model.UpdateWorkflowNodeDTO{
+					WorkflowNodeID:      update.TaskID,
+					State:               r_model.WorkflowNodeState(*update.UpdatedState),
+					AppendGlobalContext: update.AppendGlobalContext,
+				}
+				newReadyNodes, newGlobalContext, err := m.consignmentService.UpdateWorkflowNodeStateAndPropagateChanges(m.ctx, &updateReq)
 				if err != nil {
-					slog.Error("failed to process task completion notification", "taskID", update.TaskID, "error", err)
+					slog.Error("failed to handle workflow node update", "error", err)
 					continue
 				}
-
-				// Log if consignment is completed
-				if consignment != nil && consignment.State == model.ConsignmentStateFinished {
-					slog.Info("consignment finished", "consignmentID", consignment.ID)
-				}
-				// Register newly ready tasks with Task Manager
-				if len(newReadyTasks) > 0 {
-					m.registerTasks(newReadyTasks, consignment.GlobalContext)
+				if len(newReadyNodes) > 0 {
+					m.registerWorkflowNodesWithTaskManager(newReadyNodes, newGlobalContext)
 				}
 			}
 		}
 	}()
 }
 
-// StopTaskUpdateListener stops the task update listener by canceling the context
-func (m *Manager) StopTaskUpdateListener() {
+// StopWorkflowNodeUpdateListener stops the workflow node update listener
+func (m *Manager) StopWorkflowNodeUpdateListener() {
 	if m.cancel != nil {
 		m.cancel()
 	}
 }
 
-// registerTasks registers multiple tasks with Task Manager
-func (m *Manager) registerTasks(tasks []*model.Task, consignmentGlobalContext map[string]interface{}) {
-	for _, t := range tasks {
-		initPayload := task.InitPayload{
-			TaskID:        t.ID,
-			Type:          task.Type(t.Type),
-			Status:        t.Status,
-			CommandSet:    t.Config,
-			ConsignmentID: t.ConsignmentID,
-			StepID:        t.StepID,
-			GlobalContext: consignmentGlobalContext,
-		}
-		_, err := m.tm.RegisterTask(context.Background(), initPayload)
+// registerWorkflowNodesWithTaskManager registers workflow nodes with the Task Manager
+// This is called when new READY workflow nodes are created
+func (m *Manager) registerWorkflowNodesWithTaskManager(workflowNodes []r_model.WorkflowNode, consignmentGlobalContext map[string]any) {
+	for _, node := range workflowNodes {
+		nodeTemplate, err := m.templateService.GetWorkflowNodeTemplateByID(m.ctx, node.WorkflowNodeTemplateID)
 		if err != nil {
-			slog.Error("failed to register task", "taskID", t.ID, "error", err)
-			return
+			slog.Error("failed to get workflow node template", "error", err)
+			continue
 		}
+		initTaskRequest := taskManager.InitTaskRequest{
+			ConsignmentID: node.ConsignmentID,
+			TaskID:        node.ID,
+			StepID:        node.WorkflowNodeTemplateID.String(),
+			Type:          nodeTemplate.Type,
+			GlobalState:   consignmentGlobalContext,
+			Config:        nodeTemplate.Config,
+		}
+		response, err := m.tm.InitTask(m.ctx, initTaskRequest)
+		if err != nil {
+			slog.Error("failed to initialize task in task manager", "error", err)
+			continue
+		}
+		slog.Info("successfully registered workflow node with task manager", "Response", response.Result)
 	}
+
 }
 
-// HandleGetHSCode handles GET requests for a specific HS code by ID
-func (m *Manager) HandleGetHSCodeID(w http.ResponseWriter, r *http.Request) {
-	m.wr.HandleGetHSCodeID(w, r)
+// HTTP Handler delegation methods
+
+// HandleGetAllHSCodes handles GET /api/v1/hscodes
+func (m *Manager) HandleGetAllHSCodes(w http.ResponseWriter, r *http.Request) {
+	m.hsCodeRouter.HandleGetAllHSCodes(w, r)
 }
 
-// HandleGetHSCodes handles GET requests for HS codes
-func (m *Manager) HandleGetHSCodes(w http.ResponseWriter, r *http.Request) {
-	m.wr.HandleGetHSCodes(w, r)
-}
-
-// HandleGetWorkflowTemplate handles GET requests for workflow templates
-func (m *Manager) HandleGetWorkflowTemplate(w http.ResponseWriter, r *http.Request) {
-	m.wr.HandleGetWorkflowTemplate(w, r)
-}
-
-// HandleCreateConsignment handles POST requests to create a new consignment
+// HandleCreateConsignment handles POST /api/v1/consignments
 func (m *Manager) HandleCreateConsignment(w http.ResponseWriter, r *http.Request) {
-	m.wr.HandleCreateConsignment(w, r)
-}
-
-// HandleGetConsignment handles GET requests to retrieve a consignment by ID
-func (m *Manager) HandleGetConsignment(w http.ResponseWriter, r *http.Request) {
-	m.wr.HandleGetConsignment(w, r)
-}
-
-// HandleGetConsignments handles GET requests to retrieve consignments
-func (m *Manager) HandleGetConsignments(w http.ResponseWriter, r *http.Request) {
-	m.wr.HandleGetConsignments(w, r)
+	m.consignmentRouter.HandleCreateConsignment(w, r)
 }

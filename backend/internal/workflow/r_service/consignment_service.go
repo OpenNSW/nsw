@@ -320,10 +320,10 @@ func (s *ConsignmentService) isAllWorkflowNodesCompleted(ctx context.Context, co
 	return true, nil
 }
 
-// UpdateWorkflowNodeStateAndPropagateChanges updates the state of a workflow node and propagates changes to dependent nodes and consignment state.
-func (s *ConsignmentService) UpdateWorkflowNodeStateAndPropagateChanges(ctx context.Context, updateReq *r_model.UpdateWorkflowNodeDTO) error {
+// UpdateWorkflowNodeStateAndPropagateChanges updates the state of a workflow node and propagates changes to dependent nodes and consignment state, returns the new READY nodes and newGlobalContext.
+func (s *ConsignmentService) UpdateWorkflowNodeStateAndPropagateChanges(ctx context.Context, updateReq *r_model.UpdateWorkflowNodeDTO) ([]r_model.WorkflowNode, map[string]any, error) {
 	if updateReq == nil {
-		return fmt.Errorf("update request cannot be nil")
+		return nil, nil, fmt.Errorf("update request cannot be nil")
 	}
 
 	// Start a transaction
@@ -334,29 +334,40 @@ func (s *ConsignmentService) UpdateWorkflowNodeStateAndPropagateChanges(ctx cont
 		}
 	}()
 
-	// Update the workflow node state and propagate changes
-	if err := s.updateWorkflowNodeStateAndPropagateChangesInTx(ctx, tx, updateReq); err != nil {
+	// Update the workflow node state and propagate changes, getting new READY nodes
+	newReadyNodes, newGlobalContext, err := s.updateWorkflowNodeStateAndPropagateChangesInTx(ctx, tx, updateReq)
+	if err != nil {
 		tx.Rollback()
-		return fmt.Errorf("failed to update workflow node state and propagate changes: %w", err)
+		return nil, nil, fmt.Errorf("failed to update workflow node state and propagate changes: %w", err)
 	}
 
 	// Commit the transaction
 	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
-		return fmt.Errorf("failed to commit transaction: %w", err)
+		return nil, nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	return nil
+	return newReadyNodes, newGlobalContext, nil
 }
 
-// updateWorkflowNodeStateAndPropagateChangesInTx updates the workflow node state and propagates changes within a transaction.
-func (s *ConsignmentService) updateWorkflowNodeStateAndPropagateChangesInTx(ctx context.Context, tx *gorm.DB, updateReq *r_model.UpdateWorkflowNodeDTO) error {
+// updateWorkflowNodeStateAndPropagateChangesInTx updates the workflow node state and propagates changes within a transaction, and returns the new READY nodes.
+func (s *ConsignmentService) updateWorkflowNodeStateAndPropagateChangesInTx(ctx context.Context, tx *gorm.DB, updateReq *r_model.UpdateWorkflowNodeDTO) ([]r_model.WorkflowNode, map[string]any, error) {
 	// Get the workflow node
 	workflowNode, err := s.workflowNodeService.GetWorkflowNodeByIDInTx(ctx, tx, updateReq.WorkflowNodeID)
 	if err != nil {
-		return fmt.Errorf("failed to retrieve workflow node: %w", err)
+		return nil, nil, fmt.Errorf("failed to retrieve workflow node: %w", err)
 	}
 
+	if workflowNode.State != updateReq.State && updateReq.State == r_model.WorkflowNodeStateFailed {
+		// If the new state is FAILED, update and return immediately
+		workflowNode.State = r_model.WorkflowNodeStateFailed
+		if err := s.workflowNodeService.UpdateWorkflowNodesInTx(ctx, tx, []r_model.WorkflowNode{*workflowNode}); err != nil {
+			return nil, nil, fmt.Errorf("failed to update workflow node to FAILED state: %w", err)
+		}
+	}
+
+	var newReadyNodes []r_model.WorkflowNode
+	// Update the workflow node state if it has changed, and add new READY nodes to newReadyNodes List
 	if workflowNode.State != updateReq.State && updateReq.State == r_model.WorkflowNodeStateCompleted {
 		var nodesToUpdate []r_model.WorkflowNode
 
@@ -367,7 +378,7 @@ func (s *ConsignmentService) updateWorkflowNodeStateAndPropagateChangesInTx(ctx 
 		// Retrieve all workflow nodes for the consignment
 		allNodes, err := s.workflowNodeService.GetWorkflowNodesByConsignmentIDInTx(ctx, tx, workflowNode.ConsignmentID)
 		if err != nil {
-			return fmt.Errorf("failed to retrieve workflow nodes for consignment: %w", err)
+			return nil, nil, fmt.Errorf("failed to retrieve workflow nodes for consignment: %w", err)
 
 		}
 
@@ -378,7 +389,7 @@ func (s *ConsignmentService) updateWorkflowNodeStateAndPropagateChangesInTx(ctx 
 				for _, dependsOnID := range node.DependsOn {
 					depNode, err := s.workflowNodeService.GetWorkflowNodeByIDInTx(ctx, tx, dependsOnID)
 					if err != nil {
-						return fmt.Errorf("failed to retrieve dependent workflow node: %w", err)
+						return nil, nil, fmt.Errorf("failed to retrieve dependent workflow node: %w", err)
 					}
 					if depNode.State != r_model.WorkflowNodeStateCompleted {
 						dependenciesMet = false
@@ -388,41 +399,43 @@ func (s *ConsignmentService) updateWorkflowNodeStateAndPropagateChangesInTx(ctx 
 				if dependenciesMet {
 					node.State = r_model.WorkflowNodeStateReady
 					nodesToUpdate = append(nodesToUpdate, node)
+					newReadyNodes = append(newReadyNodes, node)
 				}
 			}
 		}
 
 		// Update all affected nodes in the database
 		if err := s.workflowNodeService.UpdateWorkflowNodesInTx(ctx, tx, nodesToUpdate); err != nil {
-			return fmt.Errorf("failed to update workflow nodes: %w", err)
+			return nil, nil, fmt.Errorf("failed to update workflow nodes: %w", err)
 		}
 
 		// Check if all workflow nodes are completed to potentially update consignment state
 		allCompleted, err := s.isAllWorkflowNodesCompleted(ctx, workflowNode.ConsignmentID)
 		if err != nil {
-			return fmt.Errorf("failed to check if all workflow nodes are completed: %w", err)
+			return nil, nil, fmt.Errorf("failed to check if all workflow nodes are completed: %w", err)
 		}
 		if allCompleted {
 			var consignment r_model.Consignment
 			result := tx.WithContext(ctx).First(&consignment, "id = ?", workflowNode.ConsignmentID)
 			if result.Error != nil {
-				return fmt.Errorf("failed to retrieve consignment: %w", result.Error)
+				return nil, nil, fmt.Errorf("failed to retrieve consignment: %w", result.Error)
 			}
 
 			consignment.State = r_model.ConsignmentStateFinished
 			saveResult := tx.WithContext(ctx).Save(&consignment)
 			if saveResult.Error != nil {
-				return fmt.Errorf("failed to update consignment state: %w", saveResult.Error)
+				return nil, nil, fmt.Errorf("failed to update consignment state: %w", saveResult.Error)
 			}
 		}
 	}
 
+	var GlobalContext map[string]any
 	// If there's global context to append, update the consignment
 	if len(updateReq.AppendGlobalContext) > 0 {
 		var consignment r_model.Consignment
 		result := tx.WithContext(ctx).First(&consignment, "id = ?", workflowNode.ConsignmentID)
 		if result.Error != nil {
-			return fmt.Errorf("failed to retrieve consignment: %w", result.Error)
+			return nil, nil, fmt.Errorf("failed to retrieve consignment: %w", result.Error)
 		}
 
 		if consignment.GlobalContext == nil {
@@ -433,9 +446,10 @@ func (s *ConsignmentService) updateWorkflowNodeStateAndPropagateChangesInTx(ctx 
 		// Save the updated consignment
 		saveResult := tx.WithContext(ctx).Save(&consignment)
 		if saveResult.Error != nil {
-			return fmt.Errorf("failed to update consignment global context: %w", saveResult.Error)
+			return nil, nil, fmt.Errorf("failed to update consignment global context: %w", saveResult.Error)
 		}
+		GlobalContext = consignment.GlobalContext
 	}
 
-	return nil
+	return newReadyNodes, GlobalContext, nil
 }

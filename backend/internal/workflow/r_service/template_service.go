@@ -43,3 +43,13 @@ func (s *TemplateService) GetWorkflowNodeTemplatesByIDs(ctx context.Context, ids
 	}
 	return templates, nil
 }
+
+// GetWorkflowNodeTemplateByID retrieves a workflow node template by its ID.
+func (s *TemplateService) GetWorkflowNodeTemplateByID(ctx context.Context, id uuid.UUID) (*r_model.WorkflowNodeTemplate, error) {
+	var template r_model.WorkflowNodeTemplate
+	result := s.db.WithContext(ctx).First(&template, "id = ?", id)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &template, nil
+}
