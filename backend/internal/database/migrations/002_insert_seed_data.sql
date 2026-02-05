@@ -88,11 +88,11 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
 -- Workflow 1: sl-export-tea-packaged-2.0
 -- ============================================================================
 
-INSERT INTO workflow_node_templates (id, type, config, depends_on) VALUES 
-('a0000001-0001-0001-0001-000000000001', 'SIMPLE_FORM', '{"formId": "11111111-1111-1111-1111-111111111111", "submissionUrl": "https://7b0eb5f0-1ee3-4a0c-8946-82a893cb60c2.mock.pstmn.io/api/cusdec"}'::jsonb, '[]'::jsonb),
-('a0000001-0001-0001-0001-000000000002', 'SIMPLE_FORM', '{"formId": "22222222-2222-2222-2222-222222222222", "agency": "NPQS", "service": "plant-quarantine"}'::jsonb, '["a0000001-0001-0001-0001-000000000001"]'::jsonb),
-('a0000001-0001-0001-0001-000000000003', 'WAIT_FOR_EVENT', '{"agency": "SLTB", "service": "tea-blend-sheet"}'::jsonb, '["a0000001-0001-0001-0001-000000000001"]'::jsonb),
-('a0000001-0001-0001-0001-000000000004', 'WAIT_FOR_EVENT', '{"event": "WAIT_FOR_EVENT"}'::jsonb, '["a0000001-0001-0001-0001-000000000002", "a0000001-0001-0001-0001-000000000003"]'::jsonb);
+INSERT INTO workflow_node_templates (id, name, description, type, config, depends_on) VALUES 
+('a0000001-0001-0001-0001-000000000001', 'Customs Declaration', 'Export customs declaration form for trade goods', 'SIMPLE_FORM', '{"formId": "11111111-1111-1111-1111-111111111111", "submissionUrl": "https://7b0eb5f0-1ee3-4a0c-8946-82a893cb60c2.mock.pstmn.io/api/cusdec"}'::jsonb, '[]'::jsonb),
+('a0000001-0001-0001-0001-000000000002', 'Phytosanitary Certificate', 'Phytosanitary certificate for plant products export', 'SIMPLE_FORM', '{"formId": "22222222-2222-2222-2222-222222222222", "agency": "NPQS", "service": "plant-quarantine"}'::jsonb, '["a0000001-0001-0001-0001-000000000001"]'::jsonb),
+('a0000001-0001-0001-0001-000000000003', 'SLTB - tea-blend-sheet', 'Waiting for tea-blend-sheet service from SLTB', 'WAIT_FOR_EVENT', '{"agency": "SLTB", "service": "tea-blend-sheet"}'::jsonb, '["a0000001-0001-0001-0001-000000000001"]'::jsonb),
+('a0000001-0001-0001-0001-000000000004', 'Final Approval', 'Waiting for final approval event', 'WAIT_FOR_EVENT', '{"event": "WAIT_FOR_EVENT"}'::jsonb, '["a0000001-0001-0001-0001-000000000002", "a0000001-0001-0001-0001-000000000003"]'::jsonb);
 
 INSERT INTO workflow_templates (id, name, description, version, nodes) VALUES (
     'd299f7e7-eca3-4399-9b22-2ae1d742109d',
@@ -110,12 +110,12 @@ INSERT INTO workflow_template_maps (id, hs_code_id, consignment_flow, workflow_t
 -- Workflow 2: sl-import-coconut-oil-2.0
 -- ============================================================================
 
-INSERT INTO workflow_node_templates (id, type, config, depends_on) VALUES 
-('b0000002-0002-0002-0002-000000000001', 'WAIT_FOR_EVENT', '{"event": "IGM_RECEIVED"}'::jsonb, '[]'::jsonb),
-('b0000002-0002-0002-0002-000000000002', 'SIMPLE_FORM', '{"formId": "55555555-5555-5555-5555-555555555555"}'::jsonb, '["b0000002-0002-0002-0002-000000000001"]'::jsonb),
-('b0000002-0002-0002-0002-000000000003', 'SIMPLE_FORM', '{"formId": "77777777-7777-7777-7777-777777777777", "agency": "SLSI", "service": "quality-standard-verification"}'::jsonb, '["b0000002-0002-0002-0002-000000000002"]'::jsonb),
-('b0000002-0002-0002-0002-000000000004', 'SIMPLE_FORM', '{"formId": "88888888-8888-8888-8888-888888888888", "agency": "MOH", "service": "health-clearance"}'::jsonb, '["b0000002-0002-0002-0002-000000000002"]'::jsonb),
-('b0000002-0002-0002-0002-000000000005', 'SIMPLE_FORM', '{"formId": "66666666-6666-6666-6666-666666666666"}'::jsonb, '["b0000002-0002-0002-0002-000000000003", "b0000002-0002-0002-0002-000000000004"]'::jsonb);
+INSERT INTO workflow_node_templates (id, name, description, type, config, depends_on) VALUES 
+('b0000002-0002-0002-0002-000000000001', 'IGM Received', 'Waiting for Import General Manifest to be received', 'WAIT_FOR_EVENT', '{"event": "IGM_RECEIVED"}'::jsonb, '[]'::jsonb),
+('b0000002-0002-0002-0002-000000000002', 'Customs Declaration (Import) - Placeholder', 'Placeholder for import customs declaration', 'SIMPLE_FORM', '{"formId": "55555555-5555-5555-5555-555555555555"}'::jsonb, '["b0000002-0002-0002-0002-000000000001"]'::jsonb),
+('b0000002-0002-0002-0002-000000000003', 'SLSI Quality Standard Verification - Placeholder', 'Placeholder for SLSI quality verification', 'SIMPLE_FORM', '{"formId": "77777777-7777-7777-7777-777777777777", "agency": "SLSI", "service": "quality-standard-verification"}'::jsonb, '["b0000002-0002-0002-0002-000000000002"]'::jsonb),
+('b0000002-0002-0002-0002-000000000004', 'Food Control Unit Health Clearance - Placeholder', 'Placeholder for health clearance', 'SIMPLE_FORM', '{"formId": "88888888-8888-8888-8888-888888888888", "agency": "MOH", "service": "health-clearance"}'::jsonb, '["b0000002-0002-0002-0002-000000000002"]'::jsonb),
+('b0000002-0002-0002-0002-000000000005', 'Delivery Order - Placeholder', 'Placeholder for delivery order', 'SIMPLE_FORM', '{"formId": "66666666-6666-6666-6666-666666666666"}'::jsonb, '["b0000002-0002-0002-0002-000000000003", "b0000002-0002-0002-0002-000000000004"]'::jsonb);
 
 INSERT INTO workflow_templates (id, name, description, version, nodes) VALUES (
     'eea36780-48f2-424c-9b55-0d7394e9677d',
@@ -133,12 +133,12 @@ INSERT INTO workflow_template_maps (id, hs_code_id, consignment_flow, workflow_t
 -- Workflow 3: sl-export-desiccated-coconut-2.0
 -- ============================================================================
 
-INSERT INTO workflow_node_templates (id, type, config, depends_on) VALUES 
-('c0000003-0003-0003-0003-000000000001', 'SIMPLE_FORM', '{"formId": "44444444-4444-4444-4444-444444444444"}'::jsonb, '[]'::jsonb),
-('c0000003-0003-0003-0003-000000000002', 'SIMPLE_FORM', '{"formId": "11111111-1111-1111-1111-111111111111", "submissionUrl": "https://7b0eb5f0-1ee3-4a0c-8946-82a893cb60c2.mock.pstmn.io/api/cusdec"}'::jsonb, '["c0000003-0003-0003-0003-000000000001"]'::jsonb),
-('c0000003-0003-0003-0003-000000000003', 'SIMPLE_FORM', '{"agency": "NPQS", "formId": "22222222-2222-2222-2222-222222222222", "service": "plant-quarantine-phytosanitary", "submissionUrl": "http://localhost:8081/api/oga/inject", "requiresOgaVerification": true}'::jsonb, '["c0000003-0003-0003-0003-000000000002"]'::jsonb),
-('c0000003-0003-0003-0003-000000000004', 'SIMPLE_FORM', '{"agency": "EDB", "formId": "33333333-3333-3333-3333-333333333333", "service": "export-product-registration", "submissionUrl": "http://localhost:8082/api/oga/inject", "requiresOgaVerification": true}'::jsonb, '["c0000003-0003-0003-0003-000000000002"]'::jsonb),
-('c0000003-0003-0003-0003-000000000005', 'WAIT_FOR_EVENT', '{"event": "WAIT_FOR_EVENT", "externalServiceUrl": "http://localhost:3001/api/process-task"}'::jsonb, '["c0000003-0003-0003-0003-000000000003", "c0000003-0003-0003-0003-000000000004"]'::jsonb);
+INSERT INTO workflow_node_templates (id, name, description, type, config, depends_on) VALUES 
+('c0000003-0003-0003-0003-000000000001', 'General Information', 'General consignment information form', 'SIMPLE_FORM', '{"formId": "44444444-4444-4444-4444-444444444444"}'::jsonb, '[]'::jsonb),
+('c0000003-0003-0003-0003-000000000002', 'Customs Declaration', 'Export customs declaration form for trade goods', 'SIMPLE_FORM', '{"formId": "11111111-1111-1111-1111-111111111111", "submissionUrl": "https://7b0eb5f0-1ee3-4a0c-8946-82a893cb60c2.mock.pstmn.io/api/cusdec"}'::jsonb, '["c0000003-0003-0003-0003-000000000001"]'::jsonb),
+('c0000003-0003-0003-0003-000000000003', 'Phytosanitary Certificate', 'Phytosanitary certificate for plant products export', 'SIMPLE_FORM', '{"agency": "NPQS", "formId": "22222222-2222-2222-2222-222222222222", "service": "plant-quarantine-phytosanitary", "submissionUrl": "http://localhost:8081/api/oga/inject", "requiresOgaVerification": true}'::jsonb, '["c0000003-0003-0003-0003-000000000002"]'::jsonb),
+('c0000003-0003-0003-0003-000000000004', 'Health Certificate', 'Health and safety certificate for food products', 'SIMPLE_FORM', '{"agency": "EDB", "formId": "33333333-3333-3333-3333-333333333333", "service": "export-product-registration", "submissionUrl": "http://localhost:8082/api/oga/inject", "requiresOgaVerification": true}'::jsonb, '["c0000003-0003-0003-0003-000000000002"]'::jsonb),
+('c0000003-0003-0003-0003-000000000005', 'Final Processing', 'Waiting for final processing event', 'WAIT_FOR_EVENT', '{"event": "WAIT_FOR_EVENT", "externalServiceUrl": "http://localhost:3001/api/process-task"}'::jsonb, '["c0000003-0003-0003-0003-000000000003", "c0000003-0003-0003-0003-000000000004"]'::jsonb);
 
 INSERT INTO workflow_templates (id, name, description, version, nodes) VALUES (
     '44bbe677-d327-4968-bf72-1d314246b486',

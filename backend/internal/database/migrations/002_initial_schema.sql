@@ -92,6 +92,8 @@ CREATE INDEX IF NOT EXISTS idx_workflow_templates_nodes ON workflow_templates US
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS workflow_node_templates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
     type VARCHAR(50) NOT NULL,
     config JSONB NOT NULL,
     depends_on JSONB NOT NULL DEFAULT '[]',
@@ -100,6 +102,7 @@ CREATE TABLE IF NOT EXISTS workflow_node_templates (
 );
 
 -- Indexes for workflow_node_templates
+CREATE INDEX IF NOT EXISTS idx_workflow_node_templates_name ON workflow_node_templates(name);
 CREATE INDEX IF NOT EXISTS idx_workflow_node_templates_type ON workflow_node_templates(type);
 CREATE INDEX IF NOT EXISTS idx_workflow_node_templates_config ON workflow_node_templates USING GIN (config);
 CREATE INDEX IF NOT EXISTS idx_workflow_node_templates_depends_on ON workflow_node_templates USING GIN (depends_on);
@@ -188,6 +191,8 @@ COMMENT ON COLUMN task_infos.config IS 'JSONB configuration specific to the task
 COMMENT ON COLUMN task_infos.local_state IS 'JSONB local state for task execution';
 COMMENT ON COLUMN task_infos.global_context IS 'JSONB global context shared across task execution';
 COMMENT ON COLUMN workflow_templates.nodes IS 'JSONB array of workflow node template IDs';
+COMMENT ON COLUMN workflow_node_templates.name IS 'Human-readable name of the workflow node template';
+COMMENT ON COLUMN workflow_node_templates.description IS 'Optional description of the workflow node template';
 COMMENT ON COLUMN workflow_node_templates.type IS 'Type of the workflow node (e.g., SIMPLE_FORM, WAIT_FOR_EVENT)';
 COMMENT ON COLUMN workflow_node_templates.config IS 'JSONB configuration specific to the workflow node type';
 COMMENT ON COLUMN workflow_node_templates.depends_on IS 'JSONB array of workflow node template IDs this node depends on';

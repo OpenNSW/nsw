@@ -124,17 +124,10 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 		return nil, nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	// Prepare Response DTO
-	responseDTO := &model.ConsignmentResponseDTO{
-		ID:            consignment.ID,
-		Flow:          consignment.Flow,
-		TraderID:      consignment.TraderID,
-		State:         consignment.State,
-		Items:         consignment.Items,
-		GlobalContext: consignment.GlobalContext,
-		CreatedAt:     consignment.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     consignment.UpdatedAt.Format(time.RFC3339),
-		WorkflowNodes: workflowNodes,
+	// Prepare Response DTO using the helper function
+	responseDTO, err := s.buildConsignmentResponseDTO(ctx, consignment, workflowNodes)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to build consignment response DTO: %w", err)
 	}
 
 	return responseDTO, newReadyWorkflowNodes, nil
@@ -180,16 +173,10 @@ func (s *ConsignmentService) GetConsignmentByID(ctx context.Context, consignment
 		return nil, fmt.Errorf("failed to retrieve workflow nodes for consignment %s: %w", consignmentID, err)
 	}
 
-	responseDTO := &model.ConsignmentResponseDTO{
-		ID:            consignment.ID,
-		Flow:          consignment.Flow,
-		TraderID:      consignment.TraderID,
-		State:         consignment.State,
-		Items:         consignment.Items,
-		GlobalContext: consignment.GlobalContext,
-		CreatedAt:     consignment.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     consignment.UpdatedAt.Format(time.RFC3339),
-		WorkflowNodes: workflowNodes,
+	// Build response DTO using the helper function
+	responseDTO, err := s.buildConsignmentResponseDTO(ctx, &consignment, workflowNodes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build consignment response DTO: %w", err)
 	}
 
 	return responseDTO, nil
@@ -225,21 +212,106 @@ func (s *ConsignmentService) GetConsignmentsByTraderID(ctx context.Context, trad
 		nodesByConsignment[node.ConsignmentID] = append(nodesByConsignment[node.ConsignmentID], node)
 	}
 
-	// Build DTOs
+	// Collect all HS Code IDs and Workflow Node Template IDs for batch fetching
+	hsCodeIDsSet := make(map[uuid.UUID]struct{})
+	for i := range consignments {
+		for _, item := range consignments[i].Items {
+			hsCodeIDsSet[item.HSCodeID] = struct{}{}
+		}
+	}
+	templateIDsSet := make(map[uuid.UUID]struct{})
+	for _, nodes := range nodesByConsignment {
+		for _, node := range nodes {
+			templateIDsSet[node.WorkflowNodeTemplateID] = struct{}{}
+		}
+	}
+
+	// Batch fetch all required HS Codes
+	hsCodeIDs := make([]uuid.UUID, 0, len(hsCodeIDsSet))
+	for id := range hsCodeIDsSet {
+		hsCodeIDs = append(hsCodeIDs, id)
+	}
+	var hsCodes []model.HSCode
+	if len(hsCodeIDs) > 0 {
+		if err := s.db.WithContext(ctx).Where("id IN ?", hsCodeIDs).Find(&hsCodes).Error; err != nil {
+			return nil, fmt.Errorf("failed to fetch HS codes: %w", err)
+		}
+	}
+	hsCodeMap := make(map[uuid.UUID]model.HSCode, len(hsCodes))
+	for _, hsCode := range hsCodes {
+		hsCodeMap[hsCode.ID] = hsCode
+	}
+
+	// Batch fetch all required Workflow Node Templates
+	templateIDs := make([]uuid.UUID, 0, len(templateIDsSet))
+	for id := range templateIDsSet {
+		templateIDs = append(templateIDs, id)
+	}
+	var templates []model.WorkflowNodeTemplate
+	if len(templateIDs) > 0 {
+		if err := s.db.WithContext(ctx).Where("id IN ?", templateIDs).Find(&templates).Error; err != nil {
+			return nil, fmt.Errorf("failed to fetch workflow node templates: %w", err)
+		}
+	}
+	templateMap := make(map[uuid.UUID]model.WorkflowNodeTemplate, len(templates))
+	for _, template := range templates {
+		templateMap[template.ID] = template
+	}
+
+	// Build DTOs using pre-fetched data
 	var consignmentDTOs []model.ConsignmentResponseDTO
-	for _, consignment := range consignments {
-		dto := model.ConsignmentResponseDTO{
+	for i := range consignments {
+		consignment := consignments[i]
+		// Build item DTOs
+		itemResponseDTOs := make([]model.ConsignmentItemResponseDTO, 0, len(consignment.Items))
+		for _, item := range consignment.Items {
+			hsCode, exists := hsCodeMap[item.HSCodeID]
+			if !exists {
+				return nil, fmt.Errorf("HS code not found for ID %s", item.HSCodeID)
+			}
+			itemResponseDTOs = append(itemResponseDTOs, model.ConsignmentItemResponseDTO{
+				HSCode: model.HSCodeResponseDTO{
+					HSCodeID:    hsCode.ID,
+					HSCode:      hsCode.HSCode,
+					Description: hsCode.Description,
+					Category:    hsCode.Category,
+				},
+				ItemMetadata: item.ItemMetadata,
+			})
+		}
+
+		// Build node DTOs
+		workflowNodes := nodesByConsignment[consignment.ID]
+		nodeResponseDTOs := make([]model.WorkflowNodeResponseDTO, 0, len(workflowNodes))
+		for _, node := range workflowNodes {
+			template, exists := templateMap[node.WorkflowNodeTemplateID]
+			if !exists {
+				return nil, fmt.Errorf("workflow node template not found for ID %s", node.WorkflowNodeTemplateID)
+			}
+			nodeResponseDTOs = append(nodeResponseDTOs, model.WorkflowNodeResponseDTO{
+				ID:        node.ID,
+				CreatedAt: node.CreatedAt.Format(time.RFC3339),
+				UpdatedAt: node.UpdatedAt.Format(time.RFC3339),
+				WorkflowNodeTemplate: model.WorkflowNodeTemplateResponseDTO{
+					Name:        template.Name,
+					Description: template.Description,
+					Type:        string(template.Type),
+				},
+				State:     node.State,
+				DependsOn: node.DependsOn,
+			})
+		}
+
+		consignmentDTOs = append(consignmentDTOs, model.ConsignmentResponseDTO{
 			ID:            consignment.ID,
 			Flow:          consignment.Flow,
 			TraderID:      consignment.TraderID,
 			State:         consignment.State,
-			Items:         consignment.Items,
-			GlobalContext: consignment.GlobalContext,
+			Items:         itemResponseDTOs,
 			CreatedAt:     consignment.CreatedAt.Format(time.RFC3339),
 			UpdatedAt:     consignment.UpdatedAt.Format(time.RFC3339),
-			WorkflowNodes: nodesByConsignment[consignment.ID],
-		}
-		consignmentDTOs = append(consignmentDTOs, dto)
+			WorkflowNodes: nodeResponseDTOs,
+		})
 	}
 
 	return consignmentDTOs, nil
@@ -281,17 +353,10 @@ func (s *ConsignmentService) UpdateConsignment(ctx context.Context, updateReq *m
 		return nil, fmt.Errorf("failed to retrieve workflow nodes for consignment %s: %w", updateReq.ConsignmentID, err)
 	}
 
-	// Prepare response DTO
-	responseDTO := &model.ConsignmentResponseDTO{
-		ID:            consignment.ID,
-		Flow:          consignment.Flow,
-		TraderID:      consignment.TraderID,
-		State:         consignment.State,
-		Items:         consignment.Items,
-		GlobalContext: consignment.GlobalContext,
-		CreatedAt:     consignment.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     consignment.UpdatedAt.Format(time.RFC3339),
-		WorkflowNodes: workflowNodes,
+	// Build response DTO using the helper function
+	responseDTO, err := s.buildConsignmentResponseDTO(ctx, &consignment, workflowNodes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build consignment response DTO: %w", err)
 	}
 
 	return responseDTO, nil
@@ -409,4 +474,115 @@ func (s *ConsignmentService) appendToConsignmentGlobalContext(ctx context.Contex
 	}
 
 	return consignment.GlobalContext, nil
+}
+
+// buildConsignmentResponseDTO builds a ConsignmentResponseDTO from a Consignment and its WorkflowNodes
+func (s *ConsignmentService) buildConsignmentResponseDTO(ctx context.Context, consignment *model.Consignment, workflowNodes []model.WorkflowNode) (*model.ConsignmentResponseDTO, error) {
+	// Collect unique HS Code IDs from consignment items
+	hsCodeIDsSet := make(map[uuid.UUID]struct{})
+	for _, item := range consignment.Items {
+		hsCodeIDsSet[item.HSCodeID] = struct{}{}
+	}
+	hsCodeIDs := make([]uuid.UUID, 0, len(hsCodeIDsSet))
+	for id := range hsCodeIDsSet {
+		hsCodeIDs = append(hsCodeIDs, id)
+	}
+
+	// Fetch HS Codes in a single query
+	var hsCodes []model.HSCode
+	if len(hsCodeIDs) > 0 {
+		result := s.db.WithContext(ctx).Where("id IN ?", hsCodeIDs).Find(&hsCodes)
+		if result.Error != nil {
+			return nil, fmt.Errorf("failed to fetch HS codes: %w", result.Error)
+		}
+	}
+
+	// Create a map for quick HS Code lookup
+	hsCodeMap := make(map[uuid.UUID]model.HSCode)
+	for _, hsCode := range hsCodes {
+		hsCodeMap[hsCode.ID] = hsCode
+	}
+
+	// Build ConsignmentItemResponseDTOs
+	itemResponseDTOs := make([]model.ConsignmentItemResponseDTO, 0, len(consignment.Items))
+	for _, item := range consignment.Items {
+		hsCode, exists := hsCodeMap[item.HSCodeID]
+		if !exists {
+			return nil, fmt.Errorf("HS code not found for ID %s", item.HSCodeID)
+		}
+
+		itemResponseDTO := model.ConsignmentItemResponseDTO{
+			HSCode: model.HSCodeResponseDTO{
+				HSCodeID:    hsCode.ID,
+				HSCode:      hsCode.HSCode,
+				Description: hsCode.Description,
+				Category:    hsCode.Category,
+			},
+			ItemMetadata: item.ItemMetadata,
+		}
+		itemResponseDTOs = append(itemResponseDTOs, itemResponseDTO)
+	}
+
+	// Collect unique WorkflowNodeTemplate IDs from workflow nodes
+	templateIDsSet := make(map[uuid.UUID]struct{})
+	for _, node := range workflowNodes {
+		templateIDsSet[node.WorkflowNodeTemplateID] = struct{}{}
+	}
+	templateIDs := make([]uuid.UUID, 0, len(templateIDsSet))
+	for id := range templateIDsSet {
+		templateIDs = append(templateIDs, id)
+	}
+
+	// Fetch WorkflowNodeTemplates in a single query
+	var templates []model.WorkflowNodeTemplate
+	if len(templateIDs) > 0 {
+		result := s.db.WithContext(ctx).Where("id IN ?", templateIDs).Find(&templates)
+		if result.Error != nil {
+			return nil, fmt.Errorf("failed to fetch workflow node templates: %w", result.Error)
+		}
+	}
+
+	// Create a map for quick template lookup
+	templateMap := make(map[uuid.UUID]model.WorkflowNodeTemplate)
+	for _, template := range templates {
+		templateMap[template.ID] = template
+	}
+
+	// Build WorkflowNodeResponseDTOs
+	nodeResponseDTOs := make([]model.WorkflowNodeResponseDTO, 0, len(workflowNodes))
+	for _, node := range workflowNodes {
+		template, exists := templateMap[node.WorkflowNodeTemplateID]
+		if !exists {
+			return nil, fmt.Errorf("workflow node template not found for ID %s", node.WorkflowNodeTemplateID)
+		}
+
+		// Use name and description directly from the template
+		nodeResponseDTO := model.WorkflowNodeResponseDTO{
+			ID:        node.ID,
+			CreatedAt: node.CreatedAt.Format(time.RFC3339),
+			UpdatedAt: node.UpdatedAt.Format(time.RFC3339),
+			WorkflowNodeTemplate: model.WorkflowNodeTemplateResponseDTO{
+				Name:        template.Name,
+				Description: template.Description,
+				Type:        string(template.Type),
+			},
+			State:     node.State,
+			DependsOn: node.DependsOn,
+		}
+		nodeResponseDTOs = append(nodeResponseDTOs, nodeResponseDTO)
+	}
+
+	// Build the final ConsignmentResponseDTO
+	responseDTO := &model.ConsignmentResponseDTO{
+		ID:            consignment.ID,
+		Flow:          consignment.Flow,
+		TraderID:      consignment.TraderID,
+		State:         consignment.State,
+		Items:         itemResponseDTOs,
+		CreatedAt:     consignment.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:     consignment.UpdatedAt.Format(time.RFC3339),
+		WorkflowNodes: nodeResponseDTOs,
+	}
+
+	return responseDTO, nil
 }
