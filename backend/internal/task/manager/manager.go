@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sync"
 
 	"github.com/OpenNSW/nsw/internal/config"
 	"github.com/OpenNSW/nsw/internal/form"
@@ -58,10 +59,12 @@ type ExecuteTaskRequest struct {
 }
 
 type taskManager struct {
-	factory        plugin.TaskFactory
-	store          persistence.TaskStoreInterface     // Storage for task executions
-	completionChan chan<- WorkflowManagerNotification // Channel to notify Workflow Manager of task completions
-	config         *config.Config                     // Application configuration
+	factory          plugin.TaskFactory
+	store            persistence.TaskStoreInterface     // Storage for task executions
+	completionChan   chan<- WorkflowManagerNotification // Channel to notify Workflow Manager of task completions
+	config           *config.Config                     // Application configuration
+	containerCache   *containerCache                    // LRU cache for active containers
+	containerBuildMu sync.Mutex                         // Protects container creation to prevent duplicates
 }
 
 // NewTaskManager creates a new TaskManager instance with persistence data store.
@@ -73,11 +76,15 @@ func NewTaskManager(db *gorm.DB, completionChan chan<- WorkflowManagerNotificati
 		return nil, fmt.Errorf("failed to create task store: %w", err)
 	}
 
+	// Initialize container cache with capacity of 100 active containers
+	cache := newContainerCache(100)
+
 	return &taskManager{
 		factory:        plugin.NewTaskFactory(cfg, formService),
 		store:          store,
 		completionChan: completionChan,
 		config:         cfg,
+		containerCache: cache,
 	}, nil
 }
 
@@ -151,6 +158,12 @@ func writeJSONError(w http.ResponseWriter, status int, message string) {
 // to the database, and invokes the plugin's Start method.
 // Returns InitTaskResponse on success, or an error if initialization or start fails.
 func (tm *taskManager) InitTask(ctx context.Context, request InitTaskRequest) (*InitTaskResponse, error) {
+	// Check if container already exists in cache
+	if existing, found := tm.containerCache.Get(request.TaskID); found {
+		slog.WarnContext(ctx, "task already initialized, reusing existing container",
+			"taskID", request.TaskID)
+		return tm.start(ctx, existing)
+	}
 
 	// Build the executor from the factory
 	executor, err := tm.factory.BuildExecutor(ctx, request.Type, request.Config)
@@ -168,7 +181,13 @@ func (tm *taskManager) InitTask(ctx context.Context, request InitTaskRequest) (*
 		return nil, fmt.Errorf("failed to create local state manager: %w", err)
 	}
 
-	activeTask := container.NewContainer(request.TaskID, request.ConsignmentID, request.StepID, request.GlobalState, localStateManager, tm.store, executor)
+	// Defensive copy of GlobalState to prevent external modifications causing race conditions
+	globalStateCopy := make(map[string]any, len(request.GlobalState))
+	for k, v := range request.GlobalState {
+		globalStateCopy[k] = v
+	}
+
+	activeTask := container.NewContainer(request.TaskID, request.ConsignmentID, request.StepID, globalStateCopy, localStateManager, tm.store, executor)
 
 	// Convert request.Config to json.RawMessage
 	configBytes, err := json.Marshal(request.Config)
@@ -197,6 +216,12 @@ func (tm *taskManager) InitTask(ctx context.Context, request InitTaskRequest) (*
 	if err := tm.store.Create(taskInfo); err != nil {
 		return nil, fmt.Errorf("failed to store task info: %w", err)
 	}
+
+	// Cache the active container
+	tm.containerCache.Set(request.TaskID, activeTask)
+	slog.InfoContext(ctx, "container added to cache",
+		"taskID", request.TaskID,
+		"cacheSize", tm.containerCache.Len())
 
 	// Execute a task and return a result to Workflow Manager
 	return tm.start(ctx, activeTask)
@@ -236,8 +261,30 @@ func (tm *taskManager) execute(ctx context.Context, activeTask *container.Contai
 	return result, nil
 }
 
-// getTask retrieves a task from the store and combines it with the in-memory executor and returns a task container.
+// getTask retrieves a task from the cache or store and combines it with the in-memory executor and returns a task container.
+// Uses double-checked locking to prevent duplicate container creation.
 func (tm *taskManager) getTask(ctx context.Context, taskID uuid.UUID) (*container.Container, error) {
+	// First check (unlocked, fast path for cache hits)
+	if cachedContainer, found := tm.containerCache.Get(taskID); found {
+		slog.DebugContext(ctx, "container retrieved from cache",
+			"taskID", taskID)
+		return cachedContainer, nil
+	}
+
+	// Lock to prevent duplicate container creation
+	tm.containerBuildMu.Lock()
+	defer tm.containerBuildMu.Unlock()
+
+	// Second check after acquiring lock (another goroutine may have created it)
+	if cachedContainer, found := tm.containerCache.Get(taskID); found {
+		slog.DebugContext(ctx, "container retrieved from cache after lock",
+			"taskID", taskID)
+		return cachedContainer, nil
+	}
+
+	// Cache miss - rebuild from persistence
+	slog.DebugContext(ctx, "container not in cache, rebuilding from persistence",
+		"taskID", taskID)
 
 	execution, err := tm.store.GetByID(taskID)
 	if err != nil {
@@ -260,9 +307,10 @@ func (tm *taskManager) getTask(ctx context.Context, taskID uuid.UUID) (*containe
 		return nil, fmt.Errorf("failed to rebuild executor: %w", err)
 	}
 
-	localState, err := persistence.NewLocalStateManager(
+	localState, err := persistence.NewLocalStateManagerWithCache(
 		tm.store,
 		execution.ID,
+		execution.LocalState,
 	)
 
 	if err != nil {
@@ -279,8 +327,16 @@ func (tm *taskManager) getTask(ctx context.Context, taskID uuid.UUID) (*containe
 		}
 	}
 
-	return container.NewContainer(
-		execution.ID, execution.ConsignmentID, execution.StepID, globalContext, localState, tm.store, executor), nil
+	activeContainer := container.NewContainer(
+		execution.ID, execution.ConsignmentID, execution.StepID, globalContext, localState, tm.store, executor)
+
+	// Cache the rebuilt container
+	tm.containerCache.Set(taskID, activeContainer)
+	slog.InfoContext(ctx, "container rebuilt and cached",
+		"taskID", taskID,
+		"cacheSize", tm.containerCache.Len())
+
+	return activeContainer, nil
 }
 
 // notifyWorkflowManager sends notification to Workflow Manager via Go channel

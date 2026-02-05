@@ -2,6 +2,7 @@ package container
 
 import (
 	"context"
+	"sync"
 
 	"github.com/OpenNSW/nsw/internal/task/persistence"
 	"github.com/OpenNSW/nsw/internal/task/plugin"
@@ -18,13 +19,18 @@ type Container struct {
 	localState    persistence.Manager
 	taskStore     persistence.TaskStoreInterface
 	pluginState   string // Cache for plugin-level business state
+	mu            sync.RWMutex
 }
 
 func (c *Container) GetTaskState() plugin.State {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.State
 }
 
 func (c *Container) SetTaskState(state plugin.State) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.State = state
 }
 
@@ -49,10 +55,14 @@ func (c *Container) GetConsignmentID() uuid.UUID {
 }
 
 func (c *Container) WriteToLocalStore(key string, value any) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return c.localState.SetState(key, value)
 }
 
 func (c *Container) ReadFromLocalStore(key string) (any, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.localState.GetState(key)
 }
 
@@ -66,10 +76,14 @@ func (c *Container) ReadFromGlobalStore(key string) (any, bool) {
 }
 
 func (c *Container) GetPluginState() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.pluginState
 }
 
 func (c *Container) SetPluginState(state string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.pluginState = state
 	// Persist to database
 	return c.taskStore.UpdatePluginState(c.TaskID, state)
