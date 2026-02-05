@@ -6,20 +6,16 @@ import (
 
 	"github.com/OpenNSW/nsw/internal/workflow/r_model"
 	"github.com/OpenNSW/nsw/internal/workflow/r_service"
+	"github.com/google/uuid"
 )
 
-// WorkflowNodeCallback is a callback function to register workflow nodes with the manager
-type WorkflowNodeCallback func(workflowNodes []r_model.WorkflowNode, consignmentGlobalContext map[string]interface{})
-
 type ConsignmentRouter struct {
-	cs                      *r_service.ConsignmentService
-	registerWorkflowNodesCb WorkflowNodeCallback
+	cs *r_service.ConsignmentService
 }
 
-func NewConsignmentRouter(cs *r_service.ConsignmentService, registerWorkflowNodesCb WorkflowNodeCallback) *ConsignmentRouter {
+func NewConsignmentRouter(cs *r_service.ConsignmentService, _ interface{}) *ConsignmentRouter {
 	return &ConsignmentRouter{
-		cs:                      cs,
-		registerWorkflowNodesCb: registerWorkflowNodesCb,
+		cs: cs,
 	}
 }
 
@@ -48,20 +44,77 @@ func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *ht
 	}
 
 	// Create consignment through service
-	consignment, newReadyNodes, err := c.cs.InitializeConsignment(r.Context(), &req)
+	// Task registration happens within the transaction via pre-commit callback
+	consignment, _, err := c.cs.InitializeConsignment(r.Context(), &req)
 	if err != nil {
 		http.Error(w, "failed to create consignment: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Register newly ready workflow nodes with the manager (via callback)
-	if len(newReadyNodes) > 0 && c.registerWorkflowNodesCb != nil {
-		c.registerWorkflowNodesCb(newReadyNodes, consignment.GlobalContext)
+	// Return response - all operations completed successfully within transaction
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(w).Encode(consignment); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
+}
+
+// HandleGetConsignmentsByTraderID handles GET /api/v1/consignments?traderId={traderId}
+// Query params: traderId (required)
+// Response: array of ConsignmentResponseDTO
+func (c *ConsignmentRouter) HandleGetConsignmentsByTraderID(w http.ResponseWriter, r *http.Request) {
+	// Get traderId from query params
+	traderID := r.URL.Query().Get("traderId")
+	if traderID == "" {
+		http.Error(w, "traderId query parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	// Get consignments from service
+	consignments, err := c.cs.GetConsignmentsByTraderID(r.Context(), traderID)
+	if err != nil {
+		http.Error(w, "failed to retrieve consignments: "+err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	// Return response
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(consignments); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
+}
+
+// HandleGetConsignmentByID handles GET /api/v1/consignments/{id}
+// Path param: id (required)
+// Response: ConsignmentResponseDTO
+func (c *ConsignmentRouter) HandleGetConsignmentByID(w http.ResponseWriter, r *http.Request) {
+	// Extract consignment ID from path
+	consignmentIDStr := r.PathValue("id")
+	if consignmentIDStr == "" {
+		http.Error(w, "consignment ID is required", http.StatusBadRequest)
+		return
+	}
+
+	// Parse UUID
+	consignmentID, err := uuid.Parse(consignmentIDStr)
+	if err != nil {
+		http.Error(w, "invalid consignment ID format: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Get consignment from service
+	consignment, err := c.cs.GetConsignmentByID(r.Context(), consignmentID)
+	if err != nil {
+		http.Error(w, "failed to retrieve consignment: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Return response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(consignment); err != nil {
 		http.Error(w, "failed to encode response", http.StatusInternalServerError)
 		return

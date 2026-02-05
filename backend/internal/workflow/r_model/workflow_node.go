@@ -27,9 +27,9 @@ const (
 // WorkflowNodeTemplate represents a template for a workflow node.
 type WorkflowNodeTemplate struct {
 	BaseModel
-	Type      taskPlugin.Type `json:"type"`       // Type of the workflow node
-	Config    json.RawMessage `json:"config"`     // Configuration specific to the workflow node type
-	DependsOn []uuid.UUID     `json:"depends_on"` // Array of workflow node template IDs this node depends on
+	Type      taskPlugin.Type `gorm:"type:varchar(50);column:type;not null" json:"type"`                       // Type of the workflow node
+	Config    json.RawMessage `gorm:"type:jsonb;column:config;not null;serializer:json" json:"config"`         // Configuration specific to the workflow node type
+	DependsOn UUIDArray       `gorm:"type:jsonb;column:depends_on;not null;serializer:json" json:"depends_on"` // Array of workflow node template IDs this node depends on
 }
 
 func (wnt *WorkflowNodeTemplate) TableName() string {
@@ -42,7 +42,7 @@ type WorkflowNode struct {
 	ConsignmentID          uuid.UUID         `gorm:"type:uuid;column:consignment_id;not null" json:"consignmentId"`                     // Reference to the Consignment
 	WorkflowNodeTemplateID uuid.UUID         `gorm:"type:uuid;column:workflow_node_template_id;not null" json:"workflowNodeTemplateId"` // Reference to the WorkflowNodeTemplate
 	State                  WorkflowNodeState `gorm:"type:varchar(50);column:state;not null" json:"state"`                               // State of the workflow node
-	DependsOn              []uuid.UUID       `gorm:"type:uuid[];column:depends_on" json:"depends_on"`                                   // Array of workflow node IDs this node depends on
+	DependsOn              UUIDArray         `gorm:"type:jsonb;column:depends_on;not null;serializer:json" json:"depends_on"`           // Array of workflow node IDs this node depends on
 
 	// Relationships
 	Consignment          Consignment          `gorm:"foreignKey:ConsignmentID;references:ID" json:"-"`          // Associated Consignment

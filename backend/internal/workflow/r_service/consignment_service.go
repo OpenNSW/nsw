@@ -14,10 +14,17 @@ import (
 // ConsignmentService handles consignment-related operations.
 // It coordinates between workflow templates, nodes, and the state machine.
 type ConsignmentService struct {
-	db               *gorm.DB
-	templateProvider TemplateProvider
-	nodeRepo         WorkflowNodeRepository
-	stateMachine     *WorkflowNodeStateMachine
+	db                          *gorm.DB
+	templateProvider            TemplateProvider
+	nodeRepo                    WorkflowNodeRepository
+	stateMachine                *WorkflowNodeStateMachine
+	preCommitValidationCallback func([]r_model.WorkflowNode, map[string]any) error
+}
+
+// SetPreCommitValidationCallback sets a callback to be executed before transaction commit
+// This allows external validation (like task manager registration) to participate in the transaction
+func (s *ConsignmentService) SetPreCommitValidationCallback(callback func([]r_model.WorkflowNode, map[string]any) error) {
+	s.preCommitValidationCallback = callback
 }
 
 // NewConsignmentService creates a new instance of ConsignmentService with interface dependencies.
@@ -104,6 +111,15 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 		return nil, nil, fmt.Errorf("failed to create workflow nodes: %w", err)
 	}
 
+	// Execute pre-commit validation callback if set (e.g., task manager registration)
+	// This ensures external dependencies are validated before committing the transaction
+	if s.preCommitValidationCallback != nil && len(newReadyWorkflowNodes) > 0 {
+		if err := s.preCommitValidationCallback(newReadyWorkflowNodes, consignment.GlobalContext); err != nil {
+			tx.Rollback()
+			return nil, nil, fmt.Errorf("pre-commit validation failed: %w", err)
+		}
+	}
+
 	// Commit Transaction
 	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
@@ -155,7 +171,7 @@ func (s *ConsignmentService) createWorkflowNodesInTx(ctx context.Context, tx *go
 // GetConsignmentByID retrieves a consignment by its ID from the database.
 func (s *ConsignmentService) GetConsignmentByID(ctx context.Context, consignmentID uuid.UUID) (*r_model.ConsignmentResponseDTO, error) {
 	var consignment r_model.Consignment
-	result := s.db.WithContext(ctx).Preload("Items").First(&consignment, "id = ?", consignmentID)
+	result := s.db.WithContext(ctx).First(&consignment, "id = ?", consignmentID)
 	if result.Error != nil {
 		return nil, fmt.Errorf("failed to retrieve consignment with ID %s: %w", consignmentID, result.Error)
 	}
@@ -184,7 +200,7 @@ func (s *ConsignmentService) GetConsignmentByID(ctx context.Context, consignment
 // GetConsignmentsByTraderID retrieves consignments associated with a specific trader ID.
 func (s *ConsignmentService) GetConsignmentsByTraderID(ctx context.Context, traderID string) ([]r_model.ConsignmentResponseDTO, error) {
 	var consignments []r_model.Consignment
-	result := s.db.WithContext(ctx).Preload("Items").Where("trader_id = ?", traderID).Find(&consignments)
+	result := s.db.WithContext(ctx).Where("trader_id = ?", traderID).Find(&consignments)
 	if result.Error != nil {
 		return nil, fmt.Errorf("failed to retrieve consignments for trader %s: %w", traderID, result.Error)
 	}

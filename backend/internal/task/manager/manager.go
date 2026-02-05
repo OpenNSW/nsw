@@ -70,6 +70,8 @@ type taskManager struct {
 // NewTaskManager creates a new TaskManager instance with persistence data store.
 // db is the shared database connection
 // completionChan is a channel for notifying Workflow Manager when tasks complete.
+// Note: The completionChan should have a sufficient buffer size (recommended: 1000+)
+// to prevent notification drops during high load.
 func NewTaskManager(db *gorm.DB, completionChan chan<- WorkflowManagerNotification, cfg *config.Config, formService form.FormService) (TaskManager, error) {
 	store, err := persistence.NewTaskStore(db)
 	if err != nil {

@@ -19,7 +19,9 @@ import (
 	"github.com/OpenNSW/nsw/internal/workflow"
 )
 
-const ChannelSize = 100
+// ChannelSize defines the buffer size for workflow node update notifications.
+// A larger buffer (1000) prevents notification drops during high load scenarios.
+const ChannelSize = 1000
 
 func main() {
 	// Load configuration from environment variables
@@ -85,6 +87,8 @@ func main() {
 	mux.HandleFunc("POST /api/v1/tasks", tm.HandleExecuteTask)
 	mux.HandleFunc("GET /api/v1/hscodes", wm.HandleGetAllHSCodes)
 	mux.HandleFunc("POST /api/v1/consignments", wm.HandleCreateConsignment)
+	mux.HandleFunc("GET /api/v1/consignments/{id}", wm.HandleGetConsignmentByID)
+	mux.HandleFunc("GET /api/v1/consignments", wm.HandleGetConsignmentsByTraderID)
 
 	// Set up graceful shutdown
 	serverAddr := fmt.Sprintf(":%d", cfg.Server.Port)
