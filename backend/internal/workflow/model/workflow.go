@@ -1,32 +1,19 @@
 package model
 
-import (
-	"encoding/json"
-)
+import "github.com/google/uuid"
 
-// StepType represents the type of step within a workflow.
-type StepType string
-
-const (
-	StepTypeSimpleForm   StepType = "SIMPLE_FORM"    // Step for simple form submission
-	StepTypeWaitForEvent StepType = "WAIT_FOR_EVENT" // Step that waits for an external event to occur
-)
-
-// Step represents an individual step within a workflow template.
-type Step struct {
-	StepID    string          `json:"stepId"`    // Unique identifier for the step
-	Type      StepType        `json:"type"`      // Type of the step
-	Config    json.RawMessage `json:"config"`    // Configuration specific to the step type
-	DependsOn []string        `json:"dependsOn"` // List of step IDs that this step depends on
-}
-
-// WorkflowTemplate represents the template of a workflow for consignments.
 type WorkflowTemplate struct {
 	BaseModel
-	Version string `gorm:"type:varchar(50);column:version;not null" json:"version"`       // Version of the workflow template
-	Steps   []Step `gorm:"type:jsonb;column:steps;serializer:json;not null" json:"steps"` // List of steps in the workflow template
+	Name          string    `gorm:"type:varchar(100);column:name;not null" json:"name"`            // Name of the workflow template
+	Description   string    `gorm:"type:text;column:description" json:"description"`               // Description of the workflow template
+	Version       string    `gorm:"type:varchar(50);column:version;not null" json:"version"`       // Version of the workflow template
+	NodeTemplates UUIDArray `gorm:"type:jsonb;column:nodes;not null;serializer:json" json:"nodes"` // Array of workflow node template IDs
 }
 
-func (w *WorkflowTemplate) TableName() string {
+func (wt *WorkflowTemplate) TableName() string {
 	return "workflow_templates"
+}
+
+func (wt *WorkflowTemplate) GetNodeTemplateIDs() []uuid.UUID {
+	return wt.NodeTemplates
 }

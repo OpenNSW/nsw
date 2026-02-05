@@ -15,12 +15,13 @@ import (
 	"github.com/OpenNSW/nsw/internal/database"
 	"github.com/OpenNSW/nsw/internal/form"
 	"github.com/OpenNSW/nsw/internal/middleware"
-	"github.com/OpenNSW/nsw/internal/task"
+	taskManager "github.com/OpenNSW/nsw/internal/task/manager"
 	"github.com/OpenNSW/nsw/internal/workflow"
-	"github.com/OpenNSW/nsw/internal/workflow/model"
 )
 
-const ChannelSize = 100
+// ChannelSize defines the buffer size for workflow node update notifications.
+// A larger buffer (1000) prevents notification drops during high load scenarios.
+const ChannelSize = 1000
 
 func main() {
 	// Load configuration from environment variables
@@ -65,32 +66,29 @@ func main() {
 	}
 
 	// Create task completion notification channel
-	ch := make(chan model.TaskCompletionNotification, ChannelSize)
+	ch := make(chan taskManager.WorkflowManagerNotification, ChannelSize)
 
 	// Initialize form service
 	formService := form.NewFormService(db)
 
 	// Initialize task manager with database connection
-	tm, err := task.NewTaskManager(db, ch, cfg, formService)
+	tm, err := taskManager.NewTaskManager(db, ch, cfg, formService)
 	if err != nil {
 		log.Fatalf("failed to create task manager: %v", err)
 	}
 
 	// Initialize workflow manager with database connection
 	wm := workflow.NewManager(tm, ch, db)
-	slog.Info("starting task update listener...")
-	wm.StartTaskUpdateListener()
-	slog.Info("task update listener started")
 
 	// Set up HTTP routes
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /api/tasks", tm.HandleExecuteTask)
-	mux.HandleFunc("GET /api/hscodes", wm.HandleGetHSCodes)
-	mux.HandleFunc("GET /api/hscodes/{hsCodeId}", wm.HandleGetHSCodeID)
-	mux.HandleFunc("GET /api/workflows/templates", wm.HandleGetWorkflowTemplate)
-	mux.HandleFunc("POST /api/consignments", wm.HandleCreateConsignment)
-	mux.HandleFunc("GET /api/consignments", wm.HandleGetConsignments)
-	mux.HandleFunc("GET /api/consignments/{consignmentID}", wm.HandleGetConsignment)
+
+	// V1 API routes (new refactored architecture)
+	mux.HandleFunc("POST /api/v1/tasks", tm.HandleExecuteTask)
+	mux.HandleFunc("GET /api/v1/hscodes", wm.HandleGetAllHSCodes)
+	mux.HandleFunc("POST /api/v1/consignments", wm.HandleCreateConsignment)
+	mux.HandleFunc("GET /api/v1/consignments/{id}", wm.HandleGetConsignmentByID)
+	mux.HandleFunc("GET /api/v1/consignments", wm.HandleGetConsignmentsByTraderID)
 
 	// Set up graceful shutdown
 	serverAddr := fmt.Sprintf(":%d", cfg.Server.Port)
@@ -133,7 +131,7 @@ func main() {
 
 	// Stop the workflow manager's task update listener
 	slog.Info("stopping task update listener...")
-	wm.StopTaskUpdateListener()
+	wm.StopWorkflowNodeUpdateListener()
 
 	slog.Info("server stopped")
 }
