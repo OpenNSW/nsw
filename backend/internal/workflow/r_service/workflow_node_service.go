@@ -15,58 +15,8 @@ type WorkflowNodeService struct {
 
 // NewWorkflowNodeService creates a new instance of WorkflowNodeService.
 func NewWorkflowNodeService(db *gorm.DB) *WorkflowNodeService {
-	return &WorkflowNodeService{
-		// db: db,
-	}
+	return &WorkflowNodeService{}
 }
-
-// // GetWorkflowNodeByID retrieves a workflow node by its ID.
-// func (s *WorkflowNodeService) GetWorkflowNodeByID(ctx context.Context, nodeID uuid.UUID) (*r_model.WorkflowNode, error) {
-// 	var node r_model.WorkflowNode
-// 	result := s.db.WithContext(ctx).Where("id = ?", nodeID).First(&node)
-// 	if result.Error != nil {
-// 		return nil, fmt.Errorf("failed to retrieve workflow node: %w", result.Error)
-// 	}
-// 	return &node, nil
-// }
-
-// // CreateWorkflowNodes creates multiple workflow nodes in the database.
-// func (s *WorkflowNodeService) CreateWorkflowNodes(ctx context.Context, nodes []r_model.WorkflowNode) ([]r_model.WorkflowNode, error) {
-// 	if len(nodes) == 0 {
-// 		return []r_model.WorkflowNode{}, nil
-// 	}
-
-// 	result := s.db.WithContext(ctx).Create(&nodes)
-// 	if result.Error != nil {
-// 		return nil, fmt.Errorf("failed to create workflow nodes: %w", result.Error)
-// 	}
-
-// 	return nodes, nil
-// }
-
-// // GetWorkflowNodesByConsignmentID retrieves all workflow nodes associated with a given consignment ID.
-// func (s *WorkflowNodeService) GetWorkflowNodesByConsignmentID(ctx context.Context, consignmentID string) ([]r_model.WorkflowNode, error) {
-// 	var nodes []r_model.WorkflowNode
-// 	result := s.db.WithContext(ctx).Where("consignment_id = ?", consignmentID).Find(&nodes)
-// 	if result.Error != nil {
-// 		return nil, fmt.Errorf("failed to retrieve workflow nodes: %w", result.Error)
-// 	}
-// 	return nodes, nil
-// }
-
-// // UpdateWorkflowNodes updates multiple workflow nodes in the database.
-// func (s *WorkflowNodeService) UpdateWorkflowNodes(ctx context.Context, nodes []r_model.WorkflowNode) error {
-// 	if len(nodes) == 0 {
-// 		return nil
-// 	}
-
-// 	result := s.db.WithContext(ctx).Save(&nodes)
-// 	if result.Error != nil {
-// 		return fmt.Errorf("failed to update workflow nodes: %w", result.Error)
-// 	}
-
-// 	return nil
-// }
 
 // GetWorkflowNodeByIDInTx retrieves a workflow node by its ID within a transaction.
 func (s *WorkflowNodeService) GetWorkflowNodeByIDInTx(ctx context.Context, tx *gorm.DB, nodeID uuid.UUID) (*r_model.WorkflowNode, error) {
@@ -123,4 +73,33 @@ func (s *WorkflowNodeService) GetWorkflowNodesByConsignmentIDInTx(ctx context.Co
 		return nil, fmt.Errorf("failed to retrieve workflow nodes in transaction: %w", result.Error)
 	}
 	return nodes, nil
+}
+
+// GetWorkflowNodesByConsignmentIDsInTx retrieves all workflow nodes associated with multiple consignment IDs within a transaction.
+// This method is optimized for batch operations to avoid N+1 query problems.
+func (s *WorkflowNodeService) GetWorkflowNodesByConsignmentIDsInTx(ctx context.Context, tx *gorm.DB, consignmentIDs []uuid.UUID) ([]r_model.WorkflowNode, error) {
+	if len(consignmentIDs) == 0 {
+		return []r_model.WorkflowNode{}, nil
+	}
+
+	var nodes []r_model.WorkflowNode
+	result := tx.WithContext(ctx).Where("consignment_id IN ?", consignmentIDs).Find(&nodes)
+	if result.Error != nil {
+		return nil, fmt.Errorf("failed to retrieve workflow nodes for %d consignments in transaction: %w", len(consignmentIDs), result.Error)
+	}
+	return nodes, nil
+}
+
+// CountIncompleteNodesByConsignmentID counts the number of incomplete workflow nodes for a given consignment.
+// This is more efficient than fetching all nodes when only checking completion status.
+func (s *WorkflowNodeService) CountIncompleteNodesByConsignmentID(ctx context.Context, tx *gorm.DB, consignmentID uuid.UUID) (int64, error) {
+	var count int64
+	err := tx.WithContext(ctx).
+		Model(&r_model.WorkflowNode{}).
+		Where("consignment_id = ? AND state != ?", consignmentID, r_model.WorkflowNodeStateCompleted).
+		Count(&count).Error
+	if err != nil {
+		return 0, fmt.Errorf("failed to count incomplete nodes for consignment %s: %w", consignmentID, err)
+	}
+	return count, nil
 }

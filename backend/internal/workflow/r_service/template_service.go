@@ -20,7 +20,7 @@ func NewTemplateService(db *gorm.DB) *TemplateService {
 }
 
 // GetWorkflowTemplateByHSCodeIDAndFlow retrieves the workflow template associated with a given HS code and consignment flow.
-func (s *TemplateService) GetWorkflowTemplateByHSCodeIDAndFlow(ctx context.Context, hsCodeID string, flow string) (*r_model.WorkflowTemplate, error) {
+func (s *TemplateService) GetWorkflowTemplateByHSCodeIDAndFlow(ctx context.Context, hsCodeID uuid.UUID, flow r_model.ConsignmentFlow) (*r_model.WorkflowTemplate, error) {
 	var workflowTemplate r_model.WorkflowTemplate
 	result := s.db.WithContext(ctx).Table("workflow_templates").
 		Select("workflow_templates.*").

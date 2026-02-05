@@ -30,9 +30,9 @@ type Manager struct {
 func NewManager(tm taskManager.TaskManager, ch chan taskManager.WorkflowManagerNotification, db *gorm.DB) *Manager {
 	// Initialize services
 	hsCodeService := r_service.NewHSCodeService(db)
-	consignmentService := r_service.NewConsignmentService(db)
 	workflowNodeService := r_service.NewWorkflowNodeService(db)
 	templateService := r_service.NewTemplateService(db)
+	consignmentService := r_service.NewConsignmentService(db, templateService, workflowNodeService)
 
 	// Create context for lifecycle management
 	ctx, cancel := context.WithCancel(context.Background())

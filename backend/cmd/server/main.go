@@ -82,7 +82,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	// V1 API routes (new refactored architecture)
-	mux.HandleFunc("GET /api/v1/tasks", tm.HandleExecuteTask)
+	mux.HandleFunc("POST /api/v1/tasks", tm.HandleExecuteTask)
 	mux.HandleFunc("GET /api/v1/hscodes", wm.HandleGetAllHSCodes)
 	mux.HandleFunc("POST /api/v1/consignments", wm.HandleCreateConsignment)
 
