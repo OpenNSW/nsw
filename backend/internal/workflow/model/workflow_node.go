@@ -3,8 +3,9 @@ package model
 import (
 	"encoding/json"
 
-	taskPlugin "github.com/OpenNSW/nsw/internal/task/plugin"
 	"github.com/google/uuid"
+
+	taskPlugin "github.com/OpenNSW/nsw/internal/task/plugin"
 )
 
 type WorkflowNodeType string

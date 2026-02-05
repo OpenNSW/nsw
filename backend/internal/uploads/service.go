@@ -40,7 +40,7 @@ func (s *UploadService) Upload(ctx context.Context, filename string, reader io.R
 		}
 		return nil, fmt.Errorf("failed to generate URL: %w", err)
 	}
-	
+
 	metadata := &FileMetadata{
 		ID:       id,
 		Name:     filename,

@@ -6,9 +6,10 @@ import (
 	"maps"
 	"time"
 
-	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+
+	"github.com/OpenNSW/nsw/internal/workflow/model"
 )
 
 // ConsignmentService handles consignment-related operations.
@@ -77,10 +78,7 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 	var items []model.ConsignmentItem
 	var workflowTemplates []model.WorkflowTemplate
 	for _, itemDTO := range createReq.Items {
-		item := model.ConsignmentItem{
-			HSCodeID:     itemDTO.HSCodeID,
-			ItemMetadata: itemDTO.ItemMetadata,
-		}
+		item := model.ConsignmentItem(itemDTO)
 		items = append(items, item)
 		workflowTemplate, err := s.templateProvider.GetWorkflowTemplateByHSCodeIDAndFlow(ctx, itemDTO.HSCodeID, createReq.Flow)
 		if err != nil {

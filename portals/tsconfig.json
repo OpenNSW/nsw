@@ -7,5 +7,10 @@
       ]
     }
   },
-  "include": []
+  "files": [],
+  "references": [
+    { "path": "./apps/oga-app" },
+    { "path": "./apps/trader-app" },
+    { "path": "./ui" }
+  ]
 }

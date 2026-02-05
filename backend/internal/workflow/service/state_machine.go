@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+
+	"github.com/OpenNSW/nsw/internal/workflow/model"
 )
 
 // StateTransitionResult represents the result of a workflow node state transition.

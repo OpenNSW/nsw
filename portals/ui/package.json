@@ -6,6 +6,8 @@
   "scripts": {
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "format": "eslint . --fix",
+    "type-check": "tsc -b --noEmit",
     "preview": "vite preview"
   },
   "main": "dist/ui.cjs.js",

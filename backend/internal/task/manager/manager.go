@@ -8,13 +8,14 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+
 	"github.com/OpenNSW/nsw/internal/config"
 	"github.com/OpenNSW/nsw/internal/form"
 	"github.com/OpenNSW/nsw/internal/task/container"
 	"github.com/OpenNSW/nsw/internal/task/persistence"
 	"github.com/OpenNSW/nsw/internal/task/plugin"
-	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 type InitTaskRequest struct {

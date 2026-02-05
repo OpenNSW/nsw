@@ -5,10 +5,11 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/OpenNSW/nsw/internal/config"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+
+	"github.com/OpenNSW/nsw/internal/config"
 )
 
 // New creates a new database connection using the provided configuration

@@ -45,16 +45,16 @@ type CORSConfig struct {
 }
 
 type StorageConfig struct {
-	Type            string // "local" or "s3"
-	LocalBaseDir    string
-	LocalPublicURL  string
-	S3Endpoint      string
-	S3Bucket        string
-	S3Region        string
-	S3AccessKey     string
-	S3SecretKey     string
-	S3UseSSL        bool
-	S3PublicURL     string
+	Type           string // "local" or "s3"
+	LocalBaseDir   string
+	LocalPublicURL string
+	S3Endpoint     string
+	S3Bucket       string
+	S3Region       string
+	S3AccessKey    string
+	S3SecretKey    string
+	S3UseSSL       bool
+	S3PublicURL    string
 }
 
 // Load reads configuration from environment variables

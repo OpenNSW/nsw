@@ -51,7 +51,7 @@ func TestUploadService(t *testing.T) {
 	ctx := context.Background()
 	filename := "test.jpg"
 	content := []byte("image data")
-	
+
 	metadata, err := service.Upload(ctx, filename, bytes.NewReader(content), int64(len(content)), "image/jpeg")
 	if err != nil {
 		t.Fatalf("Upload failed: %v", err)

@@ -26,7 +26,7 @@ export function ConsignmentListScreen() {
       }
     }
 
-    fetchData()
+    void fetchData()
 
     // Poll for new applications every 10 seconds
     const interval = setInterval(fetchData, 10000)
@@ -139,7 +139,7 @@ export function ConsignmentListScreen() {
                   {filteredApplications.map((app) => (
                     <tr
                       key={app.taskId}
-                      onClick={() => navigate(`/consignments/${app.consignmentId}?taskId=${app.taskId}`)}
+                      onClick={() => { void navigate(`/consignments/${app.consignmentId}?taskId=${app.taskId}`) }}
                       className="hover:bg-blue-50/30 cursor-pointer transition-colors group text-sm"
                     >
                       <td className="px-6 py-4 whitespace-nowrap font-mono text-blue-600 font-medium hover:underline">

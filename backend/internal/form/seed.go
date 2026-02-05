@@ -7,8 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/OpenNSW/nsw/internal/form/model"
 	"gorm.io/gorm"
+
+	"github.com/OpenNSW/nsw/internal/form/model"
 )
 
 // SeedForms loads example forms from JSON files into the database

@@ -8,6 +8,10 @@
     "pnpm": "10.28.1"
   },
   "scripts": {
+    "build": "pnpm --recursive --parallel run build",
+    "lint": "pnpm --recursive --parallel run lint",
+    "format": "pnpm --recursive --parallel run format",
+    "type-check": "pnpm --recursive --parallel run type-check",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/OpenNSW/nsw/internal/task/plugin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+
+	"github.com/OpenNSW/nsw/internal/task/plugin"
 )
 
 // TaskInfo represents a task execution record in the database

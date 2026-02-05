@@ -11,9 +11,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/OpenNSW/nsw/internal/config"
 	"github.com/OpenNSW/nsw/internal/form"
-	"github.com/google/uuid"
 )
 
 // SimpleFormAction represents the action to perform on the form

@@ -5,9 +5,10 @@ import (
 	"errors"
 	"fmt"
 
-	formmodel "github.com/OpenNSW/nsw/internal/form/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+
+	formmodel "github.com/OpenNSW/nsw/internal/form/model"
 )
 
 // ErrFormNotFound is returned when a form is not found

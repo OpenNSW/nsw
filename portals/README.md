@@ -13,6 +13,12 @@ make setup      # Installs pnpm (if needed) + all dependencies
 # Start developing
 make dev-oga    # Start OGA app
 make dev-trader # Start Trader app
+
+# Quality checks & formatting
+make lint       # Check for lint errors
+make format     # Auto-fix lint and formatting issues
+make type-check # Run TypeScript type checking
+
 make help       # See all available commands
 ```
 

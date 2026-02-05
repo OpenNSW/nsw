@@ -39,7 +39,9 @@ func (h *HTTPHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(metadata)
+	if err := json.NewEncoder(w).Encode(metadata); err != nil {
+		slog.ErrorContext(r.Context(), "Failed to encode response", "error", err)
+	}
 }
 
 func (h *HTTPHandler) Download(w http.ResponseWriter, r *http.Request) {
@@ -62,5 +64,7 @@ func (h *HTTPHandler) Download(w http.ResponseWriter, r *http.Request) {
 	defer reader.Close()
 
 	w.Header().Set("Content-Type", contentType)
-	io.Copy(w, reader)
+	if _, err := io.Copy(w, reader); err != nil {
+		slog.ErrorContext(r.Context(), "Failed to copy file content", "error", err)
+	}
 }

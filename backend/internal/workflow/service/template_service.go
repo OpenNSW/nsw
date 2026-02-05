@@ -3,9 +3,10 @@ package service
 import (
 	"context"
 
-	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+
+	"github.com/OpenNSW/nsw/internal/workflow/model"
 )
 
 type TemplateService struct {

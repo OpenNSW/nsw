@@ -5,10 +5,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/OpenNSW/nsw/internal/workflow/model"
-	"github.com/OpenNSW/nsw/utils"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+
+	"github.com/OpenNSW/nsw/internal/workflow/model"
+	"github.com/OpenNSW/nsw/utils"
 )
 
 type HSCodeService struct {

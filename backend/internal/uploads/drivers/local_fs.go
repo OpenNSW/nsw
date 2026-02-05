@@ -35,11 +35,11 @@ func (d *LocalFSDriver) getHashedPath(key string) string {
 
 func (d *LocalFSDriver) Save(ctx context.Context, key string, body io.Reader, contentType string) error {
 	fullPath := filepath.Join(d.BaseDir, d.getHashedPath(key))
-	
+
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
 		return fmt.Errorf("failed to create hashed directory: %w", err)
 	}
-	
+
 	file, err := os.Create(fullPath)
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)

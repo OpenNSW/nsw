@@ -1,4 +1,4 @@
-.PHONY: help setup install clean dev-oga dev-trader dev-all build build-oga build-trader build-ui lint lint-fix test preview-oga preview-trader
+.PHONY: help setup install clean dev-oga dev-trader dev-all build build-oga build-trader build-ui lint format type-check test preview-oga preview-trader
 
 # Default target
 help:
@@ -22,7 +22,8 @@ help:
 	@echo ""
 	@echo "Quality:"
 	@echo "  make lint           - Run ESLint on all workspaces"
-	@echo "  make lint-fix       - Run ESLint with --fix"
+	@echo "  make format         - Auto-fix lint and formatting issues"
+	@echo "  make type-check     - Run TypeScript type checking"
 	@echo ""
 
 # Setup pnpm if not installed
@@ -81,14 +82,19 @@ build-ui:
 	@echo "🏗️  Building UI library..."
 	@pnpm --filter @lsf/ui build
 
-# Linting
+# Linting and Formatting
 lint:
 	@echo "🔍 Running ESLint..."
 	@pnpm -r lint
 
-lint-fix:
-	@echo "🔧 Running ESLint with --fix..."
-	@pnpm -r exec eslint . --fix
+format:
+	@echo "🔧 Auto-fixing lint and formatting issues..."
+	@pnpm -r run format
+	@echo "✅ Formatting complete!"
+
+type-check:
+	@echo "📝 Running TypeScript type checking..."
+	@pnpm run type-check
 
 # Preview production builds
 preview-oga:

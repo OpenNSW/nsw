@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/OpenNSW/nsw/internal/config"
-	"github.com/OpenNSW/nsw/internal/uploads/drivers"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+
+	"github.com/OpenNSW/nsw/internal/config"
+	"github.com/OpenNSW/nsw/internal/uploads/drivers"
 )
 
 // NewStorageFromConfig creates a storage instance based on the provided configuration
@@ -21,7 +22,7 @@ func NewStorageFromConfig(ctx context.Context, cfg config.StorageConfig) (Storag
 		return drivers.NewLocalFSDriver(cfg.LocalBaseDir, cfg.LocalPublicURL)
 	case "s3":
 		slog.Info("Initializing S3 storage", "endpoint", cfg.S3Endpoint, "bucket", cfg.S3Bucket)
-		
+
 		opts := []func(*awsconfig.LoadOptions) error{
 			awsconfig.WithRegion(cfg.S3Region),
 		}

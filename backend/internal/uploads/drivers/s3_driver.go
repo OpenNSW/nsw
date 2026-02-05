@@ -48,12 +48,12 @@ func (d *S3Driver) Get(ctx context.Context, key string) (io.ReadCloser, string, 
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to get from S3: %w", err)
 	}
-	
+
 	contentType := "application/octet-stream"
 	if resp.ContentType != nil {
 		contentType = *resp.ContentType
 	}
-	
+
 	return resp.Body, contentType, nil
 }
 
@@ -82,7 +82,7 @@ func (d *S3Driver) GenerateURL(ctx context.Context, key string, expires time.Dur
 		Bucket: aws.String(d.Bucket),
 		Key:    aws.String(key),
 	}, s3.WithPresignExpires(expires))
-	
+
 	if err != nil {
 		return "", fmt.Errorf("failed to presign URL: %w", err)
 	}

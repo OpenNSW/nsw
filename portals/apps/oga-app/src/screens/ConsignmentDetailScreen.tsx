@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Button, Badge, Spinner, Text, Card, Flex, Box, TextField, TextArea, Callout } from '@radix-ui/themes'
 import { ArrowLeftIcon, CheckCircledIcon, ExclamationTriangleIcon, InfoCircledIcon } from '@radix-ui/react-icons'
 import { fetchApplicationDetail, approveTask, type OGAApplication, type ApproveRequest } from '../api'
@@ -39,7 +39,7 @@ export function ConsignmentDetailScreen() {
         setLoading(false)
       }
     }
-    fetchData()
+    void fetchData()
   }, [taskId])
 
   const handleFormChange = (field: string, value: unknown) => {
@@ -94,7 +94,7 @@ export function ConsignmentDetailScreen() {
           <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
           <Callout.Text>{error}</Callout.Text>
         </Callout.Root>
-        <Button variant="soft" mt="4" onClick={() => navigate('/consignments')}>
+        <Button variant="soft" mt="4" onClick={() => { void navigate('/consignments') }}>
           <ArrowLeftIcon /> Back to List
         </Button>
       </Box>
@@ -108,7 +108,7 @@ export function ConsignmentDetailScreen() {
           <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
           <Callout.Text>Application not found</Callout.Text>
         </Callout.Root>
-        <Button variant="soft" mt="4" onClick={() => navigate('/consignments')}>
+        <Button variant="soft" mt="4" onClick={() => { void navigate('/consignments') }}>
           <ArrowLeftIcon /> Back to List
         </Button>
       </Box>
@@ -118,7 +118,7 @@ export function ConsignmentDetailScreen() {
   return (
     <div className="animate-fade-in max-w-5xl mx-auto">
       <Flex justify="between" align="center" mb="6">
-        <Button variant="ghost" color="gray" onClick={() => navigate('/consignments')}>
+        <Button variant="ghost" color="gray" onClick={() => { void navigate('/consignments') }}>
           <ArrowLeftIcon /> Back to Consignments
         </Button>
         <Flex gap="3">
@@ -246,7 +246,7 @@ export function ConsignmentDetailScreen() {
                           {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
                         </Text>
                         <Text size="2" weight="medium">
-                          {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                          {typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value)}
                         </Text>
                       </Box>
                     ))}
@@ -358,7 +358,7 @@ export function ConsignmentDetailScreen() {
                     <Button
                       size="4"
                       className="w-full cursor-pointer"
-                      onClick={handleApprove}
+                      onClick={() => { void handleApprove() }}
                       loading={isSubmitting}
                       disabled={success || !reviewerName.trim()}
                     >

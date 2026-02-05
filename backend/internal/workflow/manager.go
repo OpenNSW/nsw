@@ -6,12 +6,13 @@ import (
 	"log/slog"
 	"net/http"
 
+	"gorm.io/gorm"
+
 	taskManager "github.com/OpenNSW/nsw/internal/task/manager"
 	"github.com/OpenNSW/nsw/internal/task/plugin"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/OpenNSW/nsw/internal/workflow/router"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
-	"gorm.io/gorm"
 )
 
 // Manager is the refactored workflow manager that coordinates between services, routers, and task manager
