@@ -12,17 +12,17 @@ import (
 
 // TaskInfo represents a task execution record in the database
 type TaskInfo struct {
-	ID            uuid.UUID       `gorm:"type:uuid;primaryKey"`
-	StepID        string          `gorm:"type:varchar(50);not null"`
-	ConsignmentID uuid.UUID       `gorm:"type:uuid;index;not null"`
-	Type          plugin.Type     `gorm:"type:varchar(50);not null"`
-	State         plugin.State    `gorm:"type:varchar(50);not null"` // Container-level state (lifecycle)
-	PluginState   string          `gorm:"type:varchar(100)"`         // Plugin-level state (business logic)
-	Config        json.RawMessage `gorm:"type:json"`
-	LocalState    json.RawMessage `gorm:"type:json"`
-	GlobalContext json.RawMessage `gorm:"type:json"`
-	CreatedAt     time.Time       `gorm:"autoCreateTime"`
-	UpdatedAt     time.Time       `gorm:"autoUpdateTime"`
+	ID            uuid.UUID       `gorm:"type:uuid;column:id;not null;primaryKey" json:"id"`
+	StepID        string          `gorm:"type:varchar(50);column:step_id;not null" json:"stepId"`
+	ConsignmentID uuid.UUID       `gorm:"type:uuid;column:consignment_id;not null;index" json:"consignmentId"`
+	Type          plugin.Type     `gorm:"type:varchar(50);column:type;not null" json:"type"`
+	State         plugin.State    `gorm:"type:varchar(50);column:state;not null" json:"state"`      // Container-level state (lifecycle)
+	PluginState   string          `gorm:"type:varchar(100);column:plugin_state" json:"pluginState"` // Plugin-level state (business logic)
+	Config        json.RawMessage `gorm:"type:jsonb;column:config;serializer:json" json:"config"`
+	LocalState    json.RawMessage `gorm:"type:jsonb;column:local_state;serializer:json" json:"localState"`
+	GlobalContext json.RawMessage `gorm:"type:jsonb;column:global_context;serializer:json" json:"globalContext"`
+	CreatedAt     time.Time       `gorm:"type:timestamptz;column:created_at;not null" json:"createdAt"`
+	UpdatedAt     time.Time       `gorm:"type:timestamptz;column:updated_at;not null" json:"updatedAt"`
 }
 
 // TableName returns the table name for TaskInfo
