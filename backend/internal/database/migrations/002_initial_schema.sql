@@ -1,7 +1,7 @@
 -- Migration: 002_initial_schema.sql
 -- Description: Create all core tables for NSW workflow management system
 -- Created: 2026-02-05
--- Notes: Includes task_infos, forms, hs_codes, and all r_model workflow tables
+-- Notes: Includes task_infos, forms, hs_codes, and all model workflow tables
 
 -- ============================================================================
 -- Table: task_infos

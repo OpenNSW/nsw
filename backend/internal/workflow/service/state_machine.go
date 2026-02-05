@@ -1,10 +1,10 @@
-package r_service
+package service
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/OpenNSW/nsw/internal/workflow/r_model"
+	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -12,10 +12,10 @@ import (
 // StateTransitionResult represents the result of a workflow node state transition.
 type StateTransitionResult struct {
 	// UpdatedNodes contains all nodes that were updated during the transition.
-	UpdatedNodes []r_model.WorkflowNode
+	UpdatedNodes []model.WorkflowNode
 
 	// NewReadyNodes contains nodes that transitioned from LOCKED to READY.
-	NewReadyNodes []r_model.WorkflowNode
+	NewReadyNodes []model.WorkflowNode
 
 	// AllNodesCompleted indicates whether all nodes in the consignment are now completed.
 	AllNodesCompleted bool
@@ -41,17 +41,17 @@ func NewWorkflowNodeStateMachine(nodeRepo WorkflowNodeRepository) *WorkflowNodeS
 func (sm *WorkflowNodeStateMachine) TransitionToCompleted(
 	ctx context.Context,
 	tx *gorm.DB,
-	node *r_model.WorkflowNode,
+	node *model.WorkflowNode,
 ) (*StateTransitionResult, error) {
 	if node == nil {
 		return nil, fmt.Errorf("node cannot be nil")
 	}
 
-	if node.State == r_model.WorkflowNodeStateCompleted {
+	if node.State == model.WorkflowNodeStateCompleted {
 		// Already completed, no transition needed
 		return &StateTransitionResult{
-			UpdatedNodes:      []r_model.WorkflowNode{},
-			NewReadyNodes:     []r_model.WorkflowNode{},
+			UpdatedNodes:      []model.WorkflowNode{},
+			NewReadyNodes:     []model.WorkflowNode{},
 			AllNodesCompleted: false,
 		}, nil
 	}
@@ -61,8 +61,8 @@ func (sm *WorkflowNodeStateMachine) TransitionToCompleted(
 	}
 
 	// Update the current node to COMPLETED
-	node.State = r_model.WorkflowNodeStateCompleted
-	nodesToUpdate := []r_model.WorkflowNode{*node}
+	node.State = model.WorkflowNodeStateCompleted
+	nodesToUpdate := []model.WorkflowNode{*node}
 
 	// Get all nodes for this consignment to check dependencies
 	allNodes, err := sm.nodeRepo.GetWorkflowNodesByConsignmentIDInTx(ctx, tx, node.ConsignmentID)
@@ -97,13 +97,13 @@ func (sm *WorkflowNodeStateMachine) TransitionToCompleted(
 func (sm *WorkflowNodeStateMachine) TransitionToFailed(
 	ctx context.Context,
 	tx *gorm.DB,
-	node *r_model.WorkflowNode,
+	node *model.WorkflowNode,
 ) error {
 	if node == nil {
 		return fmt.Errorf("node cannot be nil")
 	}
 
-	if node.State == r_model.WorkflowNodeStateFailed {
+	if node.State == model.WorkflowNodeStateFailed {
 		// Already failed, no transition needed
 		return nil
 	}
@@ -112,8 +112,8 @@ func (sm *WorkflowNodeStateMachine) TransitionToFailed(
 		return fmt.Errorf("cannot transition node %s from state %s to FAILED", node.ID, node.State)
 	}
 
-	node.State = r_model.WorkflowNodeStateFailed
-	if err := sm.nodeRepo.UpdateWorkflowNodesInTx(ctx, tx, []r_model.WorkflowNode{*node}); err != nil {
+	node.State = model.WorkflowNodeStateFailed
+	if err := sm.nodeRepo.UpdateWorkflowNodesInTx(ctx, tx, []model.WorkflowNode{*node}); err != nil {
 		return fmt.Errorf("failed to update workflow node %s to FAILED state: %w", node.ID, err)
 	}
 
@@ -126,20 +126,20 @@ func (sm *WorkflowNodeStateMachine) InitializeNodesFromTemplates(
 	ctx context.Context,
 	tx *gorm.DB,
 	consignmentID uuid.UUID,
-	nodeTemplates []r_model.WorkflowNodeTemplate,
-) ([]r_model.WorkflowNode, []r_model.WorkflowNode, error) {
+	nodeTemplates []model.WorkflowNodeTemplate,
+) ([]model.WorkflowNode, []model.WorkflowNode, error) {
 	if len(nodeTemplates) == 0 {
-		return []r_model.WorkflowNode{}, []r_model.WorkflowNode{}, nil
+		return []model.WorkflowNode{}, []model.WorkflowNode{}, nil
 	}
 
 	// Create initial nodes in LOCKED state
-	workflowNodes := make([]r_model.WorkflowNode, 0, len(nodeTemplates))
+	workflowNodes := make([]model.WorkflowNode, 0, len(nodeTemplates))
 	for _, template := range nodeTemplates {
-		workflowNode := r_model.WorkflowNode{
+		workflowNode := model.WorkflowNode{
 			ConsignmentID:          consignmentID,
 			WorkflowNodeTemplateID: template.ID,
-			State:                  r_model.WorkflowNodeStateLocked,
-			DependsOn:              r_model.UUIDArray(make([]uuid.UUID, 0)),
+			State:                  model.WorkflowNodeStateLocked,
+			DependsOn:              model.UUIDArray(make([]uuid.UUID, 0)),
 		}
 		workflowNodes = append(workflowNodes, workflowNode)
 	}
@@ -151,19 +151,19 @@ func (sm *WorkflowNodeStateMachine) InitializeNodesFromTemplates(
 	}
 
 	// Build lookup maps for efficient dependency resolution
-	templateMap := make(map[uuid.UUID]r_model.WorkflowNodeTemplate)
+	templateMap := make(map[uuid.UUID]model.WorkflowNodeTemplate)
 	for _, t := range nodeTemplates {
 		templateMap[t.ID] = t
 	}
 
-	nodeByTemplateID := make(map[uuid.UUID]r_model.WorkflowNode)
+	nodeByTemplateID := make(map[uuid.UUID]model.WorkflowNode)
 	for _, node := range createdNodes {
 		nodeByTemplateID[node.WorkflowNodeTemplateID] = node
 	}
 
 	// Resolve dependencies from template IDs to node IDs and collect nodes that need updates
-	var nodesToUpdate []r_model.WorkflowNode
-	var newReadyNodes []r_model.WorkflowNode
+	var nodesToUpdate []model.WorkflowNode
+	var newReadyNodes []model.WorkflowNode
 
 	for i, node := range createdNodes {
 		template, exists := templateMap[node.WorkflowNodeTemplateID]
@@ -171,8 +171,8 @@ func (sm *WorkflowNodeStateMachine) InitializeNodesFromTemplates(
 			return nil, nil, fmt.Errorf("workflow node template with ID %s not found", node.WorkflowNodeTemplateID)
 		}
 
-		// Initialize as empty r_model.UUIDArray to avoid nil assignment
-		dependsOnNodeIDs := r_model.UUIDArray(make([]uuid.UUID, 0))
+		// Initialize as empty model.UUIDArray to avoid nil assignment
+		dependsOnNodeIDs := model.UUIDArray(make([]uuid.UUID, 0))
 		for _, dependsOnTemplateID := range template.DependsOn {
 			if depNode, found := nodeByTemplateID[dependsOnTemplateID]; found {
 				dependsOnNodeIDs = append(dependsOnNodeIDs, depNode.ID)
@@ -190,7 +190,7 @@ func (sm *WorkflowNodeStateMachine) InitializeNodesFromTemplates(
 
 		// Node needs update if it has no dependencies (will be set to READY)
 		if len(dependsOnNodeIDs) == 0 {
-			createdNodes[i].State = r_model.WorkflowNodeStateReady
+			createdNodes[i].State = model.WorkflowNodeStateReady
 			newReadyNodes = append(newReadyNodes, createdNodes[i])
 			needsUpdate = true
 		}
@@ -213,29 +213,29 @@ func (sm *WorkflowNodeStateMachine) InitializeNodesFromTemplates(
 // unlockDependentNodes finds all locked nodes whose dependencies are now met and unlocks them.
 // Returns both the newly ready nodes and all nodes that need to be updated.
 func (sm *WorkflowNodeStateMachine) unlockDependentNodes(
-	allNodes []r_model.WorkflowNode,
+	allNodes []model.WorkflowNode,
 	completedNodeID uuid.UUID,
-) ([]r_model.WorkflowNode, []r_model.WorkflowNode) {
+) ([]model.WorkflowNode, []model.WorkflowNode) {
 	// Build a map of current node states, including the newly completed node
-	nodeMap := make(map[uuid.UUID]r_model.WorkflowNode)
+	nodeMap := make(map[uuid.UUID]model.WorkflowNode)
 	for _, node := range allNodes {
 		if node.ID == completedNodeID {
-			node.State = r_model.WorkflowNodeStateCompleted
+			node.State = model.WorkflowNodeStateCompleted
 		}
 		nodeMap[node.ID] = node
 	}
 
-	var newReadyNodes []r_model.WorkflowNode
-	var unlockedNodes []r_model.WorkflowNode
+	var newReadyNodes []model.WorkflowNode
+	var unlockedNodes []model.WorkflowNode
 
 	// Check each locked node to see if its dependencies are now met
 	for _, node := range allNodes {
-		if node.State != r_model.WorkflowNodeStateLocked {
+		if node.State != model.WorkflowNodeStateLocked {
 			continue
 		}
 
 		if sm.areDependenciesMet(node.DependsOn, nodeMap) {
-			node.State = r_model.WorkflowNodeStateReady
+			node.State = model.WorkflowNodeStateReady
 			newReadyNodes = append(newReadyNodes, node)
 			unlockedNodes = append(unlockedNodes, node)
 		}
@@ -247,14 +247,14 @@ func (sm *WorkflowNodeStateMachine) unlockDependentNodes(
 // areDependenciesMet checks if all dependencies for a node are in COMPLETED state.
 func (sm *WorkflowNodeStateMachine) areDependenciesMet(
 	dependsOn []uuid.UUID,
-	nodeMap map[uuid.UUID]r_model.WorkflowNode,
+	nodeMap map[uuid.UUID]model.WorkflowNode,
 ) bool {
 	for _, depID := range dependsOn {
 		depNode, exists := nodeMap[depID]
 		if !exists {
 			return false
 		}
-		if depNode.State != r_model.WorkflowNodeStateCompleted {
+		if depNode.State != model.WorkflowNodeStateCompleted {
 			return false
 		}
 	}
@@ -263,11 +263,11 @@ func (sm *WorkflowNodeStateMachine) areDependenciesMet(
 
 // areAllNodesCompleted checks if all nodes are in COMPLETED state, considering pending updates.
 func (sm *WorkflowNodeStateMachine) areAllNodesCompleted(
-	allNodes []r_model.WorkflowNode,
-	updatedNodes []r_model.WorkflowNode,
+	allNodes []model.WorkflowNode,
+	updatedNodes []model.WorkflowNode,
 ) bool {
 	// Build map of updated states
-	updatedStateMap := make(map[uuid.UUID]r_model.WorkflowNodeState)
+	updatedStateMap := make(map[uuid.UUID]model.WorkflowNodeState)
 	for _, node := range updatedNodes {
 		updatedStateMap[node.ID] = node.State
 	}
@@ -278,7 +278,7 @@ func (sm *WorkflowNodeStateMachine) areAllNodesCompleted(
 		if updatedState, wasUpdated := updatedStateMap[node.ID]; wasUpdated {
 			state = updatedState
 		}
-		if state != r_model.WorkflowNodeStateCompleted {
+		if state != model.WorkflowNodeStateCompleted {
 			return false
 		}
 	}
@@ -287,21 +287,21 @@ func (sm *WorkflowNodeStateMachine) areAllNodesCompleted(
 }
 
 // canTransitionToCompleted checks if a node can transition to COMPLETED from its current state.
-func (sm *WorkflowNodeStateMachine) canTransitionToCompleted(currentState r_model.WorkflowNodeState) bool {
+func (sm *WorkflowNodeStateMachine) canTransitionToCompleted(currentState model.WorkflowNodeState) bool {
 	// Only READY or IN_PROGRESS nodes can be completed
-	return currentState == r_model.WorkflowNodeStateReady ||
-		currentState == r_model.WorkflowNodeStateInProgress
+	return currentState == model.WorkflowNodeStateReady ||
+		currentState == model.WorkflowNodeStateInProgress
 }
 
 // canTransitionToFailed checks if a node can transition to FAILED from its current state.
-func (sm *WorkflowNodeStateMachine) canTransitionToFailed(currentState r_model.WorkflowNodeState) bool {
+func (sm *WorkflowNodeStateMachine) canTransitionToFailed(currentState model.WorkflowNodeState) bool {
 	// Any non-terminal state can transition to FAILED
-	return currentState != r_model.WorkflowNodeStateFailed &&
-		currentState != r_model.WorkflowNodeStateCompleted
+	return currentState != model.WorkflowNodeStateFailed &&
+		currentState != model.WorkflowNodeStateCompleted
 }
 
 // sortNodesByID sorts workflow nodes by ID to ensure consistent ordering and prevent deadlocks.
-func (sm *WorkflowNodeStateMachine) sortNodesByID(nodes []r_model.WorkflowNode) {
+func (sm *WorkflowNodeStateMachine) sortNodesByID(nodes []model.WorkflowNode) {
 	n := len(nodes)
 	for i := 0; i < n-1; i++ {
 		for j := 0; j < n-i-1; j++ {

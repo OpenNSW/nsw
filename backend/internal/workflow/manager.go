@@ -8,21 +8,21 @@ import (
 
 	taskManager "github.com/OpenNSW/nsw/internal/task/manager"
 	"github.com/OpenNSW/nsw/internal/task/plugin"
-	"github.com/OpenNSW/nsw/internal/workflow/r_model"
-	"github.com/OpenNSW/nsw/internal/workflow/r_router"
-	"github.com/OpenNSW/nsw/internal/workflow/r_service"
+	"github.com/OpenNSW/nsw/internal/workflow/model"
+	"github.com/OpenNSW/nsw/internal/workflow/router"
+	"github.com/OpenNSW/nsw/internal/workflow/service"
 	"gorm.io/gorm"
 )
 
 // Manager is the refactored workflow manager that coordinates between services, routers, and task manager
 type Manager struct {
 	tm                     taskManager.TaskManager
-	hsCodeService          *r_service.HSCodeService
-	consignmentService     *r_service.ConsignmentService
-	workflowNodeService    *r_service.WorkflowNodeService
-	templateService        *r_service.TemplateService
-	hsCodeRouter           *r_router.HSCodeRouter
-	consignmentRouter      *r_router.ConsignmentRouter
+	hsCodeService          *service.HSCodeService
+	consignmentService     *service.ConsignmentService
+	workflowNodeService    *service.WorkflowNodeService
+	templateService        *service.TemplateService
+	hsCodeRouter           *router.HSCodeRouter
+	consignmentRouter      *router.ConsignmentRouter
 	workflowNodeUpdateChan chan taskManager.WorkflowManagerNotification
 	ctx                    context.Context
 	cancel                 context.CancelFunc
@@ -31,10 +31,10 @@ type Manager struct {
 // NewManager creates a new refactored workflow manager
 func NewManager(tm taskManager.TaskManager, ch chan taskManager.WorkflowManagerNotification, db *gorm.DB) *Manager {
 	// Initialize services
-	hsCodeService := r_service.NewHSCodeService(db)
-	workflowNodeService := r_service.NewWorkflowNodeService(db)
-	templateService := r_service.NewTemplateService(db)
-	consignmentService := r_service.NewConsignmentService(db, templateService, workflowNodeService)
+	hsCodeService := service.NewHSCodeService(db)
+	workflowNodeService := service.NewWorkflowNodeService(db)
+	templateService := service.NewTemplateService(db)
+	consignmentService := service.NewConsignmentService(db, templateService, workflowNodeService)
 
 	// Create context for lifecycle management
 	ctx, cancel := context.WithCancel(context.Background())
@@ -54,8 +54,8 @@ func NewManager(tm taskManager.TaskManager, ch chan taskManager.WorkflowManagerN
 	consignmentService.SetPreCommitValidationCallback(m.registerWorkflowNodesWithTaskManager)
 
 	// Initialize routers
-	m.hsCodeRouter = r_router.NewHSCodeRouter(hsCodeService)
-	m.consignmentRouter = r_router.NewConsignmentRouter(consignmentService, nil) // No longer need callback in router
+	m.hsCodeRouter = router.NewHSCodeRouter(hsCodeService)
+	m.consignmentRouter = router.NewConsignmentRouter(consignmentService, nil) // No longer need callback in router
 
 	// Start listening for workflow node updates
 	m.StartWorkflowNodeUpdateListener()
@@ -88,7 +88,7 @@ func (m *Manager) StartWorkflowNodeUpdateListener() {
 					continue
 				}
 
-				updateReq := r_model.UpdateWorkflowNodeDTO{
+				updateReq := model.UpdateWorkflowNodeDTO{
 					WorkflowNodeID:      update.TaskID,
 					State:               workflowState,
 					AppendGlobalContext: update.AppendGlobalContext,
@@ -133,7 +133,7 @@ func (m *Manager) StopWorkflowNodeUpdateListener() {
 // registerWorkflowNodesWithTaskManager registers workflow nodes with the Task Manager
 // This is called when new READY workflow nodes are created
 // Returns an error if any task registration fails
-func (m *Manager) registerWorkflowNodesWithTaskManager(workflowNodes []r_model.WorkflowNode, consignmentGlobalContext map[string]any) error {
+func (m *Manager) registerWorkflowNodesWithTaskManager(workflowNodes []model.WorkflowNode, consignmentGlobalContext map[string]any) error {
 	for _, node := range workflowNodes {
 		nodeTemplate, err := m.templateService.GetWorkflowNodeTemplateByID(m.ctx, node.WorkflowNodeTemplateID)
 		if err != nil {
@@ -180,14 +180,14 @@ func (m *Manager) HandleGetConsignmentByID(w http.ResponseWriter, r *http.Reques
 
 // pluginStateToWorkflowNodeState converts a plugin.State to a WorkflowNodeState.
 // Returns an error if the plugin state is not recognized.
-func pluginStateToWorkflowNodeState(state plugin.State) (r_model.WorkflowNodeState, error) {
+func pluginStateToWorkflowNodeState(state plugin.State) (model.WorkflowNodeState, error) {
 	switch state {
 	case plugin.InProgress:
-		return r_model.WorkflowNodeStateInProgress, nil
+		return model.WorkflowNodeStateInProgress, nil
 	case plugin.Completed:
-		return r_model.WorkflowNodeStateCompleted, nil
+		return model.WorkflowNodeStateCompleted, nil
 	case plugin.Failed:
-		return r_model.WorkflowNodeStateFailed, nil
+		return model.WorkflowNodeStateFailed, nil
 	default:
 		return "", fmt.Errorf("unknown plugin state: %s", state)
 	}

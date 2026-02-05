@@ -1,4 +1,4 @@
-package r_model
+package model
 
 import (
 	"encoding/json"

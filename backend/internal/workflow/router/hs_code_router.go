@@ -1,19 +1,19 @@
-package r_router
+package router
 
 import (
 	"encoding/json"
 	"net/http"
 	"strconv"
 
-	"github.com/OpenNSW/nsw/internal/workflow/r_model"
-	"github.com/OpenNSW/nsw/internal/workflow/r_service"
+	"github.com/OpenNSW/nsw/internal/workflow/model"
+	"github.com/OpenNSW/nsw/internal/workflow/service"
 )
 
 type HSCodeRouter struct {
-	hscs *r_service.HSCodeService
+	hscs *service.HSCodeService
 }
 
-func NewHSCodeRouter(hscs *r_service.HSCodeService) *HSCodeRouter {
+func NewHSCodeRouter(hscs *service.HSCodeService) *HSCodeRouter {
 	return &HSCodeRouter{
 		hscs: hscs,
 	}
@@ -22,7 +22,7 @@ func NewHSCodeRouter(hscs *r_service.HSCodeService) *HSCodeRouter {
 // HandleGetAllHSCodes handles GET /api/v1/hscodes
 // Optional Query Params: hsCodeStartsWith, offset, limit
 func (h *HSCodeRouter) HandleGetAllHSCodes(w http.ResponseWriter, r *http.Request) {
-	var filter r_model.HSCodeFilter
+	var filter model.HSCodeFilter
 
 	// Parse query parameters
 	if hsCodeStartsWith := r.URL.Query().Get("hsCodeStartsWith"); hsCodeStartsWith != "" {

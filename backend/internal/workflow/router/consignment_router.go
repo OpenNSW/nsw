@@ -1,19 +1,19 @@
-package r_router
+package router
 
 import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/OpenNSW/nsw/internal/workflow/r_model"
-	"github.com/OpenNSW/nsw/internal/workflow/r_service"
+	"github.com/OpenNSW/nsw/internal/workflow/model"
+	"github.com/OpenNSW/nsw/internal/workflow/service"
 	"github.com/google/uuid"
 )
 
 type ConsignmentRouter struct {
-	cs *r_service.ConsignmentService
+	cs *service.ConsignmentService
 }
 
-func NewConsignmentRouter(cs *r_service.ConsignmentService, _ interface{}) *ConsignmentRouter {
+func NewConsignmentRouter(cs *service.ConsignmentService, _ interface{}) *ConsignmentRouter {
 	return &ConsignmentRouter{
 		cs: cs,
 	}
@@ -23,7 +23,7 @@ func NewConsignmentRouter(cs *r_service.ConsignmentService, _ interface{}) *Cons
 // Request body: CreateConsignmentDTO
 // Response: ConsignmentResponseDTO
 func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *http.Request) {
-	var req r_model.CreateConsignmentDTO
+	var req model.CreateConsignmentDTO
 
 	// Parse request body
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

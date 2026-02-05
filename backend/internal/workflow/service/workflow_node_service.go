@@ -1,10 +1,10 @@
-package r_service
+package service
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/OpenNSW/nsw/internal/workflow/r_model"
+	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -19,8 +19,8 @@ func NewWorkflowNodeService(db *gorm.DB) *WorkflowNodeService {
 }
 
 // GetWorkflowNodeByIDInTx retrieves a workflow node by its ID within a transaction.
-func (s *WorkflowNodeService) GetWorkflowNodeByIDInTx(ctx context.Context, tx *gorm.DB, nodeID uuid.UUID) (*r_model.WorkflowNode, error) {
-	var node r_model.WorkflowNode
+func (s *WorkflowNodeService) GetWorkflowNodeByIDInTx(ctx context.Context, tx *gorm.DB, nodeID uuid.UUID) (*model.WorkflowNode, error) {
+	var node model.WorkflowNode
 	result := tx.WithContext(ctx).Where("id = ?", nodeID).First(&node)
 	if result.Error != nil {
 		return nil, fmt.Errorf("failed to retrieve workflow node in transaction: %w", result.Error)
@@ -29,8 +29,8 @@ func (s *WorkflowNodeService) GetWorkflowNodeByIDInTx(ctx context.Context, tx *g
 }
 
 // GetWorkflowNodesByIDsInTx retrieves multiple workflow nodes by their IDs within a transaction.
-func (s *WorkflowNodeService) GetWorkflowNodesByIDsInTx(ctx context.Context, tx *gorm.DB, nodeIDs []uuid.UUID) ([]r_model.WorkflowNode, error) {
-	var nodes []r_model.WorkflowNode
+func (s *WorkflowNodeService) GetWorkflowNodesByIDsInTx(ctx context.Context, tx *gorm.DB, nodeIDs []uuid.UUID) ([]model.WorkflowNode, error) {
+	var nodes []model.WorkflowNode
 	result := tx.WithContext(ctx).Where("id IN ?", nodeIDs).Find(&nodes)
 	if result.Error != nil {
 		return nil, fmt.Errorf("failed to retrieve workflow nodes in transaction: %w", result.Error)
@@ -39,9 +39,9 @@ func (s *WorkflowNodeService) GetWorkflowNodesByIDsInTx(ctx context.Context, tx 
 }
 
 // CreateWorkflowNodesInTx creates multiple workflow nodes within a transaction.
-func (s *WorkflowNodeService) CreateWorkflowNodesInTx(ctx context.Context, tx *gorm.DB, nodes []r_model.WorkflowNode) ([]r_model.WorkflowNode, error) {
+func (s *WorkflowNodeService) CreateWorkflowNodesInTx(ctx context.Context, tx *gorm.DB, nodes []model.WorkflowNode) ([]model.WorkflowNode, error) {
 	if len(nodes) == 0 {
-		return []r_model.WorkflowNode{}, nil
+		return []model.WorkflowNode{}, nil
 	}
 
 	result := tx.WithContext(ctx).Create(&nodes)
@@ -53,7 +53,7 @@ func (s *WorkflowNodeService) CreateWorkflowNodesInTx(ctx context.Context, tx *g
 }
 
 // UpdateWorkflowNodesInTx updates multiple workflow nodes within a transaction.
-func (s *WorkflowNodeService) UpdateWorkflowNodesInTx(ctx context.Context, tx *gorm.DB, nodes []r_model.WorkflowNode) error {
+func (s *WorkflowNodeService) UpdateWorkflowNodesInTx(ctx context.Context, tx *gorm.DB, nodes []model.WorkflowNode) error {
 	if len(nodes) == 0 {
 		return nil
 	}
@@ -62,7 +62,7 @@ func (s *WorkflowNodeService) UpdateWorkflowNodesInTx(ctx context.Context, tx *g
 	// First fetch the existing record, then update it to ensure GORM tracks it properly
 	for _, node := range nodes {
 		// Fetch the existing node from database
-		var existingNode r_model.WorkflowNode
+		var existingNode model.WorkflowNode
 		result := tx.WithContext(ctx).Where("id = ?", node.ID).First(&existingNode)
 		if result.Error != nil {
 			return fmt.Errorf("failed to find workflow node %s for update: %w", node.ID, result.Error)
@@ -72,7 +72,7 @@ func (s *WorkflowNodeService) UpdateWorkflowNodesInTx(ctx context.Context, tx *g
 		existingNode.State = node.State
 		existingNode.DependsOn = node.DependsOn
 		if existingNode.DependsOn == nil {
-			existingNode.DependsOn = r_model.UUIDArray([]uuid.UUID{})
+			existingNode.DependsOn = model.UUIDArray([]uuid.UUID{})
 		}
 
 		// Save the updated node
@@ -85,8 +85,8 @@ func (s *WorkflowNodeService) UpdateWorkflowNodesInTx(ctx context.Context, tx *g
 }
 
 // GetWorkflowNodesByConsignmentIDInTx retrieves all workflow nodes associated with a given consignment ID within a transaction.
-func (s *WorkflowNodeService) GetWorkflowNodesByConsignmentIDInTx(ctx context.Context, tx *gorm.DB, consignmentID uuid.UUID) ([]r_model.WorkflowNode, error) {
-	var nodes []r_model.WorkflowNode
+func (s *WorkflowNodeService) GetWorkflowNodesByConsignmentIDInTx(ctx context.Context, tx *gorm.DB, consignmentID uuid.UUID) ([]model.WorkflowNode, error) {
+	var nodes []model.WorkflowNode
 	result := tx.WithContext(ctx).Where("consignment_id = ?", consignmentID).Find(&nodes)
 	if result.Error != nil {
 		return nil, fmt.Errorf("failed to retrieve workflow nodes in transaction: %w", result.Error)
@@ -96,12 +96,12 @@ func (s *WorkflowNodeService) GetWorkflowNodesByConsignmentIDInTx(ctx context.Co
 
 // GetWorkflowNodesByConsignmentIDsInTx retrieves all workflow nodes associated with multiple consignment IDs within a transaction.
 // This method is optimized for batch operations to avoid N+1 query problems.
-func (s *WorkflowNodeService) GetWorkflowNodesByConsignmentIDsInTx(ctx context.Context, tx *gorm.DB, consignmentIDs []uuid.UUID) ([]r_model.WorkflowNode, error) {
+func (s *WorkflowNodeService) GetWorkflowNodesByConsignmentIDsInTx(ctx context.Context, tx *gorm.DB, consignmentIDs []uuid.UUID) ([]model.WorkflowNode, error) {
 	if len(consignmentIDs) == 0 {
-		return []r_model.WorkflowNode{}, nil
+		return []model.WorkflowNode{}, nil
 	}
 
-	var nodes []r_model.WorkflowNode
+	var nodes []model.WorkflowNode
 	result := tx.WithContext(ctx).Where("consignment_id IN ?", consignmentIDs).Find(&nodes)
 	if result.Error != nil {
 		return nil, fmt.Errorf("failed to retrieve workflow nodes for %d consignments in transaction: %w", len(consignmentIDs), result.Error)
@@ -114,8 +114,8 @@ func (s *WorkflowNodeService) GetWorkflowNodesByConsignmentIDsInTx(ctx context.C
 func (s *WorkflowNodeService) CountIncompleteNodesByConsignmentID(ctx context.Context, tx *gorm.DB, consignmentID uuid.UUID) (int64, error) {
 	var count int64
 	err := tx.WithContext(ctx).
-		Model(&r_model.WorkflowNode{}).
-		Where("consignment_id = ? AND state != ?", consignmentID, r_model.WorkflowNodeStateCompleted).
+		Model(&model.WorkflowNode{}).
+		Where("consignment_id = ? AND state != ?", consignmentID, model.WorkflowNodeStateCompleted).
 		Count(&count).Error
 	if err != nil {
 		return 0, fmt.Errorf("failed to count incomplete nodes for consignment %s: %w", consignmentID, err)

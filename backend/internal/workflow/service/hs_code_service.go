@@ -1,11 +1,11 @@
-package r_service
+package service
 
 import (
 	"context"
 	"errors"
 	"fmt"
 
-	"github.com/OpenNSW/nsw/internal/workflow/r_model"
+	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/OpenNSW/nsw/utils"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -23,10 +23,10 @@ func NewHSCodeService(db *gorm.DB) *HSCodeService {
 }
 
 // GetAllHSCodes retrieves all HS codes from the database
-func (s *HSCodeService) GetAllHSCodes(ctx context.Context, filter r_model.HSCodeFilter) (*r_model.HSCodeListResult, error) {
+func (s *HSCodeService) GetAllHSCodes(ctx context.Context, filter model.HSCodeFilter) (*model.HSCodeListResult, error) {
 	// Get total count first for pagination (with filter applied)
 	var totalCount int64
-	countQuery := s.db.WithContext(ctx).Model(&r_model.HSCode{})
+	countQuery := s.db.WithContext(ctx).Model(&model.HSCode{})
 
 	// Apply the same filter to the count query
 	if filter.HSCodeStartsWith != nil && *filter.HSCodeStartsWith != "" {
@@ -40,15 +40,15 @@ func (s *HSCodeService) GetAllHSCodes(ctx context.Context, filter r_model.HSCode
 
 	// If no HS codes found, return early
 	if totalCount == 0 {
-		return &r_model.HSCodeListResult{
+		return &model.HSCodeListResult{
 			TotalCount: 0,
-			Items:      []r_model.HSCode{},
+			Items:      []model.HSCode{},
 			Offset:     0,
 			Limit:      0,
 		}, nil
 	}
 
-	var hsCodes []r_model.HSCode
+	var hsCodes []model.HSCode
 	query := s.db.WithContext(ctx)
 
 	// Apply filter: HSCode starts with
@@ -69,7 +69,7 @@ func (s *HSCodeService) GetAllHSCodes(ctx context.Context, filter r_model.HSCode
 	}
 
 	// Prepare the result
-	hsCodeListResult := &r_model.HSCodeListResult{
+	hsCodeListResult := &model.HSCodeListResult{
 		TotalCount: totalCount,
 		Items:      hsCodes,
 		Offset:     finalOffset,
@@ -80,8 +80,8 @@ func (s *HSCodeService) GetAllHSCodes(ctx context.Context, filter r_model.HSCode
 }
 
 // GetHSCodeByID retrieves an HS code by its ID from the database
-func (s *HSCodeService) GetHSCodeByID(ctx context.Context, hsCodeID uuid.UUID) (*r_model.HSCode, error) {
-	var hsCode r_model.HSCode
+func (s *HSCodeService) GetHSCodeByID(ctx context.Context, hsCodeID uuid.UUID) (*model.HSCode, error) {
+	var hsCode model.HSCode
 	result := s.db.WithContext(ctx).First(&hsCode, "id = ?", hsCodeID)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
