@@ -58,9 +58,28 @@ func (s *WorkflowNodeService) UpdateWorkflowNodesInTx(ctx context.Context, tx *g
 		return nil
 	}
 
-	result := tx.WithContext(ctx).Save(&nodes)
-	if result.Error != nil {
-		return fmt.Errorf("failed to update workflow nodes in transaction: %w", result.Error)
+	// Update each node individually to avoid duplicate inserts
+	// First fetch the existing record, then update it to ensure GORM tracks it properly
+	for _, node := range nodes {
+		// Fetch the existing node from database
+		var existingNode r_model.WorkflowNode
+		result := tx.WithContext(ctx).Where("id = ?", node.ID).First(&existingNode)
+		if result.Error != nil {
+			return fmt.Errorf("failed to find workflow node %s for update: %w", node.ID, result.Error)
+		}
+
+		// Update the fields
+		existingNode.State = node.State
+		existingNode.DependsOn = node.DependsOn
+		if existingNode.DependsOn == nil {
+			existingNode.DependsOn = r_model.UUIDArray([]uuid.UUID{})
+		}
+
+		// Save the updated node
+		result = tx.WithContext(ctx).Save(&existingNode)
+		if result.Error != nil {
+			return fmt.Errorf("failed to update workflow node %s in transaction: %w", node.ID, result.Error)
+		}
 	}
 	return nil
 }

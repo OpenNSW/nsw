@@ -139,7 +139,7 @@ func (sm *WorkflowNodeStateMachine) InitializeNodesFromTemplates(
 			ConsignmentID:          consignmentID,
 			WorkflowNodeTemplateID: template.ID,
 			State:                  r_model.WorkflowNodeStateLocked,
-			DependsOn:              []uuid.UUID{},
+			DependsOn:              r_model.UUIDArray(make([]uuid.UUID, 0)),
 		}
 		workflowNodes = append(workflowNodes, workflowNode)
 	}
@@ -161,34 +161,50 @@ func (sm *WorkflowNodeStateMachine) InitializeNodesFromTemplates(
 		nodeByTemplateID[node.WorkflowNodeTemplateID] = node
 	}
 
-	// Resolve dependencies from template IDs to node IDs
+	// Resolve dependencies from template IDs to node IDs and collect nodes that need updates
+	var nodesToUpdate []r_model.WorkflowNode
+	var newReadyNodes []r_model.WorkflowNode
+
 	for i, node := range createdNodes {
 		template, exists := templateMap[node.WorkflowNodeTemplateID]
 		if !exists {
 			return nil, nil, fmt.Errorf("workflow node template with ID %s not found", node.WorkflowNodeTemplateID)
 		}
 
-		var dependsOnNodeIDs []uuid.UUID
+		// Initialize as empty r_model.UUIDArray to avoid nil assignment
+		dependsOnNodeIDs := r_model.UUIDArray(make([]uuid.UUID, 0))
 		for _, dependsOnTemplateID := range template.DependsOn {
 			if depNode, found := nodeByTemplateID[dependsOnTemplateID]; found {
 				dependsOnNodeIDs = append(dependsOnNodeIDs, depNode.ID)
 			}
 		}
 		createdNodes[i].DependsOn = dependsOnNodeIDs
-	}
 
-	// Set nodes without dependencies to READY
-	var newReadyNodes []r_model.WorkflowNode
-	for i, node := range createdNodes {
-		if len(node.DependsOn) == 0 {
+		// Determine if this node needs to be updated
+		needsUpdate := false
+
+		// Node needs update if it has dependencies
+		if len(dependsOnNodeIDs) > 0 {
+			needsUpdate = true
+		}
+
+		// Node needs update if it has no dependencies (will be set to READY)
+		if len(dependsOnNodeIDs) == 0 {
 			createdNodes[i].State = r_model.WorkflowNodeStateReady
 			newReadyNodes = append(newReadyNodes, createdNodes[i])
+			needsUpdate = true
+		}
+
+		if needsUpdate {
+			nodesToUpdate = append(nodesToUpdate, createdNodes[i])
 		}
 	}
 
-	// Persist dependency updates
-	if err := sm.nodeRepo.UpdateWorkflowNodesInTx(ctx, tx, createdNodes); err != nil {
-		return nil, nil, fmt.Errorf("failed to update workflow nodes with dependencies: %w", err)
+	// Persist updates only for nodes that changed
+	if len(nodesToUpdate) > 0 {
+		if err := sm.nodeRepo.UpdateWorkflowNodesInTx(ctx, tx, nodesToUpdate); err != nil {
+			return nil, nil, fmt.Errorf("failed to update workflow nodes with dependencies: %w", err)
+		}
 	}
 
 	return createdNodes, newReadyNodes, nil
