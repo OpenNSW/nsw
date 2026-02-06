@@ -103,7 +103,7 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 	}
 
 	// Create Workflow Nodes
-	workflowNodes, newReadyWorkflowNodes, err := s.createWorkflowNodesInTx(ctx, tx, consignment.ID, workflowTemplates)
+	_, newReadyWorkflowNodes, err := s.createWorkflowNodesInTx(ctx, tx, consignment.ID, workflowTemplates)
 	if err != nil {
 		tx.Rollback()
 		return nil, nil, fmt.Errorf("failed to create workflow nodes: %w", err)
@@ -124,17 +124,21 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 		return nil, nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	// Prepare Response DTO
-	responseDTO := &model.ConsignmentResponseDTO{
-		ID:            consignment.ID,
-		Flow:          consignment.Flow,
-		TraderID:      consignment.TraderID,
-		State:         consignment.State,
-		Items:         consignment.Items,
-		GlobalContext: consignment.GlobalContext,
-		CreatedAt:     consignment.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     consignment.UpdatedAt.Format(time.RFC3339),
-		WorkflowNodes: workflowNodes,
+	// Reload consignment with preloaded relationships for response building
+	if err := s.db.WithContext(ctx).Preload("WorkflowNodes.WorkflowNodeTemplate").First(consignment, "id = ?", consignment.ID).Error; err != nil {
+		return nil, nil, fmt.Errorf("failed to reload consignment with relationships: %w", err)
+	}
+
+	// Prepare Response DTO using the helper function
+	hsLoader := newHSCodeBatchLoader(s.db)
+	hsLoader.collectFromItems(consignment.Items)
+	if err := hsLoader.load(ctx); err != nil {
+		return nil, nil, fmt.Errorf("failed to load HS codes: %w", err)
+	}
+
+	responseDTO, err := s.buildConsignmentResponseDTO(ctx, consignment, hsLoader)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to build consignment response DTO: %w", err)
 	}
 
 	return responseDTO, newReadyWorkflowNodes, nil
@@ -169,27 +173,23 @@ func (s *ConsignmentService) createWorkflowNodesInTx(ctx context.Context, tx *go
 // GetConsignmentByID retrieves a consignment by its ID from the database.
 func (s *ConsignmentService) GetConsignmentByID(ctx context.Context, consignmentID uuid.UUID) (*model.ConsignmentResponseDTO, error) {
 	var consignment model.Consignment
-	result := s.db.WithContext(ctx).First(&consignment, "id = ?", consignmentID)
+	// Use Preload to fetch WorkflowNodes and their templates in a single query
+	result := s.db.WithContext(ctx).Preload("WorkflowNodes.WorkflowNodeTemplate").First(&consignment, "id = ?", consignmentID)
 	if result.Error != nil {
 		return nil, fmt.Errorf("failed to retrieve consignment with ID %s: %w", consignmentID, result.Error)
 	}
 
-	// Retrieve associated workflow nodes
-	workflowNodes, err := s.nodeRepo.GetWorkflowNodesByConsignmentIDInTx(ctx, s.db, consignment.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve workflow nodes for consignment %s: %w", consignmentID, err)
+	// Batch load HS codes for JSONB items
+	hsLoader := newHSCodeBatchLoader(s.db)
+	hsLoader.collectFromItems(consignment.Items)
+	if err := hsLoader.load(ctx); err != nil {
+		return nil, fmt.Errorf("failed to load HS codes: %w", err)
 	}
 
-	responseDTO := &model.ConsignmentResponseDTO{
-		ID:            consignment.ID,
-		Flow:          consignment.Flow,
-		TraderID:      consignment.TraderID,
-		State:         consignment.State,
-		Items:         consignment.Items,
-		GlobalContext: consignment.GlobalContext,
-		CreatedAt:     consignment.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     consignment.UpdatedAt.Format(time.RFC3339),
-		WorkflowNodes: workflowNodes,
+	// Build response DTO using the helper function
+	responseDTO, err := s.buildConsignmentResponseDTO(ctx, &consignment, hsLoader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build consignment response DTO: %w", err)
 	}
 
 	return responseDTO, nil
@@ -198,7 +198,8 @@ func (s *ConsignmentService) GetConsignmentByID(ctx context.Context, consignment
 // GetConsignmentsByTraderID retrieves consignments associated with a specific trader ID.
 func (s *ConsignmentService) GetConsignmentsByTraderID(ctx context.Context, traderID string) ([]model.ConsignmentResponseDTO, error) {
 	var consignments []model.Consignment
-	result := s.db.WithContext(ctx).Where("trader_id = ?", traderID).Find(&consignments)
+	// Use Preload to fetch WorkflowNodes and their templates - GORM handles the joins
+	result := s.db.WithContext(ctx).Preload("WorkflowNodes.WorkflowNodeTemplate").Where("trader_id = ?", traderID).Find(&consignments)
 	if result.Error != nil {
 		return nil, fmt.Errorf("failed to retrieve consignments for trader %s: %w", traderID, result.Error)
 	}
@@ -207,39 +208,23 @@ func (s *ConsignmentService) GetConsignmentsByTraderID(ctx context.Context, trad
 		return []model.ConsignmentResponseDTO{}, nil
 	}
 
-	// Extract all consignment IDs for batch query
-	consignmentIDs := make([]uuid.UUID, len(consignments))
-	for i, c := range consignments {
-		consignmentIDs[i] = c.ID
+	// Batch load HS codes for all JSONB items
+	hsLoader := newHSCodeBatchLoader(s.db)
+	for i := range consignments {
+		hsLoader.collectFromItems(consignments[i].Items)
+	}
+	if err := hsLoader.load(ctx); err != nil {
+		return nil, fmt.Errorf("failed to load HS codes: %w", err)
 	}
 
-	// Fetch all workflow nodes in a single query to avoid N+1
-	allWorkflowNodes, err := s.nodeRepo.GetWorkflowNodesByConsignmentIDsInTx(ctx, s.db, consignmentIDs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve workflow nodes for trader %s consignments: %w", traderID, err)
-	}
-
-	// Group workflow nodes by consignment ID for efficient lookup
-	nodesByConsignment := make(map[uuid.UUID][]model.WorkflowNode)
-	for _, node := range allWorkflowNodes {
-		nodesByConsignment[node.ConsignmentID] = append(nodesByConsignment[node.ConsignmentID], node)
-	}
-
-	// Build DTOs
+	// Build DTOs for all consignments
 	var consignmentDTOs []model.ConsignmentResponseDTO
-	for _, consignment := range consignments {
-		dto := model.ConsignmentResponseDTO{
-			ID:            consignment.ID,
-			Flow:          consignment.Flow,
-			TraderID:      consignment.TraderID,
-			State:         consignment.State,
-			Items:         consignment.Items,
-			GlobalContext: consignment.GlobalContext,
-			CreatedAt:     consignment.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:     consignment.UpdatedAt.Format(time.RFC3339),
-			WorkflowNodes: nodesByConsignment[consignment.ID],
+	for i := range consignments {
+		responseDTO, err := s.buildConsignmentResponseDTO(ctx, &consignments[i], hsLoader)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build consignment response DTO: %w", err)
 		}
-		consignmentDTOs = append(consignmentDTOs, dto)
+		consignmentDTOs = append(consignmentDTOs, *responseDTO)
 	}
 
 	return consignmentDTOs, nil
@@ -257,41 +242,47 @@ func (s *ConsignmentService) UpdateConsignment(ctx context.Context, updateReq *m
 		return nil, fmt.Errorf("failed to retrieve consignment with ID %s for update: %w", updateReq.ConsignmentID, result.Error)
 	}
 
-	// Apply updates
+	// Build updates map to only update changed fields (avoids overwriting concurrent changes)
+	updates := make(map[string]interface{})
+
 	if updateReq.State != nil {
-		consignment.State = *updateReq.State
+		updates["state"] = *updateReq.State
 	}
+
 	if updateReq.AppendToGlobalContext != nil {
+		// For GlobalContext, we need to merge carefully
 		if consignment.GlobalContext == nil {
 			consignment.GlobalContext = make(map[string]any)
 		}
 		maps.Copy(consignment.GlobalContext, updateReq.AppendToGlobalContext)
+		updates["global_context"] = consignment.GlobalContext
 		// TODO: Implement the global context key selection such that no overwriting occurs.
 	}
 
-	// Save updates
-	saveResult := s.db.WithContext(ctx).Save(&consignment)
-	if saveResult.Error != nil {
-		return nil, fmt.Errorf("failed to update consignment: %w", saveResult.Error)
+	// Use Updates to only modify specified fields, reducing race condition risk
+	if len(updates) > 0 {
+		saveResult := s.db.WithContext(ctx).Model(&consignment).Updates(updates)
+		if saveResult.Error != nil {
+			return nil, fmt.Errorf("failed to update consignment: %w", saveResult.Error)
+		}
 	}
 
-	// Retrieve associated workflow nodes
-	workflowNodes, err := s.nodeRepo.GetWorkflowNodesByConsignmentIDInTx(ctx, s.db, consignment.ID)
+	// Reload with preloaded relationships
+	if err := s.db.WithContext(ctx).Preload("WorkflowNodes.WorkflowNodeTemplate").First(&consignment, "id = ?", consignment.ID).Error; err != nil {
+		return nil, fmt.Errorf("failed to reload consignment with relationships: %w", err)
+	}
+
+	// Batch load HS codes for JSONB items
+	hsLoader := newHSCodeBatchLoader(s.db)
+	hsLoader.collectFromItems(consignment.Items)
+	if err := hsLoader.load(ctx); err != nil {
+		return nil, fmt.Errorf("failed to load HS codes: %w", err)
+	}
+
+	// Build response DTO using the helper function
+	responseDTO, err := s.buildConsignmentResponseDTO(ctx, &consignment, hsLoader)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve workflow nodes for consignment %s: %w", updateReq.ConsignmentID, err)
-	}
-
-	// Prepare response DTO
-	responseDTO := &model.ConsignmentResponseDTO{
-		ID:            consignment.ID,
-		Flow:          consignment.Flow,
-		TraderID:      consignment.TraderID,
-		State:         consignment.State,
-		Items:         consignment.Items,
-		GlobalContext: consignment.GlobalContext,
-		CreatedAt:     consignment.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     consignment.UpdatedAt.Format(time.RFC3339),
-		WorkflowNodes: workflowNodes,
+		return nil, fmt.Errorf("failed to build consignment response DTO: %w", err)
 	}
 
 	return responseDTO, nil
@@ -409,4 +400,108 @@ func (s *ConsignmentService) appendToConsignmentGlobalContext(ctx context.Contex
 	}
 
 	return consignment.GlobalContext, nil
+}
+
+// hsCodeBatchLoader handles batch loading of HS codes for JSONB items
+type hsCodeBatchLoader struct {
+	db        *gorm.DB
+	hsCodeMap map[uuid.UUID]model.HSCode
+	hsCodeIDs map[uuid.UUID]struct{}
+}
+
+func newHSCodeBatchLoader(db *gorm.DB) *hsCodeBatchLoader {
+	return &hsCodeBatchLoader{
+		db:        db,
+		hsCodeMap: make(map[uuid.UUID]model.HSCode),
+		hsCodeIDs: make(map[uuid.UUID]struct{}),
+	}
+}
+
+func (loader *hsCodeBatchLoader) collectFromItems(items []model.ConsignmentItem) {
+	for _, item := range items {
+		loader.hsCodeIDs[item.HSCodeID] = struct{}{}
+	}
+}
+
+func (loader *hsCodeBatchLoader) load(ctx context.Context) error {
+	if len(loader.hsCodeIDs) == 0 {
+		return nil
+	}
+
+	hsCodeIDList := make([]uuid.UUID, 0, len(loader.hsCodeIDs))
+	for id := range loader.hsCodeIDs {
+		hsCodeIDList = append(hsCodeIDList, id)
+	}
+
+	var hsCodes []model.HSCode
+	if err := loader.db.WithContext(ctx).Where("id IN ?", hsCodeIDList).Find(&hsCodes).Error; err != nil {
+		return fmt.Errorf("failed to batch load HS codes: %w", err)
+	}
+
+	for _, hsCode := range hsCodes {
+		loader.hsCodeMap[hsCode.ID] = hsCode
+	}
+
+	return nil
+}
+
+func (loader *hsCodeBatchLoader) get(id uuid.UUID) (model.HSCode, error) {
+	hsCode, exists := loader.hsCodeMap[id]
+	if !exists {
+		return model.HSCode{}, fmt.Errorf("HS code not found for ID %s", id)
+	}
+	return hsCode, nil
+}
+
+// buildConsignmentResponseDTO builds a ConsignmentResponseDTO from a Consignment with preloaded WorkflowNodes
+func (s *ConsignmentService) buildConsignmentResponseDTO(ctx context.Context, consignment *model.Consignment, hsLoader *hsCodeBatchLoader) (*model.ConsignmentResponseDTO, error) {
+	// Build ConsignmentItemResponseDTOs using the batch loader
+	itemResponseDTOs := make([]model.ConsignmentItemResponseDTO, 0, len(consignment.Items))
+	for _, item := range consignment.Items {
+		hsCode, err := hsLoader.get(item.HSCodeID)
+		if err != nil {
+			return nil, err
+		}
+
+		itemResponseDTOs = append(itemResponseDTOs, model.ConsignmentItemResponseDTO{
+			HSCode: model.HSCodeResponseDTO{
+				HSCodeID:    hsCode.ID,
+				HSCode:      hsCode.HSCode,
+				Description: hsCode.Description,
+				Category:    hsCode.Category,
+			},
+			ItemMetadata: item.ItemMetadata,
+		})
+	}
+
+	// Build WorkflowNodeResponseDTOs using preloaded templates
+	nodeResponseDTOs := make([]model.WorkflowNodeResponseDTO, 0, len(consignment.WorkflowNodes))
+	for _, node := range consignment.WorkflowNodes {
+		nodeResponseDTOs = append(nodeResponseDTOs, model.WorkflowNodeResponseDTO{
+			ID:        node.ID,
+			CreatedAt: node.CreatedAt.Format(time.RFC3339),
+			UpdatedAt: node.UpdatedAt.Format(time.RFC3339),
+			WorkflowNodeTemplate: model.WorkflowNodeTemplateResponseDTO{
+				Name:        node.WorkflowNodeTemplate.Name,
+				Description: node.WorkflowNodeTemplate.Description,
+				Type:        string(node.WorkflowNodeTemplate.Type),
+			},
+			State:     node.State,
+			DependsOn: node.DependsOn,
+		})
+	}
+
+	// Build the final ConsignmentResponseDTO
+	responseDTO := &model.ConsignmentResponseDTO{
+		ID:            consignment.ID,
+		Flow:          consignment.Flow,
+		TraderID:      consignment.TraderID,
+		State:         consignment.State,
+		Items:         itemResponseDTOs,
+		CreatedAt:     consignment.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:     consignment.UpdatedAt.Format(time.RFC3339),
+		WorkflowNodes: nodeResponseDTOs,
+	}
+
+	return responseDTO, nil
 }

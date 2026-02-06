@@ -28,9 +28,11 @@ const (
 // WorkflowNodeTemplate represents a template for a workflow node.
 type WorkflowNodeTemplate struct {
 	BaseModel
-	Type      taskPlugin.Type `gorm:"type:varchar(50);column:type;not null" json:"type"`                       // Type of the workflow node
-	Config    json.RawMessage `gorm:"type:jsonb;column:config;not null;serializer:json" json:"config"`         // Configuration specific to the workflow node type
-	DependsOn UUIDArray       `gorm:"type:jsonb;column:depends_on;not null;serializer:json" json:"depends_on"` // Array of workflow node template IDs this node depends on
+	Name        string          `gorm:"type:varchar(255);column:name;not null" json:"name"`                      // Human-readable name of the workflow node template
+	Description string          `gorm:"type:text;column:description" json:"description"`                         // Optional description of the workflow node template
+	Type        taskPlugin.Type `gorm:"type:varchar(50);column:type;not null" json:"type"`                       // Type of the workflow node
+	Config      json.RawMessage `gorm:"type:jsonb;column:config;not null;serializer:json" json:"config"`         // Configuration specific to the workflow node type
+	DependsOn   UUIDArray       `gorm:"type:jsonb;column:depends_on;not null;serializer:json" json:"depends_on"` // Array of workflow node template IDs this node depends on
 }
 
 func (wnt *WorkflowNodeTemplate) TableName() string {
@@ -46,8 +48,8 @@ type WorkflowNode struct {
 	DependsOn              UUIDArray         `gorm:"type:jsonb;column:depends_on;not null;serializer:json" json:"depends_on"`           // Array of workflow node IDs this node depends on
 
 	// Relationships
-	Consignment          Consignment          `gorm:"foreignKey:ConsignmentID;references:ID" json:"-"`          // Associated Consignment
-	WorkflowNodeTemplate WorkflowNodeTemplate `gorm:"foreignKey:WorkflowNodeTemplateID;references:ID" json:"-"` // Associated WorkflowNodeTemplate
+	Consignment          Consignment          `gorm:"foreignKey:ConsignmentID;references:ID" json:"-"`                             // Associated Consignment
+	WorkflowNodeTemplate WorkflowNodeTemplate `gorm:"foreignKey:WorkflowNodeTemplateID;references:ID" json:"workflowNodeTemplate"` // Associated WorkflowNodeTemplate
 }
 
 func (wn *WorkflowNode) TableName() string {
@@ -59,4 +61,21 @@ type UpdateWorkflowNodeDTO struct {
 	WorkflowNodeID      uuid.UUID         `json:"workflowNodeId" binding:"required"` // Workflow Node ID
 	State               WorkflowNodeState `json:"state"`                             // New state of the workflow node
 	AppendGlobalContext map[string]any    `json:"appendGlobalContext,omitempty"`     // Additional global context to append to the consignment (optional)
+}
+
+// WorkflowNodeResponseDTO represents a workflow node in the response.
+type WorkflowNodeResponseDTO struct {
+	ID                   uuid.UUID                       `json:"id"`                   // Workflow Node ID
+	CreatedAt            string                          `json:"createdAt"`            // Timestamp of node creation
+	UpdatedAt            string                          `json:"updatedAt"`            // Timestamp of last node update
+	WorkflowNodeTemplate WorkflowNodeTemplateResponseDTO `json:"workflowNodeTemplate"` // Workflow node template details
+	State                WorkflowNodeState               `json:"state"`                // State of the workflow node
+	DependsOn            []uuid.UUID                     `json:"depends_on"`           // Array of workflow node IDs this node depends on
+}
+
+// WorkflowNodeTemplateResponseDTO represents workflow node template details in the response.
+type WorkflowNodeTemplateResponseDTO struct {
+	Name        string `json:"name"`        // Name of the workflow node template
+	Description string `json:"description"` // Description of the workflow node template
+	Type        string `json:"type"`        // Type of the workflow node template
 }
