@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button, Badge, Spinner, Text, Card, Flex, Box, TextField, TextArea, Callout } from '@radix-ui/themes'
 import { ArrowLeftIcon, CheckCircledIcon, ExclamationTriangleIcon, InfoCircledIcon } from '@radix-ui/react-icons'
-import { fetchApplicationDetail, approveTask, type OGAApplication, type ApproveRequest } from '../api'
+import { fetchApplicationDetail, approveTask, isValidFileMetadata, type OGAApplication, type ApproveRequest, type Decision } from '../api'
+import { FileWidget } from '../components/FileWidget'
 
 export function ConsignmentDetailScreen() {
   const navigate = useNavigate()
 
   // Extract taskId from URL params
-  const searchParams = new URLSearchParams(location.search)
+  const [searchParams] = useSearchParams()
   const taskId = searchParams.get('taskId')
 
   const [application, setApplication] = useState<OGAApplication | null>(null)
@@ -44,6 +45,43 @@ export function ConsignmentDetailScreen() {
 
   const handleFormChange = (field: string, value: unknown) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handleUpdateDocuments = async () => {
+    if (!reviewerName.trim()) {
+      setError('Reviewer name is required to update documents')
+      return
+    }
+
+    if (!taskId || !application) {
+      setError('Application data not available')
+      return
+    }
+
+    setIsSubmitting(true)
+    setError(null)
+
+    try {
+      // Preserve existing decision logic or use application status as decision
+      // This assumes application.status (when not PENDING) maps to Decision type.
+      // Since status can be 'APPROVED' or 'REJECTED', this works.
+      const currentDecision = application.status as Decision
+
+      const requestBody: ApproveRequest = {
+        decision: currentDecision,
+        comments: comments.trim() || undefined,
+        reviewerName: reviewerName.trim(),
+        formData: formData,
+        consignmentId: application.consignmentId,
+      }
+      await approveTask(taskId, application.consignmentId, requestBody)
+      setSuccess(true)
+      setTimeout(() => navigate('/consignments'), 2000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update documents')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleApprove = async () => {
@@ -124,8 +162,8 @@ export function ConsignmentDetailScreen() {
         <Flex gap="3">
           <Badge size="2" color={
             application.status === 'APPROVED' ? 'green' :
-            application.status === 'REJECTED' ? 'red' :
-            'blue'
+              application.status === 'REJECTED' ? 'red' :
+                'blue'
           } highContrast>
             {application.status}
           </Badge>
@@ -166,8 +204,8 @@ export function ConsignmentDetailScreen() {
                 <Text size="1" color="gray" as="div" mb="1">Status</Text>
                 <Badge size="2" color={
                   application.status === 'APPROVED' ? 'green' :
-                  application.status === 'REJECTED' ? 'red' :
-                  'blue'
+                    application.status === 'REJECTED' ? 'red' :
+                      'blue'
                 }>
                   {application.status}
                 </Badge>
@@ -258,65 +296,98 @@ export function ConsignmentDetailScreen() {
                 )}
               </div>
 
-              {application.status === 'PENDING' && (
-                <>
-                  <div className="border-t border-gray-100 my-4"></div>
+              <div className="border-t border-gray-100 my-4"></div>
 
+              {/* Review Fields - Available for update at any time */}
+              <div className="space-y-4 p-4 bg-blue-50/30 rounded-xl border border-blue-100/50 mb-6">
+                <Text size="2" weight="bold" color="blue" mb="2" as="div" className="uppercase tracking-wider flex items-center gap-2">
+                  <div className="w-1 h-4 bg-blue-500 rounded-full" />
+                  Review Information & Documents
+                </Text>
+
+                <Box>
+                  <Text as="label" size="2" weight="bold" mb="1" className="block">Certificate Number</Text>
+                  <TextField.Root
+                    value={(formData.certificateNumber as string) || ''}
+                    onChange={(e) => handleFormChange('certificateNumber', e.target.value)}
+                    disabled={isSubmitting}
+                    size="2"
+                    placeholder="e.g., CERT-2024-001"
+                  />
+                </Box>
+
+                <Box>
+                  <Text as="label" size="2" weight="bold" mb="1" className="block">Inspection Date</Text>
+                  <TextField.Root
+                    type="date"
+                    value={(formData.inspectionDate as string) || ''}
+                    onChange={(e) => handleFormChange('inspectionDate', e.target.value)}
+                    disabled={isSubmitting}
+                    size="2"
+                  />
+                </Box>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Box>
+                    <FileWidget
+                      label="Business Registration Certificate"
+                      name="brCertificate"
+                      value={(isValidFileMetadata(formData.brCertificate) ? formData.brCertificate : null)}
+                      onChange={(file) => handleFormChange('brCertificate', file)}
+                      disabled={isSubmitting}
+                      accept="application/pdf,image/jpeg,image/png"
+                    />
+                  </Box>
+                  <Box>
+                    <FileWidget
+                      label="TIN Certificate"
+                      name="tinCertificate"
+                      value={(isValidFileMetadata(formData.tinCertificate) ? formData.tinCertificate : null)}
+                      onChange={(file) => handleFormChange('tinCertificate', file)}
+                      disabled={isSubmitting}
+                      accept="application/pdf,image/jpeg,image/png"
+                    />
+                  </Box>
+                  <Box>
+                    <FileWidget
+                      label="VAT Certificate"
+                      name="vatCertificate"
+                      value={(isValidFileMetadata(formData.vatCertificate) ? formData.vatCertificate : null)}
+                      onChange={(file) => handleFormChange('vatCertificate', file)}
+                      disabled={isSubmitting}
+                      accept="application/pdf,image/jpeg,image/png"
+                    />
+                  </Box>
+                </div>
+
+                <Box>
+                  <Flex align="center" gap="2">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 text-blue-600 rounded"
+                      checked={(formData.verified as boolean) || false}
+                      onChange={(e) => handleFormChange('verified', e.target.checked)}
+                      disabled={isSubmitting}
+                    />
+                    <Text size="2" weight="bold">All documents verified</Text>
+                  </Flex>
+                </Box>
+              </div>
+
+              {application.status === 'PENDING' ? (
+                <>
                   <Box>
                     <Text as="label" size="2" weight="bold" mb="1" className="block">Reviewer Name *</Text>
                     <TextField.Root
                       placeholder="Enter your full name"
                       value={reviewerName}
                       onChange={(e) => setReviewerName(e.target.value)}
-                      disabled={isSubmitting || success}
+                      disabled={isSubmitting}
                       size="3"
                     />
                   </Box>
 
-                  {/* Optional Review Fields */}
-                  <div className="space-y-4 p-4 bg-blue-50/30 rounded-xl border border-blue-100/50">
-                    <Text size="2" weight="bold" color="blue" mb="2" as="div" className="uppercase tracking-wider flex items-center gap-2">
-                      <div className="w-1 h-4 bg-blue-500 rounded-full" />
-                      Review Information (Optional)
-                    </Text>
-
-                    <Box>
-                      <Text as="label" size="2" weight="bold" mb="1" className="block">Certificate Number</Text>
-                      <TextField.Root
-                        value={(formData.certificateNumber as string) || ''}
-                        onChange={(e) => handleFormChange('certificateNumber', e.target.value)}
-                        disabled={isSubmitting || success}
-                        size="2"
-                        placeholder="e.g., CERT-2024-001"
-                      />
-                    </Box>
-
-                    <Box>
-                      <Text as="label" size="2" weight="bold" mb="1" className="block">Inspection Date</Text>
-                      <TextField.Root
-                        type="date"
-                        value={(formData.inspectionDate as string) || ''}
-                        onChange={(e) => handleFormChange('inspectionDate', e.target.value)}
-                        disabled={isSubmitting || success}
-                        size="2"
-                      />
-                    </Box>
-
-                    <Box>
-                      <Flex align="center" gap="2">
-                        <input
-                          type="checkbox"
-                          className="w-4 h-4 text-blue-600 rounded"
-                          checked={(formData.verified as boolean) || false}
-                          onChange={(e) => handleFormChange('verified', e.target.checked)}
-                          disabled={isSubmitting || success}
-                        />
-                        <Text size="2" weight="bold">All documents verified</Text>
-                      </Flex>
-                    </Box>
-                  </div>
-
-                  <Box>
+                  <Box mt="4">
                     <Text as="label" size="2" weight="bold" mb="1" className="block">Final Decision *</Text>
                     <Flex gap="4" mt="2">
                       <Button
@@ -325,7 +396,7 @@ export function ConsignmentDetailScreen() {
                         color="green"
                         className="flex-1 cursor-pointer"
                         onClick={() => setDecision('APPROVED')}
-                        disabled={isSubmitting || success}
+                        disabled={isSubmitting}
                       >
                         Approve
                       </Button>
@@ -335,42 +406,59 @@ export function ConsignmentDetailScreen() {
                         color="red"
                         className="flex-1 cursor-pointer"
                         onClick={() => setDecision('REJECTED')}
-                        disabled={isSubmitting || success}
+                        disabled={isSubmitting}
                       >
                         Reject
                       </Button>
                     </Flex>
                   </Box>
 
-                  <Box>
-                    <Text as="label" size="2" weight="bold" mb="1" className="block">Comments</Text>
-                    <TextArea
-                      placeholder="Provide details about your decision..."
-                      value={comments}
-                      onChange={(e) => setComments(e.target.value)}
-                      disabled={isSubmitting || success}
-                      rows={4}
-                      size="3"
-                    />
-                  </Box>
+                </>
+              ) : (
+                <Flex justify="end">
+                  <Button
+                    size="3"
+                    onClick={handleUpdateDocuments}
+                    loading={isSubmitting}
+                    disabled={isSubmitting || !reviewerName.trim()}
+                  >
+                    Update Documents
+                  </Button>
+                </Flex>
+              )
+              }
 
-                  <div className="pt-4 border-t border-gray-100">
+              <Box mt="4">
+                <Text as="label" size="2" weight="bold" mb="1" className="block">Comments</Text>
+                <TextArea
+                  placeholder="Provide details about your decision..."
+                  value={comments}
+                  onChange={(e) => setComments(e.target.value)}
+                  disabled={isSubmitting}
+                  rows={4}
+                  size="3"
+                />
+              </Box>
+
+              {
+                application.status === 'PENDING' && (
+                  <div className="pt-4 border-t border-gray-100 mt-6">
                     <Button
                       size="4"
                       className="w-full cursor-pointer"
-                      onClick={() => { void handleApprove() }}
+                      onClick={handleApprove}
                       loading={isSubmitting}
                       disabled={success || !reviewerName.trim()}
                     >
-                      {success ? 'Review Submitted' : 'Submit Final Review'}
+                      Submit Final Review
                     </Button>
                   </div>
-                </>
-              )}
-            </div>
-          </Card>
-        </div>
-      </div>
-    </div>
+                )
+              }
+            </div >
+          </Card >
+        </div >
+      </div >
+    </div >
   )
 }
