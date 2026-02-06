@@ -28,8 +28,10 @@ const (
 type SimpleFormState string
 
 const (
+	Initialized        SimpleFormState = "INITIALIZED"
 	TraderSavedAsDraft SimpleFormState = "DRAFT"
 	TraderSubmitted    SimpleFormState = "SUBMITTED"
+	OGAAcknowledged    SimpleFormState = "OGA_ACKNOWLEDGED"
 	OGAReviewed        SimpleFormState = "OGA_REVIEWED"
 )
 
@@ -156,7 +158,7 @@ func (s *SimpleForm) handleFetchForm(ctx context.Context) (*ExecutionResponse, e
 				Success: false,
 				Error: &ApiError{
 					Code:    "FETCH_FORM_FAILED",
-					Message: fmt.Sprintf("Failed to populate form definition from registry: %v", err),
+					Message: "Failed to retrieve form definition.",
 				},
 			},
 		}, err
@@ -198,6 +200,13 @@ func (s *SimpleForm) handleSubmitForm(_ context.Context, content interface{}) (*
 	if err != nil {
 		return &ExecutionResponse{
 			Message: fmt.Sprintf("Invalid form data: %v", err),
+			ApiResponse: &ApiResponse{
+				Success: false,
+				Error: &ApiError{
+					Code:    "INVALID_FORM_DATA",
+					Message: "Invalid form Data, Parsing Failed.",
+				},
+			},
 		}, err
 	}
 
@@ -206,6 +215,13 @@ func (s *SimpleForm) handleSubmitForm(_ context.Context, content interface{}) (*
 	if err != nil {
 		return &ExecutionResponse{
 			Message: fmt.Sprintf("Failed to process form data: %v", err),
+			ApiResponse: &ApiResponse{
+				Success: false,
+				Error: &ApiError{
+					Code:    "INVALID_FORM_DATA",
+					Message: "Failed to process form data.",
+				},
+			},
 		}, err
 	}
 
@@ -236,6 +252,13 @@ func (s *SimpleForm) handleSubmitForm(_ context.Context, content interface{}) (*
 				"error", err)
 			return &ExecutionResponse{
 				Message: fmt.Sprintf("Failed to submit form to external system: %v", err),
+				ApiResponse: &ApiResponse{
+					Success: false,
+					Error: &ApiError{
+						Code:    "FORM_SUBMISSION_FAILED",
+						Message: "Failed to submit form to external system.",
+					},
+				},
 			}, err
 		}
 

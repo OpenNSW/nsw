@@ -247,14 +247,14 @@ func (tm *taskManager) execute(ctx context.Context, activeTask *container.Contai
 
 	taskId := activeTask.GetTaskID()
 	// Update task status in database
-	if err := tm.store.UpdateStatus(taskId, result.NewState); err != nil {
-		slog.ErrorContext(ctx, "failed to update task status in database",
-			"taskID", taskId,
-			"error", err)
-	}
 
 	if result.NewState != nil {
-		// Update in-memory status
+		// Update persistent status
+		if err := tm.store.UpdateStatus(taskId, result.NewState); err != nil {
+			slog.ErrorContext(ctx, "failed to update task status in database",
+				"taskID", taskId,
+				"error", err)
+		}
 		tm.notifyWorkflowManager(ctx, activeTask.TaskID, result.NewState)
 	}
 
