@@ -117,7 +117,15 @@ CREATE TABLE IF NOT EXISTS workflow_template_maps (
     consignment_flow VARCHAR(50) NOT NULL CHECK (consignment_flow IN ('IMPORT', 'EXPORT')),
     workflow_template_id UUID NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    -- Foreign key constraints
+    CONSTRAINT fk_workflow_template_maps_hs_code
+        FOREIGN KEY (hs_code_id) REFERENCES hs_codes(id)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_workflow_template_maps_workflow_template
+        FOREIGN KEY (workflow_template_id) REFERENCES workflow_templates(id)
+        ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- Indexes for workflow_template_maps
@@ -163,7 +171,15 @@ CREATE TABLE IF NOT EXISTS workflow_nodes (
     state VARCHAR(50) NOT NULL CHECK (state IN ('LOCKED', 'READY', 'IN_PROGRESS', 'COMPLETED', 'FAILED')),
     depends_on JSONB NOT NULL DEFAULT '[]',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    -- Foreign key constraints
+    CONSTRAINT fk_workflow_nodes_consignment
+        FOREIGN KEY (consignment_id) REFERENCES consignments(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_workflow_nodes_workflow_node_template
+        FOREIGN KEY (workflow_node_template_id) REFERENCES workflow_node_templates(id)
+        ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- Indexes for workflow_nodes

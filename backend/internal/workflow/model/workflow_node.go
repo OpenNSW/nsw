@@ -48,8 +48,8 @@ type WorkflowNode struct {
 	DependsOn              UUIDArray         `gorm:"type:jsonb;column:depends_on;not null;serializer:json" json:"depends_on"`           // Array of workflow node IDs this node depends on
 
 	// Relationships
-	Consignment          Consignment          `gorm:"foreignKey:ConsignmentID;references:ID" json:"-"`          // Associated Consignment
-	WorkflowNodeTemplate WorkflowNodeTemplate `gorm:"foreignKey:WorkflowNodeTemplateID;references:ID" json:"-"` // Associated WorkflowNodeTemplate
+	Consignment          Consignment          `gorm:"foreignKey:ConsignmentID;references:ID" json:"-"`                             // Associated Consignment
+	WorkflowNodeTemplate WorkflowNodeTemplate `gorm:"foreignKey:WorkflowNodeTemplateID;references:ID" json:"workflowNodeTemplate"` // Associated WorkflowNodeTemplate
 }
 
 func (wn *WorkflowNode) TableName() string {

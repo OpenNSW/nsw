@@ -26,6 +26,9 @@ type Consignment struct {
 	State         ConsignmentState  `gorm:"type:varchar(50);column:state;not null" json:"state"`                            // State of the consignment
 	Items         []ConsignmentItem `gorm:"type:jsonb;column:items;serializer:json;not null" json:"items"`                  // Items in the consignment
 	GlobalContext map[string]any    `gorm:"type:jsonb;column:global_context;serializer:json;not null" json:"globalContext"` // Global context for the consignment
+
+	// Relationships
+	WorkflowNodes []WorkflowNode `gorm:"foreignKey:ConsignmentID;references:ID" json:"-"` // Associated WorkflowNodes
 }
 
 func (c *Consignment) TableName() string {
