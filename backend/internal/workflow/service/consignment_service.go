@@ -337,6 +337,11 @@ func (s *ConsignmentService) updateWorkflowNodeStateAndPropagateChangesInTx(ctx 
 			}
 		}
 
+	case model.WorkflowNodeStateInProgress:
+		if err := s.stateMachine.TransitionToInProgress(ctx, tx, workflowNode); err != nil {
+			return nil, nil, fmt.Errorf("failed to transition node to IN_PROGRESS: %w", err)
+		}
+
 	case model.WorkflowNodeStateCompleted:
 		if workflowNode.State != model.WorkflowNodeStateCompleted {
 			result, err := s.stateMachine.TransitionToCompleted(ctx, tx, workflowNode)
