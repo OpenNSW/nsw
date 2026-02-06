@@ -1,21 +1,25 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button, Badge, Spinner, Text, Card, Flex, Box, TextField, TextArea, Callout } from '@radix-ui/themes'
 import { ArrowLeftIcon, CheckCircledIcon, ExclamationTriangleIcon, InfoCircledIcon } from '@radix-ui/react-icons'
-import { fetchApplicationDetail, approveTask, type OGAApplication, type ApproveRequest } from '../api'
+import { fetchApplicationDetail, approveTask, type OGAApplication, type ApproveRequest, type Decision } from '../api'
+import { JsonForms } from '@jsonforms/react'
+import { customRenderers } from '../renderers'
+import { vanillaCells } from '@jsonforms/vanilla-renderers'
+import type { UISchemaElement } from '@jsonforms/core'
 
 export function ConsignmentDetailScreen() {
   const navigate = useNavigate()
 
   // Extract taskId from URL params
-  const searchParams = new URLSearchParams(location.search)
+  const [searchParams] = useSearchParams()
   const taskId = searchParams.get('taskId')
 
   const [application, setApplication] = useState<OGAApplication | null>(null)
   const [loading, setLoading] = useState(true)
   const [formData, setFormData] = useState<Record<string, unknown>>({})
   const [reviewerName, setReviewerName] = useState('')
-  const [decision, setDecision] = useState<'APPROVED' | 'REJECTED'>('APPROVED')
+  const [decision, setDecision] = useState<Decision>('APPROVED')
   const [comments, setComments] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -42,11 +46,11 @@ export function ConsignmentDetailScreen() {
     void fetchData()
   }, [taskId])
 
-  const handleFormChange = (field: string, value: unknown) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
+  const handleFormChange = (data: { data: Record<string, unknown>, errors?: any[] }) => {
+    setFormData(data.data)
   }
 
-  const handleApprove = async () => {
+  const handleSubmit = async (finalDecision?: Decision) => {
     if (!reviewerName.trim()) {
       setError('Reviewer name is required')
       return
@@ -57,12 +61,20 @@ export function ConsignmentDetailScreen() {
       return
     }
 
+    const effectiveDecision = finalDecision ?? (application.status as Decision)
+
+    // Validate effective decision if derived from application status
+    if (!finalDecision && (application.status !== 'APPROVED' && application.status !== 'REJECTED')) {
+      setError(`Cannot update documents for application with status: ${application.status}`)
+      return
+    }
+
     setIsSubmitting(true)
     setError(null)
 
     try {
       const requestBody: ApproveRequest = {
-        decision,
+        decision: effectiveDecision,
         comments: comments.trim() || undefined,
         reviewerName: reviewerName.trim(),
         formData: formData,
@@ -77,6 +89,9 @@ export function ConsignmentDetailScreen() {
       setIsSubmitting(false)
     }
   }
+
+  const handleUpdateDocuments = () => handleSubmit()
+  const handleApprove = () => handleSubmit(decision)
 
   if (loading) {
     return (
@@ -255,65 +270,35 @@ export function ConsignmentDetailScreen() {
                 )}
               </div>
 
-              {application.status === 'PENDING' && (
-                <>
-                  <div className="border-t border-gray-100 my-4"></div>
+              <div className="border-t border-gray-100 my-4"></div>
 
+              {/* Review Fields - Available for update at any time */}
+              {application.ogaForm?.schema && (
+                <JsonForms
+                  schema={application.ogaForm.schema}
+                  uischema={application.ogaForm.uiSchema as unknown as UISchemaElement}
+                  data={formData}
+                  renderers={customRenderers}
+                  cells={vanillaCells}
+                  onChange={handleFormChange}
+                  readonly={isSubmitting}
+                />
+              )}
+
+              {application.status === 'PENDING' ? (
+                <>
                   <Box>
                     <Text as="label" size="2" weight="bold" mb="1" className="block">Reviewer Name *</Text>
                     <TextField.Root
                       placeholder="Enter your full name"
                       value={reviewerName}
                       onChange={(e) => setReviewerName(e.target.value)}
-                      disabled={isSubmitting || success}
+                      disabled={isSubmitting}
                       size="3"
                     />
                   </Box>
 
-                  {/* Optional Review Fields */}
-                  <div className="space-y-4 p-4 bg-blue-50/30 rounded-xl border border-blue-100/50">
-                    <Text size="2" weight="bold" color="blue" mb="2" as="div" className="uppercase tracking-wider flex items-center gap-2">
-                      <div className="w-1 h-4 bg-blue-500 rounded-full" />
-                      Review Information (Optional)
-                    </Text>
-
-                    <Box>
-                      <Text as="label" size="2" weight="bold" mb="1" className="block">Certificate Number</Text>
-                      <TextField.Root
-                        value={(formData.certificateNumber as string) || ''}
-                        onChange={(e) => handleFormChange('certificateNumber', e.target.value)}
-                        disabled={isSubmitting || success}
-                        size="2"
-                        placeholder="e.g., CERT-2024-001"
-                      />
-                    </Box>
-
-                    <Box>
-                      <Text as="label" size="2" weight="bold" mb="1" className="block">Inspection Date</Text>
-                      <TextField.Root
-                        type="date"
-                        value={(formData.inspectionDate as string) || ''}
-                        onChange={(e) => handleFormChange('inspectionDate', e.target.value)}
-                        disabled={isSubmitting || success}
-                        size="2"
-                      />
-                    </Box>
-
-                    <Box>
-                      <Flex align="center" gap="2">
-                        <input
-                          type="checkbox"
-                          className="w-4 h-4 text-blue-600 rounded"
-                          checked={(formData.verified as boolean) || false}
-                          onChange={(e) => handleFormChange('verified', e.target.checked)}
-                          disabled={isSubmitting || success}
-                        />
-                        <Text size="2" weight="bold">All documents verified</Text>
-                      </Flex>
-                    </Box>
-                  </div>
-
-                  <Box>
+                  <Box mt="4">
                     <Text as="label" size="2" weight="bold" mb="1" className="block">Final Decision *</Text>
                     <Flex gap="4" mt="2">
                       <Button
@@ -322,7 +307,7 @@ export function ConsignmentDetailScreen() {
                         color="green"
                         className="flex-1 cursor-pointer"
                         onClick={() => setDecision('APPROVED')}
-                        disabled={isSubmitting || success}
+                        disabled={isSubmitting}
                       >
                         Approve
                       </Button>
@@ -332,42 +317,59 @@ export function ConsignmentDetailScreen() {
                         color="red"
                         className="flex-1 cursor-pointer"
                         onClick={() => setDecision('REJECTED')}
-                        disabled={isSubmitting || success}
+                        disabled={isSubmitting}
                       >
                         Reject
                       </Button>
                     </Flex>
                   </Box>
 
-                  <Box>
-                    <Text as="label" size="2" weight="bold" mb="1" className="block">Comments</Text>
-                    <TextArea
-                      placeholder="Provide details about your decision..."
-                      value={comments}
-                      onChange={(e) => setComments(e.target.value)}
-                      disabled={isSubmitting || success}
-                      rows={4}
-                      size="3"
-                    />
-                  </Box>
+                </>
+              ) : (
+                <Flex justify="end">
+                  <Button
+                    size="3"
+                    onClick={handleUpdateDocuments}
+                    loading={isSubmitting}
+                    disabled={isSubmitting || !reviewerName.trim()}
+                  >
+                    Update Documents
+                  </Button>
+                </Flex>
+              )
+              }
 
-                  <div className="pt-4 border-t border-gray-100">
+              <Box mt="4">
+                <Text as="label" size="2" weight="bold" mb="1" className="block">Comments</Text>
+                <TextArea
+                  placeholder="Provide details about your decision..."
+                  value={comments}
+                  onChange={(e) => setComments(e.target.value)}
+                  disabled={isSubmitting}
+                  rows={4}
+                  size="3"
+                />
+              </Box>
+
+              {
+                application.status === 'PENDING' && (
+                  <div className="pt-4 border-t border-gray-100 mt-6">
                     <Button
                       size="4"
                       className="w-full cursor-pointer"
-                      onClick={() => { void handleApprove() }}
+                      onClick={handleApprove}
                       loading={isSubmitting}
-                      disabled={success || !reviewerName.trim()}
+                      disabled={isSubmitting || !reviewerName.trim()}
                     >
-                      {success ? 'Review Submitted' : 'Submit Final Review'}
+                      Submit Final Review
                     </Button>
                   </div>
-                </>
-              )}
-            </div>
-          </Card>
-        </div>
-      </div>
-    </div>
+                )
+              }
+            </div >
+          </Card >
+        </div >
+      </div >
+    </div >
   )
 }

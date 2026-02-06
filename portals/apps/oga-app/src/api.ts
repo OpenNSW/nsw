@@ -71,9 +71,13 @@ export interface OGAApplication {
   reviewedAt?: string;
   createdAt: string;
   updatedAt: string;
+  ogaForm?: {
+    schema: Record<string, unknown>;
+    uiSchema: Record<string, unknown>;
+  };
 }
 
-// Fetch all consignments pending OGA review from OGA Service
+
 export async function fetchPendingApplications(status?: string, signal?: AbortSignal): Promise<OGAApplication[]> {
   const url = status
     ? `${API_BASE_URL}/api/oga/applications?status=${status}`
