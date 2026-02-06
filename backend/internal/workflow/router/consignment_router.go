@@ -33,20 +33,19 @@ func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *ht
 	}
 
 	// TODO: Get trader ID from auth context
-	// For now, if traderId is not provided in the request, use a default
-	if req.TraderID == nil {
-		defaultTraderID := "trader-123"
-		req.TraderID = &defaultTraderID
-	}
+	// For now use a mock trader ID if not provided
+	traderId := "TRADER-001"
 
-	// Initialize global context if nil
-	if req.GlobalContext == nil {
-		req.GlobalContext = make(map[string]interface{})
+	// TODO: Inital global context should be get from auth context or other sources. For now, we will use mock data.
+	globalContext := map[string]any{
+		"roc:br:br_no":   "PV 00234567",
+		"ird:vat:vat_no": "114234222-7000",
+		"ird:tin:tin_no": "114234222",
 	}
 
 	// Create consignment through service
 	// Task registration happens within the transaction via pre-commit callback
-	consignment, _, err := c.cs.InitializeConsignment(r.Context(), &req)
+	consignment, _, err := c.cs.InitializeConsignment(r.Context(), &req, traderId, globalContext)
 	if err != nil {
 		http.Error(w, "failed to create consignment: "+err.Error(), http.StatusInternalServerError)
 		return

@@ -63,10 +63,8 @@ type CreateConsignmentItemDTO struct {
 
 // CreateConsignmentDTO represents the data required to create a consignment.
 type CreateConsignmentDTO struct {
-	Flow          ConsignmentFlow            `json:"flow" binding:"required,oneof=IMPORT EXPORT"` // e.g., IMPORT, EXPORT
-	TraderID      *string                    `json:"traderId,omitempty"`                          // ID of the trader associated with the consignment (optional)
-	Items         []CreateConsignmentItemDTO `json:"items" binding:"required,dive,required"`      // Items in the consignment
-	GlobalContext map[string]any             `json:"globalContext,omitempty"`                     // Global context for the consignment (optional)
+	Flow  ConsignmentFlow            `json:"flow" binding:"required,oneof=IMPORT EXPORT"` // e.g., IMPORT, EXPORT
+	Items []CreateConsignmentItemDTO `json:"items" binding:"required,dive,required"`      // Items in the consignment
 }
 
 // UpdateConsignmentDTO represents the data required to update a consignment.

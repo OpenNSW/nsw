@@ -47,18 +47,18 @@ func NewConsignmentServiceWithDefaults(db *gorm.DB, templateService *TemplateSer
 
 // InitializeConsignment initializes the consignment based on the provided creation request.
 // Returns the (created consignment response DTO and the new READY workflow nodes) or an error if the operation fails.
-func (s *ConsignmentService) InitializeConsignment(ctx context.Context, createReq *model.CreateConsignmentDTO) (*model.ConsignmentResponseDTO, []model.WorkflowNode, error) {
+func (s *ConsignmentService) InitializeConsignment(ctx context.Context, createReq *model.CreateConsignmentDTO, traderId string, globalContext map[string]any) (*model.ConsignmentResponseDTO, []model.WorkflowNode, error) {
 	if createReq == nil {
 		return nil, nil, fmt.Errorf("create request cannot be nil")
 	}
 	if len(createReq.Items) == 0 {
 		return nil, nil, fmt.Errorf("consignment must have at least one item")
 	}
-	if createReq.TraderID == nil {
+	if traderId == "" {
 		return nil, nil, fmt.Errorf("trader ID cannot be empty")
 	}
 
-	consignment, newReadyWorkflowNodes, err := s.initializeConsignmentInTx(ctx, createReq)
+	consignment, newReadyWorkflowNodes, err := s.initializeConsignmentInTx(ctx, createReq, traderId, globalContext)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize consignment: %w", err)
 	}
@@ -67,12 +67,12 @@ func (s *ConsignmentService) InitializeConsignment(ctx context.Context, createRe
 }
 
 // initializeConsignmentInTx initializes the consignment within a transaction.
-func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, createReq *model.CreateConsignmentDTO) (*model.ConsignmentResponseDTO, []model.WorkflowNode, error) {
+func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, createReq *model.CreateConsignmentDTO, traderId string, globalContext map[string]any) (*model.ConsignmentResponseDTO, []model.WorkflowNode, error) {
 	consignment := &model.Consignment{
 		Flow:          createReq.Flow,
-		TraderID:      *createReq.TraderID,
+		TraderID:      traderId,
 		State:         model.ConsignmentStateInProgress,
-		GlobalContext: createReq.GlobalContext,
+		GlobalContext: globalContext,
 	}
 
 	var items []model.ConsignmentItem
