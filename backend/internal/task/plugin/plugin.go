@@ -31,9 +31,23 @@ type ExecutionRequest struct {
 	Content interface{} `json:"content,omitempty"`
 }
 
+type ApiError struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	Details any    `json:"details,omitempty"`
+}
+
+// ApiResponse represents the outcome to be returned to the API caller
+type ApiResponse struct {
+	Success bool      `json:"success"`
+	Data    any       `json:"data,omitempty"`  // Additional data specific to the task type
+	Error   *ApiError `json:"error,omitempty"` // Error details if execution failed
+}
+
 type ExecutionResponse struct {
-	NewState *State
-	Message  string
+	NewState    *State
+	Message     string
+	ApiResponse *ApiResponse
 }
 
 type Plugin interface {

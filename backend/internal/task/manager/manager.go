@@ -134,10 +134,7 @@ func (tm *taskManager) HandleExecuteTask(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Return success response
-	writeJSONResponse(w, http.StatusOK, ExecuteTaskResponse{
-		Success: true,
-		Result:  result,
-	})
+	writeJSONResponse(w, http.StatusOK, result.ApiResponse)
 }
 
 func writeJSONResponse(w http.ResponseWriter, status int, data interface{}) {

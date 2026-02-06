@@ -146,6 +146,21 @@ func (s *SimpleForm) populateFromRegistry(ctx context.Context) error {
 
 // handleFetchForm returns the form schema for rendering
 func (s *SimpleForm) handleFetchForm(ctx context.Context) (*ExecutionResponse, error) {
+
+	err := s.populateFromRegistry(ctx)
+
+	if err != nil {
+		return &ExecutionResponse{
+			Message: fmt.Sprintf("Failed to populate form definition from registry: %v", err),
+			ApiResponse: &ApiResponse{
+				Success: false,
+				Error: &ApiError{
+					Code:    "FETCH_FORM_FAILED",
+					Message: fmt.Sprintf("Failed to populate form definition from registry: %v", err),
+				},
+			},
+		}, err
+	}
 	// Prepopulate form data from global context
 	prepopulatedFormData, err := s.prepopulateFormData(ctx, s.config.FormData)
 	if err != nil {
@@ -164,6 +179,15 @@ func (s *SimpleForm) handleFetchForm(ctx context.Context) (*ExecutionResponse, e
 	// Return the form schema (task stays in current state until form is submitted)
 	return &ExecutionResponse{
 		Message: "Form schema retrieved successfully",
+		ApiResponse: &ApiResponse{
+			Success: true,
+			Data: SimpleFormResult{
+				Title:    s.config.Title,
+				Schema:   s.config.Schema,
+				UISchema: s.config.UISchema,
+				FormData: prepopulatedFormData,
+			},
+		},
 	}, nil
 }
 
@@ -225,6 +249,9 @@ func (s *SimpleForm) handleSubmitForm(_ context.Context, content interface{}) (*
 			return &ExecutionResponse{
 				NewState: &newState,
 				Message:  "Form submitted successfully, awaiting OGA verification",
+				ApiResponse: &ApiResponse{
+					Success: true,
+				},
 			}, nil
 		}
 
@@ -238,6 +265,9 @@ func (s *SimpleForm) handleSubmitForm(_ context.Context, content interface{}) (*
 		return &ExecutionResponse{
 			NewState: &newState,
 			Message:  "Form submitted and processed successfully",
+			ApiResponse: &ApiResponse{
+				Success: true,
+			},
 		}, nil
 	}
 
@@ -246,6 +276,9 @@ func (s *SimpleForm) handleSubmitForm(_ context.Context, content interface{}) (*
 	return &ExecutionResponse{
 		NewState: &newState,
 		Message:  "Form submitted successfully",
+		ApiResponse: &ApiResponse{
+			Success: true,
+		},
 	}, nil
 }
 
