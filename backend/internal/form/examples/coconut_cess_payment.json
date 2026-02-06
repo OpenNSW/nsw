@@ -1,0 +1,59 @@
+{
+    "formId": "coconut-cess-payment",
+    "name": "Payment of Coconut Cess",
+    "description": "Payment of Coconut Cess Form",
+    "version": "1.0",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "paymentReceipt": {
+                "type": "string",
+                "format": "binary",
+                "title": "Payment Receipt"
+            }
+        },
+        "required": [
+            "paymentReceipt"
+        ]
+    },
+    "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Control",
+                "scope": "#/properties/paymentReceipt"
+            }
+        ]
+    },
+    "verificationSchema": {
+        "type": "object",
+        "properties": {
+            "paymentReceiptOutput": {
+                "type": "string",
+                "title": "Payment Receipt"
+            },
+            "dateOfReceiptIssue": {
+                "type": "string",
+                "format": "date",
+                "title": "Date of Receipt Issue"
+            }
+        },
+        "required": [
+            "paymentReceiptOutput",
+            "dateOfReceiptIssue"
+        ]
+    },
+    "verificationUiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Control",
+                "scope": "#/properties/paymentReceiptOutput"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/dateOfReceiptIssue"
+            }
+        ]
+    }
+}

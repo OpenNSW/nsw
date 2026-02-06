@@ -37,12 +37,14 @@ func (base *BaseModel) BeforeUpdate(tx *gorm.DB) (err error) {
 // Form represents a form definition that can be rendered using JSON Forms
 type Form struct {
 	BaseModel
-	Name        string          `gorm:"type:varchar(255);column:name;not null" json:"name"`                    // Human-readable form name
-	Description string          `gorm:"type:text;column:description" json:"description,omitempty"`             // Optional description
-	Schema      json.RawMessage `gorm:"type:jsonb;column:schema;not null" json:"schema"`                       // JSON Schema definition
-	UISchema    json.RawMessage `gorm:"type:jsonb;column:ui_schema;not null" json:"uiSchema"`                  // UI Schema definition for JSON Forms
-	Version     string          `gorm:"type:varchar(50);column:version;not null;default:'1.0'" json:"version"` // Form version
-	Active      bool            `gorm:"type:boolean;column:active;not null;default:true" json:"active"`        // Whether this form is active
+	Name                 string          `gorm:"type:varchar(255);column:name;not null" json:"name"`                    // Human-readable form name
+	Description          string          `gorm:"type:text;column:description" json:"description,omitempty"`             // Optional description
+	Schema               json.RawMessage `gorm:"type:jsonb;column:schema;not null" json:"schema"`                       // JSON Schema definition
+	UISchema             json.RawMessage `gorm:"type:jsonb;column:ui_schema;not null" json:"uiSchema"`                  // UI Schema definition for JSON Forms
+	VerificationSchema   json.RawMessage `gorm:"type:jsonb;column:verification_schema" json:"verificationSchema"`       // Optional verification schema
+	VerificationUISchema json.RawMessage `gorm:"type:jsonb;column:verification_ui_schema" json:"verificationUiSchema"`  // Optional verification UI schema
+	Version              string          `gorm:"type:varchar(50);column:version;not null;default:'1.0'" json:"version"` // Form version
+	Active               bool            `gorm:"type:boolean;column:active;not null;default:true" json:"active"`        // Whether this form is active
 }
 
 func (f *Form) TableName() string {

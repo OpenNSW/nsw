@@ -39,14 +39,13 @@ func NewLocalStateManager(taskStore TaskStoreInterface, taskID uuid.UUID) (*Loca
 }
 
 func NewLocalStateManagerWithCache(taskStore TaskStoreInterface, taskID uuid.UUID, cache json.RawMessage) (*LocalStateManager, error) {
-	cacheMap := make(map[string]any)
+	var cacheMap map[string]any
 
-	if len(cache) > 0 && string(cache) != "null" {
-		if err := json.Unmarshal(cache, &cacheMap); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal local state: %w", err)
-		}
+	err := json.Unmarshal(cache, &cacheMap)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal local state: %w", err)
 	}
-
 	return &LocalStateManager{
 		taskStore: taskStore,
 		taskID:    taskID,

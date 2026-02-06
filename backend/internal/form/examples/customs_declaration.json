@@ -1,164 +1,693 @@
 {
   "formId": "customs-declaration",
-  "name": "Customs Declaration Form",
-  "description": "Form for declaring customs information for consignments",
+  "name": "Customs Declaration",
+  "description": "Customs Declaration Form",
   "version": "1.0",
   "schema": {
     "type": "object",
     "properties": {
-      "consignmentType": {
+      "declaration": {
         "type": "string",
-        "enum": ["IMPORT", "EXPORT"],
-        "description": "Type of consignment"
+        "title": "Declaration"
       },
-      "traderId": {
-        "type": "string",
-        "minLength": 1,
-        "description": "Trader identifier"
+      "exporterTIN": {
+        "type": "number",
+        "title": "Exporter TIN"
+      },
+      "pages": {
+        "type": "number",
+        "title": "Pages"
+      },
+      "list": {
+        "type": "number",
+        "title": "List"
       },
       "items": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "properties": {
-            "hsCode": {
-              "type": "string",
-              "pattern": "^[0-9]{4,10}$",
-              "description": "HS Code of the item (4-10 digits)"
-            },
-            "description": {
-              "type": "string",
-              "minLength": 3,
-              "description": "Description of the item"
-            },
-            "quantity": {
-              "type": "integer",
-              "minimum": 1,
-              "description": "Quantity of items"
-            },
-            "value": {
-              "type": "number",
-              "minimum": 0,
-              "description": "Value of the item"
-            },
-            "weight": {
-              "type": "number",
-              "minimum": 0,
-              "description": "Weight in kilograms"
-            },
-            "originCountry": {
-              "type": "string",
-              "minLength": 2,
-              "maxLength": 2,
-              "description": "Country of origin (ISO 3166-1 alpha-2 code)"
-            }
-          },
-          "required": ["hsCode", "description", "quantity", "value", "originCountry"]
-        },
-        "minItems": 1,
-        "description": "List of items in the consignment"
+        "type": "string",
+        "title": "Items"
       },
-      "declarationDate": {
+      "totalPackages": {
+        "type": "number",
+        "title": "Total Packages"
+      },
+      "declarantSequenceNumber": {
+        "type": "number",
+        "title": "Declarant's Sequence Number"
+      },
+      "consigneeName": {
+        "type": "string",
+        "title": "Consignee Name"
+      },
+      "consigneeAddress": {
+        "type": "string",
+        "title": "Consignee Address"
+      },
+      "consigneeTIN": {
+        "type": "number",
+        "title": "Consignee TIN"
+      },
+      "responsiblePersonTIN": {
+        "type": "number",
+        "title": "Person Responsibility for Financial Settlement TIN"
+      },
+      "lastConsignmentCity": {
+        "type": "string",
+        "title": "City of Last Cons/First Dst"
+      },
+      "tradingDetails": {
+        "type": "string",
+        "title": "Trading"
+      },
+      "valueDetails": {
+        "type": "number",
+        "title": "Value Details"
+      },
+      "capDetails": {
+        "type": "string",
+        "title": "C.A.P"
+      },
+      "representativeTIN": {
+        "type": "number",
+        "title": "Declarant/Representative TIN"
+      },
+      "exportCountry": {
+        "type": "string",
+        "title": "Country of Export"
+      },
+      "exportCountryCode": {
+        "type": "string",
+        "title": "Cty. Ex.Code"
+      },
+      "originCountry": {
+        "type": "string",
+        "title": "Country of Origin"
+      },
+      "destinationCountry": {
+        "type": "string",
+        "title": "Country of Destination"
+      },
+      "destinationCountryCode": {
+        "type": "string",
+        "title": "Cty.Dst.Code"
+      },
+      "vesselFlight": {
+        "type": "string",
+        "title": "Vessel/Flight"
+      },
+      "containerMode": {
+        "type": "string",
+        "title": "Ctr"
+      },
+      "deliveryTerms": {
+        "type": "string",
+        "title": "Delivery Terms"
+      },
+      "voyageNumber": {
+        "type": "string",
+        "title": "Voyage No"
+      },
+      "voyageDate": {
         "type": "string",
         "format": "date",
-        "description": "Date of declaration"
+        "title": "Voyage Date"
       },
-      "portOfEntry": {
+      "totalAmountInvoiced": {
+        "type": "number",
+        "title": "Currency and Total Amount Invoiced"
+      },
+      "exchangeRate": {
+        "type": "number",
+        "title": "Exchange Rate"
+      },
+      "transportNature": {
         "type": "string",
-        "minLength": 2,
-        "description": "Port of entry or exit"
+        "title": "Nature of Transport"
+      },
+      "transportMode": {
+        "type": "string",
+        "title": "Mode of Transport"
+      },
+      "inlandMode": {
+        "type": "string",
+        "title": "Inland Mode"
+      },
+      "loadingPlace": {
+        "type": "string",
+        "title": "Place of Loading/Discharging"
+      },
+      "bankCode": {
+        "type": "string",
+        "title": "Bank Code"
+      },
+      "bankName": {
+        "type": "string",
+        "title": "Bank Name"
+      },
+      "bankBranch": {
+        "type": "string",
+        "title": "Branch"
+      },
+      "refNumber": {
+        "type": "string",
+        "title": "Ref No."
+      },
+      "entryExitOffice": {
+        "type": "string",
+        "title": "Office of Entry/Exit"
+      },
+      "goodsLocation": {
+        "type": "string",
+        "title": "Location of Goods"
+      },
+      "marksAndNumbers": {
+        "type": "string",
+        "title": "Marks and Numbers"
+      },
+      "containerNumber": {
+        "type": "string",
+        "title": "Container No"
+      },
+      "numberAndKind": {
+        "type": "string",
+        "title": "Number and Kind"
+      },
+      "goodsDescription": {
+        "type": "string",
+        "title": "Description of Goods"
+      },
+      "itemNumber": {
+        "type": "number",
+        "title": "Item No"
+      },
+      "hsCode": {
+        "type": "number",
+        "title": "Commodity (HS) Code"
+      },
+      "originCountryCode": {
+        "type": "string",
+        "title": "Cty.Orig.Code"
+      },
+      "grossMass": {
+        "type": "number",
+        "title": "Gross Mass (Kg)"
+      },
+      "preference": {
+        "type": "string",
+        "title": "Preference"
+      },
+      "procedure": {
+        "type": "string",
+        "title": "Procedure"
+      },
+      "netMass": {
+        "type": "number",
+        "title": "Net Mass (Kg)"
+      },
+      "quota": {
+        "type": "string",
+        "title": "Quota"
+      },
+      "previousProcurement": {
+        "type": "string",
+        "title": "Previous Procurement"
+      },
+      "blNumber": {
+        "type": "string",
+        "title": "BL No"
+      },
+      "awbNumber": {
+        "type": "string",
+        "title": "AWB No"
+      },
+      "uomQty1": {
+        "type": "string",
+        "title": "UOM & Qty 1"
+      },
+      "uomQty2": {
+        "type": "string",
+        "title": "UOM & Qty 2"
+      },
+      "uomQty3": {
+        "type": "string",
+        "title": "UOM & Qty 3"
+      },
+      "itemPrice": {
+        "type": "number",
+        "title": "Item Price (FOB/CIF)"
+      },
+      "vm": {
+        "type": "string",
+        "title": "V.M."
+      },
+      "licenseNumber": {
+        "type": "string",
+        "title": "License No"
+      },
+      "dv": {
+        "type": "string",
+        "title": "DV"
+      },
+      "ad": {
+        "type": "string",
+        "title": "AD"
+      },
+      "adjustment": {
+        "type": "number",
+        "title": "Adjustment"
+      },
+      "statisticalValue": {
+        "type": "number",
+        "title": "Statistical Value"
+      },
+      "taxType": {
+        "type": "string",
+        "title": "Tax Type"
+      },
+      "taxBase": {
+        "type": "number",
+        "title": "Tax Base"
+      },
+      "taxRate": {
+        "type": "number",
+        "title": "Tax Rate"
+      },
+      "taxAmount": {
+        "type": "number",
+        "title": "Amount"
+      },
+      "mp": {
+        "type": "string",
+        "title": "MP"
+      },
+      "acNumber": {
+        "type": "number",
+        "title": "A.C. Number"
+      },
+      "warehouseId": {
+        "type": "string",
+        "title": "Identification of Ware House"
+      },
+      "officeUse1": {
+        "type": "string",
+        "title": "Office Use 1"
+      },
+      "officeUse2": {
+        "type": "string",
+        "title": "Office Use 2"
+      },
+      "officeUse3": {
+        "type": "string",
+        "title": "Office Use 3"
+      },
+      "exporterSignature": {
+        "type": "string",
+        "format": "binary",
+        "title": "Exporter Signature"
+      },
+      "signatureDate": {
+        "type": "string",
+        "format": "date",
+        "title": "Date"
+      },
+      "chaSignature": {
+        "type": "string",
+        "format": "binary",
+        "title": "CHA Signature"
+      },
+      "chaIdNumber": {
+        "type": "string",
+        "title": "ID Number"
+      },
+      "commercialInvoice": {
+        "type": "string",
+        "format": "binary",
+        "title": "Commercial Invoice"
+      },
+      "packingList": {
+        "type": "string",
+        "format": "binary",
+        "title": "Packing List"
+      },
+      "cdaRegistration": {
+        "type": "string",
+        "format": "binary",
+        "title": "CDA Registration"
       }
     },
-    "required": ["consignmentType", "traderId", "items", "declarationDate"]
+    "required": [
+      "declaration",
+      "exporterTIN",
+      "items",
+      "totalPackages",
+      "consigneeName",
+      "consigneeAddress",
+      "exportCountry",
+      "originCountry"
+    ]
   },
   "uiSchema": {
     "type": "VerticalLayout",
     "elements": [
       {
-        "type": "HorizontalLayout",
-        "elements": [
-          {
-            "type": "Control",
-            "scope": "#/properties/consignmentType",
-            "label": "Consignment Type"
-          },
-          {
-            "type": "Control",
-            "scope": "#/properties/traderId",
-            "label": "Trader ID"
-          }
-        ]
-      },
-      {
-        "type": "Label",
-        "text": "Items Information"
+        "type": "Control",
+        "scope": "#/properties/declaration"
       },
       {
         "type": "Control",
-        "scope": "#/properties/items",
-        "label": "Items",
-        "options": {
-          "detail": {
-            "type": "VerticalLayout",
-            "elements": [
-              {
-                "type": "HorizontalLayout",
-                "elements": [
-                  {
-                    "type": "Control",
-                    "scope": "#/properties/hsCode",
-                    "label": "HS Code"
-                  },
-                  {
-                    "type": "Control",
-                    "scope": "#/properties/originCountry",
-                    "label": "Origin Country"
-                  }
-                ]
-              },
-              {
-                "type": "Control",
-                "scope": "#/properties/description",
-                "label": "Description"
-              },
-              {
-                "type": "HorizontalLayout",
-                "elements": [
-                  {
-                    "type": "Control",
-                    "scope": "#/properties/quantity",
-                    "label": "Quantity"
-                  },
-                  {
-                    "type": "Control",
-                    "scope": "#/properties/value",
-                    "label": "Value"
-                  },
-                  {
-                    "type": "Control",
-                    "scope": "#/properties/weight",
-                    "label": "Weight (kg)"
-                  }
-                ]
-              }
-            ]
-          }
-        }
+        "scope": "#/properties/exporterTIN"
       },
       {
-        "type": "HorizontalLayout",
-        "elements": [
-          {
-            "type": "Control",
-            "scope": "#/properties/declarationDate",
-            "label": "Declaration Date"
-          },
-          {
-            "type": "Control",
-            "scope": "#/properties/portOfEntry",
-            "label": "Port of Entry"
-          }
-        ]
+        "type": "Control",
+        "scope": "#/properties/pages"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/list"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/items"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/totalPackages"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/declarantSequenceNumber"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/consigneeName"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/consigneeAddress"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/consigneeTIN"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/responsiblePersonTIN"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/lastConsignmentCity"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/tradingDetails"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/valueDetails"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/capDetails"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/representativeTIN"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/exportCountry"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/exportCountryCode"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/originCountry"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/destinationCountry"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/destinationCountryCode"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/vesselFlight"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/containerMode"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/deliveryTerms"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/voyageNumber"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/voyageDate"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/totalAmountInvoiced"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/exchangeRate"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/transportNature"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/transportMode"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/inlandMode"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/loadingPlace"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/bankCode"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/bankName"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/bankBranch"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/refNumber"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/entryExitOffice"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/goodsLocation"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/marksAndNumbers"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/containerNumber"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/numberAndKind"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/goodsDescription"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/itemNumber"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/hsCode"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/originCountryCode"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/grossMass"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/preference"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/procedure"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/netMass"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/quota"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/previousProcurement"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/blNumber"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/awbNumber"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/uomQty1"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/uomQty2"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/uomQty3"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/itemPrice"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/vm"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/licenseNumber"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/dv"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/ad"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/adjustment"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/statisticalValue"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/taxType"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/taxBase"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/taxRate"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/taxAmount"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/mp"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/acNumber"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/warehouseId"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/officeUse1"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/officeUse2"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/officeUse3"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/exporterSignature"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/signatureDate"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/chaSignature"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/chaIdNumber"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/commercialInvoice"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/packingList"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/cdaRegistration"
+      }
+    ]
+  },
+  "verificationSchema": {
+    "type": "object",
+    "properties": {
+      "cusDecNumber": {
+        "type": "string",
+        "title": "CusDec No"
+      }
+    },
+    "required": [
+      "cusDecNumber"
+    ]
+  },
+  "verificationUiSchema": {
+    "type": "VerticalLayout",
+    "elements": [
+      {
+        "type": "Control",
+        "scope": "#/properties/cusDecNumber"
       }
     ]
   }
