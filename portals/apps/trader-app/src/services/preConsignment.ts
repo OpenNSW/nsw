@@ -1,0 +1,136 @@
+// portals/apps/trader-app/src/services/preConsignment.ts
+
+import { apiGet, apiPost } from './api'
+import type { TaskFormData } from './task'
+
+// --- Types based on Backend DTOs ---
+
+export type PreConsignmentState = 'LOCKED' | 'READY' | 'IN_PROGRESS' | 'COMPLETED'
+export type WorkflowNodeState = 'LOCKED' | 'READY' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED'
+
+export interface WorkflowNodeTemplate {
+    name: string
+    description: string
+    type: string
+}
+
+export interface WorkflowNode {
+    id: string
+    state: WorkflowNodeState
+    workflowNodeTemplate: WorkflowNodeTemplate // Nested object
+    createdAt: string
+    updatedAt: string
+    // Note: Backend JSON response showed snake_case 'depends_on' for nodes
+    depends_on?: string[]
+}
+
+export interface PreConsignmentTemplate {
+    id: string
+    name: string
+    description: string
+    dependsOn: string[]
+}
+
+export interface PreConsignmentInstance {
+    id: string
+    traderId: string
+    state: PreConsignmentState
+    traderContext: Record<string, unknown>
+    createdAt: string
+    updatedAt: string
+    preConsignmentTemplate: PreConsignmentTemplate
+    workflowNodes: WorkflowNode[]
+}
+
+export interface TraderPreConsignmentItem {
+    id: string // Template ID
+    name: string
+    description: string
+    state: PreConsignmentState
+    dependsOn: string[]
+    preConsignment?: PreConsignmentInstance
+}
+
+export interface TraderPreConsignmentsResponse {
+    totalCount: number
+    items: TraderPreConsignmentItem[]
+    offset: number
+    limit: number
+}
+
+export interface CreatePreConsignmentRequest {
+    traderId: string
+    preConsignmentTemplateId: string
+}
+
+export interface TaskCommandRequest {
+    command: 'SUBMISSION' | 'SAVE_DRAFT'
+    taskId: string
+    preConsignmentId: string
+    data?: Record<string, unknown>
+}
+
+export interface TaskCommandResponse {
+    success: boolean
+    message?: string
+    data?: unknown
+}
+
+// TODO: Get from auth context
+const DEFAULT_TRADER_ID = 'TRADER-001'
+
+// --- API Methods ---
+
+export async function getTraderPreConsignments(
+    traderId: string = DEFAULT_TRADER_ID
+): Promise<TraderPreConsignmentsResponse> {
+    return apiGet<TraderPreConsignmentsResponse>('/pre-consignments', {
+        traderId,
+    })
+}
+
+export async function getPreConsignment(
+    id: string
+): Promise<PreConsignmentInstance> {
+    return apiGet<PreConsignmentInstance>(`/pre-consignments/${id}`)
+}
+
+export async function createPreConsignment(
+    templateId: string,
+    traderId: string = DEFAULT_TRADER_ID
+): Promise<PreConsignmentInstance> {
+    const payload: CreatePreConsignmentRequest = {
+        traderId,
+        preConsignmentTemplateId: templateId,
+    }
+    return apiPost<CreatePreConsignmentRequest, PreConsignmentInstance>(
+        '/pre-consignments',
+        payload
+    )
+}
+
+// Fetch the form schema (Action: FETCH_FORM)
+export async function fetchPreConsignmentTaskForm(
+    preConsignmentId: string,
+    taskId: string
+): Promise<TaskCommandResponse & { data?: TaskFormData }> {
+    return apiPost('/tasks', {
+        task_id: taskId,
+        pre_consignment_id: preConsignmentId,
+        payload: { action: 'FETCH_FORM' }
+    })
+}
+
+// Submit the form data (Action: SUBMIT_FORM or DRAFT)
+export async function submitPreConsignmentTask(
+    request: TaskCommandRequest
+): Promise<TaskCommandResponse> {
+    return apiPost('/tasks', {
+        task_id: request.taskId,
+        pre_consignment_id: request.preConsignmentId,
+        payload: {
+            action: request.command === 'SAVE_DRAFT' ? 'DRAFT' : 'SUBMIT_FORM',
+            content: request.data
+        }
+    })
+}

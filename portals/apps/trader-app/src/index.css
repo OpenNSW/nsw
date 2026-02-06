@@ -202,3 +202,8 @@
         transform: translateX(-100%);
     }
 }
+
+/* Custom Styles for JSON Forms */
+.json-form-container .MuiFormControl-root {
+    margin-bottom: 1.5rem !important;
+}

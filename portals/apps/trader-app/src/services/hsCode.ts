@@ -1,29 +1,25 @@
-import type {PaginatedResponse} from './api'
+import { apiGet, type PaginatedResponse } from './api'
 import type { HSCode, HSCodeQueryParams } from './types/hsCode'
 
-const HS_CODES_API_URL = 'http://localhost:8080/api/v1/hscodes'
+
 
 export async function getHSCodes(
   params: HSCodeQueryParams = {}
 ): Promise<PaginatedResponse<HSCode>> {
-  const searchParams = new URLSearchParams()
-
+  // Convert HSCodeQueryParams to QueryParams
+  const queryParams: Record<string, string | number> = {}
   if (params.hsCodeStartsWith) {
-    searchParams.append('hsCodeStartsWith', params.hsCodeStartsWith)
+    queryParams.hsCodeStartsWith = params.hsCodeStartsWith
   }
   if (params.limit !== undefined) {
-    searchParams.append('limit', String(params.limit))
+    queryParams.limit = params.limit
   }
   if (params.offset !== undefined) {
-    searchParams.append('offset', String(params.offset))
+    queryParams.offset = params.offset
   }
 
-  const queryString = searchParams.toString()
-  const url = `${HS_CODES_API_URL}${queryString ? `?${queryString}` : ''}`
-
-  const response = await fetch(url)
-  if (!response.ok) {
-    throw new Error(`API error: ${response.status} ${response.statusText}`)
-  }
-  return response.json()
+  return apiGet<PaginatedResponse<HSCode>>(
+    '/hscodes',
+    queryParams
+  )
 }

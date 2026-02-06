@@ -1,6 +1,6 @@
 export type TradeFlow = 'IMPORT' | 'EXPORT'
 
-export type ConsignmentState = 'IN_PROGRESS' | 'REQUIRES_REWORK' | 'FINISHED'
+export type ConsignmentState = 'IN_PROGRESS' | 'REQUIRES_REWORK' | 'FINISHED' | 'COMPLETED'
 
 export type WorkflowNodeState = 'READY' | 'LOCKED' | 'IN_PROGRESS' | 'COMPLETED' | 'REJECTED'
 
@@ -63,4 +63,4 @@ export interface CreateConsignmentRequest {
   items: CreateConsignmentItemRequest[]
 }
 
-export interface CreateConsignmentResponse extends Consignment {}
+export type CreateConsignmentResponse = Consignment

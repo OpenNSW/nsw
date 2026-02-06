@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { JsonSchema, FormValues, FormErrors, FormTouched, FormState } from './types';
 import { schemaToZod, validateProperty } from './schemaToZod';
 import { SAMPLE_DATA_MAP } from './sampleData';
@@ -35,6 +35,7 @@ interface UseJsonFormReturn extends FormState {
   handleSubmit: (e: React.FormEvent) => Promise<void>;
   reset: () => void;
   autoFillForm: () => void;
+  setValues: (values: FormValues) => void;
 }
 
 function getInitialValues(schema: JsonSchema, data?: FormValues): FormValues {
@@ -84,6 +85,11 @@ export function useJsonForm({
   );
 
   const [values, setValues] = useState<FormValues>(defaultValues);
+
+  useEffect(() => {
+    setValues(defaultValues);
+  }, [defaultValues]);
+
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouchedState] = useState<FormTouched>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -367,5 +373,6 @@ export function useJsonForm({
     handleSubmit,
     reset,
     autoFillForm,
+    setValues,
   };
 }

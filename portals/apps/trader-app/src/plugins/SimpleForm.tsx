@@ -1,8 +1,8 @@
-import {JsonForm, useJsonForm, type JsonSchema, type UISchemaElement} from "../components/JsonForm";
-import {sendTaskCommand} from "../services/task.ts";
-import {useNavigate, useParams} from "react-router-dom";
-import {useState} from "react";
-import {Button} from "@radix-ui/themes";
+import { JsonForm, useJsonForm, type JsonSchema, type UISchemaElement } from "../components/JsonForm";
+import { sendTaskCommand } from "../services/task.ts";
+import { useNavigate, useParams } from "react-router-dom";
+import { useState } from "react";
+import { Button } from "@radix-ui/themes";
 
 
 export interface TaskFormData {
@@ -41,7 +41,7 @@ function TraderForm(props: { formInfo: TaskFormData, pluginState: string }) {
       const response = await sendTaskCommand({
         command: 'SUBMISSION',
         taskId,
-        workflowId:   consignmentId,
+        workflowId: consignmentId,
         data: data as Record<string, unknown>,
       })
 

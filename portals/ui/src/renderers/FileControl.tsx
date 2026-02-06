@@ -3,6 +3,7 @@ import type { ControlElement, JsonSchema } from '@jsonforms/core';
 import { Card, Flex, Text, Box, IconButton } from '@radix-ui/themes';
 import { UploadIcon, FileTextIcon, Cross2Icon, CheckCircledIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
 import { useState, useRef, type ChangeEvent, type DragEvent } from 'react';
+import React from 'react';
 
 interface FileControlProps {
     data: string | null;
@@ -15,7 +16,6 @@ interface FileControlProps {
     enabled?: boolean;
 }
 
-
 const FileControl = ({ data, handleChange, path, label, required, uischema, enabled }: FileControlProps) => {
     const [dragActive, setDragActive] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -24,20 +24,20 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
 
     // Get options from UI schema (or default)
     const options = uischema?.options || {};
-    const maxSizeBytes = options.maxSize ? options.maxSize : 5 * 1024 * 1024; // Default 5MB
-    const accept = options.accept || 'image/*,application/pdf';
+    const maxSize = (options.maxSize as number) || 5 * 1024 * 1024; // Default 5MB
+    const accept = (options.accept as string) || 'image/*,application/pdf';
+    const isEnabled = enabled !== false;
 
-    // Extract metadata from data URI if present
-    // If we have a local fileName state, use it. Otherwise fall back to generic.
     const getDisplayText = () => {
         if (fileName) return fileName;
         if (!data) return null;
+        // Try to extract name from data URL if stored there, otherwise generic
         return 'Uploaded File';
     };
 
     const processFile = (file: File) => {
-        if (file.size > maxSizeBytes) {
-            const sizeMB = (maxSizeBytes / (1024 * 1024)).toFixed(0);
+        if (file.size > maxSize) {
+            const sizeMB = (maxSize / (1024 * 1024)).toFixed(0);
             setError(`File size exceeds ${sizeMB}MB limit.`);
             return;
         }
@@ -50,7 +50,8 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
             return file.type === type;
         });
 
-        if (!isFileTypeAccepted) {
+        // Basic MIME type check (client-side only)
+        if (accept !== '*' && !isFileTypeAccepted && !accept.includes('*/*')) {
             setError(`Invalid file type. Accepted types: ${accept}`);
             return;
         }
@@ -71,7 +72,7 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
     const handleDrag = (e: DragEvent<HTMLDivElement>) => {
         e.preventDefault();
         e.stopPropagation();
-        if (!enabled || data) return;
+        if (!isEnabled || data) return;
 
         if (e.type === 'dragenter' || e.type === 'dragover') {
             setDragActive(true);
@@ -84,7 +85,7 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
         e.preventDefault();
         e.stopPropagation();
         setDragActive(false);
-        if (!enabled || data) return;
+        if (!isEnabled || data) return;
 
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
             processFile(e.dataTransfer.files[0]);
@@ -98,6 +99,8 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
     };
 
     const handleRemove = () => {
+        if (!isEnabled) return;
+
         handleChange(path, null);
         setFileName(null);
         setError(null);
@@ -106,15 +109,12 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
         }
     };
 
-    // Accessibility handler for keyboard
     const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-        if (enabled && (e.key === 'Enter' || e.key === ' ')) {
+        if (isEnabled && (e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault();
             inputRef.current?.click();
         }
     };
-
-
 
     return (
         <Box mb="4">
@@ -132,13 +132,24 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
                             <Text size="2" weight="bold" className="block truncate">
                                 {getDisplayText()}
                             </Text>
-                            <Text size="1" color="gray">
-                                Ready to submit
-                            </Text>
+                            {!isEnabled ? (
+                                <a
+                                    href={data}
+                                    download={fileName || 'document'}
+                                    className="text-xs text-blue-600 hover:underline cursor-pointer"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    Download
+                                </a>
+                            ) : (
+                                <Text size="1" color="gray">
+                                    Ready to submit
+                                </Text>
+                            )}
                         </Box>
                         <Flex align="center" gap="2">
                             <CheckCircledIcon className="text-green-600 w-5 h-5" />
-                            {enabled && (
+                            {isEnabled && (
                                 <IconButton
                                     variant="ghost"
                                     color="gray"
@@ -157,16 +168,16 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
             border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200 ease-in-out
             ${dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50'}
             ${error ? 'border-red-300 bg-red-50' : ''}
-            ${!enabled ? 'opacity-60 cursor-not-allowed pointer-events-none' : 'cursor-pointer'}
+            ${!isEnabled ? 'opacity-60 cursor-not-allowed pointer-events-none' : 'cursor-pointer'}
           `}
                     onDragEnter={handleDrag}
                     onDragLeave={handleDrag}
                     onDragOver={handleDrag}
                     onDrop={handleDrop}
-                    onClick={() => inputRef.current?.click()}
+                    onClick={() => isEnabled && inputRef.current?.click()} // Safety check
                     onKeyDown={handleKeyDown}
                     role="button"
-                    tabIndex={!enabled ? -1 : 0}
+                    tabIndex={!isEnabled ? -1 : 0}
                 >
                     <input
                         ref={inputRef}
@@ -174,7 +185,7 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
                         className="hidden"
                         accept={accept}
                         onChange={handleInputChange}
-                        disabled={!enabled}
+                        disabled={!isEnabled}
                     />
 
                     <Flex direction="column" align="center" gap="2">
@@ -193,7 +204,7 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
                                     Click to upload or drag and drop
                                 </Text>
                                 <Text size="1" color="gray">
-                                    Max {Math.round(maxSizeBytes / (1024 * 1024))}MB
+                                    Max {Math.round(maxSize / (1024 * 1024))}MB
                                 </Text>
                             </>
                         )}
@@ -204,4 +215,5 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
     );
 };
 
-export default withJsonFormsControlProps(FileControl);
+const FileControlWithProps = withJsonFormsControlProps(FileControl);
+export default FileControlWithProps;
