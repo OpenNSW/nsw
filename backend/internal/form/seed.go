@@ -15,10 +15,22 @@ import (
 // SeedForms loads example forms from JSON files into the database
 // This is useful for development and testing
 func SeedForms(db *gorm.DB, examplesDir string) error {
+	// Ensure the forms table exists
+	if err := db.AutoMigrate(&model.Form{}); err != nil {
+		return fmt.Errorf("failed to migrate forms table: %w", err)
+	}
+
 	exampleFiles := []string{
 		"customs_declaration.json",
 		"tea_permit.json",
 		"oga_review.json",
+		"trader_verification.json",
+		"preconsignment_business_reg_1.json",
+		"preconsignment_tin_reg_2.json",
+		"preconsignment_vat_reg_3.json",
+		"preconsignment_cda_manufacturer_reg_4.json",
+		"preconsignment_cda_exporter_reg_5.json",
+		"preconsignment_asycuda_reg_6.json",
 	}
 
 	for _, filename := range exampleFiles {
@@ -45,7 +57,14 @@ func SeedForms(db *gorm.DB, examplesDir string) error {
 		var existingForm model.Form
 		result := db.Where("name = ?", formData.Name).First(&existingForm)
 		if result.Error == nil {
-			// Form exists, skip
+			// Form exists, update it to match JSON
+			existingForm.Description = formData.Description
+			existingForm.Version = formData.Version
+			existingForm.Schema = formData.Schema
+			existingForm.UISchema = formData.UISchema
+			if err := db.Save(&existingForm).Error; err != nil {
+				return fmt.Errorf("failed to update form %s: %w", formData.Name, err)
+			}
 			continue
 		}
 		if !errors.Is(result.Error, gorm.ErrRecordNotFound) {

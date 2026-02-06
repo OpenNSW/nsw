@@ -71,6 +71,11 @@ func main() {
 	// Initialize form service
 	formService := form.NewFormService(db)
 
+	// Seed forms (development convenience)
+	if err := form.SeedForms(db, "internal/form/examples"); err != nil {
+		slog.Warn("failed to seed forms", "error", err)
+	}
+
 	// Initialize task manager with database connection
 	tm, err := taskManager.NewTaskManager(db, ch, cfg, formService)
 	if err != nil {

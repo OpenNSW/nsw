@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) || 'http://localhost:8080/api'
 
 export interface PaginatedResponse<T> {
   items: T[]
@@ -8,7 +8,7 @@ export interface PaginatedResponse<T> {
 }
 
 export interface QueryParams {
-  [key:string]: string | number | undefined
+  [key: string]: string | number | undefined
 }
 
 function buildQueryString(params: QueryParams): string {
@@ -32,7 +32,7 @@ export async function apiGet<T>(
   if (!response.ok) {
     throw new Error(`API error: ${response.status} ${response.statusText}`)
   }
-  return response.json()
+  return (await response.json()) as T
 }
 
 export async function apiPost<T, R>(
@@ -51,5 +51,5 @@ export async function apiPost<T, R>(
   if (!response.ok) {
     throw new Error(`API error: ${response.status} ${response.statusText}`)
   }
-  return response.json()
+  return (await response.json()) as R
 }

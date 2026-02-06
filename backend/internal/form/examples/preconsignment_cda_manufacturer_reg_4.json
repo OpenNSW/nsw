@@ -1,0 +1,68 @@
+{
+    "formId": "preconsignment-cda-manufacturer-reg-4",
+    "name": "CDA Manufacturer Registration",
+    "description": "CDA Manufacturer Registration (1st Time)",
+    "version": "1.0",
+    "schema": {
+        "type": "object",
+        "title": "CDA Manufacturer Registration",
+        "properties": {
+            "brNo": {
+                "type": "string",
+                "title": "Business Registration Number"
+            },
+            "tinNo": {
+                "type": "string",
+                "title": "TIN Number"
+            },
+            "vatNo": {
+                "type": "string",
+                "title": "VAT Number"
+            },
+            "eplCertificate": {
+                "type": "string",
+                "format": "data-url",
+                "title": "EPL Certificate"
+            }
+        },
+        "required": [
+            "brNo",
+            "tinNo",
+            "vatNo",
+            "eplCertificate"
+        ]
+    },
+    "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Control",
+                "scope": "#/properties/brNo"
+            },
+            {
+                "type": "HorizontalLayout",
+                "elements": [
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/tinNo"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/vatNo"
+                    }
+                ]
+            },
+            {
+                "type": "Label",
+                "text": "Complete the Manufacturer Application Form on the CDA website: https://cda.gov.lk/web/index.php?option=com_content&view=article&id=106&Itemid=254%20&lang=en"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/eplCertificate",
+                "options": {
+                    "format": "file"
+                }
+            }
+        ]
+    }
+}

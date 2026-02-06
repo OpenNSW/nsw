@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { JsonSchema, FormValues, FormErrors, FormTouched, FormState } from './types';
 import { schemaToZod, validateProperty } from './schemaToZod';
 import { SAMPLE_DATA_MAP } from './sampleData';
@@ -84,6 +84,11 @@ export function useJsonForm({
   );
 
   const [values, setValues] = useState<FormValues>(defaultValues);
+
+  useEffect(() => {
+    setValues(defaultValues);
+  }, [defaultValues]);
+
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouchedState] = useState<FormTouched>({});
   const [isSubmitting, setIsSubmitting] = useState(false);

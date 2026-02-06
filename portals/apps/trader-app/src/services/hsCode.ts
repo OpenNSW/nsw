@@ -1,4 +1,4 @@
-import type {PaginatedResponse} from './api'
+import type { PaginatedResponse } from './api'
 import type { HSCode, HSCodeQueryParams } from './types/hsCode'
 
 const HS_CODES_API_URL = 'http://localhost:8080/api/hscodes'
@@ -25,5 +25,5 @@ export async function getHSCodes(
   if (!response.ok) {
     throw new Error(`API error: ${response.status} ${response.statusText}`)
   }
-  return response.json()
+  return (await response.json()) as PaginatedResponse<HSCode>
 }

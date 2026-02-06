@@ -181,14 +181,17 @@ function renderElement({
       });
 
     case 'Categorization':
-      return renderCategorization(element, {
-        schema,
-        values,
-        errors,
-        touched,
-        setValue,
-        setTouched,
-      });
+      return (
+        <CategorizationRenderer
+          categorization={element}
+          schema={schema}
+          values={values}
+          errors={errors}
+          touched={touched}
+          setValue={setValue}
+          setTouched={setTouched}
+        />
+      );
 
     case 'Control':
       return renderControl(element, {
@@ -256,10 +259,12 @@ function renderGroup(
   return <div className="space-y-4">{content}</div>;
 }
 
-function renderCategorization(
-  categorization: Categorization,
-  props: Omit<RenderElementProps, 'element'>
-): React.ReactNode {
+function CategorizationRenderer({
+  categorization,
+  ...props
+}: {
+  categorization: Categorization;
+} & Omit<RenderElementProps, 'element'>): React.ReactNode {
   const [activeTab, setActiveTab] = useState(0);
 
   const categories = categorization.elements;
@@ -276,10 +281,9 @@ function renderCategorization(
               onClick={() => setActiveTab(index)}
               className={`
                 whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors
-                ${
-                  activeTab === index
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ${activeTab === index
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }
               `}
             >
@@ -367,7 +371,7 @@ export function JsonForm({
 
   const handleSaveDraft = () => {
     if (onSaveDraft) {
-      onSaveDraft(form.values);
+      void onSaveDraft(form.values);
     }
   };
 
@@ -377,7 +381,7 @@ export function JsonForm({
 
   return (
     <form
-      onSubmit={form.handleSubmit}
+      onSubmit={(e) => { void form.handleSubmit(e); }}
       className={className}
       noValidate
     >

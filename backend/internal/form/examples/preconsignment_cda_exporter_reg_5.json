@@ -1,0 +1,32 @@
+{
+    "formId": "preconsignment-cda-exporter-reg-5",
+    "name": "CDA Exporter Registration",
+    "description": "CDA Exporter Registration (1st Time)",
+    "version": "1.0",
+    "schema": {
+        "type": "object",
+        "title": "CDA Exporter Registration",
+        "properties": {
+            "applicationForm": {
+                "type": "string",
+                "title": "Exporter Registration Application"
+            }
+        },
+        "required": [
+            "applicationForm"
+        ]
+    },
+    "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Label",
+                "text": "Please provide the required documents including Bank Reference and Payment Slip."
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/applicationForm"
+            }
+        ]
+    }
+}
