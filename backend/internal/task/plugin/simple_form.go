@@ -326,15 +326,15 @@ func (s *SimpleForm) handleOgaVerification(_ context.Context, content interface{
 		}, err
 	}
 
+	// Update plugin state to OGA_REVIEWED (common for both approved and rejected)
+	if err := s.api.SetPluginState(string(OGAReviewed)); err != nil {
+		slog.Error("failed to set plugin state to OGA_REVIEWED", "error", err)
+	}
+	pluginState := string(OGAReviewed)
+
 	// Check if verification was approved
 	decision, ok := verificationData["decision"].(string)
 	if !ok || strings.ToUpper(decision) != "APPROVED" { // TODO: Need to change this hardcoded APPROVED
-		// Update plugin state to OGA_REVIEWED
-		if err := s.api.SetPluginState(string(OGAReviewed)); err != nil {
-			slog.Error("failed to set plugin state to OGA_REVIEWED", "error", err)
-		}
-		pluginState := string(OGAReviewed)
-
 		// Mark task as FAILED
 		newState := Failed
 		return &ExecutionResponse{
@@ -344,17 +344,11 @@ func (s *SimpleForm) handleOgaVerification(_ context.Context, content interface{
 		}, nil
 	}
 
-	// Update plugin state to OGA_REVIEWED
-	if err := s.api.SetPluginState(string(OGAReviewed)); err != nil {
-		slog.Error("failed to set plugin state to OGA_REVIEWED", "error", err)
-	}
-	extendedState := string(OGAReviewed)
-
 	// Mark task as COMPLETED
 	newState := Completed
 	return &ExecutionResponse{
 		NewState:      &newState,
-		ExtendedState: &extendedState,
+		ExtendedState: &pluginState,
 		Message:       "Form verified by OGA, task completed",
 	}, nil
 }

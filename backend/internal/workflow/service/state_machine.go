@@ -139,7 +139,10 @@ func (sm *WorkflowNodeStateMachine) TransitionToInProgress(
 		return fmt.Errorf("node cannot be nil")
 	}
 
-	if !sm.canTransitionToInProgress(node.State) && updateReq.ExtendedState == node.ExtendedState && node.State == model.WorkflowNodeStateInProgress {
+	if updateReq.ExtendedState == node.ExtendedState && node.State == model.WorkflowNodeStateInProgress {
+		// No state change needed if already IN_PROGRESS with the same extended state
+		return nil
+	} else if !sm.canTransitionToInProgress(node.State) {
 		return fmt.Errorf("cannot transition node %s from state %s to IN_PROGRESS", node.ID, node.State)
 	} else {
 		node.State = model.WorkflowNodeStateInProgress

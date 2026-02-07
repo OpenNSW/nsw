@@ -101,7 +101,7 @@ func (m *Manager) StartWorkflowNodeUpdateListener() {
 					slog.Error("failed to handle workflow node update",
 						"taskID", update.TaskID,
 						"state", workflowState,
-						"extendedState", *update.ExtendedState,
+						"extendedState", update.ExtendedState,
 						"globalContext", newGlobalContext,
 						"error", err)
 					// TODO: Implement retry mechanism with exponential backoff

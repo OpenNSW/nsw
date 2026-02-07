@@ -74,7 +74,7 @@ func (s *WorkflowNodeService) UpdateWorkflowNodesInTx(ctx context.Context, tx *g
 		existingNode.ExtendedState = node.ExtendedState
 		existingNode.DependsOn = node.DependsOn
 		if existingNode.DependsOn == nil {
-			existingNode.DependsOn = []uuid.UUID{}
+			existingNode.DependsOn = model.UUIDArray{}
 		}
 
 		// Save the updated node
