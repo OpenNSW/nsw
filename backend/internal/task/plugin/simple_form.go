@@ -241,7 +241,7 @@ func (s *SimpleForm) handleSubmitForm(_ context.Context, content interface{}) (*
 			"data":          formData,
 			"taskId":        s.api.GetTaskID().String(),
 			"consignmentId": s.api.GetConsignmentID().String(),
-			"serviceUrl":    fmt.Sprintf("%s/api/tasks", s.cfg.Server.ServiceURL),
+			"serviceUrl":    fmt.Sprintf("%s/api/v1/tasks", s.cfg.Server.ServiceURL),
 		}
 
 		responseData, err := s.sendFormSubmission(s.config.SubmissionURL, requestPayload)
