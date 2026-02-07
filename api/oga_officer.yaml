@@ -1,0 +1,475 @@
+openapi: 3.0.3
+info:
+  title: OpenNSW OGA Officer Portal API
+  version: 0.1.0
+  description: >
+    API specification for the OpenNSW OGA Officer Portal.
+    This API enables OGA officers to review tasks, submit decisions, and manage permits.
+
+servers:
+  - url: "{{WE_PATH}}"
+    description: Workflow Engine base URL
+  - url: "{{TM_PATH}}"
+    description: Task Manager base URL
+
+paths:
+  /consignments:
+    get:
+      summary: List Consignments
+      description: Get a list of consignments that require OGA officer review
+      tags:
+        - Workflow Engine
+      parameters:
+        - name: state
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ConsignmentState"
+          description: Filter by consignment state
+        - name: type
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ConsignmentType"
+          description: Filter by consignment type
+        - name: traderId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by trader ID
+      responses:
+        "200":
+          description: List of consignments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ConsignmentResponse"
+        "400":
+          description: Bad request
+        "500":
+          description: Internal server error
+
+  /consignments/{consignmentId}:
+    get:
+      summary: Get Consignment
+      description: Get detailed information about a specific consignment
+      tags:
+        - Workflow Engine
+      parameters:
+        - name: consignmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Consignment ID
+      responses:
+        "200":
+          description: Consignment details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsignmentResponse"
+        "404":
+          description: Consignment not found
+        "500":
+          description: Internal server error
+
+  /tasks:
+    get:
+      summary: List Tasks
+      description: Get a list of tasks assigned to the authenticated OGA officer
+      tags:
+        - Task Manager
+      parameters:
+        - name: consignmentId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter by consignment ID
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/TaskStatus"
+          description: Filter by task status
+        - name: traderId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter by trader ID
+      responses:
+        "200":
+          description: List of tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TaskOfficerViewResponse"
+        "400":
+          description: Bad request
+        "500":
+          description: Internal server error
+
+  /tasks/{taskId}:
+    get:
+      summary: Get Task Details
+      description: >
+        Returns task details for the OGA officer.
+        Includes both trader form submission and officer form template information.
+      tags:
+        - Task Manager
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Task ID
+      responses:
+        "200":
+          description: Task details with officer view
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskOfficerViewResponse"
+        "400":
+          description: Bad request
+        "403":
+          description: Forbidden - task is not assigned to the authenticated officer
+        "404":
+          description: Task not found
+        "500":
+          description: Internal server error
+
+  /form-templates/{formTemplateId}:
+    get:
+      summary: Get Form Template
+      description: Get form template details including schema and UI schema
+      tags:
+        - Task Manager
+      parameters:
+        - name: formTemplateId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Form Template ID
+      responses:
+        "200":
+          description: Form template details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormTemplateResponse"
+        "404":
+          description: Form template not found
+        "500":
+          description: Internal server error
+
+  /form-submissions:
+    post:
+      summary: Submit Officer Decision
+      description: >
+        Create a new form submission for an OGA officer decision on a task.
+        The form data must conform to the schema defined in the officer form template.
+        This typically includes decision (approve/reject) and any permit details.
+      tags:
+        - Task Manager
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FormSubmissionRequest"
+      responses:
+        "201":
+          description: Form submission created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormSubmissionResponse"
+        "400":
+          description: Bad request - invalid form data or task not in correct state
+        "403":
+          description: Forbidden - task is not assigned to the authenticated officer
+        "500":
+          description: Internal server error
+
+  /form-submissions/{formSubmissionId}:
+    get:
+      summary: Get Form Submission
+      description: Get details of a specific form submission
+      tags:
+        - Task Manager
+      parameters:
+        - name: formSubmissionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Form Submission ID
+      responses:
+        "200":
+          description: Form submission details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormSubmissionResponse"
+        "404":
+          description: Form submission not found
+        "500":
+          description: Internal server error
+
+components:
+  schemas:
+    ConsignmentType:
+      type: string
+      enum: [IMPORT, EXPORT]
+      description: Type of consignment
+
+    ConsignmentState:
+      type: string
+      enum: [IN_PROGRESS, FINISHED]
+      description: State of a consignment in the workflow
+
+    TaskStatus:
+      type: string
+      enum: [LOCKED, READY, SUBMITTED, APPROVED, REJECTED]
+      description: Status of a task within a workflow
+
+    FormType:
+      type: string
+      enum: [TRADER, OGA_OFFICER]
+      description: Type of form
+
+    FormSubmissionStatus:
+      type: string
+      enum: [PENDING, APPROVED, REJECTED]
+      description: Status of a form submission
+
+    ConsignmentResponse:
+      type: object
+      required:
+        - id
+        - type
+        - state
+        - traderId
+        - items
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Consignment ID
+        type:
+          $ref: "#/components/schemas/ConsignmentType"
+        state:
+          $ref: "#/components/schemas/ConsignmentState"
+        traderId:
+          type: string
+          description: Trader ID
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ItemResponse"
+          description: List of items in the consignment
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when consignment was created
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp when consignment was last updated
+
+    ItemResponse:
+      type: object
+      required:
+        - hsCode
+        - metadata
+        - workflowTemplateId
+        - tasks
+      properties:
+        hsCode:
+          type: string
+          description: Harmonized System Code for the item
+        metadata:
+          type: object
+          description: Information about the item
+          additionalProperties: true
+        workflowTemplateId:
+          type: string
+          format: uuid
+          description: Workflow Template ID associated with this item
+        tasks:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: List of task IDs associated with this item
+
+    TaskOfficerViewResponse:
+      type: object
+      required:
+        - id
+        - traderId
+        - ogaOfficerId
+        - consignmentId
+        - status
+        - traderFormTemplateId
+        - ogaOfficerFormTemplateId
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Task ID
+        traderId:
+          type: string
+          format: uuid
+          description: Trader ID
+        ogaOfficerId:
+          type: string
+          format: uuid
+          description: OGA Officer ID assigned to this task
+        consignmentId:
+          type: string
+          format: uuid
+          description: Consignment ID
+        status:
+          $ref: "#/components/schemas/TaskStatus"
+        traderFormTemplateId:
+          type: string
+          format: uuid
+          description: Form Template ID for the trader form
+        traderFormSubmissionId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Form Submission ID of the trader's submission (if submitted)
+        ogaOfficerFormTemplateId:
+          type: string
+          format: uuid
+          description: Form Template ID for the OGA officer form
+        ogaOfficerFormSubmissionId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Form Submission ID of the officer's decision (if submitted)
+        traderFormSubmission:
+          $ref: "#/components/schemas/FormSubmissionResponse"
+          nullable: true
+          description: Details of the trader's form submission (if available)
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when task was created
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp when task was last updated
+
+    FormTemplateResponse:
+      type: object
+      required:
+        - id
+        - formType
+        - schema
+        - uiSchema
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Form Template ID
+        formType:
+          $ref: "#/components/schemas/FormType"
+        schema:
+          type: object
+          description: JSON Schema defining the form structure
+          additionalProperties: true
+        uiSchema:
+          type: object
+          description: UI Schema defining how the form should be rendered
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when form template was created
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp when form template was last updated
+
+    FormSubmissionRequest:
+      type: object
+      required:
+        - formTemplateId
+        - consignmentId
+        - data
+      properties:
+        formTemplateId:
+          type: string
+          format: uuid
+          description: Form Template ID
+        consignmentId:
+          type: string
+          format: uuid
+          description: Consignment ID
+        data:
+          type: object
+          description: Form data conforming to the form template schema
+          additionalProperties: true
+
+    FormSubmissionResponse:
+      type: object
+      required:
+        - id
+        - formTemplateId
+        - consignmentId
+        - data
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Form Submission ID
+        formTemplateId:
+          type: string
+          format: uuid
+          description: Form Template ID
+        consignmentId:
+          type: string
+          format: uuid
+          description: Consignment ID
+        data:
+          type: object
+          description: Submitted form data
+          additionalProperties: true
+        status:
+          $ref: "#/components/schemas/FormSubmissionStatus"
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when form submission was created
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp when form submission was last updated
