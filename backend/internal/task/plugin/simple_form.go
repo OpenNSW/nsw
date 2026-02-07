@@ -35,6 +35,8 @@ const (
 	OGAReviewed        SimpleFormState = "OGA_REVIEWED"
 )
 
+const TasksAPIPath = "/api/v1/tasks"
+
 // Config contains the JSON Form configuration
 type Config struct {
 	FormID                  string          `json:"formId"`                            // Unique identifier for the form
@@ -241,7 +243,7 @@ func (s *SimpleForm) handleSubmitForm(_ context.Context, content interface{}) (*
 			"data":          formData,
 			"taskId":        s.api.GetTaskID().String(),
 			"consignmentId": s.api.GetConsignmentID().String(),
-			"serviceUrl":    fmt.Sprintf("%s/api/v1/tasks", s.cfg.Server.ServiceURL),
+			"serviceUrl":    strings.TrimRight(s.cfg.Server.ServiceURL, "/") + TasksAPIPath,
 		}
 
 		responseData, err := s.sendFormSubmission(s.config.SubmissionURL, requestPayload)
