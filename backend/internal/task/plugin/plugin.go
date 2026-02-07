@@ -45,9 +45,11 @@ type ApiResponse struct {
 }
 
 type ExecutionResponse struct {
-	NewState    *State
-	Message     string
-	ApiResponse *ApiResponse
+	NewState            *State
+	ExtendedState       *string
+	AppendGlobalContext map[string]any
+	Message             string
+	ApiResponse         *ApiResponse
 }
 
 type Plugin interface {
