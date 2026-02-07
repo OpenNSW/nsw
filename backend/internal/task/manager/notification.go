@@ -10,4 +10,5 @@ type WorkflowManagerNotification struct {
 	TaskID              uuid.UUID
 	UpdatedState        *plugin.State
 	AppendGlobalContext map[string]any
+	ExtendedState       *string
 }
