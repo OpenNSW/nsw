@@ -73,6 +73,105 @@ export interface OGAApplication {
   updatedAt: string;
 }
 
+export interface FileMetadata {
+  id: string;
+  name: string;
+  key: string;
+  url: string;
+  size: number;
+  mimeType: string;
+}
+
+// Type guard for FileMetadata
+export function isValidFileMetadata(data: unknown): data is FileMetadata {
+  if (!data || typeof data !== 'object') return false;
+  const d = data as Record<string, unknown>;
+  return (
+    typeof d.id === 'string' &&
+    typeof d.name === 'string' &&
+    typeof d.key === 'string' &&
+    typeof d.url === 'string' &&
+    typeof d.size === 'number' &&
+    typeof d.mimeType === 'string'
+  );
+}
+
+// Upload a file to the backend
+// Upload a file to the backend
+export function uploadFile(
+  file: File,
+  onProgress?: (progress: number) => void,
+  signal?: AbortSignal
+): Promise<FileMetadata> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const url = `${API_BASE_URL}/api/uploads`; // Using distinct upload endpoint
+
+    xhr.open('POST', url, true);
+
+    const abortHandler = () => {
+      xhr.abort();
+    };
+
+    const cleanup = () => {
+      if (signal) {
+        signal.removeEventListener('abort', abortHandler);
+      }
+    };
+
+    if (signal) {
+      signal.addEventListener('abort', abortHandler);
+    }
+
+    if (onProgress) {
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = (event.loaded / event.total) * 100;
+          onProgress(percentComplete);
+        }
+      };
+    }
+
+    xhr.onload = () => {
+      cleanup();
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const response = JSON.parse(xhr.responseText);
+          if (isValidFileMetadata(response)) {
+            resolve(response);
+          } else {
+            reject(new Error('Invalid response format from server'));
+          }
+        } catch (e) {
+          reject(new Error('Failed to parse upload response'));
+        }
+      } else {
+        try {
+          const errorResp = JSON.parse(xhr.responseText);
+          reject(new Error(errorResp.error || 'Upload failed'));
+        } catch {
+          reject(new Error(`Upload failed: ${xhr.statusText}`));
+        }
+      }
+    };
+
+    xhr.onerror = () => {
+      cleanup();
+      reject(new Error('Network error occurred during upload'));
+    };
+
+    xhr.onabort = () => {
+      cleanup();
+      reject(new Error('Upload aborted'));
+    };
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    xhr.send(formData);
+  });
+}
+
 // Fetch all consignments pending OGA review from OGA Service
 export async function fetchPendingApplications(status?: string, signal?: AbortSignal): Promise<OGAApplication[]> {
   const url = status
