@@ -1,8 +1,10 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -116,6 +118,34 @@ func (sm *WorkflowNodeStateMachine) TransitionToFailed(
 	node.State = model.WorkflowNodeStateFailed
 	if err := sm.nodeRepo.UpdateWorkflowNodesInTx(ctx, tx, []model.WorkflowNode{*node}); err != nil {
 		return fmt.Errorf("failed to update workflow node %s to FAILED state: %w", node.ID, err)
+	}
+
+	return nil
+}
+
+// TransitionToInProgress transitions a workflow node to IN_PROGRESS state.
+// This indicates that work on the node has started and it is in some intermediate state before completion.
+func (sm *WorkflowNodeStateMachine) TransitionToInProgress(
+	ctx context.Context,
+	tx *gorm.DB,
+	node *model.WorkflowNode,
+) error {
+	if node == nil {
+		return fmt.Errorf("node cannot be nil")
+	}
+
+	if node.State == model.WorkflowNodeStateInProgress {
+		// Already in progress, no transition needed
+		return nil
+	}
+
+	if !sm.canTransitionToInProgress(node.State) {
+		return fmt.Errorf("cannot transition node %s from state %s to IN_PROGRESS", node.ID, node.State)
+	}
+
+	node.State = model.WorkflowNodeStateInProgress
+	if err := sm.nodeRepo.UpdateWorkflowNodesInTx(ctx, tx, []model.WorkflowNode{*node}); err != nil {
+		return fmt.Errorf("failed to update workflow node %s to IN_PROGRESS state: %w", node.ID, err)
 	}
 
 	return nil
@@ -296,19 +326,23 @@ func (sm *WorkflowNodeStateMachine) canTransitionToCompleted(currentState model.
 
 // canTransitionToFailed checks if a node can transition to FAILED from its current state.
 func (sm *WorkflowNodeStateMachine) canTransitionToFailed(currentState model.WorkflowNodeState) bool {
-	// Any non-terminal state can transition to FAILED
-	return currentState != model.WorkflowNodeStateFailed &&
-		currentState != model.WorkflowNodeStateCompleted
+	// Only READY or IN_PROGRESS nodes can be completed
+	return currentState == model.WorkflowNodeStateReady ||
+		currentState == model.WorkflowNodeStateInProgress
+}
+
+// canTransitionToInProgress checks if a node can transition to IN_PROGRESS from its current state.
+func (sm *WorkflowNodeStateMachine) canTransitionToInProgress(currentState model.WorkflowNodeState) bool {
+	// Only READY or FAILED nodes can be moved to IN_PROGRESS
+	return currentState == model.WorkflowNodeStateReady ||
+		currentState == model.WorkflowNodeStateFailed
 }
 
 // sortNodesByID sorts workflow nodes by ID to ensure consistent ordering and prevent deadlocks.
+// Uses Go's standard library sort for O(n log n) performance.
 func (sm *WorkflowNodeStateMachine) sortNodesByID(nodes []model.WorkflowNode) {
-	n := len(nodes)
-	for i := 0; i < n-1; i++ {
-		for j := 0; j < n-i-1; j++ {
-			if nodes[j].ID.String() > nodes[j+1].ID.String() {
-				nodes[j], nodes[j+1] = nodes[j+1], nodes[j]
-			}
-		}
-	}
+	sort.Slice(nodes, func(i, j int) bool {
+		// Compare UUIDs directly as byte arrays for better performance
+		return bytes.Compare(nodes[i].ID[:], nodes[j].ID[:]) < 0
+	})
 }
