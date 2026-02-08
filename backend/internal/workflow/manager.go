@@ -93,6 +93,7 @@ func (m *Manager) StartWorkflowNodeUpdateListener() {
 					WorkflowNodeID:      update.TaskID,
 					State:               workflowState,
 					AppendGlobalContext: update.AppendGlobalContext,
+					ExtendedState:       update.ExtendedState,
 				}
 
 				newReadyNodes, newGlobalContext, err := m.consignmentService.UpdateWorkflowNodeStateAndPropagateChanges(m.ctx, &updateReq)
@@ -100,6 +101,8 @@ func (m *Manager) StartWorkflowNodeUpdateListener() {
 					slog.Error("failed to handle workflow node update",
 						"taskID", update.TaskID,
 						"state", workflowState,
+						"extendedState", update.ExtendedState,
+						"globalContext", newGlobalContext,
 						"error", err)
 					// TODO: Implement retry mechanism with exponential backoff
 					// - Store failed update in persistent queue (failed_workflow_updates table)

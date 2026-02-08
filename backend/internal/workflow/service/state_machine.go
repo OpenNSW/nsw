@@ -45,6 +45,7 @@ func (sm *WorkflowNodeStateMachine) TransitionToCompleted(
 	ctx context.Context,
 	tx *gorm.DB,
 	node *model.WorkflowNode,
+	updateReq *model.UpdateWorkflowNodeDTO,
 ) (*StateTransitionResult, error) {
 	if node == nil {
 		return nil, fmt.Errorf("node cannot be nil")
@@ -65,6 +66,7 @@ func (sm *WorkflowNodeStateMachine) TransitionToCompleted(
 
 	// Update the current node to COMPLETED
 	node.State = model.WorkflowNodeStateCompleted
+	node.ExtendedState = updateReq.ExtendedState
 	nodesToUpdate := []model.WorkflowNode{*node}
 
 	// Get all nodes for this consignment to check dependencies
@@ -101,6 +103,7 @@ func (sm *WorkflowNodeStateMachine) TransitionToFailed(
 	ctx context.Context,
 	tx *gorm.DB,
 	node *model.WorkflowNode,
+	updateReq *model.UpdateWorkflowNodeDTO,
 ) error {
 	if node == nil {
 		return fmt.Errorf("node cannot be nil")
@@ -116,6 +119,7 @@ func (sm *WorkflowNodeStateMachine) TransitionToFailed(
 	}
 
 	node.State = model.WorkflowNodeStateFailed
+	node.ExtendedState = updateReq.ExtendedState
 	if err := sm.nodeRepo.UpdateWorkflowNodesInTx(ctx, tx, []model.WorkflowNode{*node}); err != nil {
 		return fmt.Errorf("failed to update workflow node %s to FAILED state: %w", node.ID, err)
 	}
@@ -124,26 +128,26 @@ func (sm *WorkflowNodeStateMachine) TransitionToFailed(
 }
 
 // TransitionToInProgress transitions a workflow node to IN_PROGRESS state.
-// This indicates that work on the node has started and it is in some intermediate state before completion.
+// This indicates that work on the node has started, and it is in some intermediate state before completion.
 func (sm *WorkflowNodeStateMachine) TransitionToInProgress(
 	ctx context.Context,
 	tx *gorm.DB,
 	node *model.WorkflowNode,
+	updateReq *model.UpdateWorkflowNodeDTO,
 ) error {
 	if node == nil {
 		return fmt.Errorf("node cannot be nil")
 	}
 
-	if node.State == model.WorkflowNodeStateInProgress {
-		// Already in progress, no transition needed
+	if updateReq.ExtendedState == node.ExtendedState && node.State == model.WorkflowNodeStateInProgress {
+		// No state change needed if already IN_PROGRESS with the same extended state
 		return nil
-	}
-
-	if !sm.canTransitionToInProgress(node.State) {
+	} else if !sm.canTransitionToInProgress(node.State) {
 		return fmt.Errorf("cannot transition node %s from state %s to IN_PROGRESS", node.ID, node.State)
+	} else {
+		node.State = model.WorkflowNodeStateInProgress
 	}
-
-	node.State = model.WorkflowNodeStateInProgress
+	node.ExtendedState = updateReq.ExtendedState
 	if err := sm.nodeRepo.UpdateWorkflowNodesInTx(ctx, tx, []model.WorkflowNode{*node}); err != nil {
 		return fmt.Errorf("failed to update workflow node %s to IN_PROGRESS state: %w", node.ID, err)
 	}

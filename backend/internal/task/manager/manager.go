@@ -255,7 +255,7 @@ func (tm *taskManager) execute(ctx context.Context, activeTask *container.Contai
 				"taskID", taskId,
 				"error", err)
 		}
-		tm.notifyWorkflowManager(ctx, activeTask.TaskID, result.NewState)
+		tm.notifyWorkflowManager(ctx, activeTask.TaskID, result.NewState, result.ExtendedState, result.AppendGlobalContext)
 	}
 
 	return result, nil
@@ -340,17 +340,22 @@ func (tm *taskManager) getTask(ctx context.Context, taskID uuid.UUID) (*containe
 }
 
 // notifyWorkflowManager sends notification to Workflow Manager via Go channel
-func (tm *taskManager) notifyWorkflowManager(ctx context.Context, taskID uuid.UUID, state *plugin.State) {
+func (tm *taskManager) notifyWorkflowManager(ctx context.Context, taskID uuid.UUID, state *plugin.State, extendedState *string, appendGlobalContext map[string]any) {
 	if tm.completionChan == nil {
 		slog.WarnContext(ctx, "completion channel not configured, skipping notification",
 			"taskID", taskID,
-			"state", state)
+			"state", state,
+			"extendedState", extendedState,
+			"appendGlobalContext", appendGlobalContext,
+		)
 		return
 	}
 
 	notification := WorkflowManagerNotification{
-		TaskID:       taskID,
-		UpdatedState: state,
+		TaskID:              taskID,
+		UpdatedState:        state,
+		ExtendedState:       extendedState,
+		AppendGlobalContext: appendGlobalContext,
 	}
 
 	// Non-blocking send - if a channel is full, log warning but don't block
@@ -358,11 +363,17 @@ func (tm *taskManager) notifyWorkflowManager(ctx context.Context, taskID uuid.UU
 	case tm.completionChan <- notification:
 		slog.DebugContext(ctx, "task completion notification sent via channel",
 			"taskID", taskID,
-			"state", state)
+			"state", state,
+			"extendedState", extendedState,
+			"appendGlobalContext", appendGlobalContext,
+		)
 	default:
 		// Channel is full or closed
 		slog.WarnContext(ctx, "completion channel full or unavailable, notification dropped",
 			"taskID", taskID,
-			"state", state)
+			"state", state,
+			"extendedState", extendedState,
+			"appendGlobalContext", appendGlobalContext,
+		)
 	}
 }

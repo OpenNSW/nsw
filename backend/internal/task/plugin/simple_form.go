@@ -91,9 +91,9 @@ func (s *SimpleForm) Start(ctx context.Context) (*ExecutionResponse, error) {
 		}
 	}
 
-	// Initialize plugin state to DRAFT if not set
+	// Set initial plugin state if not already set
 	if s.api.GetPluginState() == "" {
-		if err := s.api.SetPluginState(string(TraderSavedAsDraft)); err != nil {
+		if err := s.api.SetPluginState(string(Initialized)); err != nil {
 			slog.Error("failed to set initial plugin state", "error", err)
 			return nil, fmt.Errorf("failed to set initial plugin state: %w", err)
 		}
@@ -232,10 +232,11 @@ func (s *SimpleForm) handleSubmitForm(_ context.Context, content interface{}) (*
 		slog.Warn("failed to write form data to local store", "error", err)
 	}
 
-	// Update plugin state to SUBMITTED
+	// Update plugin state to TRADER_SUBMITTED
 	if err := s.api.SetPluginState(string(TraderSubmitted)); err != nil {
 		slog.Error("failed to set plugin state to SUBMITTED", "error", err)
 	}
+	pluginState := string(TraderSubmitted)
 
 	// If submissionUrl is provided, send the form data to that URL
 	if s.config.SubmissionURL != "" {
@@ -270,10 +271,17 @@ func (s *SimpleForm) handleSubmitForm(_ context.Context, content interface{}) (*
 				"formId", s.config.FormID,
 				"submissionUrl", s.config.SubmissionURL)
 
+			// Update plugin state to OGA_ACKNOWLEDGED
+			if err := s.api.SetPluginState(string(OGAAcknowledged)); err != nil {
+				slog.Error("failed to set plugin state to OGA_ACKNOWLEDGED", "error", err)
+			}
+			pluginState = string(OGAAcknowledged)
+
 			newState := InProgress
 			return &ExecutionResponse{
-				NewState: &newState,
-				Message:  "Form submitted successfully, awaiting OGA verification",
+				NewState:      &newState,
+				ExtendedState: &pluginState,
+				Message:       "Form submitted successfully, awaiting OGA verification",
 				ApiResponse: &ApiResponse{
 					Success: true,
 				},
@@ -288,8 +296,9 @@ func (s *SimpleForm) handleSubmitForm(_ context.Context, content interface{}) (*
 
 		newState := Completed
 		return &ExecutionResponse{
-			NewState: &newState,
-			Message:  "Form submitted and processed successfully",
+			NewState:      &newState,
+			ExtendedState: &pluginState,
+			Message:       "Form submitted and processed successfully",
 			ApiResponse: &ApiResponse{
 				Success: true,
 			},
@@ -299,8 +308,9 @@ func (s *SimpleForm) handleSubmitForm(_ context.Context, content interface{}) (*
 	// If no submissionUrl, task is completed
 	newState := Completed
 	return &ExecutionResponse{
-		NewState: &newState,
-		Message:  "Form submitted successfully",
+		NewState:      &newState,
+		ExtendedState: &pluginState,
+		Message:       "Form submitted successfully",
 		ApiResponse: &ApiResponse{
 			Success: true,
 		},
@@ -316,24 +326,30 @@ func (s *SimpleForm) handleOgaVerification(_ context.Context, content interface{
 		}, err
 	}
 
-	// Check if verification was approved
-	decision, ok := verificationData["decision"].(string)
-	if !ok || strings.ToUpper(decision) != "APPROVED" {
-		return &ExecutionResponse{
-			Message: "Verification rejected or invalid",
-		}, nil
-	}
-
-	// Update plugin state to OGA_REVIEWED
+	// Update plugin state to OGA_REVIEWED (common for both approved and rejected)
 	if err := s.api.SetPluginState(string(OGAReviewed)); err != nil {
 		slog.Error("failed to set plugin state to OGA_REVIEWED", "error", err)
 	}
+	pluginState := string(OGAReviewed)
 
-	// Mark task as completed
+	// Check if verification was approved
+	decision, ok := verificationData["decision"].(string)
+	if !ok || strings.ToUpper(decision) != "APPROVED" { // TODO: Need to change this hardcoded APPROVED
+		// Mark task as FAILED
+		newState := Failed
+		return &ExecutionResponse{
+			NewState:      &newState,
+			ExtendedState: &pluginState,
+			Message:       "Verification rejected or invalid",
+		}, nil
+	}
+
+	// Mark task as COMPLETED
 	newState := Completed
 	return &ExecutionResponse{
-		NewState: &newState,
-		Message:  "Form verified by OGA, task completed",
+		NewState:      &newState,
+		ExtendedState: &pluginState,
+		Message:       "Form verified by OGA, task completed",
 	}, nil
 }
 
@@ -433,7 +449,7 @@ func (s *SimpleForm) buildFormDataFromSchema(ctx context.Context, schema map[str
 }
 
 // lookupValueFromGlobalStore retrieves a value from global store using dot notation path
-func (s *SimpleForm) lookupValueFromGlobalStore(ctx context.Context, path string) interface{} {
+func (s *SimpleForm) lookupValueFromGlobalStore(_ context.Context, path string) interface{} {
 	if path == "" {
 		return nil
 	}

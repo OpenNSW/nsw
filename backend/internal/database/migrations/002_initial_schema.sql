@@ -169,6 +169,7 @@ CREATE TABLE IF NOT EXISTS workflow_nodes (
     consignment_id UUID NOT NULL,
     workflow_node_template_id UUID NOT NULL,
     state VARCHAR(50) NOT NULL CHECK (state IN ('LOCKED', 'READY', 'IN_PROGRESS', 'COMPLETED', 'FAILED')),
+    extended_state TEXT,
     depends_on JSONB NOT NULL DEFAULT '[]',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
