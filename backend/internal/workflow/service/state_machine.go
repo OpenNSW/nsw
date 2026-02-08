@@ -1,8 +1,10 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -324,25 +326,23 @@ func (sm *WorkflowNodeStateMachine) canTransitionToCompleted(currentState model.
 
 // canTransitionToFailed checks if a node can transition to FAILED from its current state.
 func (sm *WorkflowNodeStateMachine) canTransitionToFailed(currentState model.WorkflowNodeState) bool {
-	// Any non-terminal state can transition to FAILED
-	return currentState != model.WorkflowNodeStateFailed &&
-		currentState != model.WorkflowNodeStateCompleted
+	// Only READY or IN_PROGRESS nodes can be completed
+	return currentState == model.WorkflowNodeStateReady ||
+		currentState == model.WorkflowNodeStateInProgress
 }
 
 // canTransitionToInProgress checks if a node can transition to IN_PROGRESS from its current state.
 func (sm *WorkflowNodeStateMachine) canTransitionToInProgress(currentState model.WorkflowNodeState) bool {
-	// Only READY nodes can transition to IN_PROGRESS
-	return currentState == model.WorkflowNodeStateReady
+	// Only READY or FAILED nodes can be moved to IN_PROGRESS
+	return currentState == model.WorkflowNodeStateReady ||
+		currentState == model.WorkflowNodeStateFailed
 }
 
 // sortNodesByID sorts workflow nodes by ID to ensure consistent ordering and prevent deadlocks.
+// Uses Go's standard library sort for O(n log n) performance.
 func (sm *WorkflowNodeStateMachine) sortNodesByID(nodes []model.WorkflowNode) {
-	n := len(nodes)
-	for i := 0; i < n-1; i++ {
-		for j := 0; j < n-i-1; j++ {
-			if nodes[j].ID.String() > nodes[j+1].ID.String() {
-				nodes[j], nodes[j+1] = nodes[j+1], nodes[j]
-			}
-		}
-	}
+	sort.Slice(nodes, func(i, j int) bool {
+		// Compare UUIDs directly as byte arrays for better performance
+		return bytes.Compare(nodes[i].ID[:], nodes[j].ID[:]) < 0
+	})
 }
