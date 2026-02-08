@@ -1,0 +1,48 @@
+{
+    "formId": "preconsignment-business-reg-1",
+    "name": "Business Registration",
+    "description": "Business Registration Details",
+    "version": "1.0",
+    "schema": {
+        "type": "object",
+        "title": "Business Registration",
+        "description": "Please provide your business registration details.",
+        "properties": {
+            "businessRegNo": {
+                "type": "string",
+                "title": "Business Registration Number"
+            },
+            "email": {
+                "type": "string",
+                "title": "Email Address",
+                "format": "email"
+            },
+            "phone": {
+                "type": "string",
+                "title": "Phone Number"
+            }
+        },
+        "required": [
+            "businessRegNo",
+            "email",
+            "phone"
+        ]
+    },
+    "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Control",
+                "scope": "#/properties/businessRegNo"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/email"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/phone"
+            }
+        ]
+    }
+}

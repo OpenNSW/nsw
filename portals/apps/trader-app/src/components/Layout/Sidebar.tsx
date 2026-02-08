@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import {
-  DashboardIcon,
+  DashboardIcon, FileTextIcon,
   ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon,
 } from '@radix-ui/react-icons'
 import { type ReactNode, useEffect, useRef, useState } from "react";
@@ -13,6 +13,7 @@ interface NavItem {
 
 const navStructure: NavItemOrGroup[] = [
   { name: 'Dashboard', path: '/', icon: <DashboardIcon className="w-5 h-5" /> },
+  { name: 'Pre-Consignment', path: '/pre-consignment', icon: <FileTextIcon className="w-5 h-5" /> },
 ]
 
 interface NavGroup {

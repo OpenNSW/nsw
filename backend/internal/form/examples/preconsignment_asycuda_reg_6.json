@@ -1,0 +1,129 @@
+{
+    "formId": "preconsignment-asycuda-reg-6",
+    "name": "ASYCUDA World Registration",
+    "description": "ASYCUDA World Registration (TIN/VAT Registration)",
+    "version": "1.0",
+    "schema": {
+        "type": "object",
+        "title": "ASYCUDA World Registration",
+        "properties": {
+            "brNo": {
+                "type": "string",
+                "title": "Business Registration Number"
+            },
+            "tinNo": {
+                "type": "string",
+                "title": "Taxpayer Identification Number (TIN)"
+            },
+            "vatNo": {
+                "type": "string",
+                "title": "VAT Number"
+            },
+            "nic": {
+                "type": "string",
+                "title": "National Identity Card (NIC)"
+            },
+            "passportCopy": {
+                "type": "string",
+                "format": "data-url",
+                "title": "Passport Copy"
+            },
+            "photos": {
+                "type": "string",
+                "format": "data-url",
+                "title": "Photos"
+            },
+            "proofOfAddress": {
+                "type": "string",
+                "format": "data-url",
+                "title": "Proof of Address"
+            },
+            "gnCertificate": {
+                "type": "string",
+                "format": "data-url",
+                "title": "GN Certificate"
+            },
+            "asycudaApplication": {
+                "type": "string",
+                "format": "data-url",
+                "title": "ASYCUDA Application (ICT Directorate)"
+            }
+        },
+        "required": [
+            "brNo",
+            "tinNo",
+            "vatNo",
+            "nic",
+            "passportCopy",
+            "photos",
+            "proofOfAddress",
+            "gnCertificate",
+            "asycudaApplication"
+        ]
+    },
+    "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Control",
+                "scope": "#/properties/brNo"
+            },
+            {
+                "type": "HorizontalLayout",
+                "elements": [
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/tinNo"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/vatNo"
+                    }
+                ]
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/nic"
+            },
+            {
+                "type": "Label",
+                "text": "Please upload the required documents below."
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/passportCopy",
+                "options": {
+                    "format": "file"
+                }
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/photos",
+                "options": {
+                    "format": "file"
+                }
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/proofOfAddress",
+                "options": {
+                    "format": "file"
+                }
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/gnCertificate",
+                "options": {
+                    "format": "file"
+                }
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/asycudaApplication",
+                "options": {
+                    "format": "file"
+                }
+            }
+        ]
+    }
+}

@@ -1,0 +1,50 @@
+{
+    "formId": "trader-verification",
+    "name": "Trader Verification",
+    "description": "Trader Pre-Consignment Verification Form",
+    "version": "1.0",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "brNumber": {
+                "type": "string",
+                "title": "Business Registration Number"
+            },
+            "phone": {
+                "type": "string",
+                "title": "Registered Phone Number"
+            },
+            "email": {
+                "type": "string",
+                "format": "email",
+                "title": "Registered Email"
+            }
+        },
+        "required": [
+            "brNumber",
+            "phone",
+            "email"
+        ]
+    },
+    "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Label",
+                "text": "Please provide your business registration details. These will be verified by an OGA officer."
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/brNumber"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/phone"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/email"
+            }
+        ]
+    }
+}

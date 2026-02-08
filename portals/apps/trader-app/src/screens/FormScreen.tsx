@@ -42,7 +42,7 @@ export function FormScreen() {
       }
     }
 
-    fetchForm()
+    void fetchForm()
   }, [consignmentId, taskId])
 
   const handleSubmit = async (data: unknown) => {
@@ -65,16 +65,15 @@ export function FormScreen() {
       if (response.success) {
         console.log('Form submitted successfully:', response)
         // Navigate back to consignment details with a flag to trigger delayed refresh
-        navigate(`/consignments/${consignmentId}`, { 
-          state: { justSubmitted: true } 
+        navigate(`/consignments/${consignmentId}`, {
+          state: { justSubmitted: true }
         })
       } else {
         setError(response.message || 'Failed to submit form.')
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error submitting form:', err)
       setError('Failed to submit form. Please try again.')
-    } finally {
     }
   }
 
@@ -144,7 +143,7 @@ export function FormScreen() {
             schema={formData.schema}
             uiSchema={formData.uiSchema}
             data={formData.formData}
-            onSubmit={handleSubmit}
+            onSubmit={(data) => { handleSubmit(data).catch(err => { console.error(err); }); }}
             submitLabel="Submit Form"
             showAutoFillButton={import.meta.env.VITE_SHOW_AUTOFILL_BUTTON === 'true'}
             autoFillLabel="Auto-Fill Form"

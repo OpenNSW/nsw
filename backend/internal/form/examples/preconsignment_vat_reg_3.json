@@ -1,0 +1,32 @@
+{
+    "formId": "preconsignment-vat-reg-3",
+    "name": "VAT Registration",
+    "description": "VAT Registration",
+    "version": "1.0",
+    "schema": {
+        "type": "object",
+        "title": "VAT Registration",
+        "properties": {
+            "brNo": {
+                "type": "string",
+                "title": "Business Registration Number"
+            }
+        },
+        "required": [
+            "brNo"
+        ]
+    },
+    "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Control",
+                "scope": "#/properties/brNo"
+            },
+            {
+                "type": "Label",
+                "text": "Please visit the Inland Revenue Department website to complete the application: https://eservices.ird.gov.lk/registration/tinregistration/showrequestheader"
+            }
+        ]
+    }
+}

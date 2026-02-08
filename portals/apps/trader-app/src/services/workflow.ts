@@ -38,7 +38,7 @@ async function fetchWorkflowByType(
     throw new Error(`API error: ${response.status} ${response.statusText}`)
   }
 
-  const template: WorkflowTemplate = await response.json()
+  const template = (await response.json()) as WorkflowTemplate
 
   // Transform WorkflowTemplate to Workflow
   return {

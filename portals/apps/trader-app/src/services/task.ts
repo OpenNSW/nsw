@@ -1,7 +1,7 @@
 import { apiGet } from './api'
 import type { StepType } from './types/consignment'
-import type {JsonSchema, UISchemaElement} from "../components/JsonForm";
-import type {TaskDetails} from "./types/taskData.ts";
+import type { JsonSchema, UISchemaElement } from "../components/JsonForm";
+import type { TaskDetails } from "./types/taskData.ts";
 
 export type TaskAction = 'FETCH_FORM' | 'SUBMIT_FORM' | 'DRAFT'
 
@@ -75,7 +75,7 @@ export async function executeTask(
     throw new Error(`API error: ${response.status} ${response.statusText}`)
   }
 
-  return response.json()
+  return response.json() as Promise<ExecuteTaskResponse>
 }
 
 export async function getTaskDetails(
@@ -116,5 +116,5 @@ export async function sendTaskCommand(
     throw new Error(`API error: ${response.status} ${response.statusText}`)
   }
 
-  return response.json()
+  return response.json() as Promise<TaskCommandResponse>
 }
