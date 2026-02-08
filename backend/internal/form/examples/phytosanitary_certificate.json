@@ -1,0 +1,176 @@
+{
+    "formId": "phytosanitary-certificate",
+    "name": "Phytosanitary Certificate",
+    "description": "Phytosanitary Certificate Form",
+    "version": "1.0",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "exporterName": {
+                "type": "string",
+                "title": "Name of the Exporter",
+                "x-globalContext": "consignment.exporter.name"
+            },
+            "exporterAddress": {
+                "type": "string",
+                "title": "Address of the Exporter",
+                "x-globalContext": "consignment.exporter.address"
+            },
+            "consigneeName": {
+                "type": "string",
+                "title": "Name of the Consignee",
+                "x-globalContext": "consignment.consignee.name"
+            },
+            "consigneeAddress": {
+                "type": "string",
+                "title": "Address of the Consignee",
+                "x-globalContext": "consignment.consignee.address"
+            },
+            "originCountry": {
+                "type": "string",
+                "title": "Country of Origin",
+                "x-globalContext": "consignment.originCountry"
+            },
+            "exportCountry": {
+                "type": "string",
+                "title": "Country of Export",
+                "x-globalContext": "consignment.exportCountry"
+            },
+            "packageDescription": {
+                "type": "string",
+                "title": "Description of Packages"
+            },
+            "numberOfPackages": {
+                "type": "number",
+                "title": "Number of Packages"
+            },
+            "quantityDeclared": {
+                "type": "number",
+                "title": "Quantity Declared"
+            },
+            "cusDecNumber": {
+                "type": "string",
+                "title": "CusDec Number",
+                "x-globalContext": "customs.declarationNumber"
+            },
+            "invoiceNumber": {
+                "type": "string",
+                "title": "Invoice Number",
+                "x-globalContext": "customs.invoiceNumber"
+            },
+            "packingList": {
+                "type": "string",
+                "title": "Packing List",
+                "x-globalContext": "customs.packingList"
+            }
+        },
+        "required": [
+            "exporterName",
+            "consigneeName",
+            "originCountry",
+            "exportCountry"
+        ]
+    },
+    "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Control",
+                "scope": "#/properties/exporterName"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/exporterAddress"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/consigneeName"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/consigneeAddress"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/originCountry"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/exportCountry"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/packageDescription"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/numberOfPackages"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/quantityDeclared"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/cusDecNumber"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/invoiceNumber"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/packingList"
+            }
+        ]
+    },
+    "verificationSchema": {
+        "type": "object",
+        "properties": {
+            "phytosanitaryCertificateNumber": {
+                "type": "string",
+                "title": "Phytosanitary Certificate No"
+            },
+            "dateOfIssue": {
+                "type": "string",
+                "format": "date",
+                "title": "Date of Issue"
+            },
+            "placeOfIssue": {
+                "type": "string",
+                "title": "Palce of Issue"
+            },
+            "authorizedOfficerName": {
+                "type": "string",
+                "title": "Name of the Authorized Officer"
+            }
+        },
+        "required": [
+            "phytosanitaryCertificateNumber",
+            "dateOfIssue",
+            "placeOfIssue",
+            "authorizedOfficerName"
+        ]
+    },
+    "verificationUiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Control",
+                "scope": "#/properties/phytosanitaryCertificateNumber"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/dateOfIssue"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/placeOfIssue"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/authorizedOfficerName"
+            }
+        ]
+    }
+}

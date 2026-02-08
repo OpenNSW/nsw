@@ -1,0 +1,126 @@
+{
+    "formId": "cda-salmonella-certificate",
+    "name": "CDA Salmonella Free & Physical Quality Certificate",
+    "description": "Certificate for Salmonella Free & Physical Quality",
+    "version": "1.0",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "cusDecNumber": {
+                "type": "string",
+                "title": "CusDec Number"
+            },
+            "millNumber": {
+                "type": "number",
+                "title": "Mill No"
+            },
+            "productionDate": {
+                "type": "string",
+                "format": "date",
+                "title": "Date of Production"
+            },
+            "labelCode": {
+                "type": "string",
+                "title": "Label Code"
+            },
+            "labelNumberStart": {
+                "type": "number",
+                "title": "Label Number Start"
+            },
+            "labelNumberEnd": {
+                "type": "number",
+                "title": "Label Number End"
+            },
+            "numberOfBags": {
+                "type": "number",
+                "title": "No of bag on request"
+            }
+        },
+        "required": [
+            "cusDecNumber",
+            "millNumber",
+            "productionDate"
+        ]
+    },
+    "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Control",
+                "scope": "#/properties/cusDecNumber"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/millNumber"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/productionDate"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/labelCode"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/labelNumberStart"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/labelNumberEnd"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/numberOfBags"
+            }
+        ]
+    },
+    "verificationSchema": {
+        "type": "object",
+        "properties": {
+            "certificateNumber": {
+                "type": "string",
+                "title": "Salmonella Free Certificate No"
+            },
+            "issueDate": {
+                "type": "string",
+                "format": "date",
+                "title": "Issue Date"
+            },
+            "testReportNumber": {
+                "type": "number",
+                "title": "Test Report No"
+            },
+            "testReportStatus": {
+                "type": "string",
+                "title": "Test Report Status"
+            }
+        },
+        "required": [
+            "certificateNumber",
+            "issueDate",
+            "testReportNumber"
+        ]
+    },
+    "verificationUiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Control",
+                "scope": "#/properties/certificateNumber"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/issueDate"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/testReportNumber"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/testReportStatus"
+            }
+        ]
+    }
+}

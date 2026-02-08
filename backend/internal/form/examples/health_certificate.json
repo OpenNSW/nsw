@@ -1,0 +1,208 @@
+{
+    "formId": "health-certificate",
+    "name": "Health Certificates",
+    "description": "Health Certificate Form",
+    "version": "1.0",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "salmonellaRefNo": {
+                "type": "string",
+                "title": "Salmonella free Certificates Reference No"
+            },
+            "exporterName": {
+                "type": "string",
+                "title": "Name of the Exporter",
+                "x-globalContext": "consignment.exporter.name"
+            },
+            "exporterAddress": {
+                "type": "string",
+                "title": "Address of the Exporter",
+                "x-globalContext": "consignment.exporter.address"
+            },
+            "consigneeName": {
+                "type": "string",
+                "title": "Name of the Consignee",
+                "x-globalContext": "consignment.consignee.name"
+            },
+            "consigneeAddress": {
+                "type": "string",
+                "title": "Address of the Consignee",
+                "x-globalContext": "consignment.consignee.address"
+            },
+            "consignmentDescription": {
+                "type": "string",
+                "title": "Description of Consignment and Quality"
+            },
+            "exportDate": {
+                "type": "string",
+                "format": "date",
+                "title": "Date of Intended Export"
+            },
+            "lcNumber": {
+                "type": "string",
+                "title": "L/C No"
+            },
+            "containerNumbers": {
+                "type": "string",
+                "format": "binary",
+                "title": "Container Numbers"
+            },
+            "vesselNumber": {
+                "type": "string",
+                "title": "Vessel No",
+                "x-globalContext": "consignment.transport.vesselNumber"
+            },
+            "storageAddress": {
+                "type": "string",
+                "title": "Address where Consignment is Stored"
+            },
+            "packageDetails": {
+                "type": "string",
+                "title": "Type of Package, Batch Codes and Total Weight"
+            },
+            "ingredientDetails": {
+                "type": "string",
+                "title": "Details of the ingredients used in product"
+            },
+            "analysisCertificate": {
+                "type": "string",
+                "format": "binary",
+                "title": "Raw materials and product analysis certificate"
+            },
+            "cusDecNumber": {
+                "type": "string",
+                "title": "CusDec Number",
+                "x-globalContext": "customs.declarationNumber"
+            },
+            "invoiceNumber": {
+                "type": "string",
+                "title": "Invoice Number",
+                "x-globalContext": "customs.invoiceNumber"
+            },
+            "packingList": {
+                "type": "string",
+                "title": "Packing List",
+                "x-globalContext": "customs.packingList"
+            }
+        },
+        "required": [
+            "salmonellaRefNo",
+            "exporterName",
+            "exporterAddress"
+        ]
+    },
+    "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Control",
+                "scope": "#/properties/salmonellaRefNo"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/exporterName"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/exporterAddress"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/consigneeName"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/consigneeAddress"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/consignmentDescription"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/exportDate"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/lcNumber"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/containerNumbers"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/vesselNumber"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/storageAddress"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/packageDetails"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/ingredientDetails"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/analysisCertificate"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/cusDecNumber"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/invoiceNumber"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/packingList"
+            }
+        ]
+    },
+    "verificationSchema": {
+        "type": "object",
+        "properties": {
+            "healthCertificateNumber": {
+                "type": "string",
+                "title": "Health Certificate No"
+            },
+            "issueDate": {
+                "type": "string",
+                "format": "date",
+                "title": "Issue Date"
+            },
+            "consignmentDescription": {
+                "type": "string",
+                "title": "Description of Consignment and Quality"
+            }
+        },
+        "required": [
+            "healthCertificateNumber",
+            "issueDate",
+            "consignmentDescription"
+        ]
+    },
+    "verificationUiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Control",
+                "scope": "#/properties/healthCertificateNumber"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/issueDate"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/consignmentDescription"
+            }
+        ]
+    }
+}
