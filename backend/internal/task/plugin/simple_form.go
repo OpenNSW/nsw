@@ -275,7 +275,7 @@ func (s *SimpleForm) handleSubmitForm(ctx context.Context, content interface{}) 
 
 				value, exists := jsonform.GetValueByPath(formData, path)
 				if !exists {
-					return fmt.Errorf("value for path %s not found in form data", path)
+					return fmt.Errorf("value for global context path '%s' not found in submitted form data", *node.XGlobalContext.WriteTo)
 				}
 
 				globalContextPairs[*node.XGlobalContext.WriteTo] = value
