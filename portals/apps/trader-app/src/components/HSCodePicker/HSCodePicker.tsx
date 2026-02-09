@@ -282,7 +282,7 @@ export function HSCodePicker({
           {step === 'item-details' && (
             <Button
               onClick={handleConfirm}
-              disabled={!quantity || !unit || !description || !packageType || isCreating}
+              disabled={!quantity || !unit || !description || !packageType || isCreating || isNaN(Number(quantity))}
               loading={isCreating}
             >
               {isCreating ? 'Creating...' : confirmText}

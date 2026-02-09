@@ -1,7 +1,6 @@
-import { apiGet } from './api'
+import {apiPost} from './api'
 import type { StepType } from './types/consignment'
 import type {JsonSchema, UISchemaElement} from "../components/JsonForm";
-import type {TaskDetails} from "./types/taskData.ts";
 
 export type TaskAction = 'FETCH_FORM' | 'SUBMIT_FORM' | 'DRAFT'
 
@@ -15,6 +14,14 @@ export interface TaskFormData {
 export interface ExecuteTaskResponse {
   success: boolean
   data: TaskFormData
+}
+
+export interface ExecuteTaskRequest {
+  task_id: string
+  consignment_id: string
+  payload: {
+    action: TaskAction
+  }
 }
 
 export type TaskCommand = 'SUBMISSION' | 'DRAFT'
@@ -33,7 +40,16 @@ export interface TaskCommandResponse {
   status?: string
 }
 
-const TASKS_API_URL = 'http://localhost:8080/api/v1/tasks'
+export interface SendTaskCommandRequest {
+  task_id: string
+  consignment_id: string
+  payload: {
+    action: TaskAction
+    content: Record<string, unknown>
+  }
+}
+
+const TASKS_API_URL = '/tasks'
 
 function getActionForStepType(stepType: StepType): TaskAction {
   switch (stepType) {
@@ -51,36 +67,13 @@ export async function executeTask(
 ): Promise<ExecuteTaskResponse> {
   const action = getActionForStepType(stepType)
 
-  const response = await fetch(TASKS_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
+  return apiPost<ExecuteTaskRequest, ExecuteTaskResponse>(TASKS_API_URL, {
+    task_id: taskId,
+    consignment_id: consignmentId,
+    payload: {
+      action,
     },
-    body: JSON.stringify({
-      task_id: taskId,
-      consignment_id: consignmentId,
-      payload: {
-        action,
-      },
-    }),
   })
-
-  if (!response.ok) {
-    throw new Error(`API error: ${response.status} ${response.statusText}`)
-  }
-
-  return response.json()
-}
-
-export async function getTaskDetails(
-  consignmentId: string,
-  taskId: string
-): Promise<TaskDetails> {
-  console.log(
-    `Fetching task details for consignment: ${consignmentId}, task: ${taskId}`
-  )
-
-  return apiGet<TaskDetails>(`workflows/${consignmentId}/tasks/${taskId}`)
 }
 
 export async function sendTaskCommand(
@@ -91,24 +84,12 @@ export async function sendTaskCommand(
   // Use POST /api/tasks with action type and submission data
   const action: TaskAction = request.command === 'DRAFT' ? 'DRAFT' : 'SUBMIT_FORM'
 
-  const response = await fetch(TASKS_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
+  return apiPost<SendTaskCommandRequest, TaskCommandResponse>(TASKS_API_URL, {
+    task_id: request.taskId,
+    consignment_id: request.consignmentId,
+    payload: {
+      action,
+      content: request.data,
     },
-    body: JSON.stringify({
-      task_id: request.taskId,
-      consignment_id: request.consignmentId,
-      payload: {
-        action,
-        content: request.data,
-      },
-    }),
   })
-
-  if (!response.ok) {
-    throw new Error(`API error: ${response.status} ${response.statusText}`)
-  }
-
-  return response.json()
 }
