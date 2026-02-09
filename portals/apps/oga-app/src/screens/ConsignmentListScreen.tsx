@@ -139,7 +139,7 @@ export function ConsignmentListScreen() {
                       onClick={() => { void navigate(`/consignments/${app.consignmentId}?taskId=${app.taskId}`) }}
                       className="hover:bg-blue-50/30 cursor-pointer transition-colors group text-sm"
                     >
-                      <td className="px-6 py-4 whitespace-nowrap font-mono text-blue-600 font-medium hover:underline">
+                      <td className="px-6 py-4 break-all font-mono text-blue-600 font-medium hover:underline">
                         {app.consignmentId}
                       </td>
 
