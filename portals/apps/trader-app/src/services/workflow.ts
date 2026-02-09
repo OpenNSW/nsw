@@ -6,7 +6,7 @@ export interface WorkflowResponse {
   export: Workflow[]
 }
 
-const WORKFLOW_API_URL = 'http://localhost:8080/api/workflows/templates'
+const WORKFLOW_API_URL = 'http://localhost:8080/api/v1/workflows/templates'
 
 export async function getWorkflowsByHSCode(
   params: WorkflowQueryParams
@@ -51,5 +51,5 @@ async function fetchWorkflowByType(
 
 export async function getWorkflowById(id: string): Promise<Workflow | undefined> {
 
-  return apiGet<Workflow>(`/workflows/${id}`)
+  return apiGet<Workflow>(`workflows/${id}`)
 }

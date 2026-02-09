@@ -12,15 +12,9 @@ export interface TaskFormData {
   formData: Record<string, unknown>
 }
 
-export interface ExecuteTaskResult {
-  status: string
-  message: string
-  data: TaskFormData
-}
-
 export interface ExecuteTaskResponse {
   success: boolean
-  result: ExecuteTaskResult
+  data: TaskFormData
 }
 
 export type TaskCommand = 'SUBMISSION' | 'DRAFT'
@@ -39,7 +33,7 @@ export interface TaskCommandResponse {
   status?: string
 }
 
-const TASKS_API_URL = 'http://localhost:8080/api/tasks'
+const TASKS_API_URL = 'http://localhost:8080/api/v1/tasks'
 
 function getActionForStepType(stepType: StepType): TaskAction {
   switch (stepType) {
@@ -86,7 +80,7 @@ export async function getTaskDetails(
     `Fetching task details for consignment: ${consignmentId}, task: ${taskId}`
   )
 
-  return apiGet<TaskDetails>(`/workflows/${consignmentId}/tasks/${taskId}`)
+  return apiGet<TaskDetails>(`workflows/${consignmentId}/tasks/${taskId}`)
 }
 
 export async function sendTaskCommand(
