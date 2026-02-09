@@ -124,8 +124,8 @@ export function ConsignmentDetailScreen() {
         <Flex gap="3">
           <Badge size="2" color={
             application.status === 'APPROVED' ? 'green' :
-            application.status === 'REJECTED' ? 'red' :
-            'blue'
+              application.status === 'REJECTED' ? 'red' :
+                'blue'
           } highContrast>
             {application.status}
           </Badge>
@@ -154,10 +154,7 @@ export function ConsignmentDetailScreen() {
               Application Details
             </Text>
             <div className="space-y-4 mt-4">
-              <Box>
-                <Text size="1" color="gray" as="div" mb="1">Task ID</Text>
-                <Text size="2" weight="medium" className="break-all font-mono">{application.taskId}</Text>
-              </Box>
+
               <Box>
                 <Text size="1" color="gray" as="div" mb="1">Consignment ID</Text>
                 <Text size="2" weight="medium" className="break-all font-mono">{application.consignmentId}</Text>
@@ -166,8 +163,8 @@ export function ConsignmentDetailScreen() {
                 <Text size="1" color="gray" as="div" mb="1">Status</Text>
                 <Badge size="2" color={
                   application.status === 'APPROVED' ? 'green' :
-                  application.status === 'REJECTED' ? 'red' :
-                  'blue'
+                    application.status === 'REJECTED' ? 'red' :
+                      'blue'
                 }>
                   {application.status}
                 </Badge>

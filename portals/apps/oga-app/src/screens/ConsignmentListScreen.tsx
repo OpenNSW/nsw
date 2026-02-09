@@ -35,8 +35,7 @@ export function ConsignmentListScreen() {
 
   const filteredApplications = applications.filter((app) => {
     return searchQuery === '' ||
-      app.consignmentId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.taskId.toLowerCase().includes(searchQuery.toLowerCase())
+      app.consignmentId.toLowerCase().includes(searchQuery.toLowerCase())
   })
 
   // Format date: Jan 27, 2026
@@ -121,9 +120,7 @@ export function ConsignmentListScreen() {
                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                       Consignment ID
                     </th>
-                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Task ID
-                    </th>
+
                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
@@ -143,18 +140,16 @@ export function ConsignmentListScreen() {
                       className="hover:bg-blue-50/30 cursor-pointer transition-colors group text-sm"
                     >
                       <td className="px-6 py-4 whitespace-nowrap font-mono text-blue-600 font-medium hover:underline">
-                        {app.consignmentId.substring(0, 13)}...
+                        {app.consignmentId}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap font-mono text-gray-600 text-xs">
-                        {app.taskId.substring(0, 8)}...
-                      </td>
+
                       <td className="px-6 py-4 whitespace-nowrap">
                         <Badge
                           size="1"
                           color={
                             app.status === 'APPROVED' ? 'green' :
-                            app.status === 'REJECTED' ? 'red' :
-                            'blue'
+                              app.status === 'REJECTED' ? 'red' :
+                                'blue'
                           }
                           variant="surface"
                         >
