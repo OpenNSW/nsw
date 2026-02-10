@@ -227,53 +227,6 @@ func (s *SimpleForm) populateFromRegistry(ctx context.Context) error {
 	return nil
 }
 
-// handleFetchForm returns the form schema for rendering
-func (s *SimpleForm) handleFetchForm(ctx context.Context) (*ExecutionResponse, error) {
-
-	err := s.populateFromRegistry(ctx)
-
-	if err != nil {
-		return &ExecutionResponse{
-			Message: fmt.Sprintf("Failed to populate form definition from registry: %v", err),
-			ApiResponse: &ApiResponse{
-				Success: false,
-				Error: &ApiError{
-					Code:    "FETCH_FORM_FAILED",
-					Message: "Failed to retrieve form definition.",
-				},
-			},
-		}, err
-	}
-	// Prepopulate form data from global context
-	prepopulatedFormData, err := s.prepopulateFormData(ctx, s.config.FormData)
-	if err != nil {
-		slog.Warn("failed to prepopulate form data from global context",
-			"formId", s.config.FormID,
-			"error", err)
-		// Continue with original form data if prepopulation fails
-		prepopulatedFormData = s.config.FormData
-	}
-
-	// Store prepopulated form data in local state for retrieval
-	if err := s.api.WriteToLocalStore("prepopulatedFormData", prepopulatedFormData); err != nil {
-		slog.Warn("failed to write prepopulated form data to local store", "error", err)
-	}
-
-	// Return the form schema (task stays in current state until form is submitted)
-	return &ExecutionResponse{
-		Message: "Form schema retrieved successfully",
-		ApiResponse: &ApiResponse{
-			Success: true,
-			Data: SimpleFormResult{
-				Title:    s.config.Title,
-				Schema:   s.config.Schema,
-				UISchema: s.config.UISchema,
-				FormData: prepopulatedFormData,
-			},
-		},
-	}, nil
-}
-
 // handleSubmitForm validates and processes the form submission
 func (s *SimpleForm) handleSubmitForm(ctx context.Context, content interface{}) (*ExecutionResponse, error) {
 	// Parse form data from content
