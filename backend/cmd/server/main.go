@@ -30,6 +30,13 @@ func main() {
 		log.Fatalf("failed to load configuration: %v", err)
 	}
 
+	opts := &slog.HandlerOptions{
+        AddSource: true,
+        Level:     slog.LevelInfo,
+    }
+	logHandler := slog.NewTextHandler(os.Stdout, opts)
+	slog.SetDefault(slog.New(logHandler))
+
 	slog.Info("configuration loaded successfully",
 		"db_host", cfg.Database.Host,
 		"db_port", cfg.Database.Port,
