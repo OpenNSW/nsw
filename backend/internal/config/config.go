@@ -197,7 +197,7 @@ func parseCommaSeparated(value string) []string {
 }
 
 func parseLogLevel(level string) slog.Level {
-	switch level {
+	switch strings.ToLower(level) {
 	case "debug":
 		return slog.LevelDebug
 	case "info":
