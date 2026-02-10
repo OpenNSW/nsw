@@ -34,8 +34,8 @@ func (t *WaitForEventTask) Start(ctx context.Context) (*ExecutionResponse, error
 
 // ExternalServiceRequest represents the payload sent to the external service
 type ExternalServiceRequest struct {
-	ConsignmentID *uuid.UUID `json:"consignmentId,omitempty"`
-	TaskID        uuid.UUID  `json:"taskId"`
+	WorkflowID uuid.UUID `json:"workflowId"`
+	TaskID     uuid.UUID `json:"taskId"`
 }
 
 func NewWaitForEventTask(raw json.RawMessage) (*WaitForEventTask, error) {
@@ -60,9 +60,9 @@ func (t *WaitForEventTask) Execute(ctx context.Context, request *ExecutionReques
 		}, nil
 	}
 
-	// Extract task and consignment IDs from global context
+	// Extract task and workflow IDs from global context
 	taskID := t.api.GetTaskID()
-	consignmentID := t.api.GetConsignmentID()
+	workflowID := t.api.GetWorkflowID()
 
 	// Validate external service URL
 	if t.config.ExternalServiceURL == "" {
@@ -75,7 +75,7 @@ func (t *WaitForEventTask) Execute(ctx context.Context, request *ExecutionReques
 	notifyCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	go func() {
 		defer cancel()
-		t.notifyExternalService(notifyCtx, taskID, consignmentID)
+		t.notifyExternalService(notifyCtx, taskID, workflowID)
 	}()
 
 	// Return IN_PROGRESS status immediately (non-blocking)
@@ -88,22 +88,22 @@ func (t *WaitForEventTask) Execute(ctx context.Context, request *ExecutionReques
 }
 
 // notifyExternalService sends task information to the configured external service with retry logic
-func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID uuid.UUID, consignmentID *uuid.UUID) {
+func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID uuid.UUID, workflowID uuid.UUID) {
 	const (
 		maxRetries     = 3
 		initialBackoff = 1 * time.Second
 	)
 
 	request := ExternalServiceRequest{
-		ConsignmentID: consignmentID,
-		TaskID:        taskID,
+		WorkflowID: workflowID,
+		TaskID:     taskID,
 	}
 
 	requestBody, err := json.Marshal(request)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to marshal external service request",
 			"taskId", taskID,
-			"consignmentId", consignmentID,
+			"workflowId", workflowID,
 			"error", err)
 		return
 	}
@@ -122,7 +122,7 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID uui
 		case <-ctx.Done():
 			slog.WarnContext(ctx, "context cancelled before external service notification",
 				"taskId", taskID,
-				"consignmentId", consignmentID,
+				"workflowId", workflowID,
 				"attempt", attempt+1)
 			return
 		default:
@@ -133,7 +133,7 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID uui
 		if err != nil {
 			slog.ErrorContext(ctx, "failed to create HTTP request",
 				"taskId", taskID,
-				"consignmentId", consignmentID,
+				"workflowId", workflowID,
 				"url", t.config.ExternalServiceURL,
 				"attempt", attempt+1,
 				"error", err)
@@ -148,7 +148,7 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID uui
 			lastErr = err
 			slog.WarnContext(ctx, "failed to send request to external service",
 				"taskId", taskID,
-				"consignmentId", consignmentID,
+				"workflowId", workflowID,
 				"url", t.config.ExternalServiceURL,
 				"attempt", attempt+1,
 				"maxRetries", maxRetries,
@@ -163,7 +163,7 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID uui
 				case <-ctx.Done():
 					slog.WarnContext(ctx, "context cancelled during external service retry",
 						"taskId", taskID,
-						"consignmentId", consignmentID)
+						"workflowId", workflowID)
 					return
 				}
 			}
@@ -174,7 +174,7 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID uui
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			slog.InfoContext(ctx, "successfully notified external service",
 				"taskId", taskID,
-				"consignmentId", consignmentID,
+				"workflowId", workflowID,
 				"url", t.config.ExternalServiceURL,
 				"status", resp.StatusCode,
 				"attempt", attempt+1)
@@ -186,7 +186,7 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID uui
 			lastErr = fmt.Errorf("external service returned status %d", resp.StatusCode)
 			slog.WarnContext(ctx, "external service returned retryable error status",
 				"taskId", taskID,
-				"consignmentId", consignmentID,
+				"workflowId", workflowID,
 				"url", t.config.ExternalServiceURL,
 				"status", resp.StatusCode,
 				"attempt", attempt+1,
@@ -200,7 +200,7 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID uui
 				case <-ctx.Done():
 					slog.WarnContext(ctx, "context cancelled during external service retry",
 						"taskId", taskID,
-						"consignmentId", consignmentID)
+						"workflowId", workflowID)
 					return
 				}
 			}
@@ -209,7 +209,7 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID uui
 			lastErr = fmt.Errorf("external service returned non-retryable status %d", resp.StatusCode)
 			slog.ErrorContext(ctx, "external service returned non-retryable error status",
 				"taskId", taskID,
-				"consignmentId", consignmentID,
+				"workflowId", workflowID,
 				"url", t.config.ExternalServiceURL,
 				"status", resp.StatusCode)
 			break
@@ -219,7 +219,7 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID uui
 	// All retries exhausted or non-retryable error occurred
 	slog.ErrorContext(ctx, "failed to notify external service after all retries - task may be stuck in IN_PROGRESS",
 		"taskId", taskID,
-		"consignmentId", consignmentID,
+		"workflowId", workflowID,
 		"url", t.config.ExternalServiceURL,
 		"maxRetries", maxRetries,
 		"error", lastErr)

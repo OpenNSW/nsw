@@ -19,13 +19,12 @@ import (
 )
 
 type InitTaskRequest struct {
-	ConsignmentID    *uuid.UUID  `json:"consignment_id"`
-	PreConsignmentID *uuid.UUID  `json:"pre_consignment_id"`
-	TaskID           uuid.UUID   `json:"task_id"`
-	StepID           string      `json:"step_id"`
-	Type             plugin.Type `json:"type"`
-	GlobalState      map[string]any
-	Config           json.RawMessage `json:"config"`
+	TaskID                 uuid.UUID   `json:"task_id"`
+	WorkflowID             uuid.UUID   `json:"workflow_id"`
+	WorkflowNodeTemplateID uuid.UUID   `json:"workflow_node_template_id"`
+	Type                   plugin.Type `json:"type"`
+	GlobalState            map[string]any
+	Config                 json.RawMessage `json:"config"`
 }
 
 type InitTaskResponse struct {
@@ -55,10 +54,9 @@ type TaskManager interface {
 
 // ExecuteTaskRequest represents the request body for task execution
 type ExecuteTaskRequest struct {
-	ConsignmentID    *uuid.UUID               `json:"consignment_id,omitempty"`
-	PreConsignmentID *uuid.UUID               `json:"pre_consignment_id,omitempty"`
-	TaskID           uuid.UUID                `json:"task_id"`
-	Payload          *plugin.ExecutionRequest `json:"payload,omitempty"`
+	WorkflowID uuid.UUID                `json:"workflow_id"`
+	TaskID     uuid.UUID                `json:"task_id"`
+	Payload    *plugin.ExecutionRequest `json:"payload,omitempty"`
 }
 
 type taskManager struct {
@@ -125,7 +123,7 @@ func (tm *taskManager) HandleExecuteTask(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to execute task",
 			"taskID", req.TaskID,
-			"consignmentID", req.ConsignmentID,
+			"workflowID", req.WorkflowID,
 			"error", err)
 		writeJSONError(w, http.StatusInternalServerError, "Failed to execute task: "+err.Error())
 		return
@@ -185,7 +183,7 @@ func (tm *taskManager) InitTask(ctx context.Context, request InitTaskRequest) (*
 		globalStateCopy[k] = v
 	}
 
-	activeTask := container.NewContainer(request.TaskID, request.ConsignmentID, request.PreConsignmentID, request.StepID, globalStateCopy, localStateManager, tm.store, executor)
+	activeTask := container.NewContainer(request.TaskID, request.WorkflowID, request.WorkflowNodeTemplateID, globalStateCopy, localStateManager, tm.store, executor)
 
 	// Convert request.Config to json.RawMessage
 	configBytes, err := json.Marshal(request.Config)
@@ -201,14 +199,13 @@ func (tm *taskManager) InitTask(ctx context.Context, request InitTaskRequest) (*
 
 	// Create a task execution record
 	taskInfo := &persistence.TaskInfo{
-		ID:               activeTask.TaskID,
-		ConsignmentID:    request.ConsignmentID,
-		PreConsignmentID: request.PreConsignmentID,
-		StepID:           request.StepID,
-		Type:             request.Type,
-		State:            plugin.InProgress,
-		Config:           configBytes,
-		GlobalContext:    globalContextBytes,
+		ID:                     activeTask.TaskID,
+		WorkflowID:             request.WorkflowID,
+		WorkflowNodeTemplateID: request.WorkflowNodeTemplateID,
+		Type:                   request.Type,
+		State:                  plugin.InProgress,
+		Config:                 configBytes,
+		GlobalContext:          globalContextBytes,
 	}
 
 	// Store in SQLite
@@ -327,7 +324,7 @@ func (tm *taskManager) getTask(ctx context.Context, taskID uuid.UUID) (*containe
 	}
 
 	activeContainer := container.NewContainer(
-		execution.ID, execution.ConsignmentID, execution.PreConsignmentID, execution.StepID, globalContext, localState, tm.store, executor)
+		execution.ID, execution.WorkflowID, execution.WorkflowNodeTemplateID, globalContext, localState, tm.store, executor)
 
 	// Cache the rebuilt container
 	tm.containerCache.Set(taskID, activeContainer)
