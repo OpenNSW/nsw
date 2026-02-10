@@ -22,7 +22,7 @@ export default function SimpleForm(props: { configs: SimpleFormConfig, pluginSta
     taskId: string
   }>()
   const navigate = useNavigate()
-  const [_, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (data: unknown) => {
     if (!consignmentId || !taskId) {
@@ -50,7 +50,6 @@ export default function SimpleForm(props: { configs: SimpleFormConfig, pluginSta
     } catch (err) {
       console.error('Error submitting form:', err)
       setError('Failed to submit form. Please try again.')
-    } finally {
     }
   }
 
@@ -104,6 +103,11 @@ export default function SimpleForm(props: { configs: SimpleFormConfig, pluginSta
           </div>
         </form>
       </div>
+      {error && (
+        <div className="bg-red-100 text-red-700 rounded-lg p-4 mt-4">
+          <p>{error}</p>
+        </div>
+      )}
     </div>
   )
 }

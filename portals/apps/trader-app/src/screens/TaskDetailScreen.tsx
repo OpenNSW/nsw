@@ -17,32 +17,31 @@ export function TaskDetailScreen() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    async function fetchForm() {
-      if (!consignmentId || !taskId) {
-        setError('Consignment ID or Task ID is missing.')
+    async function fetchTask() {
+      if (!taskId) {
+        setError('Task ID is missing.')
         setLoading(false)
         return
       }
 
       try {
         setLoading(true)
-        // Execute task with FETCH_FORM action to get the form schema
         const response = await getTaskInfo(taskId)
 
         if (response.success && response.data) {
           setRenderInfo(response.data)
         } else {
-          setError('Failed to fetch form.')
+          setError('Failed to fetch task.')
         }
       } catch (err) {
-        setError('Failed to fetch form details.')
+        setError('Failed to fetch task details.')
         console.error(err)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchForm()
+    fetchTask()
   }, [consignmentId, taskId])
 
 
@@ -80,7 +79,7 @@ export function TaskDetailScreen() {
       <div className="p-6">
         <div className="bg-white rounded-lg shadow p-6 text-center">
           <Text size="4" color="gray" weight="medium">
-            Form not found.
+            Task not found.
           </Text>
           <div className="mt-4">
             <Button variant="soft" onClick={() => navigate(-1)}>
