@@ -34,8 +34,8 @@ func (t *WaitForEventTask) Start(ctx context.Context) (*ExecutionResponse, error
 
 // ExternalServiceRequest represents the payload sent to the external service
 type ExternalServiceRequest struct {
-	ConsignmentID uuid.UUID `json:"consignmentId"`
-	TaskID        uuid.UUID `json:"taskId"`
+	ConsignmentID *uuid.UUID `json:"consignmentId,omitempty"`
+	TaskID        uuid.UUID  `json:"taskId"`
 }
 
 func NewWaitForEventTask(raw json.RawMessage) (*WaitForEventTask, error) {
@@ -88,7 +88,7 @@ func (t *WaitForEventTask) Execute(ctx context.Context, request *ExecutionReques
 }
 
 // notifyExternalService sends task information to the configured external service with retry logic
-func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID, consignmentID uuid.UUID) {
+func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID uuid.UUID, consignmentID *uuid.UUID) {
 	const (
 		maxRetries     = 3
 		initialBackoff = 1 * time.Second

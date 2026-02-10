@@ -19,12 +19,13 @@ import (
 )
 
 type InitTaskRequest struct {
-	ConsignmentID uuid.UUID   `json:"consignment_id"`
-	TaskID        uuid.UUID   `json:"task_id"`
-	StepID        string      `json:"step_id"`
-	Type          plugin.Type `json:"type"`
-	GlobalState   map[string]any
-	Config        json.RawMessage `json:"config"`
+	ConsignmentID    *uuid.UUID  `json:"consignment_id"`
+	PreConsignmentID *uuid.UUID  `json:"pre_consignment_id"`
+	TaskID           uuid.UUID   `json:"task_id"`
+	StepID           string      `json:"step_id"`
+	Type             plugin.Type `json:"type"`
+	GlobalState      map[string]any
+	Config           json.RawMessage `json:"config"`
 }
 
 type InitTaskResponse struct {
@@ -54,9 +55,10 @@ type TaskManager interface {
 
 // ExecuteTaskRequest represents the request body for task execution
 type ExecuteTaskRequest struct {
-	ConsignmentID uuid.UUID                `json:"consignment_id"`
-	TaskID        uuid.UUID                `json:"task_id"`
-	Payload       *plugin.ExecutionRequest `json:"payload,omitempty"`
+	ConsignmentID    *uuid.UUID               `json:"consignment_id,omitempty"`
+	PreConsignmentID *uuid.UUID               `json:"pre_consignment_id,omitempty"`
+	TaskID           uuid.UUID                `json:"task_id"`
+	Payload          *plugin.ExecutionRequest `json:"payload,omitempty"`
 }
 
 type taskManager struct {
@@ -107,10 +109,6 @@ func (tm *taskManager) HandleExecuteTask(w http.ResponseWriter, r *http.Request)
 	// Validate required fields
 	if req.TaskID == uuid.Nil {
 		writeJSONError(w, http.StatusBadRequest, "task_id is required")
-		return
-	}
-	if req.ConsignmentID == uuid.Nil {
-		writeJSONError(w, http.StatusBadRequest, "consignment_id is required")
 		return
 	}
 
@@ -187,7 +185,7 @@ func (tm *taskManager) InitTask(ctx context.Context, request InitTaskRequest) (*
 		globalStateCopy[k] = v
 	}
 
-	activeTask := container.NewContainer(request.TaskID, request.ConsignmentID, request.StepID, globalStateCopy, localStateManager, tm.store, executor)
+	activeTask := container.NewContainer(request.TaskID, request.ConsignmentID, request.PreConsignmentID, request.StepID, globalStateCopy, localStateManager, tm.store, executor)
 
 	// Convert request.Config to json.RawMessage
 	configBytes, err := json.Marshal(request.Config)
@@ -203,13 +201,14 @@ func (tm *taskManager) InitTask(ctx context.Context, request InitTaskRequest) (*
 
 	// Create a task execution record
 	taskInfo := &persistence.TaskInfo{
-		ID:            activeTask.TaskID,
-		ConsignmentID: request.ConsignmentID,
-		StepID:        request.StepID,
-		Type:          request.Type,
-		State:         plugin.InProgress,
-		Config:        configBytes,
-		GlobalContext: globalContextBytes,
+		ID:               activeTask.TaskID,
+		ConsignmentID:    request.ConsignmentID,
+		PreConsignmentID: request.PreConsignmentID,
+		StepID:           request.StepID,
+		Type:             request.Type,
+		State:            plugin.InProgress,
+		Config:           configBytes,
+		GlobalContext:    globalContextBytes,
 	}
 
 	// Store in SQLite
@@ -328,7 +327,7 @@ func (tm *taskManager) getTask(ctx context.Context, taskID uuid.UUID) (*containe
 	}
 
 	activeContainer := container.NewContainer(
-		execution.ID, execution.ConsignmentID, execution.StepID, globalContext, localState, tm.store, executor)
+		execution.ID, execution.ConsignmentID, execution.PreConsignmentID, execution.StepID, globalContext, localState, tm.store, executor)
 
 	// Cache the rebuilt container
 	tm.containerCache.Set(taskID, activeContainer)

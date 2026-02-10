@@ -13,17 +13,18 @@ import (
 
 // TaskInfo represents a task execution record in the database
 type TaskInfo struct {
-	ID            uuid.UUID       `gorm:"type:uuid;column:id;not null;primaryKey" json:"id"`
-	StepID        string          `gorm:"type:varchar(50);column:step_id;not null" json:"stepId"`
-	ConsignmentID uuid.UUID       `gorm:"type:uuid;column:consignment_id;not null;index" json:"consignmentId"`
-	Type          plugin.Type     `gorm:"type:varchar(50);column:type;not null" json:"type"`
-	State         plugin.State    `gorm:"type:varchar(50);column:state;not null" json:"state"`      // Container-level state (lifecycle)
-	PluginState   string          `gorm:"type:varchar(100);column:plugin_state" json:"pluginState"` // Plugin-level state (business logic)
-	Config        json.RawMessage `gorm:"type:jsonb;column:config;serializer:json" json:"config"`
-	LocalState    json.RawMessage `gorm:"type:jsonb;column:local_state;serializer:json" json:"localState"`
-	GlobalContext json.RawMessage `gorm:"type:jsonb;column:global_context;serializer:json" json:"globalContext"`
-	CreatedAt     time.Time       `gorm:"type:timestamptz;column:created_at;not null" json:"createdAt"`
-	UpdatedAt     time.Time       `gorm:"type:timestamptz;column:updated_at;not null" json:"updatedAt"`
+	ID               uuid.UUID       `gorm:"type:uuid;column:id;not null;primaryKey" json:"id"`
+	StepID           string          `gorm:"type:varchar(50);column:step_id;not null" json:"stepId"`
+	ConsignmentID    *uuid.UUID      `gorm:"type:uuid;column:consignment_id;index" json:"consignmentId"`
+	PreConsignmentID *uuid.UUID      `gorm:"type:uuid;column:pre_consignment_id;index" json:"preConsignmentId"`
+	Type             plugin.Type     `gorm:"type:varchar(50);column:type;not null" json:"type"`
+	State            plugin.State    `gorm:"type:varchar(50);column:state;not null" json:"state"`      // Container-level state (lifecycle)
+	PluginState      string          `gorm:"type:varchar(100);column:plugin_state" json:"pluginState"` // Plugin-level state (business logic)
+	Config           json.RawMessage `gorm:"type:jsonb;column:config;serializer:json" json:"config"`
+	LocalState       json.RawMessage `gorm:"type:jsonb;column:local_state;serializer:json" json:"localState"`
+	GlobalContext    json.RawMessage `gorm:"type:jsonb;column:global_context;serializer:json" json:"globalContext"`
+	CreatedAt        time.Time       `gorm:"type:timestamptz;column:created_at;not null" json:"createdAt"`
+	UpdatedAt        time.Time       `gorm:"type:timestamptz;column:updated_at;not null" json:"updatedAt"`
 }
 
 // TableName returns the table name for TaskInfo

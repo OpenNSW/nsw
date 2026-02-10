@@ -308,7 +308,7 @@ func (s *SimpleForm) handleSubmitForm(ctx context.Context, content interface{}) 
 		requestPayload := map[string]any{
 			"data":          formData,
 			"taskId":        s.api.GetTaskID().String(),
-			"consignmentId": s.api.GetConsignmentID().String(),
+			"consignmentId": s.api.GetConsignmentID(),
 			"serviceUrl":    strings.TrimRight(s.cfg.Server.ServiceURL, "/") + TasksAPIPath,
 		}
 

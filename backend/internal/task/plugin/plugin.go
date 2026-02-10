@@ -7,16 +7,17 @@ import (
 )
 
 type TaskInfo struct {
-	Type          Type
-	State         State
-	TaskID        uuid.UUID
-	ConsignmentID uuid.UUID
+	Type             Type
+	State            State
+	TaskID           uuid.UUID
+	ConsignmentID    *uuid.UUID
+	PreConsignmentID *uuid.UUID
 }
 
 // API will be implemented by the TaskContainer, which provides controlled access to Generic Resources
 type API interface {
 	GetTaskID() uuid.UUID
-	GetConsignmentID() uuid.UUID
+	GetConsignmentID() *uuid.UUID
 	GetTaskState() State
 	SetTaskState(state State)
 	ReadFromGlobalStore(key string) (any, bool)

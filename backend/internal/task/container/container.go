@@ -11,16 +11,17 @@ import (
 )
 
 type Container struct {
-	TaskID        uuid.UUID
-	ConsignmentID uuid.UUID
-	StepID        string
-	State         plugin.State
-	Executable    plugin.Plugin
-	globalState   map[string]any
-	localState    persistence.Manager
-	taskStore     persistence.TaskStoreInterface
-	pluginState   string // Cache for plugin-level business state
-	mu            sync.RWMutex
+	TaskID           uuid.UUID
+	ConsignmentID    *uuid.UUID
+	PreConsignmentID *uuid.UUID
+	StepID           string
+	State            plugin.State
+	Executable       plugin.Plugin
+	globalState      map[string]any
+	localState       persistence.Manager
+	taskStore        persistence.TaskStoreInterface
+	pluginState      string // Cache for plugin-level business state
+	mu               sync.RWMutex
 }
 
 func (c *Container) GetTaskState() plugin.State {
@@ -51,7 +52,7 @@ func (c *Container) GetTaskID() uuid.UUID {
 	return c.TaskID
 }
 
-func (c *Container) GetConsignmentID() uuid.UUID {
+func (c *Container) GetConsignmentID() *uuid.UUID {
 	return c.ConsignmentID
 }
 
@@ -91,15 +92,16 @@ func (c *Container) SetPluginState(state string) error {
 }
 
 // NewContainer creates a new container for a task with a given Executable plugin
-func NewContainer(taskId uuid.UUID, consignmentId uuid.UUID, stepId string, globalStore map[string]any, localStore persistence.Manager, taskStore persistence.TaskStoreInterface, executable plugin.Plugin) *Container {
+func NewContainer(taskId uuid.UUID, consignmentId *uuid.UUID, preConsignmentId *uuid.UUID, stepId string, globalStore map[string]any, localStore persistence.Manager, taskStore persistence.TaskStoreInterface, executable plugin.Plugin) *Container {
 	c := &Container{
-		TaskID:        taskId,
-		ConsignmentID: consignmentId,
-		StepID:        stepId,
-		Executable:    executable,
-		globalState:   globalStore,
-		localState:    localStore,
-		taskStore:     taskStore,
+		TaskID:           taskId,
+		ConsignmentID:    consignmentId,
+		PreConsignmentID: preConsignmentId,
+		StepID:           stepId,
+		Executable:       executable,
+		globalState:      globalStore,
+		localState:       localStore,
+		taskStore:        taskStore,
 	}
 
 	// Load plugin state from database
