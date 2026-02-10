@@ -32,7 +32,7 @@ CREATE INDEX IF NOT EXISTS idx_pre_consignment_templates_depends_on ON pre_consi
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS pre_consignments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    trade_id VARCHAR(255) NOT NULL,
+    trader_id VARCHAR(255) NOT NULL,
     pre_consignment_template_id UUID NOT NULL,
     state VARCHAR(50) NOT NULL CHECK (state IN ('LOCKED', 'READY', 'IN_PROGRESS', 'COMPLETED')),
     trader_context JSONB NOT NULL DEFAULT '{}',
@@ -46,10 +46,10 @@ CREATE TABLE IF NOT EXISTS pre_consignments (
 );
 
 -- Indexes for pre_consignments
-CREATE INDEX IF NOT EXISTS idx_pre_consignments_trade_id ON pre_consignments(trade_id);
+CREATE INDEX IF NOT EXISTS idx_pre_consignments_trader_id ON pre_consignments(trader_id);
 CREATE INDEX IF NOT EXISTS idx_pre_consignments_template_id ON pre_consignments(pre_consignment_template_id);
 CREATE INDEX IF NOT EXISTS idx_pre_consignments_state ON pre_consignments(state);
-CREATE INDEX IF NOT EXISTS idx_pre_consignments_trade_id_state ON pre_consignments(trade_id, state);
+CREATE INDEX IF NOT EXISTS idx_pre_consignments_trader_id_state ON pre_consignments(trader_id, state);
 
 -- ============================================================================
 -- Alter: workflow_nodes
@@ -91,13 +91,21 @@ ALTER TABLE task_infos
 -- Index for pre_consignment_id lookups
 CREATE INDEX IF NOT EXISTS idx_task_infos_pre_consignment_id ON task_infos(pre_consignment_id);
 
+-- Ensure exactly one of consignment_id or pre_consignment_id is set
+ALTER TABLE task_infos
+    ADD CONSTRAINT chk_task_infos_parent_exclusive
+        CHECK (
+            (consignment_id IS NOT NULL AND pre_consignment_id IS NULL) OR
+            (consignment_id IS NULL AND pre_consignment_id IS NOT NULL)
+        );
+
 -- ============================================================================
 -- Comments for documentation
 -- ============================================================================
 COMMENT ON TABLE pre_consignment_templates IS 'Templates defining pre-consignment workflows that traders complete before creating consignments';
 COMMENT ON TABLE pre_consignments IS 'Pre-consignment workflow instances created by traders';
 COMMENT ON COLUMN pre_consignment_templates.depends_on IS 'JSONB array of pre-consignment template IDs that must be completed before this template can be initiated';
-COMMENT ON COLUMN pre_consignments.trade_id IS 'Identifier for the trader who owns this pre-consignment';
+COMMENT ON COLUMN pre_consignments.trader_id IS 'Identifier for the trader who owns this pre-consignment';
 COMMENT ON COLUMN pre_consignments.trader_context IS 'JSONB context specific to the trader, accumulated during workflow execution';
 COMMENT ON COLUMN workflow_nodes.pre_consignment_id IS 'Reference to the pre-consignment this node belongs to (mutually exclusive with consignment_id)';
 COMMENT ON COLUMN task_infos.pre_consignment_id IS 'Reference to the pre-consignment this task belongs to (mutually exclusive with consignment_id)';

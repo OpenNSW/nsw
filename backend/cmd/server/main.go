@@ -91,7 +91,6 @@ func main() {
 	mux.HandleFunc("GET /api/v1/consignments", wm.HandleGetConsignmentsByTraderID)
 
 	// Pre-consignment routes
-	mux.HandleFunc("GET /api/v1/pre-consignment/templates", wm.HandleGetPreConsignmentTemplates)
 	mux.HandleFunc("POST /api/v1/pre-consignments", wm.HandleCreatePreConsignment)
 	mux.HandleFunc("GET /api/v1/pre-consignments/{preConsignmentId}", wm.HandleGetPreConsignmentByID)
 	mux.HandleFunc("GET /api/v1/pre-consignments", wm.HandleGetPreConsignmentsByTraderID)

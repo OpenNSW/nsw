@@ -22,15 +22,15 @@ func NewPreConsignmentRouter(pcs *service.PreConsignmentService) *PreConsignment
 	}
 }
 
-// HandleGetPreConsignmentTemplates handles GET /api/v1/pre-consignment/templates?traderId={traderId}
-func (r *PreConsignmentRouter) HandleGetPreConsignmentTemplates(w http.ResponseWriter, req *http.Request) {
+// HandleGetTraderPreConsignments handles GET /api/v1/pre-consignments?traderId={traderId}
+func (r *PreConsignmentRouter) HandleGetTraderPreConsignments(w http.ResponseWriter, req *http.Request) {
 	traderID := req.URL.Query().Get("traderId")
 	if traderID == "" {
 		http.Error(w, "traderId query parameter is required", http.StatusBadRequest)
 		return
 	}
 
-	templates, err := r.pcs.GetPreConsignmentTemplates(req.Context(), traderID)
+	templates, err := r.pcs.GetTraderPreConsignments(req.Context(), traderID, nil, nil)
 	if err != nil {
 		http.Error(w, "failed to retrieve pre-consignment templates: "+err.Error(), http.StatusInternalServerError)
 		return

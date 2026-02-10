@@ -127,6 +127,10 @@ func (m *Manager) StartWorkflowNodeUpdateListener() {
 						"extendedState", update.ExtendedState,
 						"globalContext", newGlobalContext,
 						"error", err)
+					// TODO: Implement retry mechanism with exponential backoff
+					// - Store failed update in persistent queue (failed_workflow_updates table)
+					// - Add background worker to retry failed updates periodically
+					// - Implement max retry limits and dead-letter queue for permanent failures
 					continue
 				}
 
@@ -202,11 +206,6 @@ func (m *Manager) HandleGetConsignmentByID(w http.ResponseWriter, r *http.Reques
 	m.consignmentRouter.HandleGetConsignmentByID(w, r)
 }
 
-// HandleGetPreConsignmentTemplates handles GET /api/v1/pre-consignment/templates?traderId={traderId}
-func (m *Manager) HandleGetPreConsignmentTemplates(w http.ResponseWriter, r *http.Request) {
-	m.preConsignmentRouter.HandleGetPreConsignmentTemplates(w, r)
-}
-
 // HandleCreatePreConsignment handles POST /api/v1/pre-consignments
 func (m *Manager) HandleCreatePreConsignment(w http.ResponseWriter, r *http.Request) {
 	m.preConsignmentRouter.HandleCreatePreConsignment(w, r)
@@ -214,7 +213,7 @@ func (m *Manager) HandleCreatePreConsignment(w http.ResponseWriter, r *http.Requ
 
 // HandleGetPreConsignmentsByTraderID handles GET /api/v1/pre-consignments?traderId={traderId}
 func (m *Manager) HandleGetPreConsignmentsByTraderID(w http.ResponseWriter, r *http.Request) {
-	m.preConsignmentRouter.HandleGetPreConsignmentsByTraderID(w, r)
+	m.preConsignmentRouter.HandleGetTraderPreConsignments(w, r)
 }
 
 // HandleGetPreConsignmentByID handles GET /api/v1/pre-consignments/{preConsignmentId}
