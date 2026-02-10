@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	taskManager "github.com/OpenNSW/nsw/internal/task/manager"
@@ -162,18 +163,31 @@ func (m *Manager) StopWorkflowNodeUpdateListener() {
 // Returns an error if any task registration fails
 func (m *Manager) registerWorkflowNodesWithTaskManager(workflowNodes []model.WorkflowNode, globalContext map[string]any) error {
 	for _, node := range workflowNodes {
+		// Validate that exactly one of ConsignmentID or PreConsignmentID is set
+		if (node.ConsignmentID == nil && node.PreConsignmentID == nil) ||
+			(node.ConsignmentID != nil && node.PreConsignmentID != nil) {
+			return fmt.Errorf("workflow node %s must have exactly one of consignment_id or pre_consignment_id set", node.ID)
+		}
+
+		// Determine the WorkflowID (either consignment_id or pre_consignment_id)
+		var workflowID uuid.UUID
+		if node.ConsignmentID != nil {
+			workflowID = *node.ConsignmentID
+		} else {
+			workflowID = *node.PreConsignmentID
+		}
+
 		nodeTemplate, err := m.templateService.GetWorkflowNodeTemplateByID(m.ctx, node.WorkflowNodeTemplateID)
 		if err != nil {
 			return fmt.Errorf("failed to get workflow node template %s: %w", node.WorkflowNodeTemplateID, err)
 		}
 		initTaskRequest := taskManager.InitTaskRequest{
-			ConsignmentID:    node.ConsignmentID,
-			PreConsignmentID: node.PreConsignmentID,
-			TaskID:           node.ID,
-			StepID:           node.WorkflowNodeTemplateID.String(),
-			Type:             nodeTemplate.Type,
-			GlobalState:      globalContext,
-			Config:           nodeTemplate.Config,
+			TaskID:                 node.ID,
+			WorkflowID:             workflowID,
+			WorkflowNodeTemplateID: node.WorkflowNodeTemplateID,
+			Type:                   nodeTemplate.Type,
+			GlobalState:            globalContext,
+			Config:                 nodeTemplate.Config,
 		}
 		response, err := m.tm.InitTask(m.ctx, initTaskRequest)
 		if err != nil {
