@@ -43,6 +43,10 @@ func (c *Container) Start(ctx context.Context) (*plugin.ExecutionResponse, error
 	return c.Executable.Start(ctx)
 }
 
+func (c *Container) GetRenderInfo(ctx context.Context) (*plugin.ApiResponse, error) {
+	return c.Executable.GetRenderInfo(ctx)
+}
+
 func (c *Container) Execute(ctx context.Context, request *plugin.ExecutionRequest) (*plugin.ExecutionResponse, error) {
 	return c.Executable.Execute(ctx, request)
 }

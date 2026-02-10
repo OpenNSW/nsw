@@ -92,6 +92,7 @@ func main() {
 
 	// V1 API routes (new refactored architecture)
 	mux.HandleFunc("POST /api/v1/tasks", tm.HandleExecuteTask)
+	mux.HandleFunc("GET /api/v1/tasks/{taskId}", tm.HandleGetTask)
 	mux.HandleFunc("GET /api/v1/hscodes", wm.HandleGetAllHSCodes)
 	mux.HandleFunc("POST /api/v1/consignments", wm.HandleCreateConsignment)
 	mux.HandleFunc("GET /api/v1/consignments/{id}", wm.HandleGetConsignmentByID)

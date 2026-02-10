@@ -20,7 +20,7 @@ import (
 
 // SimpleFormAction represents the action to perform on the form
 const (
-	SimpleFormActionFetch     = "FETCH_FORM"
+	SimpleFormActionDraft     = "DRAFT_FORM"
 	SimpleFormActionSubmit    = "SUBMIT_FORM"
 	SimpleFormActionOgaVerify = "OGA_VERIFICATION"
 )
@@ -65,6 +65,58 @@ type SimpleForm struct {
 	formService form.FormService
 }
 
+func (s *SimpleForm) GetRenderInfo(ctx context.Context) (*ApiResponse, error) {
+
+	err := s.populateFromRegistry(ctx)
+
+	if err != nil {
+		return &ApiResponse{
+			Success: false,
+			Error: &ApiError{
+				Code:    "FETCH_FORM_FAILED",
+				Message: "Failed to retrieve form definition.",
+			},
+		}, err
+	}
+
+	pluginState := s.api.GetPluginState()
+	ogaResponse, _ := s.api.ReadFromLocalStore("ogaResponse")
+
+	var prepopulatedFormData any
+	// Prepopulate form data from global context
+	if pluginState == string(TraderSavedAsDraft) || pluginState == string(Initialized) {
+		prepopulatedFormData, err = s.prepopulateFormData(ctx, s.config.FormData)
+	} else {
+		prepopulatedFormData, err = s.api.ReadFromLocalStore("trader:submission")
+	}
+
+	if err != nil {
+		slog.Warn("failed to prepopulate form data from global context",
+			"formId", s.config.FormID,
+			"error", err)
+		// Continue with original form data if prepopulation fails
+		prepopulatedFormData = s.config.FormData
+	}
+
+	return &ApiResponse{
+		Success: true,
+		Data: GetRenderInfoResponse{
+			Type:        TaskTypeSimpleForm,
+			State:       s.api.GetTaskState(),
+			PluginState: pluginState,
+			Content: map[string]any{
+				"traderFormInfo": map[string]any{
+					"title":    s.config.Title,
+					"uiSchema": s.config.UISchema,
+					"formData": prepopulatedFormData,
+					"schema":   s.config.Schema,
+				},
+				"ogaResponse": ogaResponse,
+			},
+		},
+	}, nil
+}
+
 func NewSimpleForm(configJSON json.RawMessage, cfg *config.Config, formService form.FormService) (*SimpleForm, error) {
 
 	var formConfig Config
@@ -106,15 +158,11 @@ func (s *SimpleForm) Start(ctx context.Context) (*ExecutionResponse, error) {
 }
 
 func (s *SimpleForm) Execute(ctx context.Context, request *ExecutionRequest) (*ExecutionResponse, error) {
-	// Default action is FETCH_FORM
 	action := request.Action
-	if action == "" {
-		action = SimpleFormActionFetch
-	}
 
 	switch action {
-	case SimpleFormActionFetch:
-		return s.handleFetchForm(ctx)
+	case SimpleFormActionDraft:
+		return s.handleSaveAsDraft(ctx, request.Content)
 	case SimpleFormActionSubmit:
 		return s.handleSubmitForm(ctx, request.Content)
 	case SimpleFormActionOgaVerify:
@@ -122,6 +170,36 @@ func (s *SimpleForm) Execute(ctx context.Context, request *ExecutionRequest) (*E
 	default:
 		return nil, fmt.Errorf("unknown action: %s", action)
 	}
+}
+
+func (s *SimpleForm) handleSaveAsDraft(_ context.Context, content any) (*ExecutionResponse, error) {
+	err := s.api.WriteToLocalStore("trader:draft", content)
+	if err != nil {
+		return &ExecutionResponse{
+			Message: fmt.Sprintf("Failed to save draft: %v", err),
+			ApiResponse: &ApiResponse{
+				Success: false,
+				Error: &ApiError{
+					Code:    "SAVE_DRAFT_FAILED",
+					Message: "Failed to save draft.",
+				},
+			},
+		}, err
+	}
+
+	pluginState := string(TraderSavedAsDraft)
+	if err := s.api.SetPluginState(pluginState); err != nil {
+		slog.Error("failed to set plugin state to SAVED_AS_DRAFT", "error", err)
+	}
+
+	newState := InProgress
+
+	return &ExecutionResponse{
+		NewState: &newState,
+		ApiResponse: &ApiResponse{
+			Success: true,
+		},
+	}, nil
 }
 
 // populateFromRegistry fills in the form definition from the registry based on formId
@@ -213,23 +291,8 @@ func (s *SimpleForm) handleSubmitForm(ctx context.Context, content interface{}) 
 		}, err
 	}
 
-	// Convert formData to JSON for storage
-	formDataJSON, err := json.Marshal(formData)
-	if err != nil {
-		return &ExecutionResponse{
-			Message: fmt.Sprintf("Failed to process form data: %v", err),
-			ApiResponse: &ApiResponse{
-				Success: false,
-				Error: &ApiError{
-					Code:    "INVALID_FORM_DATA",
-					Message: "Failed to process form data.",
-				},
-			},
-		}, err
-	}
-
 	// Store form data in local state
-	if err := s.api.WriteToLocalStore("formData", formDataJSON); err != nil {
+	if err := s.api.WriteToLocalStore("trader:submission", formData); err != nil {
 		slog.Warn("failed to write form data to local store", "error", err)
 	}
 
@@ -395,6 +458,12 @@ func (s *SimpleForm) handleOgaVerification(_ context.Context, content interface{
 		}, err
 	}
 
+	err = s.api.WriteToLocalStore("ogaResponse", verificationData)
+
+	if err != nil {
+		return nil, err
+	}
+
 	// Update plugin state to OGA_REVIEWED (common for both approved and rejected)
 	if err := s.api.SetPluginState(string(OGAReviewed)); err != nil {
 		slog.Error("failed to set plugin state to OGA_REVIEWED", "error", err)
@@ -457,7 +526,7 @@ func (s *SimpleForm) prepopulateFormData(ctx context.Context, existingFormData j
 	formData := make(map[string]any)
 
 	err := jsonform.Traverse(&parsedSchema, func(path string, node *jsonform.JSONSchema, parent *jsonform.JSONSchema) error {
-		// Check if this field should be read from global context
+		// Check if this field should be read from a global context
 		if node.XGlobalContext != nil &&
 			node.XGlobalContext.ReadFrom != nil &&
 			strings.TrimSpace(*node.XGlobalContext.ReadFrom) != "" {

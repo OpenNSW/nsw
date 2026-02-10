@@ -22,11 +22,15 @@ type WaitForEventTask struct {
 	config WaitForEventConfig
 }
 
+func (t *WaitForEventTask) GetRenderInfo(_ context.Context) (*ApiResponse, error) {
+	return &ApiResponse{Success: true}, nil
+}
+
 func (t *WaitForEventTask) Init(api API) {
 	t.api = api
 }
 
-func (t *WaitForEventTask) Start(ctx context.Context) (*ExecutionResponse, error) {
+func (t *WaitForEventTask) Start(_ context.Context) (*ExecutionResponse, error) {
 	return &ExecutionResponse{
 		Message: "WAIT_FOR_EVENT task started successfully.",
 	}, nil
@@ -50,7 +54,7 @@ func NewWaitForEventTask(raw json.RawMessage) (*WaitForEventTask, error) {
 	}, nil
 }
 
-func (t *WaitForEventTask) Execute(ctx context.Context, request *ExecutionRequest) (*ExecutionResponse, error) {
+func (t *WaitForEventTask) Execute(_ context.Context, request *ExecutionRequest) (*ExecutionResponse, error) {
 	// Handle completion action from external service callback
 	if request != nil && request.Action == "complete" {
 		completedState := Completed

@@ -50,6 +50,9 @@ type TaskManager interface {
 
 	// HandleExecuteTask is an HTTP handler for executing a task via POST request
 	HandleExecuteTask(w http.ResponseWriter, r *http.Request)
+
+	// HandleGetTask is an HTTP handler for retrieving a task via GET request
+	HandleGetTask(w http.ResponseWriter, r *http.Request)
 }
 
 // ExecuteTaskRequest represents the request body for task execution
@@ -89,6 +92,32 @@ func NewTaskManager(db *gorm.DB, completionChan chan<- WorkflowManagerNotificati
 		config:         cfg,
 		containerCache: cache,
 	}, nil
+}
+
+// HandleGetTask is an HTTP handler for fetching task information via GET request
+func (tm *taskManager) HandleGetTask(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	taskId := r.PathValue("taskId")
+
+	if taskId == "" {
+		http.Error(w, "taskId is required", http.StatusBadRequest)
+		return
+	}
+
+	ctx := r.Context()
+
+	activeTask, err := tm.getTask(ctx, uuid.MustParse(taskId))
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get task: %v", err), http.StatusNotFound)
+	}
+
+	result, err := activeTask.GetRenderInfo(ctx)
+
+	writeJSONResponse(w, http.StatusOK, result)
 }
 
 // HandleExecuteTask is an HTTP handler for executing a task via POST request

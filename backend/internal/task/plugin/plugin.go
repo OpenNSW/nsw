@@ -44,6 +44,13 @@ type ApiResponse struct {
 	Error   *ApiError `json:"error,omitempty"` // Error details if execution failed
 }
 
+type GetRenderInfoResponse struct {
+	Type        Type   `json:"type"`
+	PluginState string `json:"pluginState"`
+	State       State  `json:"state"`
+	Content     any    `json:"content"`
+}
+
 type ExecutionResponse struct {
 	NewState            *State
 	ExtendedState       *string
@@ -55,5 +62,6 @@ type ExecutionResponse struct {
 type Plugin interface {
 	Init(api API)
 	Start(ctx context.Context) (*ExecutionResponse, error)
+	GetRenderInfo(ctx context.Context) (*ApiResponse, error)
 	Execute(ctx context.Context, request *ExecutionRequest) (*ExecutionResponse, error)
 }
