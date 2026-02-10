@@ -306,10 +306,10 @@ func (s *SimpleForm) handleSubmitForm(ctx context.Context, content interface{}) 
 	// If submissionUrl is provided, send the form data to that URL
 	if s.config.SubmissionURL != "" {
 		requestPayload := map[string]any{
-			"data":          formData,
-			"taskId":        s.api.GetTaskID().String(),
-			"consignmentId": s.api.GetConsignmentID(),
-			"serviceUrl":    strings.TrimRight(s.cfg.Server.ServiceURL, "/") + TasksAPIPath,
+			"data":       formData,
+			"taskId":     s.api.GetTaskID().String(),
+			"workflowId": s.api.GetWorkflowID().String(),
+			"serviceUrl": strings.TrimRight(s.cfg.Server.ServiceURL, "/") + TasksAPIPath,
 		}
 
 		responseData, err := s.sendFormSubmission(s.config.SubmissionURL, requestPayload)
