@@ -35,6 +35,16 @@ func (s *TemplateService) GetWorkflowTemplateByHSCodeIDAndFlow(ctx context.Conte
 	return &workflowTemplate, nil
 }
 
+// GetWorkflowTemplateByID retrieves a workflow template by its ID.
+func (s *TemplateService) GetWorkflowTemplateByID(ctx context.Context, id uuid.UUID) (*model.WorkflowTemplate, error) {
+	var workflowTemplate model.WorkflowTemplate
+	result := s.db.WithContext(ctx).First(&workflowTemplate, "id = ?", id)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &workflowTemplate, nil
+}
+
 // GetWorkflowNodeTemplatesByIDs retrieves workflow node templates by their IDs.
 func (s *TemplateService) GetWorkflowNodeTemplatesByIDs(ctx context.Context, ids []uuid.UUID) ([]model.WorkflowNodeTemplate, error) {
 	var templates []model.WorkflowNodeTemplate

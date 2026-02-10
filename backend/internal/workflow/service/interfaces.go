@@ -15,6 +15,9 @@ type TemplateProvider interface {
 	// GetWorkflowTemplateByHSCodeIDAndFlow retrieves the workflow template associated with a given HS code and consignment flow.
 	GetWorkflowTemplateByHSCodeIDAndFlow(ctx context.Context, hsCodeID uuid.UUID, flow model.ConsignmentFlow) (*model.WorkflowTemplate, error)
 
+	// GetWorkflowTemplateByID retrieves a workflow template by its ID.
+	GetWorkflowTemplateByID(ctx context.Context, id uuid.UUID) (*model.WorkflowTemplate, error)
+
 	// GetWorkflowNodeTemplatesByIDs retrieves workflow node templates by their IDs.
 	GetWorkflowNodeTemplatesByIDs(ctx context.Context, ids []uuid.UUID) ([]model.WorkflowNodeTemplate, error)
 
@@ -45,6 +48,12 @@ type WorkflowNodeRepository interface {
 
 	// CountIncompleteNodesByConsignmentID counts the number of incomplete workflow nodes for a given consignment.
 	CountIncompleteNodesByConsignmentID(ctx context.Context, tx *gorm.DB, consignmentID uuid.UUID) (int64, error)
+
+	// GetWorkflowNodesByPreConsignmentIDInTx retrieves all workflow nodes associated with a given pre-consignment ID within a transaction.
+	GetWorkflowNodesByPreConsignmentIDInTx(ctx context.Context, tx *gorm.DB, preConsignmentID uuid.UUID) ([]model.WorkflowNode, error)
+
+	// CountIncompleteNodesByPreConsignmentID counts the number of incomplete workflow nodes for a given pre-consignment.
+	CountIncompleteNodesByPreConsignmentID(ctx context.Context, tx *gorm.DB, preConsignmentID uuid.UUID) (int64, error)
 }
 
 // Compile-time interface compliance checks

@@ -24,6 +24,13 @@ type StateTransitionResult struct {
 	AllNodesCompleted bool
 }
 
+// ParentRef identifies the parent entity (consignment or pre-consignment) that owns workflow nodes.
+// Exactly one of ConsignmentID or PreConsignmentID must be set.
+type ParentRef struct {
+	ConsignmentID    *uuid.UUID
+	PreConsignmentID *uuid.UUID
+}
+
 // WorkflowNodeStateMachine handles workflow node state transitions and dependency propagation.
 // It encapsulates the business logic for transitioning nodes between states and
 // automatically unlocking dependent nodes when their dependencies are satisfied.
@@ -69,10 +76,10 @@ func (sm *WorkflowNodeStateMachine) TransitionToCompleted(
 	node.ExtendedState = updateReq.ExtendedState
 	nodesToUpdate := []model.WorkflowNode{*node}
 
-	// Get all nodes for this consignment to check dependencies
-	allNodes, err := sm.nodeRepo.GetWorkflowNodesByConsignmentIDInTx(ctx, tx, node.ConsignmentID)
+	// Get all sibling nodes to check dependencies
+	allNodes, err := sm.getSiblingNodes(ctx, tx, node)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve workflow nodes for consignment %s: %w", node.ConsignmentID, err)
+		return nil, fmt.Errorf("failed to retrieve sibling workflow nodes: %w", err)
 	}
 
 	// Find and unlock dependent nodes
@@ -84,7 +91,7 @@ func (sm *WorkflowNodeStateMachine) TransitionToCompleted(
 
 	// Persist the updates
 	if err := sm.nodeRepo.UpdateWorkflowNodesInTx(ctx, tx, nodesToUpdate); err != nil {
-		return nil, fmt.Errorf("failed to update workflow nodes for consignment %s: %w", node.ConsignmentID, err)
+		return nil, fmt.Errorf("failed to update workflow nodes: %w", err)
 	}
 
 	// Check if all nodes are completed
@@ -157,10 +164,11 @@ func (sm *WorkflowNodeStateMachine) TransitionToInProgress(
 
 // InitializeNodesFromTemplates creates workflow nodes from templates and sets up their dependencies.
 // Nodes without dependencies are automatically set to READY state.
+// The parentRef determines whether nodes belong to a consignment or pre-consignment.
 func (sm *WorkflowNodeStateMachine) InitializeNodesFromTemplates(
 	ctx context.Context,
 	tx *gorm.DB,
-	consignmentID uuid.UUID,
+	parentRef ParentRef,
 	nodeTemplates []model.WorkflowNodeTemplate,
 ) ([]model.WorkflowNode, []model.WorkflowNode, error) {
 	if len(nodeTemplates) == 0 {
@@ -171,7 +179,8 @@ func (sm *WorkflowNodeStateMachine) InitializeNodesFromTemplates(
 	workflowNodes := make([]model.WorkflowNode, 0, len(nodeTemplates))
 	for _, template := range nodeTemplates {
 		workflowNode := model.WorkflowNode{
-			ConsignmentID:          consignmentID,
+			ConsignmentID:          parentRef.ConsignmentID,
+			PreConsignmentID:       parentRef.PreConsignmentID,
 			WorkflowNodeTemplateID: template.ID,
 			State:                  model.WorkflowNodeStateLocked,
 			DependsOn:              model.UUIDArray(make([]uuid.UUID, 0)),
@@ -349,4 +358,15 @@ func (sm *WorkflowNodeStateMachine) sortNodesByID(nodes []model.WorkflowNode) {
 		// Compare UUIDs directly as byte arrays for better performance
 		return bytes.Compare(nodes[i].ID[:], nodes[j].ID[:]) < 0
 	})
+}
+
+// getSiblingNodes retrieves all workflow nodes that share the same parent (consignment or pre-consignment).
+func (sm *WorkflowNodeStateMachine) getSiblingNodes(ctx context.Context, tx *gorm.DB, node *model.WorkflowNode) ([]model.WorkflowNode, error) {
+	if node.ConsignmentID != nil {
+		return sm.nodeRepo.GetWorkflowNodesByConsignmentIDInTx(ctx, tx, *node.ConsignmentID)
+	}
+	if node.PreConsignmentID != nil {
+		return sm.nodeRepo.GetWorkflowNodesByPreConsignmentIDInTx(ctx, tx, *node.PreConsignmentID)
+	}
+	return nil, fmt.Errorf("workflow node %s has neither consignment nor pre-consignment parent", node.ID)
 }

@@ -167,7 +167,7 @@ func (s *ConsignmentService) createWorkflowNodesInTx(ctx context.Context, tx *go
 	}
 
 	// Delegate to the state machine for node initialization
-	return s.stateMachine.InitializeNodesFromTemplates(ctx, tx, consignmentID, nodeTemplates)
+	return s.stateMachine.InitializeNodesFromTemplates(ctx, tx, ParentRef{ConsignmentID: &consignmentID}, nodeTemplates)
 }
 
 // GetConsignmentByID retrieves a consignment by its ID from the database.
@@ -352,7 +352,7 @@ func (s *ConsignmentService) updateWorkflowNodeStateAndPropagateChangesInTx(ctx 
 
 			// Update consignment state if all nodes are completed
 			if result.AllNodesCompleted {
-				if err := s.markConsignmentAsFinished(ctx, tx, workflowNode.ConsignmentID); err != nil {
+				if err := s.markConsignmentAsFinished(ctx, tx, *workflowNode.ConsignmentID); err != nil {
 					return nil, nil, err
 				}
 			}
@@ -362,7 +362,7 @@ func (s *ConsignmentService) updateWorkflowNodeStateAndPropagateChangesInTx(ctx 
 	// Handle global context updates
 	var globalContext map[string]any
 	if len(updateReq.AppendGlobalContext) > 0 {
-		globalContext, err = s.appendToConsignmentGlobalContext(ctx, tx, workflowNode.ConsignmentID, updateReq.AppendGlobalContext)
+		globalContext, err = s.appendToConsignmentGlobalContext(ctx, tx, *workflowNode.ConsignmentID, updateReq.AppendGlobalContext)
 		if err != nil {
 			return nil, nil, err
 		}

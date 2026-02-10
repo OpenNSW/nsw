@@ -11,12 +11,22 @@ import (
 )
 
 type WorkflowNodeService struct {
-	// db *gorm.DB
+	db *gorm.DB
 }
 
 // NewWorkflowNodeService creates a new instance of WorkflowNodeService.
 func NewWorkflowNodeService(db *gorm.DB) *WorkflowNodeService {
-	return &WorkflowNodeService{}
+	return &WorkflowNodeService{db: db}
+}
+
+// GetWorkflowNodeByID retrieves a workflow node by its ID.
+func (s *WorkflowNodeService) GetWorkflowNodeByID(ctx context.Context, nodeID uuid.UUID) (*model.WorkflowNode, error) {
+	var node model.WorkflowNode
+	result := s.db.WithContext(ctx).Where("id = ?", nodeID).First(&node)
+	if result.Error != nil {
+		return nil, fmt.Errorf("failed to retrieve workflow node: %w", result.Error)
+	}
+	return &node, nil
 }
 
 // GetWorkflowNodeByIDInTx retrieves a workflow node by its ID within a transaction.
@@ -121,6 +131,29 @@ func (s *WorkflowNodeService) CountIncompleteNodesByConsignmentID(ctx context.Co
 		Count(&count).Error
 	if err != nil {
 		return 0, fmt.Errorf("failed to count incomplete nodes for consignment %s: %w", consignmentID, err)
+	}
+	return count, nil
+}
+
+// GetWorkflowNodesByPreConsignmentIDInTx retrieves all workflow nodes associated with a given pre-consignment ID within a transaction.
+func (s *WorkflowNodeService) GetWorkflowNodesByPreConsignmentIDInTx(ctx context.Context, tx *gorm.DB, preConsignmentID uuid.UUID) ([]model.WorkflowNode, error) {
+	var nodes []model.WorkflowNode
+	result := tx.WithContext(ctx).Where("pre_consignment_id = ?", preConsignmentID).Find(&nodes)
+	if result.Error != nil {
+		return nil, fmt.Errorf("failed to retrieve workflow nodes for pre-consignment %s in transaction: %w", preConsignmentID, result.Error)
+	}
+	return nodes, nil
+}
+
+// CountIncompleteNodesByPreConsignmentID counts the number of incomplete workflow nodes for a given pre-consignment.
+func (s *WorkflowNodeService) CountIncompleteNodesByPreConsignmentID(ctx context.Context, tx *gorm.DB, preConsignmentID uuid.UUID) (int64, error) {
+	var count int64
+	err := tx.WithContext(ctx).
+		Model(&model.WorkflowNode{}).
+		Where("pre_consignment_id = ? AND state != ?", preConsignmentID, model.WorkflowNodeStateCompleted).
+		Count(&count).Error
+	if err != nil {
+		return 0, fmt.Errorf("failed to count incomplete nodes for pre-consignment %s: %w", preConsignmentID, err)
 	}
 	return count, nil
 }
