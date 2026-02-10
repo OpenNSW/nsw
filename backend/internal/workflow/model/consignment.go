@@ -37,14 +37,12 @@ func (c *Consignment) TableName() string {
 
 // ConsignmentItem represents an individual item within a consignment.
 type ConsignmentItem struct {
-	HSCodeID     uuid.UUID `gorm:"type:uuid;column:hs_code_id;not null" json:"hsCodeId"`         // HS Code ID
-	ItemMetadata any       `gorm:"type:jsonb;column:item_metadata;not null" json:"itemMetadata"` // Metadata about the item
+	HSCodeID uuid.UUID `gorm:"type:uuid;column:hs_code_id;not null" json:"hsCodeId"` // HS Code ID
 }
 
 // ConsignmentItemResponseDTO represents an individual item in the consignment response.
 type ConsignmentItemResponseDTO struct {
-	HSCode       HSCodeResponseDTO `json:"hsCode"`       // Full HS Code details
-	ItemMetadata any               `json:"itemMetadata"` // Metadata about the item
+	HSCode HSCodeResponseDTO `json:"hsCode"` // Full HS Code details
 }
 
 // HSCodeResponseDTO represents HS Code details in the response.
@@ -57,8 +55,7 @@ type HSCodeResponseDTO struct {
 
 // CreateConsignmentItemDTO represents the data required to create a consignment item.
 type CreateConsignmentItemDTO struct {
-	HSCodeID     uuid.UUID `json:"hsCodeId" binding:"required"` // HS Code ID
-	ItemMetadata any       `json:"itemMetadata,omitempty"`      // Metadata about the item (optional)
+	HSCodeID uuid.UUID `json:"hsCodeId" binding:"required"` // HS Code ID
 }
 
 // CreateConsignmentDTO represents the data required to create a consignment.

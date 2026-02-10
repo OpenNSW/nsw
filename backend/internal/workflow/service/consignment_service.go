@@ -459,7 +459,7 @@ func (loader *hsCodeBatchLoader) get(id uuid.UUID) (model.HSCode, error) {
 }
 
 // buildConsignmentResponseDTO builds a ConsignmentResponseDTO from a Consignment with preloaded WorkflowNodes
-func (s *ConsignmentService) buildConsignmentResponseDTO(ctx context.Context, consignment *model.Consignment, hsLoader *hsCodeBatchLoader) (*model.ConsignmentResponseDTO, error) {
+func (s *ConsignmentService) buildConsignmentResponseDTO(_ context.Context, consignment *model.Consignment, hsLoader *hsCodeBatchLoader) (*model.ConsignmentResponseDTO, error) {
 	// Build ConsignmentItemResponseDTOs using the batch loader
 	itemResponseDTOs := make([]model.ConsignmentItemResponseDTO, 0, len(consignment.Items))
 	for _, item := range consignment.Items {
@@ -475,7 +475,6 @@ func (s *ConsignmentService) buildConsignmentResponseDTO(ctx context.Context, co
 				Description: hsCode.Description,
 				Category:    hsCode.Category,
 			},
-			ItemMetadata: item.ItemMetadata,
 		})
 	}
 
