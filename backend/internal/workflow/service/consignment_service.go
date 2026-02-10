@@ -361,11 +361,9 @@ func (s *ConsignmentService) updateWorkflowNodeStateAndPropagateChangesInTx(ctx 
 
 	// Handle global context updates
 	var globalContext map[string]any
-	if len(updateReq.AppendGlobalContext) > 0 {
-		globalContext, err = s.appendToConsignmentGlobalContext(ctx, tx, *workflowNode.ConsignmentID, updateReq.AppendGlobalContext)
-		if err != nil {
-			return nil, nil, err
-		}
+	globalContext, err = s.appendToConsignmentGlobalContext(ctx, tx, *workflowNode.ConsignmentID, updateReq.AppendGlobalContext)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	return newReadyNodes, globalContext, nil

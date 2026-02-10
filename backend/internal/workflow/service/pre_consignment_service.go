@@ -343,11 +343,9 @@ func (s *PreConsignmentService) updateWorkflowNodeStateAndPropagateChangesInTx(c
 
 	// Handle trader context updates
 	var traderContext map[string]any
-	if len(updateReq.AppendGlobalContext) > 0 {
-		traderContext, err = s.appendToPreConsignmentTraderContext(ctx, tx, *workflowNode.PreConsignmentID, updateReq.AppendGlobalContext)
-		if err != nil {
-			return nil, nil, err
-		}
+	traderContext, err = s.appendToPreConsignmentTraderContext(ctx, tx, *workflowNode.PreConsignmentID, updateReq.AppendGlobalContext)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	return newReadyNodes, traderContext, nil
