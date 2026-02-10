@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"net/url"
 	"os"
 	"strconv"
@@ -33,6 +34,8 @@ type DatabaseConfig struct {
 type ServerConfig struct {
 	Port       int
 	ServiceURL string
+	Debug      bool
+	LogLevel   slog.Level
 }
 
 // CORSConfig holds CORS configuration
@@ -84,6 +87,8 @@ func Load() (*Config, error) {
 		Server: ServerConfig{
 			Port:       serverPort,
 			ServiceURL: getEnvOrDefault("SERVICE_URL", fmt.Sprintf("http://localhost:%d", serverPort)),
+			Debug:      getBoolOrDefault("SERVER_DEBUG", true),
+			LogLevel:   parseLogLevel(getEnvOrDefault("SERVER_LOG_LEVEL", "info")),
 		},
 		CORS: CORSConfig{
 			AllowedOrigins:   parseCommaSeparated(getEnvOrDefault("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173")),
@@ -189,4 +194,19 @@ func parseCommaSeparated(value string) []string {
 		}
 	}
 	return result
+}
+
+func parseLogLevel(level string) slog.Level {
+	switch level {
+	case "debug":
+		return slog.LevelDebug
+	case "info":
+		return slog.LevelInfo
+	case "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
 }

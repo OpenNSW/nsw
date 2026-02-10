@@ -31,8 +31,8 @@ func main() {
 	}
 
 	opts := &slog.HandlerOptions{
-		AddSource: true,
-		Level:     slog.LevelInfo,
+		AddSource: cfg.Server.Debug,
+		Level:     cfg.Server.LogLevel,
 	}
 	logHandler := slog.NewTextHandler(os.Stdout, opts)
 	slog.SetDefault(slog.New(logHandler))
