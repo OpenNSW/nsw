@@ -2,17 +2,17 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Button, Spinner, Text } from '@radix-ui/themes'
 import { ArrowLeftIcon } from '@radix-ui/react-icons'
-import { JsonForm } from '../components/JsonForm'
-import { executeTask, sendTaskCommand } from '../services/task'
-import type { TaskFormData } from '../services/task'
+import {getTaskInfo} from '../services/task'
+import PluginRenderer, {type RenderInfo} from '../plugins'
 
-export function FormScreen() {
+
+export function TaskDetailScreen() {
   const { consignmentId, taskId } = useParams<{
     consignmentId: string
     taskId: string
   }>()
   const navigate = useNavigate()
-  const [formData, setFormData] = useState<TaskFormData | null>(null)
+  const [renderInfo, setRenderInfo] = useState<RenderInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -27,10 +27,10 @@ export function FormScreen() {
       try {
         setLoading(true)
         // Execute task with FETCH_FORM action to get the form schema
-        const response = await executeTask(consignmentId, taskId, 'SIMPLE_FORM')
+        const response = await getTaskInfo(taskId)
 
         if (response.success && response.data) {
-          setFormData(response.data)
+          setRenderInfo(response.data)
         } else {
           setError('Failed to fetch form.')
         }
@@ -45,45 +45,13 @@ export function FormScreen() {
     fetchForm()
   }, [consignmentId, taskId])
 
-  const handleSubmit = async (data: unknown) => {
-    if (!consignmentId || !taskId) {
-      setError('Consignment ID or Task ID is missing.')
-      return
-    }
-
-    try {
-      setError(null)
-
-      // Send form submission with SUBMIT_FORM action
-      const response = await sendTaskCommand({
-        command: 'SUBMISSION',
-        taskId,
-        consignmentId,
-        data: data as Record<string, unknown>,
-      })
-
-      if (response.success) {
-        console.log('Form submitted successfully:', response)
-        // Navigate back to consignment details with a flag to trigger delayed refresh
-        navigate(`/consignments/${consignmentId}`, { 
-          state: { justSubmitted: true } 
-        })
-      } else {
-        setError(response.message || 'Failed to submit form.')
-      }
-    } catch (err) {
-      console.error('Error submitting form:', err)
-      setError('Failed to submit form. Please try again.')
-    } finally {
-    }
-  }
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-full p-6">
         <Spinner size="3" />
         <Text size="3" color="gray" className="ml-3">
-          Loading form...
+          Loading task...
         </Text>
       </div>
     )
@@ -107,7 +75,7 @@ export function FormScreen() {
     )
   }
 
-  if (!formData) {
+  if (!renderInfo) {
     return (
       <div className="p-6">
         <div className="bg-white rounded-lg shadow p-6 text-center">
@@ -135,21 +103,7 @@ export function FormScreen() {
           </Button>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">{formData.title}</h1>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-md p-6">
-          {<JsonForm
-            schema={formData.schema}
-            uiSchema={formData.uiSchema}
-            data={formData.formData}
-            onSubmit={handleSubmit}
-            submitLabel="Submit Form"
-            showAutoFillButton={import.meta.env.VITE_SHOW_AUTOFILL_BUTTON === 'true'}
-            autoFillLabel="Auto-Fill Form"
-          />}
-        </div>
+        <PluginRenderer response={renderInfo} />
       </div>
     </div>
   )
