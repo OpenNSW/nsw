@@ -8,7 +8,7 @@ export type TaskCommand = 'SUBMISSION' | 'DRAFT'
 export interface TaskCommandRequest {
   command: TaskCommand
   taskId: string
-  consignmentId: string
+  workflowId: string
   data: Record<string, unknown>
 }
 
@@ -21,7 +21,7 @@ export interface TaskCommandResponse {
 
 export interface SendTaskCommandRequest {
   task_id: string
-  consignment_id: string
+  workflow_id: string
   payload: {
     action: TaskAction
     content: Record<string, unknown>
@@ -44,7 +44,7 @@ export async function sendTaskCommand(
 
   return apiPost<SendTaskCommandRequest, TaskCommandResponse>(TASKS_API_URL, {
     task_id: request.taskId,
-    consignment_id: request.consignmentId,
+    workflow_id: request.workflowId,
     payload: {
       action,
       content: request.data,

@@ -37,7 +37,7 @@ export default function SimpleForm(props: { configs: SimpleFormConfig, pluginSta
       const response = await sendTaskCommand({
         command: 'SUBMISSION',
         taskId,
-        consignmentId,
+        workflowId:   consignmentId,
         data: data as Record<string, unknown>,
       })
 
