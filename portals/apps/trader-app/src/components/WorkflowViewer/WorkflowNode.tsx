@@ -97,6 +97,16 @@ export function WorkflowNode({data}: NodeProps<WorkflowNodeType>) {
     return `Step ${lastPart}`
   }
 
+  const getTooltipContent = () => {
+    const label = getStepLabel()
+    const description = step.workflowNodeTemplate.description
+    
+    if (description && description.trim()) {
+      return `${label} - ${description}`
+    }
+    return label
+  }
+
   const handleExecute = async (e: React.MouseEvent) => {
     e.stopPropagation()
     if (!consignmentId) {
@@ -134,7 +144,7 @@ export function WorkflowNode({data}: NodeProps<WorkflowNodeType>) {
             {nodeTypeIcons[step.workflowNodeTemplate.type] || <FileTextIcon className="w-3.5 h-3.5"/>}
           </div>
           <div className="min-w-0 flex-1">
-            <Tooltip content={getStepLabel()}>
+            <Tooltip content={getTooltipContent()}>
               <Text
                 size="1"
                 weight="bold"
