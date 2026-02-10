@@ -134,17 +134,17 @@ export function WorkflowNode({data}: NodeProps<WorkflowNodeType>) {
             {nodeTypeIcons[step.workflowNodeTemplate.type] || <FileTextIcon className="w-3.5 h-3.5"/>}
           </div>
           <div className="min-w-0 flex-1">
-            <Tooltip content={step.workflowNodeTemplate.description || getStepLabel()}>
+            <Tooltip content={getStepLabel()}>
               <Text
                 size="1"
                 weight="bold"
-                className={`${statusStyle.textColor} block cursor-help truncate`}
+                className={`${statusStyle.textColor} block cursor-pointer truncate`}
               >
                 {getStepLabel()}
               </Text>
             </Tooltip>
             <Text size="1" className={`${statusStyle.textColor} font-mono mt-0.5 text-xs`}>
-              {step.state}
+              {step.state}{step.extendedState && `(${step.extendedState})`}
             </Text>
           </div>
         </div>
