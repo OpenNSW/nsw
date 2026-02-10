@@ -491,8 +491,9 @@ func (s *ConsignmentService) buildConsignmentResponseDTO(ctx context.Context, co
 				Description: node.WorkflowNodeTemplate.Description,
 				Type:        string(node.WorkflowNodeTemplate.Type),
 			},
-			State:     node.State,
-			DependsOn: node.DependsOn,
+			State:         node.State,
+			ExtendedState: node.ExtendedState,
+			DependsOn:     node.DependsOn,
 		})
 	}
 
