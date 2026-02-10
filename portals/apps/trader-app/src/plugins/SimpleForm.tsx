@@ -42,11 +42,8 @@ export default function SimpleForm(props: { configs: SimpleFormConfig, pluginSta
       })
 
       if (response.success) {
-        console.log('Form submitted successfully:', response)
-        // Navigate back to consignment details with a flag to trigger delayed refresh
-        navigate(`/consignments/${consignmentId}`, {
-          state: {justSubmitted: true}
-        })
+        // Navigate back to consignment details
+        navigate(`/consignments/${consignmentId}`)
       } else {
         setError(response.message || 'Failed to submit form.')
       }
