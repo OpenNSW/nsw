@@ -62,10 +62,12 @@ export function DashboardScreen() {
   const filteredConsignments = consignments.filter((c) => {
     const item = c.items[0]
     const hsCode = item?.hsCode?.hsCode || ''
+    const description = item?.hsCode?.description || ''
     const matchesSearch =
       searchQuery === '' ||
       c.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      hsCode.toLowerCase().includes(searchQuery.toLowerCase())
+      hsCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      description.toLowerCase().includes(searchQuery.toLowerCase())
 
     const matchesState = stateFilter === 'all' || c.state === stateFilter
     const matchesTradeFlow = tradeFlowFilter === 'all' || c.flow === tradeFlowFilter
