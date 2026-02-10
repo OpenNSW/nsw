@@ -80,8 +80,11 @@ func (s *SimpleForm) GetRenderInfo(ctx context.Context) (*ApiResponse, error) {
 	}
 
 	pluginState := s.api.GetPluginState()
-	ogaResponse, _ := s.api.ReadFromLocalStore("ogaResponse")
+	ogaResponse, err := s.api.ReadFromLocalStore("ogaResponse")
 
+	if err != nil {
+		slog.Warn("failed to read ogaResponse from local store", "error", err)
+	}
 	var prepopulatedFormData any
 	// Prepopulate form data from global context
 	if pluginState == string(TraderSavedAsDraft) || pluginState == string(Initialized) {
