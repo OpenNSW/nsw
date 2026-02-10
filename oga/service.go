@@ -36,16 +36,16 @@ type OGAService interface {
 
 // InjectRequest represents the incoming data from services
 type InjectRequest struct {
-	TaskID        uuid.UUID              `json:"taskId"`
-	ConsignmentID uuid.UUID              `json:"consignmentId"`
-	Data          map[string]interface{} `json:"data"`
-	ServiceURL    string                 `json:"serviceUrl"` // URL to send response back to
+	TaskID     uuid.UUID              `json:"taskId"`
+	WorkflowID uuid.UUID              `json:"workflowId"`
+	Data       map[string]interface{} `json:"data"`
+	ServiceURL string                 `json:"serviceUrl"` // URL to send response back to
 }
 
 // Application represents an application for display in the UI
 type Application struct {
 	TaskID        uuid.UUID              `json:"taskId"`
-	ConsignmentID uuid.UUID              `json:"consignmentId"`
+	WorkflowID    uuid.UUID              `json:"workflowId"`
 	ServiceURL    string                 `json:"serviceUrl"`
 	Data          map[string]interface{} `json:"data"`
 	Status        string                 `json:"status"`
@@ -57,9 +57,9 @@ type Application struct {
 
 // TaskResponse represents the response sent back to the service
 type TaskResponse struct {
-	TaskID        uuid.UUID   `json:"task_id"`
-	ConsignmentID uuid.UUID   `json:"consignment_id"`
-	Payload       interface{} `json:"payload"`
+	TaskID     uuid.UUID   `json:"task_id"`
+	WorkflowID uuid.UUID   `json:"workflow_id"`
+	Payload    interface{} `json:"payload"`
 }
 
 type ogaService struct {
@@ -83,19 +83,19 @@ func (s *ogaService) CreateApplication(ctx context.Context, req *InjectRequest) 
 	if req.TaskID == uuid.Nil {
 		return fmt.Errorf("taskId is required")
 	}
-	if req.ConsignmentID == uuid.Nil {
-		return fmt.Errorf("consignmentId is required")
+	if req.WorkflowID == uuid.Nil {
+		return fmt.Errorf("workflowId is required")
 	}
 	if req.ServiceURL == "" {
 		return fmt.Errorf("serviceUrl is required")
 	}
 
 	appRecord := &ApplicationRecord{
-		TaskID:        req.TaskID,
-		ConsignmentID: req.ConsignmentID,
-		ServiceURL:    req.ServiceURL,
-		Data:          req.Data,
-		Status:        "PENDING",
+		TaskID:     req.TaskID,
+		WorkflowID: req.WorkflowID,
+		ServiceURL: req.ServiceURL,
+		Data:       req.Data,
+		Status:     "PENDING",
 	}
 
 	if err := s.store.CreateOrUpdate(appRecord); err != nil {
@@ -104,7 +104,7 @@ func (s *ogaService) CreateApplication(ctx context.Context, req *InjectRequest) 
 
 	slog.InfoContext(ctx, "application created",
 		"taskID", req.TaskID,
-		"consignmentID", req.ConsignmentID)
+		"workflowID", req.WorkflowID)
 
 	return nil
 }
@@ -128,7 +128,7 @@ func (s *ogaService) GetApplications(ctx context.Context, status string) ([]Appl
 	for i, record := range records {
 		applications[i] = Application{
 			TaskID:        record.TaskID,
-			ConsignmentID: record.ConsignmentID,
+			WorkflowID:    record.WorkflowID,
 			ServiceURL:    record.ServiceURL,
 			Data:          record.Data,
 			Status:        record.Status,
@@ -151,7 +151,7 @@ func (s *ogaService) GetApplication(ctx context.Context, taskID uuid.UUID) (*App
 
 	return &Application{
 		TaskID:        record.TaskID,
-		ConsignmentID: record.ConsignmentID,
+		WorkflowID:    record.WorkflowID,
 		ServiceURL:    record.ServiceURL,
 		Data:          record.Data,
 		Status:        record.Status,
@@ -164,7 +164,7 @@ func (s *ogaService) GetApplication(ctx context.Context, taskID uuid.UUID) (*App
 
 // ReviewApplication approves or rejects an application and sends response back to service
 func (s *ogaService) ReviewApplication(ctx context.Context, taskID uuid.UUID, decision string, reviewerNotes string) error {
-	// Get the application to retrieve service URL and consignment ID
+	// Get the application to retrieve service URL and workflow ID
 	app, err := s.GetApplication(ctx, taskID)
 	if err != nil {
 		return err
@@ -187,8 +187,8 @@ func (s *ogaService) ReviewApplication(ctx context.Context, taskID uuid.UUID, de
 
 	// Prepare response payload for the service
 	response := TaskResponse{
-		TaskID:        app.TaskID,
-		ConsignmentID: app.ConsignmentID,
+		TaskID:     app.TaskID,
+		WorkflowID: app.WorkflowID,
 		Payload: map[string]interface{}{
 			"action": "OGA_VERIFICATION",
 			"content": map[string]interface{}{

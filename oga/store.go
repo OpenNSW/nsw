@@ -38,7 +38,7 @@ func (j *JSONB) Scan(value interface{}) error {
 // ApplicationRecord represents an application in the OGA database
 type ApplicationRecord struct {
 	TaskID        uuid.UUID  `gorm:"type:uuid;primaryKey"`
-	ConsignmentID uuid.UUID  `gorm:"type:uuid;index;not null"`
+	WorkflowID    uuid.UUID  `gorm:"type:uuid;index;not null"`
 	ServiceURL    string     `gorm:"type:varchar(512);not null"`                  // URL to send response back to
 	Data          JSONB      `gorm:"type:text"`                                   // Injected data from service
 	Status        string     `gorm:"type:varchar(50);not null;default:'PENDING'"` // PENDING, APPROVED, REJECTED

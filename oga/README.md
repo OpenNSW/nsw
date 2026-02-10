@@ -51,7 +51,7 @@ Inject data into the OGA portal for review.
 ```json
 {
   "taskId": "927adaaa-b959-4648-880a-16508acafc12",
-  "consignmentId": "cefda05e-3071-4e94-b001-328094e570a7",
+  "workflowId": "cefda05e-3071-4e94-b001-328094e570a7",
   "serviceUrl": "http://your-service.com/api/tasks",
   "data": {
     "field1": "value1",
@@ -83,7 +83,7 @@ Fetch all applications. Optionally filter by status.
 [
   {
     "taskId": "927adaaa-b959-4648-880a-16508acafc12",
-    "consignmentId": "cefda05e-3071-4e94-b001-328094e570a7",
+    "workflowId": "cefda05e-3071-4e94-b001-328094e570a7",
     "serviceUrl": "http://your-service.com/api/tasks",
     "data": {
       "field1": "value1",
@@ -108,7 +108,7 @@ Fetch a specific application by task ID.
 ```json
 {
   "taskId": "927adaaa-b959-4648-880a-16508acafc12",
-  "consignmentId": "cefda05e-3071-4e94-b001-328094e570a7",
+  "workflowId": "cefda05e-3071-4e94-b001-328094e570a7",
   "serviceUrl": "http://your-service.com/api/tasks",
   "data": {
     "field1": "value1",
@@ -153,7 +153,7 @@ After a successful review, the OGA portal will POST the following to the `servic
 ```json
 {
   "task_id": "927adaaa-b959-4648-880a-16508acafc12",
-  "consignment_id": "cefda05e-3071-4e94-b001-328094e570a7",
+  "workflow_id": "cefda05e-3071-4e94-b001-328094e570a7",
   "payload": {
     "action": "OGA_VERIFICATION",
     "content": {
@@ -220,7 +220,7 @@ curl -X POST http://localhost:8081/api/oga/inject \
   -H "Content-Type: application/json" \
   -d '{
     "taskId": "927adaaa-b959-4648-880a-16508acafc12",
-    "consignmentId": "cefda05e-3071-4e94-b001-328094e570a7",
+    "workflowId": "cefda05e-3071-4e94-b001-328094e570a7",
     "serviceUrl": "http://your-service.com/api/tasks",
     "data": {
       "importerName": "ABC Corp",
@@ -270,7 +270,7 @@ The SQLite database contains a single `applications` table:
 | Column | Type | Description |
 |--------|------|-------------|
 | task_id | UUID | Primary key, task identifier |
-| consignment_id | UUID | Related consignment |
+| workflow_id | UUID | Related workflow |
 | service_url | VARCHAR(512) | URL to send review response to |
 | data | TEXT (JSON) | Injected data from service |
 | status | VARCHAR(50) | PENDING, APPROVED, or REJECTED |

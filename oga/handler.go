@@ -62,7 +62,7 @@ func (h *OGAHandler) HandleInjectData(w http.ResponseWriter, r *http.Request) {
 
 	slog.InfoContext(ctx, "data injected successfully",
 		"taskID", req.TaskID,
-		"consignmentID", req.ConsignmentID)
+		"workflowID", req.WorkflowID)
 
 	WriteJSONResponse(w, http.StatusCreated, map[string]interface{}{
 		"success": true,
