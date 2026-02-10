@@ -15,6 +15,7 @@ import (
 
 	"github.com/OpenNSW/nsw/internal/config"
 	"github.com/OpenNSW/nsw/internal/form"
+	"github.com/OpenNSW/nsw/pkg/jsonform"
 )
 
 // SimpleFormAction represents the action to perform on the form
@@ -196,7 +197,7 @@ func (s *SimpleForm) handleFetchForm(ctx context.Context) (*ExecutionResponse, e
 }
 
 // handleSubmitForm validates and processes the form submission
-func (s *SimpleForm) handleSubmitForm(_ context.Context, content interface{}) (*ExecutionResponse, error) {
+func (s *SimpleForm) handleSubmitForm(ctx context.Context, content interface{}) (*ExecutionResponse, error) {
 	// Parse form data from content
 	formData, err := s.parseFormData(content)
 	if err != nil {
@@ -232,6 +233,70 @@ func (s *SimpleForm) handleSubmitForm(_ context.Context, content interface{}) (*
 		slog.Warn("failed to write form data to local store", "error", err)
 	}
 
+	if err := s.populateFromRegistry(ctx); err != nil {
+		return &ExecutionResponse{
+			Message: fmt.Sprintf("Failed to process form data: %v", err),
+			ApiResponse: &ApiResponse{
+				Success: false,
+				Error: &ApiError{
+					Code:    "INVALID_FORM_DATA",
+					Message: "Failed to process form data.",
+				},
+			},
+		}, err
+	}
+
+	// Convert the schema to JSONSchema
+	var parsedSchema jsonform.JSONSchema
+
+	if err := json.Unmarshal(s.config.Schema, &parsedSchema); err != nil {
+		return &ExecutionResponse{
+			Message: fmt.Sprintf("Failed to parse schema: %v", err),
+			ApiResponse: &ApiResponse{
+				Success: false,
+				Error: &ApiError{
+					Code:    "INVALID_FORM_DATA",
+					Message: "Failed to parse schema.",
+				},
+			},
+		}, err
+	}
+
+	globalContextPairs := make(map[string]any)
+
+	// Traverse through formData and check for globalContext paths
+	err = jsonform.Traverse(&parsedSchema, func(path string, node *jsonform.JSONSchema, parent *jsonform.JSONSchema) error {
+		if node.Type == "string" || node.Type == "number" || node.Type == "boolean" {
+			// Get the value from formData using the path
+
+			if node.XGlobalContext != nil &&
+				node.XGlobalContext.WriteTo != nil &&
+				strings.TrimSpace(*node.XGlobalContext.WriteTo) != "" {
+
+				value, exists := jsonform.GetValueByPath(formData, path)
+				if !exists {
+					return fmt.Errorf("value for global context path '%s' not found in submitted form data", *node.XGlobalContext.WriteTo)
+				}
+
+				globalContextPairs[*node.XGlobalContext.WriteTo] = value
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return &ExecutionResponse{
+			Message: fmt.Sprintf("Failed to process form data: %v", err),
+			ApiResponse: &ApiResponse{
+				Success: false,
+				Error: &ApiError{
+					Code:    "INVALID_FORM_DATA",
+					Message: "Failed to process form data.",
+				},
+			},
+		}, err
+	}
+
 	// Update plugin state to TRADER_SUBMITTED
 	if err := s.api.SetPluginState(string(TraderSubmitted)); err != nil {
 		slog.Error("failed to set plugin state to SUBMITTED", "error", err)
@@ -254,7 +319,8 @@ func (s *SimpleForm) handleSubmitForm(_ context.Context, content interface{}) (*
 				"submissionUrl", s.config.SubmissionURL,
 				"error", err)
 			return &ExecutionResponse{
-				Message: fmt.Sprintf("Failed to submit form to external system: %v", err),
+				Message:             fmt.Sprintf("Failed to submit form to external system: %v", err),
+				AppendGlobalContext: globalContextPairs,
 				ApiResponse: &ApiResponse{
 					Success: false,
 					Error: &ApiError{
@@ -279,9 +345,10 @@ func (s *SimpleForm) handleSubmitForm(_ context.Context, content interface{}) (*
 
 			newState := InProgress
 			return &ExecutionResponse{
-				NewState:      &newState,
-				ExtendedState: &pluginState,
-				Message:       "Form submitted successfully, awaiting OGA verification",
+				AppendGlobalContext: globalContextPairs,
+				NewState:            &newState,
+				ExtendedState:       &pluginState,
+				Message:             "Form submitted successfully, awaiting OGA verification",
 				ApiResponse: &ApiResponse{
 					Success: true,
 				},
@@ -296,9 +363,10 @@ func (s *SimpleForm) handleSubmitForm(_ context.Context, content interface{}) (*
 
 		newState := Completed
 		return &ExecutionResponse{
-			NewState:      &newState,
-			ExtendedState: &pluginState,
-			Message:       "Form submitted and processed successfully",
+			AppendGlobalContext: globalContextPairs,
+			NewState:            &newState,
+			ExtendedState:       &pluginState,
+			Message:             "Form submitted and processed successfully",
 			ApiResponse: &ApiResponse{
 				Success: true,
 			},
@@ -308,9 +376,10 @@ func (s *SimpleForm) handleSubmitForm(_ context.Context, content interface{}) (*
 	// If no submissionUrl, task is completed
 	newState := Completed
 	return &ExecutionResponse{
-		NewState:      &newState,
-		ExtendedState: &pluginState,
-		Message:       "Form submitted successfully",
+		AppendGlobalContext: globalContextPairs,
+		NewState:            &newState,
+		ExtendedState:       &pluginState,
+		Message:             "Form submitted successfully",
 		ApiResponse: &ApiResponse{
 			Success: true,
 		},
@@ -378,14 +447,34 @@ func (s *SimpleForm) parseFormData(content interface{}) (map[string]interface{},
 
 // prepopulateFormData builds formData from schema by looking up values from global store
 func (s *SimpleForm) prepopulateFormData(ctx context.Context, existingFormData json.RawMessage) (json.RawMessage, error) {
-	// Parse the schema to build formData
-	var schema map[string]interface{}
-	if err := json.Unmarshal(s.config.Schema, &schema); err != nil {
+	// Parse the schema using JSONSchema struct
+	var parsedSchema jsonform.JSONSchema
+	if err := json.Unmarshal(s.config.Schema, &parsedSchema); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal schema: %w", err)
 	}
 
-	// Build formData from schema
-	formData := s.buildFormDataFromSchema(ctx, schema)
+	// Build formData from schema using traverse
+	formData := make(map[string]any)
+
+	err := jsonform.Traverse(&parsedSchema, func(path string, node *jsonform.JSONSchema, parent *jsonform.JSONSchema) error {
+		// Check if this field should be read from global context
+		if node.XGlobalContext != nil &&
+			node.XGlobalContext.ReadFrom != nil &&
+			strings.TrimSpace(*node.XGlobalContext.ReadFrom) != "" {
+
+			// Lookup value from global store
+			value := s.lookupValueFromGlobalStore(ctx, *node.XGlobalContext.ReadFrom)
+			if value != nil {
+				// Set the value at the current path in formData
+				jsonform.SetValueByPath(formData, path, value)
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to traverse schema for prepopulation: %w", err)
+	}
 
 	// If we have existing formData, merge it (existing formData takes priority)
 	if len(existingFormData) > 0 {
@@ -407,45 +496,6 @@ func (s *SimpleForm) prepopulateFormData(ctx context.Context, existingFormData j
 	}
 
 	return prepopulatedJSON, nil
-}
-
-// buildFormDataFromSchema recursively traverses the schema and builds formData
-func (s *SimpleForm) buildFormDataFromSchema(ctx context.Context, schema map[string]interface{}) map[string]interface{} {
-	formData := make(map[string]interface{})
-
-	// Get properties from schema
-	properties, ok := schema["properties"].(map[string]interface{})
-	if !ok {
-		return formData
-	}
-
-	// Iterate through each property
-	for fieldName, fieldDefRaw := range properties {
-		fieldDef, ok := fieldDefRaw.(map[string]interface{})
-		if !ok {
-			continue
-		}
-
-		// Check if x-globalContext is specified
-		if globalContextPath, exists := fieldDef["x-globalContext"]; exists {
-			if pathStr, ok := globalContextPath.(string); ok {
-				if value := s.lookupValueFromGlobalStore(ctx, pathStr); value != nil {
-					formData[fieldName] = value
-				}
-			}
-		}
-
-		// Handle nested objects recursively
-		fieldType, _ := fieldDef["type"].(string)
-		if fieldType == "object" {
-			nestedData := s.buildFormDataFromSchema(ctx, fieldDef)
-			if len(nestedData) > 0 {
-				formData[fieldName] = nestedData
-			}
-		}
-	}
-
-	return formData
 }
 
 // lookupValueFromGlobalStore retrieves a value from global store using dot notation path
