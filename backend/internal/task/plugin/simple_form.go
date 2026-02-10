@@ -87,10 +87,15 @@ func (s *SimpleForm) GetRenderInfo(ctx context.Context) (*ApiResponse, error) {
 	}
 	var prepopulatedFormData any
 	// Prepopulate form data from global context
-	if pluginState == string(TraderSavedAsDraft) || pluginState == string(Initialized) {
+	switch pluginState {
+	case string(Initialized):
 		prepopulatedFormData, err = s.prepopulateFormData(ctx, s.config.FormData)
-	} else {
+	case string(TraderSavedAsDraft):
+		prepopulatedFormData, err = s.api.ReadFromLocalStore("trader:draft")
+	case string(TraderSubmitted), string(OGAAcknowledged), string(OGAReviewed):
 		prepopulatedFormData, err = s.api.ReadFromLocalStore("trader:submission")
+	default:
+		prepopulatedFormData = s.config.FormData
 	}
 
 	if err != nil {
@@ -198,7 +203,8 @@ func (s *SimpleForm) handleSaveAsDraft(_ context.Context, content any) (*Executi
 	newState := InProgress
 
 	return &ExecutionResponse{
-		NewState: &newState,
+		NewState:      &newState,
+		ExtendedState: &pluginState,
 		ApiResponse: &ApiResponse{
 			Success: true,
 		},
