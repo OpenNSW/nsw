@@ -96,10 +96,6 @@ func NewTaskManager(db *gorm.DB, completionChan chan<- WorkflowManagerNotificati
 
 // HandleGetTask is an HTTP handler for fetching task information via GET request
 func (tm *taskManager) HandleGetTask(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
 
 	taskId := r.PathValue("taskId")
 
@@ -110,7 +106,14 @@ func (tm *taskManager) HandleGetTask(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	activeTask, err := tm.getTask(ctx, uuid.MustParse(taskId))
+	taskUUID, err := uuid.Parse(taskId)
+
+	if err != nil || taskUUID == uuid.Nil {
+		writeJSONError(w, http.StatusBadRequest, "taskId is invalid")
+		return
+	}
+
+	activeTask, err := tm.getTask(ctx, taskUUID)
 	if err != nil {
 		writeJSONError(w, http.StatusNotFound, fmt.Sprintf("task %s not found: %v", taskId, err))
 		return
