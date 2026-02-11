@@ -53,6 +53,11 @@ type Config struct {
 
 type Response struct {
 	Mapping map[string]string `json:"mapping,omitempty"` // Data to be mapped to global context after submission
+	Display *Display          `json:"display,omitempty"`
+}
+
+type Display struct {
+	FormID string `json:"formId"`
 }
 
 type SubmissionConfig struct {
@@ -81,10 +86,7 @@ type SimpleForm struct {
 }
 
 func (s *SimpleForm) GetRenderInfo(ctx context.Context) (*ApiResponse, error) {
-
-	err := s.populateFromRegistry(ctx)
-
-	if err != nil {
+	if err := s.populateFromRegistry(ctx); err != nil {
 		return &ApiResponse{
 			Success: false,
 			Error: &ApiError{
@@ -94,31 +96,26 @@ func (s *SimpleForm) GetRenderInfo(ctx context.Context) (*ApiResponse, error) {
 		}, err
 	}
 
-	pluginState := s.api.GetPluginState()
-	ogaResponse, err := s.api.ReadFromLocalStore("ogaResponse")
+	pluginState := SimpleFormState(s.api.GetPluginState())
 
+	formData, err := s.resolveFormData(ctx, pluginState)
 	if err != nil {
-		slog.Warn("failed to read ogaResponse from local store", "error", err)
-	}
-	var prepopulatedFormData any
-	// Prepopulate form data from global context
-	switch pluginState {
-	case string(Initialized):
-		prepopulatedFormData, err = s.prepopulateFormData(ctx, s.config.FormData)
-	case string(TraderSavedAsDraft):
-		prepopulatedFormData, err = s.api.ReadFromLocalStore("trader:draft")
-	case string(TraderSubmitted), string(OGAAcknowledged), string(OGAReviewed):
-		prepopulatedFormData, err = s.api.ReadFromLocalStore("trader:submission")
-	default:
-		prepopulatedFormData = s.config.FormData
+		slog.Warn("failed to resolve form data, falling back to defaults",
+			"formId", s.config.FormID, "pluginState", pluginState, "error", err)
+		formData = s.config.FormData
 	}
 
-	if err != nil {
-		slog.Warn("failed to prepopulate form data from global context",
-			"formId", s.config.FormID,
-			"error", err)
-		// Continue with original form data if prepopulation fails
-		prepopulatedFormData = s.config.FormData
+	content := map[string]any{
+		"traderFormInfo": map[string]any{
+			"title":    s.config.Title,
+			"uiSchema": s.config.UISchema,
+			"formData": formData,
+			"schema":   s.config.Schema,
+		},
+	}
+
+	if pluginState == OGAReviewed {
+		s.attachOgaContent(ctx, content)
 	}
 
 	return &ApiResponse{
@@ -126,18 +123,59 @@ func (s *SimpleForm) GetRenderInfo(ctx context.Context) (*ApiResponse, error) {
 		Data: GetRenderInfoResponse{
 			Type:        TaskTypeSimpleForm,
 			State:       s.api.GetTaskState(),
-			PluginState: pluginState,
-			Content: map[string]any{
-				"traderFormInfo": map[string]any{
-					"title":    s.config.Title,
-					"uiSchema": s.config.UISchema,
-					"formData": prepopulatedFormData,
-					"schema":   s.config.Schema,
-				},
-				"ogaResponse": ogaResponse,
-			},
+			PluginState: string(pluginState),
+			Content:     content,
 		},
 	}, nil
+}
+
+// resolveFormData returns the appropriate form data for the current plugin state.
+func (s *SimpleForm) resolveFormData(ctx context.Context, state SimpleFormState) (any, error) {
+	switch state {
+	case Initialized:
+		return s.prepopulateFormData(ctx, s.config.FormData)
+	case TraderSavedAsDraft:
+		return s.api.ReadFromLocalStore("trader:draft")
+	case TraderSubmitted, OGAAcknowledged, OGAReviewed:
+		return s.api.ReadFromLocalStore("trader:submission")
+	default:
+		return s.config.FormData, nil
+	}
+}
+
+// attachOgaContent enriches the render content with OGA response data
+// and, if configured, the OGA review form definition.
+func (s *SimpleForm) attachOgaContent(ctx context.Context, content map[string]any) {
+	ogaResponse, err := s.api.ReadFromLocalStore("ogaResponse")
+	if err != nil {
+		slog.Warn("failed to read OGA response from local store",
+			"formId", s.config.FormID, "error", err)
+	}
+
+	if ogaResponse != nil {
+		if s.config.Callback != nil &&
+			s.config.Callback.Response != nil &&
+			s.config.Callback.Response.Display != nil &&
+			s.config.Callback.Response.Display.FormID != "" {
+			// If OGA review form is configured, fetch the form definition and include in content for rendering
+			formDef, err := s.formService.GetFormByID(ctx, uuid.MustParse(s.config.Callback.Response.Display.FormID))
+
+			if err != nil {
+				slog.Warn("failed to fetch OGA review form definition, continuing without it",
+					"formId", s.config.FormID,
+					"ogaReviewFormId", s.config.Callback.Response.Display.FormID,
+					"error", err)
+				return
+			}
+
+			content["ogaReviewForm"] = map[string]any{
+				"title":    formDef.Name,
+				"uiSchema": formDef.UISchema,
+				"schema":   formDef.Schema,
+				"formData": ogaResponse,
+			}
+		}
+	}
 }
 
 func NewSimpleForm(configJSON json.RawMessage, cfg *config.Config, formService form.FormService) (*SimpleForm, error) {

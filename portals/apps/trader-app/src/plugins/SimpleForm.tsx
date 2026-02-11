@@ -14,15 +14,18 @@ export interface TaskFormData {
 
 export type SimpleFormConfig = {
   traderFormInfo: TaskFormData
+  ogaReviewForm?: TaskFormData
 }
 
-export default function SimpleForm(props: { configs: SimpleFormConfig, pluginState: string }) {
+function TraderForm(props: { formInfo: TaskFormData, pluginState: string }) {
   const {consignmentId, taskId} = useParams<{
     consignmentId: string
     taskId: string
   }>()
   const navigate = useNavigate()
   const [error, setError] = useState<string | null>(null)
+
+  const isReadOnly = props.pluginState === 'OGA_REVIEWED' || props.pluginState === 'SUBMITTED' || props.pluginState === 'OGA_ACKNOWLEDGED'
 
   const handleSubmit = async (data: unknown) => {
     if (!consignmentId || !taskId) {
@@ -54,59 +57,106 @@ export default function SimpleForm(props: { configs: SimpleFormConfig, pluginSta
   }
 
   const form = useJsonForm({
-    schema: props.configs.traderFormInfo.schema,
-    data: props.configs.traderFormInfo.formData,
+    schema: props.formInfo.schema,
+    data: props.formInfo.formData,
     onSubmit: handleSubmit,
   })
 
   const showAutoFillButton = import.meta.env.VITE_SHOW_AUTOFILL_BUTTON === 'true'
 
   return (
-    <div>
+    <>
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">{props.configs.traderFormInfo.title}</h1>
+        <h1 className="text-2xl font-bold text-gray-800">{props.formInfo.title}</h1>
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
         <form onSubmit={form.handleSubmit} noValidate>
+          <fieldset disabled={isReadOnly}>
+            <JsonForm
+              schema={props.formInfo.schema}
+              uiSchema={props.formInfo.uiSchema}
+              values={form.values}
+              errors={form.errors}
+              touched={form.touched}
+              setValue={form.setValue}
+              setTouched={form.setTouched}
+            />
+          </fieldset>
+          {!isReadOnly && (
+            <div className={`mt-4 flex gap-3 ${showAutoFillButton ? 'justify-between' : ''}`}>
+              {showAutoFillButton && (
+                <Button
+                  type="button"
+                  variant="soft"
+                  color="purple"
+                  size={"3"}
+                  className={"flex-1!"}
+                  onClick={form.autoFillForm}
+                  disabled={form.isSubmitting}
+                >
+                  Auto-Fill Form
+                </Button>
+              )}
+              <Button
+                type="submit"
+                disabled={form.isSubmitting}
+                className={'flex-1!'}
+                size={"3"}
+              >
+                {form.isSubmitting ? 'Submitting...' : 'Submit Form'}
+              </Button>
+            </div>
+          )}
+        </form>
+      </div>
+
+      {error && (
+        <div className="bg-red-100 text-red-700 rounded-lg p-4 mt-4">
+          <p>{error}</p>
+        </div>
+      )}
+    </>
+  )
+}
+
+function OgaReviewForm(props: { formInfo: TaskFormData }) {
+  const form = useJsonForm({
+    schema: props.formInfo.schema,
+    data: props.formInfo.formData,
+    onSubmit: () => {},
+  })
+
+  return (
+    <>
+      <div className="bg-blue-50 border border-blue-200 rounded-lg shadow-md p-6 mb-6 mt-6">
+        <h1 className="text-2xl font-bold text-blue-800">{props.formInfo.title}</h1>
+      </div>
+
+      <div className="bg-blue-50 border border-blue-200 rounded-lg shadow-md p-6">
+        <fieldset disabled>
           <JsonForm
-            schema={props.configs.traderFormInfo.schema}
-            uiSchema={props.configs.traderFormInfo.uiSchema}
+            schema={props.formInfo.schema}
+            uiSchema={props.formInfo.uiSchema}
             values={form.values}
             errors={form.errors}
             touched={form.touched}
             setValue={form.setValue}
             setTouched={form.setTouched}
           />
-          <div className={`mt-4 flex gap-3 ${showAutoFillButton ? 'justify-between' : ''}`}>
-            {showAutoFillButton && (
-              <Button
-                type="button"
-                variant="soft"
-                color="purple"
-                size={"3"}
-                className={"flex-1!"}
-                onClick={form.autoFillForm}
-                disabled={form.isSubmitting}
-              >
-                Auto-Fill Form
-              </Button>
-            )}
-            <Button
-              type="submit"
-              disabled={form.isSubmitting || (props.pluginState !== "INITIALIZED" && props.pluginState !== "DRAFT")}
-              className={'flex-1!'}
-              size={"3"}
-            >
-              {form.isSubmitting ? 'Submitting...' : 'Submit Form'}
-            </Button>
-          </div>
-        </form>
+        </fieldset>
       </div>
-      {error && (
-        <div className="bg-red-100 text-red-700 rounded-lg p-4 mt-4">
-          <p>{error}</p>
-        </div>
+    </>
+  )
+}
+
+export default function SimpleForm(props: { configs: SimpleFormConfig, pluginState: string }) {
+  return (
+    <div>
+      <TraderForm formInfo={props.configs.traderFormInfo} pluginState={props.pluginState} />
+
+      {props.configs.ogaReviewForm && (
+        <OgaReviewForm formInfo={props.configs.ogaReviewForm} />
       )}
     </div>
   )
