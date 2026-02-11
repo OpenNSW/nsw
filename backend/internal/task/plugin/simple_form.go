@@ -381,14 +381,15 @@ func (s *SimpleForm) handleSubmitForm(ctx context.Context, content interface{}) 
 				"formId", s.config.FormID,
 				"submissionUrl", submissionUrl,
 				"response", responseData)
-			// parse the response data based on expected mapping if provided
+
 			parsed, err := s.parseResponseData(responseData, s.config.Submission.Response.Mapping)
 			if err != nil {
-				slog.Warn("failed to parse submission response data based on expected mapping, skipping response mapping",
+				slog.Warn("failed to parse some submission response data fields, continuing with what was found",
 					"formId", s.config.FormID,
 					"submissionUrl", submissionUrl,
 					"error", err)
-			} else {
+			}
+			if len(parsed) > 0 {
 				for k, v := range parsed {
 					globalContextPairs[k] = v
 				}
@@ -497,10 +498,11 @@ func (s *SimpleForm) handleOgaVerification(_ context.Context, content interface{
 		parsed, err := s.parseResponseData(verificationData, s.config.Callback.Response.Mapping)
 
 		if err != nil {
-			slog.Warn("failed to parse OGA verification response data based on expected mapping, skipping response mapping",
+			slog.Warn("failed to parse some OGA verification response data fields, continuing with what was found",
 				"formId", s.config.FormID,
 				"error", err)
-		} else {
+		}
+		if len(parsed) > 0 {
 			for k, v := range parsed {
 				globalContextPairs[k] = v
 			}
@@ -725,17 +727,24 @@ func (s *SimpleForm) requiresVerification() bool {
 	return s.config.RequiresOgaVerification || s.config.Callback != nil
 }
 
-// parseResponseData is a helper function to parse response data based on expected mapping
+// parseResponseData is a helper function to parse response data based on expected mapping.
+// It returns all successfully mapped values, and an error containing a list of fields that were not found.
 func (s *SimpleForm) parseResponseData(responseData map[string]any, mapping map[string]string) (map[string]any, error) {
 	parsedData := make(map[string]any)
+	var missingFields []string
 	for k, v := range mapping {
 		value, exists := jsonform.GetValueByPath(responseData, k)
 
 		if !exists {
-			return nil, fmt.Errorf("expected response field '%s' not found in response data", k)
+			missingFields = append(missingFields, k)
+			continue
 		}
 
 		parsedData[v] = value
+	}
+
+	if len(missingFields) > 0 {
+		return parsedData, fmt.Errorf("expected response field(s) not found: %s", strings.Join(missingFields, ", "))
 	}
 
 	return parsedData, nil
