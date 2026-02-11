@@ -25,7 +25,8 @@ function TraderForm(props: { formInfo: TaskFormData, pluginState: string }) {
   const navigate = useNavigate()
   const [error, setError] = useState<string | null>(null)
 
-  const isReadOnly = props.pluginState === 'OGA_REVIEWED' || props.pluginState === 'SUBMITTED' || props.pluginState === 'OGA_ACKNOWLEDGED'
+  const READ_ONLY_STATES = ['OGA_REVIEWED', 'SUBMITTED', 'OGA_ACKNOWLEDGED'];
+  const isReadOnly = READ_ONLY_STATES.includes(props.pluginState);
 
   const handleSubmit = async (data: unknown) => {
     if (!consignmentId || !taskId) {
