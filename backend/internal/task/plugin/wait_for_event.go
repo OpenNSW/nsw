@@ -12,6 +12,13 @@ import (
 	"github.com/google/uuid"
 )
 
+type waitForEventState string
+
+const (
+	notifiedService  waitForEventState = "NOTIFIED_SERVICE"
+	receivedCallback waitForEventState = "RECEIVED_CALLBACK"
+)
+
 // WaitForEventConfig represents the configuration for a WAIT_FOR_EVENT task
 type WaitForEventConfig struct {
 	ExternalServiceURL string // URL of the external service to notify
@@ -23,16 +30,51 @@ type WaitForEventTask struct {
 }
 
 func (t *WaitForEventTask) GetRenderInfo(_ context.Context) (*ApiResponse, error) {
-	return &ApiResponse{Success: true}, nil
+	return &ApiResponse{
+		Success: true,
+		Data: GetRenderInfoResponse{
+			Type:        TaskTypeWaitForEvent,
+			PluginState: t.api.GetPluginState(),
+			State:       t.api.GetTaskState(),
+			Content:     nil, // No specific content needed for rendering
+		},
+	}, nil
 }
 
 func (t *WaitForEventTask) Init(api API) {
 	t.api = api
 }
 
-func (t *WaitForEventTask) Start(_ context.Context) (*ExecutionResponse, error) {
+func (t *WaitForEventTask) Start(ctx context.Context) (*ExecutionResponse, error) {
+
+	// Extract task and workflow IDs from global context
+	taskID := t.api.GetTaskID()
+	workflowID := t.api.GetWorkflowID()
+
+	// Validate external service URL
+	if t.config.ExternalServiceURL == "" {
+		return nil, fmt.Errorf("externalServiceUrl not configured in task config")
+	}
+
+	// Notify external service synchronously — only transition to InProgress on success
+	if err := t.notifyExternalService(ctx, taskID, workflowID); err != nil {
+		return nil, fmt.Errorf("failed to notify external service: %w", err)
+	}
+
+	pluginState := string(notifiedService)
+	if err := t.api.SetPluginState(pluginState); err != nil {
+		slog.ErrorContext(ctx, "failed to set plugin state after notifying external service",
+			"taskId", taskID,
+			"workflowId", workflowID,
+			"error", err)
+	}
+
+	// Task will be completed when external service calls back with action="complete"
+	inProgressState := InProgress
 	return &ExecutionResponse{
-		Message: "WAIT_FOR_EVENT task started successfully.",
+		ExtendedState: &pluginState,
+		NewState:      &inProgressState,
+		Message:       "Notified external service, waiting for callback",
 	}, nil
 }
 
@@ -54,45 +96,34 @@ func NewWaitForEventTask(raw json.RawMessage) (*WaitForEventTask, error) {
 	}, nil
 }
 
-func (t *WaitForEventTask) Execute(_ context.Context, request *ExecutionRequest) (*ExecutionResponse, error) {
+func (t *WaitForEventTask) Execute(ctx context.Context, request *ExecutionRequest) (*ExecutionResponse, error) {
+	if request == nil {
+		return nil, fmt.Errorf("execution request is required")
+	}
+
 	// Handle completion action from external service callback
-	if request != nil && request.Action == "complete" {
+	if request.Action == "complete" {
+		pluginState := string(receivedCallback)
+		if err := t.api.SetPluginState(pluginState); err != nil {
+			slog.ErrorContext(ctx, "failed to set plugin state on receiving callback",
+				"taskId", t.api.GetTaskID(),
+				"workflowId", t.api.GetWorkflowID(),
+				"error", err)
+		}
+
 		completedState := Completed
 		return &ExecutionResponse{
-			NewState: &completedState,
-			Message:  "Task completed by external service",
+			ExtendedState: &pluginState,
+			NewState:      &completedState,
+			Message:       "Task completed by external service",
 		}, nil
 	}
 
-	// Extract task and workflow IDs from global context
-	taskID := t.api.GetTaskID()
-	workflowID := t.api.GetWorkflowID()
-
-	// Validate external service URL
-	if t.config.ExternalServiceURL == "" {
-		return nil, fmt.Errorf("externalServiceUrl not configured in task config")
-	}
-
-	// Send task information to external service asynchronously
-	// Use background context with timeout to ensure notification completes
-	// independently of the Execute method's context lifecycle
-	notifyCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	go func() {
-		defer cancel()
-		t.notifyExternalService(notifyCtx, taskID, workflowID)
-	}()
-
-	// Return IN_PROGRESS status immediately (non-blocking)
-	// Task will be completed when external service calls back with action="complete"
-	inProgressState := InProgress
-	return &ExecutionResponse{
-		NewState: &inProgressState,
-		Message:  "Notified external service, waiting for callback",
-	}, nil
+	return nil, fmt.Errorf("unsupported action: %s", request.Action)
 }
 
 // notifyExternalService sends task information to the configured external service with retry logic
-func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID uuid.UUID, workflowID uuid.UUID) {
+func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID uuid.UUID, workflowID uuid.UUID) error {
 	const (
 		maxRetries     = 3
 		initialBackoff = 1 * time.Second
@@ -109,7 +140,7 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID uui
 			"taskId", taskID,
 			"workflowId", workflowID,
 			"error", err)
-		return
+		return err
 	}
 
 	var lastErr error
@@ -128,7 +159,7 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID uui
 				"taskId", taskID,
 				"workflowId", workflowID,
 				"attempt", attempt+1)
-			return
+			return ctx.Err()
 		default:
 		}
 
@@ -168,31 +199,32 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID uui
 					slog.WarnContext(ctx, "context cancelled during external service retry",
 						"taskId", taskID,
 						"workflowId", workflowID)
-					return
+					return ctx.Err()
 				}
 			}
 			continue
 		}
-		defer resp.Body.Close()
+		statusCode := resp.StatusCode
+		_ = resp.Body.Close()
 
-		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		if statusCode >= 200 && statusCode < 300 {
 			slog.InfoContext(ctx, "successfully notified external service",
 				"taskId", taskID,
 				"workflowId", workflowID,
 				"url", t.config.ExternalServiceURL,
-				"status", resp.StatusCode,
+				"status", statusCode,
 				"attempt", attempt+1)
-			return
+			return nil
 		}
 
 		// Retry on server errors (5xx) and rate limit (429)
-		if (resp.StatusCode >= 500 && resp.StatusCode < 600) || resp.StatusCode == http.StatusTooManyRequests {
-			lastErr = fmt.Errorf("external service returned status %d", resp.StatusCode)
+		if (statusCode >= 500 && statusCode < 600) || statusCode == http.StatusTooManyRequests {
+			lastErr = fmt.Errorf("external service returned status %d", statusCode)
 			slog.WarnContext(ctx, "external service returned retryable error status",
 				"taskId", taskID,
 				"workflowId", workflowID,
 				"url", t.config.ExternalServiceURL,
-				"status", resp.StatusCode,
+				"status", statusCode,
 				"attempt", attempt+1,
 				"maxRetries", maxRetries)
 
@@ -205,26 +237,27 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID uui
 					slog.WarnContext(ctx, "context cancelled during external service retry",
 						"taskId", taskID,
 						"workflowId", workflowID)
-					return
+					return ctx.Err()
 				}
 			}
 		} else {
 			// Non-retryable client error (4xx other than 429)
-			lastErr = fmt.Errorf("external service returned non-retryable status %d", resp.StatusCode)
+			lastErr = fmt.Errorf("external service returned non-retryable status %d", statusCode)
 			slog.ErrorContext(ctx, "external service returned non-retryable error status",
 				"taskId", taskID,
 				"workflowId", workflowID,
 				"url", t.config.ExternalServiceURL,
-				"status", resp.StatusCode)
+				"status", statusCode)
 			break
 		}
 	}
 
 	// All retries exhausted or non-retryable error occurred
-	slog.ErrorContext(ctx, "failed to notify external service after all retries - task may be stuck in IN_PROGRESS",
+	slog.ErrorContext(ctx, "failed to notify external service after all retries",
 		"taskId", taskID,
 		"workflowId", workflowID,
 		"url", t.config.ExternalServiceURL,
 		"maxRetries", maxRetries,
 		"error", lastErr)
+	return lastErr
 }
