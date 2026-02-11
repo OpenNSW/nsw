@@ -9,6 +9,12 @@ else
     exit 1
 fi
 
+# Ensure environment variables are set
+if [ -z "$DB_PASSWORD" ]; then
+    echo "Error: DB_PASSWORD is not set."
+    exit 1
+fi
+
 # Force disconnect other users and drop the database
 # Using the 'postgres' database as a maintenance DB to execute the drop
 echo "Dropping database $DB_NAME..."
@@ -17,12 +23,6 @@ PGPASSWORD=$DB_PASSWORD psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d po
 # Recreate the database
 echo "Creating database $DB_NAME..."
 PGPASSWORD=$DB_PASSWORD psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d postgres -c "CREATE DATABASE $DB_NAME;"
-
-# Ensure environment variables are set
-if [ -z "$DB_PASSWORD" ]; then
-    echo "Error: DB_PASSWORD is not set."
-    exit 1
-fi
 
 # Define the file paths
 MIGRATIONS=(
