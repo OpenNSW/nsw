@@ -3,6 +3,7 @@ package router
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/google/uuid"
 
@@ -22,7 +23,7 @@ func NewPreConsignmentRouter(pcs *service.PreConsignmentService) *PreConsignment
 	}
 }
 
-// HandleGetTraderPreConsignments handles GET /api/v1/pre-consignments?traderId={traderId}
+// HandleGetTraderPreConsignments handles GET /api/v1/pre-consignments
 func (r *PreConsignmentRouter) HandleGetTraderPreConsignments(w http.ResponseWriter, req *http.Request) {
 	traderID := req.URL.Query().Get("traderId")
 	if traderID == "" {
@@ -30,15 +31,27 @@ func (r *PreConsignmentRouter) HandleGetTraderPreConsignments(w http.ResponseWri
 		return
 	}
 
-	templates, err := r.pcs.GetTraderPreConsignments(req.Context(), traderID, nil, nil)
+	var offset, limit *int
+	if offsetStr := req.URL.Query().Get("offset"); offsetStr != "" {
+		if o, err := strconv.Atoi(offsetStr); err == nil {
+			offset = &o
+		}
+	}
+	if limitStr := req.URL.Query().Get("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil {
+			limit = &l
+		}
+	}
+
+	items, err := r.pcs.GetTraderPreConsignments(req.Context(), traderID, offset, limit)
 	if err != nil {
-		http.Error(w, "failed to retrieve pre-consignment templates: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "failed to retrieve pre-consignments: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(templates); err != nil {
+	if err := json.NewEncoder(w).Encode(items); err != nil {
 		http.Error(w, "failed to encode response", http.StatusInternalServerError)
 		return
 	}

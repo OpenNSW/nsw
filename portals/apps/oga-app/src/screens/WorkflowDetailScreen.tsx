@@ -1,12 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Button, Badge, Spinner, Text, Card, Flex, Box, TextField, TextArea, Callout } from '@radix-ui/themes'
+import { Button, Badge, Spinner, Text, Card, Flex, Box, Callout } from '@radix-ui/themes'
 import { ArrowLeftIcon, CheckCircledIcon, ExclamationTriangleIcon, InfoCircledIcon } from '@radix-ui/react-icons'
 import { fetchApplicationDetail, approveTask, type OGAApplication, type ApproveRequest, type Decision } from '../api'
-import { JsonForms } from '@jsonforms/react'
-import { customRenderers } from '../renderers'
-import { vanillaCells } from '@jsonforms/vanilla-renderers'
-import type { UISchemaElement } from '@jsonforms/core'
+import { JsonForm } from '@lsf/ui'
+import type { JsonSchema, UISchemaElement } from '@jsonforms/core'
 
 export function WorkflowDetailScreen() {
   const navigate = useNavigate()
@@ -18,12 +16,28 @@ export function WorkflowDetailScreen() {
   const [application, setApplication] = useState<OGAApplication | null>(null)
   const [loading, setLoading] = useState(true)
   const [formData, setFormData] = useState<Record<string, unknown>>({})
-  const [reviewerName, setReviewerName] = useState('')
-  const [decision, setDecision] = useState<Decision>('APPROVED')
-  const [comments, setComments] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+
+  const parsedNotes = useMemo(() => {
+    if (!application?.reviewerNotes) return { reviewerName: '', comments: '' };
+
+    const lines = application.reviewerNotes.split('\n');
+    const notes: Record<string, string> = {};
+
+    lines.forEach(line => {
+      const [key, ...rest] = line.split(': ');
+      if (key && rest.length > 0) {
+        notes[key.trim()] = rest.join(': ').trim();
+      }
+    });
+
+    return {
+      reviewerName: notes['Reviewer'] || '',
+      comments: notes['Comments'] || ''
+    };
+  }, [application?.reviewerNotes]);
 
   useEffect(() => {
     async function fetchData() {
@@ -46,27 +60,28 @@ export function WorkflowDetailScreen() {
     void fetchData()
   }, [taskId])
 
-  const handleFormChange = (data: { data: Record<string, unknown>, errors?: any[] }) => {
-    setFormData(data.data)
+  const handleFormChange = (data: Record<string, unknown>) => {
+    setFormData(data)
   }
 
-  const handleSubmit = async (finalDecision?: Decision) => {
-    if (!reviewerName.trim()) {
-      setError('Reviewer name is required')
-      return
-    }
-
+  const handleSubmit = async (data: Record<string, unknown>) => {
     if (!taskId || !application) {
       setError('Application data not available')
       return
     }
 
-    const effectiveDecision = finalDecision ?? (application.status as Decision)
+    const decision = data.decision as Decision
+    const reviewerName = data.reviewerName as string
+    const comments = data.comments as string | undefined
 
-    // Validate effective decision if derived from application status
-    if (!finalDecision && (application.status !== 'APPROVED' && application.status !== 'REJECTED')) {
-      setError(`Cannot update documents for application with status: ${application.status}`)
-      return
+    // Explicit validation for required fields
+    if (!decision) {
+      setError('Please select a Final Decision');
+      return;
+    }
+    if (!reviewerName || reviewerName.trim() === '') {
+      setError('Please enter the Reviewer Name');
+      return;
     }
 
     setIsSubmitting(true)
@@ -74,24 +89,21 @@ export function WorkflowDetailScreen() {
 
     try {
       const requestBody: ApproveRequest = {
-        decision: effectiveDecision,
-        comments: comments.trim() || undefined,
+        decision: decision,
+        comments: comments?.trim(),
         reviewerName: reviewerName.trim(),
-        formData: formData,
+        formData: data,
         workflowId: application.workflowId,
       }
       await approveTask(taskId, application.workflowId, requestBody)
       setSuccess(true)
-      setTimeout(() => navigate('/workflows'), 2000)
+      setTimeout(() => { void navigate('/workflows') }, 2000)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit review')
     } finally {
       setIsSubmitting(false)
     }
   }
-
-  const handleUpdateDocuments = () => handleSubmit()
-  const handleApprove = () => handleSubmit(decision)
 
   if (loading) {
     return (
@@ -131,7 +143,7 @@ export function WorkflowDetailScreen() {
   }
 
   return (
-    <div className="animate-fade-in max-w-5xl mx-auto">
+    <div className="animate-fade-in max-w-5xl mx-auto px-4 py-6">
       <Flex justify="between" align="center" mb="6">
         <Button variant="ghost" color="gray" onClick={() => { void navigate('/workflows') }}>
           <ArrowLeftIcon /> Back to Workflows
@@ -169,7 +181,10 @@ export function WorkflowDetailScreen() {
               Application Details
             </Text>
             <div className="space-y-4 mt-4">
-
+              <Box>
+                <Text size="1" color="gray" as="div" mb="1">Reference Number</Text>
+                <Text size="2" weight="medium" className="break-all font-mono">{taskId}</Text>
+              </Box>
               <Box>
                 <Text size="1" color="gray" as="div" mb="1">Workflow ID</Text>
                 <Text size="2" weight="medium" className="break-all font-mono">{application.workflowId}</Text>
@@ -196,29 +211,34 @@ export function WorkflowDetailScreen() {
                 </Text>
               </Box>
               {application.reviewedAt && (
-                <Box>
-                  <Text size="1" color="gray" as="div" mb="1">Reviewed On</Text>
-                  <Text size="2" weight="medium">
-                    {(() => {
-                      const date = new Date(application.reviewedAt)
-                      const datePart = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-                      const timePart = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
-                      return `${datePart} at ${timePart}`
-                    })()}
-                  </Text>
-                </Box>
+                <>
+                  <Box>
+                    <Text size="1" color="gray" as="div" mb="1">Reviewer Name</Text>
+                    <Text size="2" weight="medium">{parsedNotes.reviewerName || '-'}</Text>
+                  </Box>
+                  <Box>
+                    <Text size="1" color="gray" as="div" mb="1">Final Decision</Text>
+                    <Text size="2" weight="medium">{application.status !== 'PENDING' ? application.status : '-'}</Text>
+                  </Box>
+                  <Box>
+                    <Text size="1" color="gray" as="div" mb="1">Reviewer Comments</Text>
+                    <Text size="2" weight="medium" className="whitespace-pre-wrap">{parsedNotes.comments || '-'}</Text>
+                  </Box>
+                  <Box>
+                    <Text size="1" color="gray" as="div" mb="1">Reviewed On</Text>
+                    <Text size="2" weight="medium">
+                      {(() => {
+                        const date = new Date(application.reviewedAt)
+                        const datePart = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                        const timePart = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+                        return `${datePart} at ${timePart}`
+                      })()}
+                    </Text>
+                  </Box>
+                </>
               )}
             </div>
           </Card>
-
-          {application.reviewerNotes && application.status !== 'PENDING' && (
-            <Card size="2">
-              <Text size="2" weight="bold" color="gray" mb="3" as="div" className="uppercase tracking-wider">
-                Reviewer Notes
-              </Text>
-              <Text size="2" className="whitespace-pre-wrap">{application.reviewerNotes}</Text>
-            </Card>
-          )}
         </div>
 
         {/* Right Column: Review Form */}
@@ -270,106 +290,30 @@ export function WorkflowDetailScreen() {
                 )}
               </div>
 
-              <div className="border-t border-gray-100 my-4"></div>
-
-              {/* Review Fields - Available for update at any time */}
-              {application.ogaForm?.schema && (
-                <JsonForms
-                  schema={application.ogaForm.schema}
-                  uischema={application.ogaForm.uiSchema as unknown as UISchemaElement}
-                  data={formData}
-                  renderers={customRenderers}
-                  cells={vanillaCells}
-                  onChange={handleFormChange}
-                  readonly={isSubmitting}
-                />
-              )}
-
-              {application.status === 'PENDING' ? (
-                <>
-                  <Box>
-                    <Text as="label" size="2" weight="bold" mb="1" className="block">Reviewer Name *</Text>
-                    <TextField.Root
-                      placeholder="Enter your full name"
-                      value={reviewerName}
-                      onChange={(e) => setReviewerName(e.target.value)}
-                      disabled={isSubmitting}
-                      size="3"
-                    />
-                  </Box>
-
-                  <Box mt="4">
-                    <Text as="label" size="2" weight="bold" mb="1" className="block">Final Decision *</Text>
-                    <Flex gap="4" mt="2">
-                      <Button
-                        size="3"
-                        variant={decision === 'APPROVED' ? 'solid' : 'soft'}
-                        color="green"
-                        className="flex-1 cursor-pointer"
-                        onClick={() => setDecision('APPROVED')}
-                        disabled={isSubmitting}
-                      >
-                        Approve
-                      </Button>
-                      <Button
-                        size="3"
-                        variant={decision === 'REJECTED' ? 'solid' : 'soft'}
-                        color="red"
-                        className="flex-1 cursor-pointer"
-                        onClick={() => setDecision('REJECTED')}
-                        disabled={isSubmitting}
-                      >
-                        Reject
-                      </Button>
-                    </Flex>
-                  </Box>
-
-                </>
-              ) : (
-                <Flex justify="end">
-                  <Button
-                    size="3"
-                    onClick={handleUpdateDocuments}
-                    loading={isSubmitting}
-                    disabled={isSubmitting || !reviewerName.trim()}
-                  >
-                    Update Documents
-                  </Button>
-                </Flex>
-              )
-              }
-
-              <Box mt="4">
-                <Text as="label" size="2" weight="bold" mb="1" className="block">Comments</Text>
-                <TextArea
-                  placeholder="Provide details about your decision..."
-                  value={comments}
-                  onChange={(e) => setComments(e.target.value)}
-                  disabled={isSubmitting}
-                  rows={4}
-                  size="3"
-                />
-              </Box>
-
-              {
-                application.status === 'PENDING' && (
-                  <div className="pt-4 border-t border-gray-100 mt-6">
-                    <Button
-                      size="4"
-                      className="w-full cursor-pointer"
-                      onClick={handleApprove}
-                      loading={isSubmitting}
-                      disabled={isSubmitting || !reviewerName.trim()}
-                    >
-                      Submit Final Review
-                    </Button>
-                  </div>
-                )
-              }
-            </div >
-          </Card >
-        </div >
-      </div >
-    </div >
+              {/* Review Section */}
+              <div className="mt-6">
+                {application.ogaForm ? (
+                  <JsonForm
+                    schema={application.ogaForm.schema as JsonSchema}
+                    uiSchema={application.ogaForm.uiSchema as unknown as UISchemaElement}
+                    data={formData}
+                    onSubmit={(data) => { void handleSubmit(data) }}
+                    onChange={handleFormChange}
+                    readonly={application.status !== 'PENDING' || isSubmitting}
+                    submitting={isSubmitting}
+                    submitLabel={application.status === 'PENDING' ? "Submit Final Review" : "Update Review"}
+                  />
+                ) : (
+                  <Callout.Root color="amber">
+                    <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+                    <Callout.Text>No review form configuration available for this application.</Callout.Text>
+                  </Callout.Root>
+                )}
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    </div>
   )
 }

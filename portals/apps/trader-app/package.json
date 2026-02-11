@@ -12,7 +12,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@lsf/ui": "file:../../ui",
+    "@jsonforms/core": "^3.7.0",
+    "@jsonforms/react": "^3.7.0",
     "@radix-ui/react-icons": "^1.3.2",
     "@radix-ui/themes": "^3.2.1",
     "@tailwindcss/vite": "^4.1.18",

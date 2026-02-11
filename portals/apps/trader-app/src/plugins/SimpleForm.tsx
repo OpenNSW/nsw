@@ -1,8 +1,8 @@
-import {JsonForm, useJsonForm, type JsonSchema, type UISchemaElement} from "../components/JsonForm";
-import {sendTaskCommand} from "../services/task.ts";
-import {useNavigate, useParams} from "react-router-dom";
-import {useState} from "react";
-import {Button} from "@radix-ui/themes";
+import { JsonForm, useJsonForm, type JsonSchema, type UISchemaElement } from "../components/JsonForm";
+import { sendTaskCommand } from "../services/task.ts";
+import { useNavigate, useParams } from "react-router-dom";
+import { useState } from "react";
+import { Button } from "@radix-ui/themes";
 
 
 export interface TaskFormData {
@@ -17,7 +17,7 @@ export type SimpleFormConfig = {
 }
 
 export default function SimpleForm(props: { configs: SimpleFormConfig, pluginState: string }) {
-  const {consignmentId, taskId} = useParams<{
+  const { consignmentId, taskId } = useParams<{
     consignmentId: string
     taskId: string
   }>()
@@ -37,7 +37,7 @@ export default function SimpleForm(props: { configs: SimpleFormConfig, pluginSta
       const response = await sendTaskCommand({
         command: 'SUBMISSION',
         taskId,
-        workflowId:   consignmentId,
+        workflowId: consignmentId,
         data: data as Record<string, unknown>,
       })
 
@@ -72,11 +72,10 @@ export default function SimpleForm(props: { configs: SimpleFormConfig, pluginSta
           <JsonForm
             schema={props.configs.traderFormInfo.schema}
             uiSchema={props.configs.traderFormInfo.uiSchema}
-            values={form.values}
-            errors={form.errors}
-            touched={form.touched}
-            setValue={form.setValue}
-            setTouched={form.setTouched}
+            data={form.values}
+            onSubmit={handleSubmit}
+            onChange={form.setValues}
+            readonly={props.pluginState !== "INITIALIZED" && props.pluginState !== "DRAFT"}
           />
           <div className={`mt-4 flex gap-3 ${showAutoFillButton ? 'justify-between' : ''}`}>
             {showAutoFillButton && (
@@ -94,7 +93,7 @@ export default function SimpleForm(props: { configs: SimpleFormConfig, pluginSta
             )}
             <Button
               type="submit"
-              disabled={form.isSubmitting || (props.pluginState !== "INITIALIZED" && props.pluginState !== "DRAFT")}
+              disabled={!form.isValid || form.isSubmitting || (props.pluginState !== "INITIALIZED" && props.pluginState !== "DRAFT")}
               className={'flex-1!'}
               size={"3"}
             >

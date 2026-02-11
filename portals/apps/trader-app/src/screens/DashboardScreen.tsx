@@ -97,10 +97,13 @@ export function DashboardScreen() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-        <Button onClick={() => setPickerOpen(true)} disabled={creating}>
-          <PlusIcon />
-          {creating ? 'Creating...' : 'New Consignment'}
-        </Button>
+        <div className="flex gap-2">
+
+          <Button onClick={() => setPickerOpen(true)} disabled={creating}>
+            <PlusIcon />
+            {creating ? 'Creating...' : 'New Consignment'}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

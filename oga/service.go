@@ -39,6 +39,7 @@ type InjectRequest struct {
 	TaskID     uuid.UUID              `json:"taskId"`
 	WorkflowID uuid.UUID              `json:"workflowId"`
 	Data       map[string]interface{} `json:"data"`
+	OGAForm    map[string]interface{} `json:"ogaForm,omitempty"`
 	ServiceURL string                 `json:"serviceUrl"` // URL to send response back to
 }
 
@@ -48,6 +49,7 @@ type Application struct {
 	WorkflowID    uuid.UUID              `json:"workflowId"`
 	ServiceURL    string                 `json:"serviceUrl"`
 	Data          map[string]interface{} `json:"data"`
+	OGAForm       map[string]interface{} `json:"ogaForm,omitempty"`
 	Status        string                 `json:"status"`
 	ReviewerNotes string                 `json:"reviewerNotes,omitempty"`
 	ReviewedAt    *time.Time             `json:"reviewedAt,omitempty"`
@@ -95,6 +97,7 @@ func (s *ogaService) CreateApplication(ctx context.Context, req *InjectRequest) 
 		WorkflowID: req.WorkflowID,
 		ServiceURL: req.ServiceURL,
 		Data:       req.Data,
+		OGAForm:    req.OGAForm,
 		Status:     "PENDING",
 	}
 
@@ -131,6 +134,7 @@ func (s *ogaService) GetApplications(ctx context.Context, status string) ([]Appl
 			WorkflowID:    record.WorkflowID,
 			ServiceURL:    record.ServiceURL,
 			Data:          record.Data,
+			OGAForm:       record.OGAForm,
 			Status:        record.Status,
 			ReviewerNotes: record.ReviewerNotes,
 			ReviewedAt:    record.ReviewedAt,
@@ -154,6 +158,7 @@ func (s *ogaService) GetApplication(ctx context.Context, taskID uuid.UUID) (*App
 		WorkflowID:    record.WorkflowID,
 		ServiceURL:    record.ServiceURL,
 		Data:          record.Data,
+		OGAForm:       record.OGAForm,
 		Status:        record.Status,
 		ReviewerNotes: record.ReviewerNotes,
 		ReviewedAt:    record.ReviewedAt,

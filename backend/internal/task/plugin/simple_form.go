@@ -20,6 +20,7 @@ import (
 
 // SimpleFormAction represents the action to perform on the form
 const (
+	SimpleFormActionFetch     = "FETCH_FORM"
 	SimpleFormActionDraft     = "DRAFT_FORM"
 	SimpleFormActionSubmit    = "SUBMIT_FORM"
 	SimpleFormActionOgaVerify = "OGA_VERIFICATION"
@@ -48,6 +49,9 @@ type Config struct {
 	SubmissionURL           string            `json:"submissionUrl,omitempty"` // URL to submit form data to (optional)
 	Submission              *SubmissionConfig `json:"submission,omitempty"`    // Submission configuration (optional)
 	Callback                *CallbackConfig   `json:"callback,omitempty"`
+	OgaFormID               string            `json:"ogaFormId,omitempty"`               // Optional form ID for OGA review
+	OgaFormSchema           json.RawMessage   `json:"ogaFormSchema,omitempty"`           // Optional form schema for OGA review
+	OgaFormUISchema         json.RawMessage   `json:"ogaFormUISchema,omitempty"`         // Optional form UI schema for OGA review
 	RequiresOgaVerification bool              `json:"requiresOgaVerification,omitempty"` // If true, waits for OGA_VERIFICATION action; if false, completes after submission response
 }
 
@@ -70,7 +74,7 @@ type SimpleFormResult struct {
 	Title    string          `json:"title,omitempty"`
 	Schema   json.RawMessage `json:"schema,omitempty"`
 	UISchema json.RawMessage `json:"uiSchema,omitempty"`
-	FormData json.RawMessage `json:"formData,omitempty"`
+	FormData json.RawMessage `json:"formData"` // Removed omitempty to ensure explicit null is sent if empty
 }
 
 type SimpleForm struct {
@@ -181,9 +185,15 @@ func (s *SimpleForm) Start(ctx context.Context) (*ExecutionResponse, error) {
 }
 
 func (s *SimpleForm) Execute(ctx context.Context, request *ExecutionRequest) (*ExecutionResponse, error) {
+	// Default action is FETCH_FORM
 	action := request.Action
+	if action == "" {
+		action = SimpleFormActionFetch
+	}
 
 	switch action {
+	case SimpleFormActionFetch:
+		return s.handleFetchForm(ctx)
 	case SimpleFormActionDraft:
 		return s.handleSaveAsDraft(ctx, request.Content)
 	case SimpleFormActionSubmit:
@@ -248,7 +258,125 @@ func (s *SimpleForm) populateFromRegistry(ctx context.Context) error {
 	s.config.Schema = def.Schema
 	s.config.UISchema = def.UISchema
 
+	// Also fetch OGA form if OgaFormID is set
+	if s.config.OgaFormID != "" {
+		ogaFormUUID, err := uuid.Parse(s.config.OgaFormID)
+		if err != nil {
+			slog.Warn("invalid OGA form ID format", "ogaFormId", s.config.OgaFormID, "error", err)
+		} else {
+			ogaDef, err := s.formService.GetFormByID(ctx, ogaFormUUID)
+			if err != nil {
+				slog.Warn("failed to fetch OGA form definition", "ogaFormId", s.config.OgaFormID, "error", err)
+			} else {
+				s.config.OgaFormSchema = ogaDef.Schema
+				s.config.OgaFormUISchema = ogaDef.UISchema
+			}
+		}
+	}
+
 	return nil
+}
+
+// handleFetchForm returns the form schema for rendering
+func (s *SimpleForm) handleFetchForm(ctx context.Context) (*ExecutionResponse, error) {
+
+	err := s.populateFromRegistry(ctx)
+
+	if err != nil {
+		return &ExecutionResponse{
+			Message: fmt.Sprintf("Failed to populate form definition from registry: %v", err),
+			ApiResponse: &ApiResponse{
+				Success: false,
+				Error: &ApiError{
+					Code:    "FETCH_FORM_FAILED",
+					Message: "Failed to retrieve form definition.",
+				},
+			},
+		}, err
+	}
+
+	// Try to retrieve previously saved submission data from Local State first
+	var finalFormData json.RawMessage
+
+	pluginState := s.api.GetPluginState()
+
+	// Prioritize draft data if we are in DRAFT state
+	if pluginState == string(TraderSavedAsDraft) {
+		if draftData, err := s.api.ReadFromLocalStore("trader:draft"); err == nil && draftData != nil {
+			if dataBytes, err := json.Marshal(draftData); err == nil {
+				finalFormData = json.RawMessage(dataBytes)
+				slog.Info("loaded draft form data", "formId", s.config.FormID)
+			} else {
+				slog.Warn("failed to marshal draft form data", "error", err)
+			}
+		}
+	}
+
+	// If no draft loaded (or not in draft state), try standard trader:submission
+	if len(finalFormData) == 0 {
+		if savedData, err := s.api.ReadFromLocalStore("trader:submission"); err == nil && savedData != nil {
+			if dataBytes, err := json.Marshal(savedData); err == nil {
+				finalFormData = json.RawMessage(dataBytes)
+			} else {
+				slog.Warn("failed to marshal saved form data", "error", err)
+			}
+		}
+	}
+
+	// If still empty, check for draft data regardless of state (fallback)
+	if len(finalFormData) == 0 {
+		if draftData, err := s.api.ReadFromLocalStore("trader:draft"); err == nil && draftData != nil {
+			if dataBytes, err := json.Marshal(draftData); err == nil {
+				finalFormData = json.RawMessage(dataBytes)
+			}
+		}
+	}
+
+	// If no saved data exists, fall back to prepopulation logic
+	if len(finalFormData) == 0 {
+		// Prepopulate form data from global context
+		prepopulatedFormData, err := s.prepopulateFormData(ctx, s.config.FormData)
+		if err != nil {
+			slog.Warn("failed to prepopulate form data from global context",
+				"formId", s.config.FormID,
+				"error", err)
+			// Continue with original form data if prepopulation fails
+			prepopulatedFormData = s.config.FormData
+		}
+		finalFormData = prepopulatedFormData
+
+		// Store prepopulated form data in local state for retrieval
+		if err := s.api.WriteToLocalStore("prepopulatedFormData", prepopulatedFormData); err != nil {
+			slog.Warn("failed to write prepopulated form data to local store", "error", err)
+		}
+	}
+
+	// Ensure finalFormData is at least explicit null if empty to prevent JSON issues
+	if len(finalFormData) == 0 {
+		finalFormData = json.RawMessage("null")
+	} else {
+		// Validate that the data is actually valid JSON
+		if !json.Valid(finalFormData) {
+			slog.Warn("finalFormData contains invalid JSON, falling back to null",
+				"formId", s.config.FormID,
+				"data_preview", string(finalFormData))
+			finalFormData = json.RawMessage("null")
+		}
+	}
+
+	// Return the form schema (task stays in current state until form is submitted)
+	return &ExecutionResponse{
+		Message: "Form schema retrieved successfully",
+		ApiResponse: &ApiResponse{
+			Success: true,
+			Data: SimpleFormResult{
+				Title:    s.config.Title,
+				Schema:   s.config.Schema,
+				UISchema: s.config.UISchema,
+				FormData: finalFormData,
+			},
+		},
+	}, nil
 }
 
 // handleSubmitForm validates and processes the form submission
@@ -351,6 +479,14 @@ func (s *SimpleForm) handleSubmitForm(ctx context.Context, content interface{}) 
 			"taskId":     s.api.GetTaskID().String(),
 			"workflowId": s.api.GetWorkflowID().String(),
 			"serviceUrl": strings.TrimRight(s.cfg.Server.ServiceURL, "/") + TasksAPIPath,
+		}
+
+		// Include OGA form if provided
+		if len(s.config.OgaFormSchema) > 0 {
+			requestPayload["ogaForm"] = map[string]any{
+				"schema":   s.config.OgaFormSchema,
+				"uiSchema": s.config.OgaFormUISchema,
+			}
 		}
 
 		responseData, err := s.sendFormSubmission(submissionUrl, requestPayload)
@@ -554,7 +690,7 @@ func (s *SimpleForm) prepopulateFormData(ctx context.Context, existingFormData j
 	formData := make(map[string]any)
 
 	err := jsonform.Traverse(&parsedSchema, func(path string, node *jsonform.JSONSchema, parent *jsonform.JSONSchema) error {
-		// Check if this field should be read from a global context
+		// Check if this field should be read from global context
 		if node.XGlobalContext != nil &&
 			node.XGlobalContext.ReadFrom != nil &&
 			strings.TrimSpace(*node.XGlobalContext.ReadFrom) != "" {

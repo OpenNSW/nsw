@@ -1,14 +1,22 @@
-import {apiGet, apiPost, type ApiResponse} from './api'
-import type {RenderInfo} from "../plugins";
+import { apiGet, apiPost, type ApiResponse } from './api'
+import type { RenderInfo } from "../plugins";
 
 export type TaskAction = 'FETCH_FORM' | 'SUBMIT_FORM' | 'DRAFT'
 
 export type TaskCommand = 'SUBMISSION' | 'DRAFT'
 
+export interface TaskFormData {
+  title: string
+  schema: any
+  uiSchema?: any
+  formData: any
+}
+
 export interface TaskCommandRequest {
   command: TaskCommand
   taskId: string
-  workflowId: string
+  workflowId?: string
+  preConsignmentId?: string
   data: Record<string, unknown>
 }
 
@@ -21,7 +29,8 @@ export interface TaskCommandResponse {
 
 export interface SendTaskCommandRequest {
   task_id: string
-  workflow_id: string
+  workflow_id?: string
+  pre_consignment_id?: string
   payload: {
     action: TaskAction
     content: Record<string, unknown>
@@ -45,6 +54,7 @@ export async function sendTaskCommand(
   return apiPost<SendTaskCommandRequest, TaskCommandResponse>(TASKS_API_URL, {
     task_id: request.taskId,
     workflow_id: request.workflowId,
+    pre_consignment_id: request.preConsignmentId,
     payload: {
       action,
       content: request.data,

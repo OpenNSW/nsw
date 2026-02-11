@@ -49,3 +49,7 @@ async function fetchWorkflowByType(
     throw error
   }
 }
+
+export async function getWorkflowById(id: string): Promise<Workflow | undefined> {
+  return apiGet<Workflow>(`/workflows/${id}`)
+}

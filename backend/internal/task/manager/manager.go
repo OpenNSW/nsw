@@ -53,6 +53,9 @@ type TaskManager interface {
 
 	// HandleGetTask is an HTTP handler for retrieving a task via GET request
 	HandleGetTask(w http.ResponseWriter, r *http.Request)
+
+	// ExecuteTask executes a task programmatically (Added this method to the interface)
+	ExecuteTask(ctx context.Context, request ExecuteTaskRequest) (*plugin.ExecutionResponse, error)
 }
 
 // ExecuteTaskRequest represents the request body for task execution
@@ -147,27 +150,34 @@ func (tm *taskManager) HandleExecuteTask(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Get task from the store
-	ctx := r.Context()
-	activeTask, err := tm.getTask(ctx, req.TaskID)
+	result, err := tm.ExecuteTask(r.Context(), req)
 	if err != nil {
-		writeJSONError(w, http.StatusNotFound, fmt.Sprintf("task %s not found: %v", req.TaskID, err))
-		return
-	}
-
-	// Execute task
-	result, err := tm.execute(ctx, activeTask, req.Payload)
-	if err != nil {
-		slog.ErrorContext(ctx, "failed to execute task",
+		slog.ErrorContext(r.Context(), "failed to execute task",
 			"taskID", req.TaskID,
 			"workflowID", req.WorkflowID,
 			"error", err)
+		// Determine status code based on error type? For now 500.
 		writeJSONError(w, http.StatusInternalServerError, "Failed to execute task: "+err.Error())
 		return
 	}
 
 	// Return success response
 	writeJSONResponse(w, http.StatusOK, result.ApiResponse)
+}
+
+// ExecuteTask executes a task programmatically
+func (tm *taskManager) ExecuteTask(ctx context.Context, req ExecuteTaskRequest) (*plugin.ExecutionResponse, error) {
+	activeTask, err := tm.getTask(ctx, req.TaskID)
+	if err != nil {
+		return nil, fmt.Errorf("task %s not found: %w", req.TaskID, err)
+	}
+
+	result, err := tm.execute(ctx, activeTask, req.Payload)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 func writeJSONResponse(w http.ResponseWriter, status int, data interface{}) {

@@ -20,7 +20,7 @@ export type ApiResponse<T> = {
 }
 
 export interface QueryParams {
-  [key:string]: string | number | undefined
+  [key: string]: string | number | undefined
 }
 
 function buildQueryString(params: QueryParams): string {
@@ -44,7 +44,7 @@ export async function apiGet<T>(
   if (!response.ok) {
     throw new Error(`API error: ${response.status} ${response.statusText}`)
   }
-  return response.json()
+  return (await response.json()) as T
 }
 
 export async function apiPost<T, R>(
@@ -60,8 +60,22 @@ export async function apiPost<T, R>(
     },
     body: JSON.stringify(body),
   })
+
   if (!response.ok) {
-    throw new Error(`API error: ${response.status} ${response.statusText}`)
+    const errorText = await response.text()
+    console.error(`API error ${response.status}: ${errorText}`)
+    throw new Error(`API error: ${response.status} ${response.statusText} - ${errorText}`)
   }
-  return response.json()
+
+  const text = await response.text()
+  if (!text) {
+    throw new Error('API returned empty response')
+  }
+
+  try {
+    return JSON.parse(text) as R
+  } catch (e) {
+    console.error('Failed to parse API response', text)
+    throw new Error(`Failed to parse API response: ${e instanceof Error ? e.message : String(e)}`)
+  }
 }

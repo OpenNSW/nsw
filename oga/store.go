@@ -41,6 +41,7 @@ type ApplicationRecord struct {
 	WorkflowID    uuid.UUID  `gorm:"type:uuid;index;not null"`
 	ServiceURL    string     `gorm:"type:varchar(512);not null"`                  // URL to send response back to
 	Data          JSONB      `gorm:"type:text"`                                   // Injected data from service
+	OGAForm       JSONB      `gorm:"type:text"`                                   // OGA Review Form definition
 	Status        string     `gorm:"type:varchar(50);not null;default:'PENDING'"` // PENDING, APPROVED, REJECTED
 	ReviewerNotes string     `gorm:"type:text"`                                   // Optional notes from reviewer
 	ReviewedAt    *time.Time `gorm:"type:datetime"`                               // When it was reviewed

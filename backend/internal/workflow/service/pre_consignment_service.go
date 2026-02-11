@@ -55,7 +55,7 @@ func (s *PreConsignmentService) GetTraderPreConsignments(ctx context.Context, tr
 		return model.TraderPreConsignmentsResponseDTO{}, fmt.Errorf("failed to retrieve completed pre-consignments for trader %s: %w", traderID, err)
 	}
 
-	// Build a set of template IDs to PreConsignment for quick lookup
+	// Build a map of TemplateID -> PreConsignment for quick lookup
 	templateIDToPreConsignment := make(map[uuid.UUID]model.PreConsignment)
 	for _, pc := range preConsignments {
 		templateIDToPreConsignment[pc.PreConsignmentTemplateID] = pc
@@ -245,7 +245,6 @@ func (s *PreConsignmentService) GetPreConsignmentsByTraderID(ctx context.Context
 	if result.Error != nil {
 		return nil, fmt.Errorf("failed to retrieve pre-consignments for trader %s: %w", traderID, result.Error)
 	}
-
 	if len(preConsignments) == 0 {
 		return []model.PreConsignmentResponseDTO{}, nil
 	}
@@ -354,25 +353,22 @@ func (s *PreConsignmentService) updateWorkflowNodeStateAndPropagateChangesInTx(c
 // markPreConsignmentAsCompleted updates the pre-consignment state to COMPLETED.
 func (s *PreConsignmentService) markPreConsignmentAsCompleted(ctx context.Context, tx *gorm.DB, preConsignmentID uuid.UUID) error {
 	var preConsignment model.PreConsignment
-	result := tx.WithContext(ctx).First(&preConsignment, "id = ?", preConsignmentID)
-	if result.Error != nil {
-		return fmt.Errorf("failed to retrieve pre-consignment %s: %w", preConsignmentID, result.Error)
+	if err := tx.WithContext(ctx).First(&preConsignment, "id = ?", preConsignmentID).Error; err != nil {
+		return fmt.Errorf("failed to retrieve pre-consignment %s: %w", preConsignmentID, err)
 	}
 
 	preConsignment.State = model.PreConsignmentStateCompleted
 	if err := tx.WithContext(ctx).Save(&preConsignment).Error; err != nil {
 		return fmt.Errorf("failed to update pre-consignment %s state to COMPLETED: %w", preConsignmentID, err)
 	}
-
 	return nil
 }
 
 // appendToPreConsignmentTraderContext appends key-value pairs to the pre-consignment's trader context.
 func (s *PreConsignmentService) appendToPreConsignmentTraderContext(ctx context.Context, tx *gorm.DB, preConsignmentID uuid.UUID, appendContext map[string]any) (map[string]any, error) {
 	var preConsignment model.PreConsignment
-	result := tx.WithContext(ctx).First(&preConsignment, "id = ?", preConsignmentID)
-	if result.Error != nil {
-		return nil, fmt.Errorf("failed to retrieve pre-consignment %s: %w", preConsignmentID, result.Error)
+	if err := tx.WithContext(ctx).First(&preConsignment, "id = ?", preConsignmentID).Error; err != nil {
+		return nil, fmt.Errorf("failed to retrieve pre-consignment %s: %w", preConsignmentID, err)
 	}
 
 	if preConsignment.TraderContext == nil {
