@@ -1,0 +1,5 @@
+UPDATE workflow_node_templates SET config = '{"agency": "NPQS", "formId": "22222222-2222-2222-2222-222222222222", "service": "plant-quarantine-phytosanitary", "callback": {"response": {"mapping": {"reviewedAt": "gi:phytosanitary:meta:reviewedAt", "reviewerNotes": "gi:phytosanitary:meta:reviewNotes"}}}, "submission": {"url": "http://localhost:8081/api/oga/inject"}}'::jsonb
+WHERE id = 'c0000003-0003-0003-0003-000000000003';
+
+UPDATE workflow_node_templates SET config = '{"formId": "11111111-1111-1111-1111-111111111111", "submission": {"url": "https://7b0eb5f0-1ee3-4a0c-8946-82a893cb60c2.mock.pstmn.io/api/cusdec", "response": {"mapping": {"assesmentNo": "gi:cusdec:assesmentNo"}}}, "submissionUrl": "https://7b0eb5f0-1ee3-4a0c-8946-82a893cb60c2.mock.pstmn.io/api/cusdec"}'
+WHERE id = 'c0000003-0003-0003-0003-000000000002';
