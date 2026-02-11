@@ -1,19 +1,24 @@
 #!/bin/bash
+set -euo pipefail
 
 # Load environment variables from backend/.env file
 # This filters out comments and exports each line as a variable
 if [ -f ../../../.env ]; then
-    export $(echo $(grep -v '^#' ../../../.env | xargs))
+    set -o allexport
+    source ../../../.env
+    set +o allexport
 else
     echo "Error: .env file not found."
     exit 1
 fi
 
 # Ensure environment variables are set
-if [ -z "$DB_PASSWORD" ]; then
-    echo "Error: DB_PASSWORD is not set."
-    exit 1
-fi
+for VAR in DB_HOST DB_PORT DB_USERNAME DB_PASSWORD DB_NAME; do
+    if [ -z "${!VAR:-}" ]; then
+        echo "Error: Required environment variable $VAR is not set."
+        exit 1
+    fi
+done
 
 # Force disconnect other users and drop the database
 # Using the 'postgres' database as a maintenance DB to execute the drop
@@ -39,7 +44,7 @@ echo "Starting database migrations..."
 for FILE in "${MIGRATIONS[@]}"; do
     if [ -f "$FILE" ]; then
         echo "Executing: $FILE"
-        PGPASSWORD=$DB_PASSWORD psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_NAME" -f "$FILE"
+        PGPASSWORD=$DB_PASSWORD psql -v ON_ERROR_STOP=1 -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_NAME" -f "$FILE"
         
         if [ $? -ne 0 ]; then
             echo "Error executing $FILE. Aborting."
