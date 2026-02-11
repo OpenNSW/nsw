@@ -67,6 +67,7 @@ func (t *WaitForEventTask) Start(ctx context.Context) (*ExecutionResponse, error
 			"taskId", taskID,
 			"workflowId", workflowID,
 			"error", err)
+		return nil, fmt.Errorf("failed to set plugin state after notifying external service: %w", err)
 	}
 
 	// Task will be completed when external service calls back with action="complete"
@@ -109,6 +110,7 @@ func (t *WaitForEventTask) Execute(ctx context.Context, request *ExecutionReques
 				"taskId", t.api.GetTaskID(),
 				"workflowId", t.api.GetWorkflowID(),
 				"error", err)
+			return nil, fmt.Errorf("failed to set plugin state on receiving callback: %w", err)
 		}
 
 		completedState := Completed
