@@ -1,0 +1,791 @@
+openapi: 3.0.3
+info:
+  title: OpenNSW Workflow Management Backend API
+  version: 1.0.0
+  description: >
+    Complete API specification for the OpenNSW backend workflow management system.
+    Provides endpoints for managing consignments, pre-consignments, HS codes, and workflow tasks.
+  contact:
+    name: OpenNSW Team
+  license:
+    name: MIT
+
+servers:
+  - url: "http://localhost:8080/api/v1"
+    description: Development server (local)
+
+paths:
+  # HS Code Endpoints
+  /hscodes:
+    get:
+      summary: Get All HS Codes
+      description: >
+        Retrieve a paginated list of Harmonized System codes with optional filtering.
+        HS Codes are used to classify products for customs purposes.
+      operationId: getAllHSCodes
+      tags:
+        - HS Codes
+      parameters:
+        - name: hsCodeStartsWith
+          in: query
+          description: Filter HS codes by prefix/starts with
+          required: false
+          schema:
+            type: string
+          example: "2204"
+        - name: offset
+          in: query
+          description: Pagination offset (default 0)
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: limit
+          in: query
+          description: Pagination limit (default 50)
+          required: false
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+      responses:
+        "200":
+          description: List of HS codes retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HSCodeListResult"
+        "400":
+          description: Invalid query parameters
+        "500":
+          description: Internal server error
+
+  # Consignment Endpoints
+  /consignments:
+    get:
+      summary: List Consignments
+      description: >
+        Retrieve all consignments for a specific trader.
+        Returns consignments with their items and associated workflow nodes.
+      operationId: listConsignments
+      tags:
+        - Consignments
+      parameters:
+        - name: traderId
+          in: query
+          description: Trader ID (required)
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of consignments retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ConsignmentResponseDTO"
+        "400":
+          description: Invalid query parameters or missing traderId
+        "500":
+          description: Internal server error
+
+    post:
+      summary: Create Consignment
+      description: >
+        Create a new consignment with specified flow type and items.
+        The system automatically initializes workflow tasks based on HS code mappings.
+        Returns the created consignment with all associated workflow nodes.
+      operationId: createConsignment
+      tags:
+        - Consignments
+      requestBody:
+        required: true
+        description: Consignment creation request
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateConsignmentDTO"
+            example:
+              flow: "IMPORT"
+              items:
+                - hsCodeId: "550e8400-e29b-41d4-a716-446655440000"
+                - hsCodeId: "550e8400-e29b-41d4-a716-446655440001"
+      responses:
+        "201":
+          description: Consignment created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsignmentResponseDTO"
+        "400":
+          description: Invalid request body or validation error
+        "422":
+          description: Unprocessable entity - HS code not found or other validation error
+        "500":
+          description: Internal server error
+
+  /consignments/{id}:
+    get:
+      summary: Get Consignment Details
+      description: >
+        Retrieve detailed information about a specific consignment.
+        Includes all items with HS code details and associated workflow nodes.
+      operationId: getConsignmentById
+      tags:
+        - Consignments
+      parameters:
+        - name: id
+          in: path
+          description: Consignment ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Consignment details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsignmentResponseDTO"
+        "400":
+          description: Invalid consignment ID or format
+        "404":
+          description: Consignment not found
+        "500":
+          description: Internal server error
+
+  # Task Endpoints
+  /tasks:
+    post:
+      summary: Execute Task
+      description: >
+        Execute a task in the workflow. Submit task execution payload to a specific workflow task and retrieve execution results.
+        The response includes the task execution result or error information.
+      operationId: executeTask
+      tags:
+        - Tasks
+      requestBody:
+        required: true
+        description: Task execution request with workflow and task IDs
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExecuteTaskRequest"
+            example:
+              workflow_id: "550e8400-e29b-41d4-a716-446655440000"
+              task_id: "550e8400-e29b-41d4-a716-446655440001"
+              payload:
+                action: "SUBMIT_FORM"
+                content:
+                  formData: {}
+      responses:
+        "200":
+          description: Task executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+        "400":
+          description: Invalid request body or missing required fields
+        "404":
+          description: Task not found
+        "500":
+          description: Task execution failed or internal server error
+
+  /tasks/{id}:
+    get:
+      summary: Get Task Information
+      description: >
+        Retrieve task information including form schema and current state.
+        Used by portals to render the appropriate UI for a task.
+      operationId: getTask
+      tags:
+        - Tasks
+      parameters:
+        - name: id
+          in: path
+          description: Task ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440001"
+      responses:
+        "200":
+          description: Task information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+        "400":
+          description: Invalid task ID format
+        "404":
+          description: Task not found
+        "500":
+          description: Internal server error
+
+  # Pre-Consignment Endpoints
+  /pre-consignments:
+    get:
+      summary: List Pre-Consignments
+      description: >
+        Retrieve all pre-consignments for a trader. Pre-consignments are templates and instances
+        for initial workflow steps before full consignment creation.
+      operationId: listPreConsignments
+      tags:
+        - Pre-Consignments
+      parameters:
+        - name: traderId
+          in: query
+          description: Trader ID (required)
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of pre-consignments retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PreConsignmentResponseDTO"
+        "400":
+          description: Invalid query parameters or missing traderId
+        "500":
+          description: Internal server error
+
+    post:
+      summary: Create Pre-Consignment
+      description: >
+        Create a new pre-consignment instance from a pre-consignment template.
+        Pre-consignments facilitate initial workflow steps before actual consignment creation.
+      operationId: createPreConsignment
+      tags:
+        - Pre-Consignments
+      requestBody:
+        required: true
+        description: Pre-consignment creation request
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePreConsignmentDTO"
+            example:
+              traderId: "TRADER-001"
+              preConsignmentTemplateId: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        "201":
+          description: Pre-consignment created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PreConsignmentResponseDTO"
+        "400":
+          description: Invalid request body or missing required fields
+        "422":
+          description: Unprocessable entity - template not found or dependency error
+        "500":
+          description: Internal server error
+
+  /pre-consignments/{preConsignmentId}:
+    get:
+      summary: Get Pre-Consignment Details
+      description: >
+        Retrieve detailed information about a specific pre-consignment instance.
+      operationId: getPreConsignmentById
+      tags:
+        - Pre-Consignments
+      parameters:
+        - name: preConsignmentId
+          in: path
+          description: Pre-Consignment ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Pre-consignment details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PreConsignmentResponseDTO"
+        "400":
+          description: Invalid pre-consignment ID or format
+        "404":
+          description: Pre-consignment not found
+        "500":
+          description: Internal server error
+
+components:
+  schemas:
+    # Enums and Constants
+    ConsignmentFlow:
+      type: string
+      enum: [IMPORT, EXPORT]
+      description: Type of consignment flow
+
+    ConsignmentState:
+      type: string
+      enum: [IN_PROGRESS, FINISHED]
+      description: Current state of the consignment in the workflow
+
+    WorkflowNodeState:
+      type: string
+      enum: [LOCKED, READY, IN_PROGRESS, COMPLETED, FAILED]
+      description: Current state of a workflow node
+
+    WorkflowNodeType:
+      type: string
+      enum: [SIMPLE_FORM, WAIT_FOR_EVENT]
+      description: Type of workflow node
+
+    PreConsignmentState:
+      type: string
+      enum: [LOCKED, READY, IN_PROGRESS, COMPLETED]
+      description: Current state of the pre-consignment
+
+    # HS Code Schemas
+    HSCode:
+      type: object
+      required:
+        - id
+        - hsCode
+        - description
+        - category
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the HS code
+        hsCode:
+          type: string
+          description: The HS code value (e.g., "2204")
+        description:
+          type: string
+          description: Human-readable description of the HS code
+        category:
+          type: string
+          description: Category classification of the HS code
+
+    HSCodeListResult:
+      type: object
+      required:
+        - totalCount
+        - items
+        - offset
+        - limit
+      properties:
+        totalCount:
+          type: integer
+          description: Total number of HS codes
+        items:
+          type: array
+          description: List of HS codes
+          items:
+            $ref: "#/components/schemas/HSCode"
+        offset:
+          type: integer
+          description: Pagination offset used in the query
+        limit:
+          type: integer
+          description: Pagination limit used in the query
+
+    # Consignment Schemas
+    CreateConsignmentItemDTO:
+      type: object
+      required:
+        - hsCodeId
+      properties:
+        hsCodeId:
+          type: string
+          format: uuid
+          description: ID of the HS code for this item
+
+    CreateConsignmentDTO:
+      type: object
+      required:
+        - flow
+        - items
+      properties:
+        flow:
+          $ref: "#/components/schemas/ConsignmentFlow"
+        items:
+          type: array
+          description: Items included in the consignment
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/CreateConsignmentItemDTO"
+
+    HSCodeResponseDTO:
+      type: object
+      required:
+        - hsCodeId
+        - hsCode
+        - description
+        - category
+      properties:
+        hsCodeId:
+          type: string
+          format: uuid
+          description: HS Code ID
+        hsCode:
+          type: string
+          description: The HS code value
+        description:
+          type: string
+          description: Description of the HS code
+        category:
+          type: string
+          description: Category of the HS code
+
+    ConsignmentItemResponseDTO:
+      type: object
+      required:
+        - hsCode
+      properties:
+        hsCode:
+          $ref: "#/components/schemas/HSCodeResponseDTO"
+
+    WorkflowNodeTemplateResponseDTO:
+      type: object
+      required:
+        - name
+        - description
+        - type
+      properties:
+        name:
+          type: string
+          description: Name of the workflow node template
+        description:
+          type: string
+          description: Description of the workflow node template
+        type:
+          $ref: "#/components/schemas/WorkflowNodeType"
+
+    WorkflowNodeResponseDTO:
+      type: object
+      required:
+        - id
+        - createdAt
+        - updatedAt
+        - workflowNodeTemplate
+        - state
+        - depends_on
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Workflow node ID
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+        workflowNodeTemplate:
+          $ref: "#/components/schemas/WorkflowNodeTemplateResponseDTO"
+        state:
+          $ref: "#/components/schemas/WorkflowNodeState"
+        extendedState:
+          type: string
+          nullable: true
+          description: Optional extended state information (e.g., error details)
+        depends_on:
+          type: array
+          description: Array of workflow node IDs this node depends on
+          items:
+            type: string
+            format: uuid
+
+    ConsignmentResponseDTO:
+      type: object
+      required:
+        - id
+        - flow
+        - traderId
+        - state
+        - items
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Consignment ID
+        flow:
+          $ref: "#/components/schemas/ConsignmentFlow"
+        traderId:
+          type: string
+          description: ID of the trader associated with the consignment
+        state:
+          $ref: "#/components/schemas/ConsignmentState"
+        items:
+          type: array
+          description: Items in the consignment with HS code details
+          items:
+            $ref: "#/components/schemas/ConsignmentItemResponseDTO"
+        workflowNodes:
+          type: array
+          description: Associated workflow nodes
+          items:
+            $ref: "#/components/schemas/WorkflowNodeResponseDTO"
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp of consignment creation
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp of last consignment update
+
+    ConsignmentListResult:
+      type: object
+      required:
+        - totalCount
+        - items
+        - offset
+        - limit
+      properties:
+        totalCount:
+          type: integer
+          description: Total number of consignments
+        items:
+          type: array
+          description: List of consignments
+          items:
+            $ref: "#/components/schemas/ConsignmentResponseDTO"
+        offset:
+          type: integer
+          description: Pagination offset used in the query
+        limit:
+          type: integer
+          description: Pagination limit used in the query
+
+    # Task Schemas
+    ExecutionRequest:
+      type: object
+      description: Payload for task execution
+      properties:
+        action:
+          type: string
+          description: The action to perform (e.g., FETCH_FORM, SUBMIT_FORM, OGA_VERIFICATION)
+        content:
+          type: object
+          description: Task-specific execution data
+          additionalProperties: true
+
+    ExecuteTaskRequest:
+      type: object
+      required:
+        - workflow_id
+        - task_id
+      properties:
+        workflow_id:
+          type: string
+          format: uuid
+          description: The workflow ID for this task execution
+        task_id:
+          type: string
+          format: uuid
+          description: The task ID to execute
+        payload:
+          $ref: "#/components/schemas/ExecutionRequest"
+          description: Optional execution payload (task-specific data)
+
+    ApiError:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Error message
+        details:
+          type: object
+          description: Additional error details
+          additionalProperties: true
+
+    ApiResponse:
+      type: object
+      required:
+        - success
+      properties:
+        success:
+          type: boolean
+          description: Whether the operation was successful
+        data:
+          type: object
+          description: Response data (varies based on operation)
+          additionalProperties: true
+        error:
+          $ref: "#/components/schemas/ApiError"
+          description: Error details if operation failed
+
+    # Pre-Consignment Schemas
+    CreatePreConsignmentDTO:
+      type: object
+      required:
+        - traderId
+        - preConsignmentTemplateId
+      properties:
+        traderId:
+          type: string
+          description: Trader ID associated with the pre-consignment
+        preConsignmentTemplateId:
+          type: string
+          format: uuid
+          description: ID of the pre-consignment template to use
+
+    PreConsignmentTemplateResponseDTO:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - dependsOn
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Template ID
+        name:
+          type: string
+          description: Human-readable name of the template
+        description:
+          type: string
+          description: Description of the template
+        dependsOn:
+          type: array
+          description: List of dependency template IDs
+          items:
+            type: string
+            format: uuid
+
+    TraderPreConsignmentResponseDTO:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - dependsOn
+        - state
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Template ID
+        preConsignmentId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Pre-consignment instance ID (if exists)
+        name:
+          type: string
+          description: Human-readable name
+        description:
+          type: string
+          description: Description of the template
+        dependsOn:
+          type: array
+          description: List of dependency template IDs
+          items:
+            type: string
+            format: uuid
+        state:
+          $ref: "#/components/schemas/PreConsignmentState"
+        preConsignment:
+          type: object
+          nullable: true
+          description: Associated PreConsignment instance (if it exists)
+
+    TraderPreConsignmentsResponseDTO:
+      type: object
+      required:
+        - totalCount
+        - items
+        - offset
+        - limit
+      properties:
+        totalCount:
+          type: integer
+          description: Total number of pre-consignment templates
+        items:
+          type: array
+          description: List of pre-consignment templates for the trader
+          items:
+            $ref: "#/components/schemas/TraderPreConsignmentResponseDTO"
+        offset:
+          type: integer
+          description: Pagination offset
+        limit:
+          type: integer
+          description: Pagination limit
+
+    PreConsignmentResponseDTO:
+      type: object
+      required:
+        - id
+        - traderId
+        - state
+        - traderContext
+        - createdAt
+        - updatedAt
+        - preConsignmentTemplate
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Pre-consignment ID
+        traderId:
+          type: string
+          description: Trader ID associated with the pre-consignment
+        state:
+          $ref: "#/components/schemas/PreConsignmentState"
+        traderContext:
+          type: object
+          description: Trader-specific context data
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp of creation
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp of last update
+        preConsignmentTemplate:
+          $ref: "#/components/schemas/PreConsignmentTemplateResponseDTO"
+        workflowNodes:
+          type: array
+          description: Associated workflow nodes
+          items:
+            $ref: "#/components/schemas/WorkflowNodeResponseDTO"
+
+    # Error Response
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code or error type
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          description: Additional error details
+          additionalProperties: true
