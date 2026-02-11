@@ -73,8 +73,7 @@ function TraderForm(props: { formInfo: TaskFormData, pluginState: string }) {
       const response = await sendTaskCommand({
         command: 'SUBMISSION',
         taskId,
-        workflowId: isPreConsignment ? undefined : workflowId,
-        preConsignmentId: isPreConsignment ? workflowId : undefined,
+        workflowId,
         data: preparedData,
       })
 
@@ -82,7 +81,7 @@ function TraderForm(props: { formInfo: TaskFormData, pluginState: string }) {
         // Navigate back to appropriate workflow list
         navigate(isPreConsignment ? '/pre-consignments' : `/consignments/${workflowId}`)
       } else {
-        setError(response.message || 'Failed to submit form.')
+        setError(response.error?.message || 'Failed to submit form.')
       }
     } catch (err) {
       console.error('Error submitting form:', err)

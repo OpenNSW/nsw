@@ -3,8 +3,6 @@ export interface HSCode {
   hsCode: string
   description: string
   category: string
-  createdAt: string
-  updatedAt: string
 }
 
 export interface HSCodeQueryParams {

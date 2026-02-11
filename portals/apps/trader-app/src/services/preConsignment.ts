@@ -60,6 +60,8 @@ export interface TraderPreConsignmentsResponse {
     limit: number
 }
 
+type PreConsignmentListApiResponse = PreConsignmentInstance[] | TraderPreConsignmentsResponse
+
 export interface CreatePreConsignmentRequest {
     traderId: string
     preConsignmentTemplateId: string
@@ -68,7 +70,7 @@ export interface CreatePreConsignmentRequest {
 export interface TaskCommandRequest {
     command: 'SUBMISSION' | 'SAVE_DRAFT'
     taskId: string
-    preConsignmentId: string
+    workflowId: string
     data?: Record<string, unknown>
 }
 
@@ -86,9 +88,30 @@ const DEFAULT_TRADER_ID = 'TRADER-001'
 export async function getTraderPreConsignments(
     traderId: string = DEFAULT_TRADER_ID
 ): Promise<TraderPreConsignmentsResponse> {
-    return apiGet<TraderPreConsignmentsResponse>('/pre-consignments', {
+    const response = await apiGet<PreConsignmentListApiResponse>('/pre-consignments', {
         traderId,
     })
+
+    if (Array.isArray(response)) {
+        const items: TraderPreConsignmentItem[] = response.map((instance) => ({
+            id: instance.preConsignmentTemplate.id,
+            name: instance.preConsignmentTemplate.name,
+            description: instance.preConsignmentTemplate.description,
+            state: instance.state,
+            dependsOn: instance.preConsignmentTemplate.dependsOn,
+            preConsignment: instance,
+            preConsignmentTemplate: instance.preConsignmentTemplate,
+        }))
+
+        return {
+            totalCount: items.length,
+            items,
+            offset: 0,
+            limit: items.length,
+        }
+    }
+
+    return response
 }
 
 export async function getPreConsignment(
@@ -137,7 +160,7 @@ export async function submitPreConsignmentTask(
     return sendTaskCommand({
         command: request.command === 'SAVE_DRAFT' ? 'DRAFT' : 'SUBMISSION',
         taskId: request.taskId,
-        preConsignmentId: request.preConsignmentId,
+        workflowId: request.workflowId,
         data: request.data || {}
     })
 }
