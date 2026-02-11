@@ -68,3 +68,23 @@ func (h *HTTPHandler) Download(w http.ResponseWriter, r *http.Request) {
 		slog.ErrorContext(r.Context(), "Failed to copy file content", "error", err)
 	}
 }
+
+func (h *HTTPHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	// Extract key from URL path
+	parts := strings.Split(r.URL.Path, "/")
+	key := parts[len(parts)-1]
+
+	if key == "" {
+		http.Error(w, `{"error": "key is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	if err := h.Service.Delete(r.Context(), key); err != nil {
+		slog.ErrorContext(r.Context(), "Delete failed", "error", err, "key", key)
+		http.Error(w, `{"error": "failed to delete file"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusNoContent)
+}

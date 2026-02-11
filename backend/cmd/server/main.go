@@ -16,6 +16,7 @@ import (
 	"github.com/OpenNSW/nsw/internal/form"
 	"github.com/OpenNSW/nsw/internal/middleware"
 	taskManager "github.com/OpenNSW/nsw/internal/task/manager"
+	"github.com/OpenNSW/nsw/internal/uploads"
 	"github.com/OpenNSW/nsw/internal/workflow"
 )
 
@@ -87,6 +88,14 @@ func main() {
 	// Initialize workflow manager with database connection
 	wm := workflow.NewManager(tm, ch, db)
 
+	// Initialize storage driver and upload service
+	storageDriver, err := uploads.NewStorageFromConfig(context.Background(), cfg.Storage)
+	if err != nil {
+		log.Fatalf("failed to initialize storage: %v", err)
+	}
+	uploadService := uploads.NewUploadService(storageDriver)
+	uploadHandler := uploads.NewHTTPHandler(uploadService)
+
 	// Set up HTTP routes
 	mux := http.NewServeMux()
 
@@ -102,6 +111,11 @@ func main() {
 	mux.HandleFunc("POST /api/v1/pre-consignments", wm.HandleCreatePreConsignment)
 	mux.HandleFunc("GET /api/v1/pre-consignments/{preConsignmentId}", wm.HandleGetPreConsignmentByID)
 	mux.HandleFunc("GET /api/v1/pre-consignments", wm.HandleGetPreConsignmentsByTraderID)
+
+	// Upload routes
+	mux.HandleFunc("POST /api/v1/uploads", uploadHandler.Upload)
+	mux.HandleFunc("GET /api/v1/uploads/{key}", uploadHandler.Download)
+	mux.HandleFunc("DELETE /api/v1/uploads/{key}", uploadHandler.Delete)
 
 	// Set up graceful shutdown
 	serverAddr := fmt.Sprintf(":%d", cfg.Server.Port)

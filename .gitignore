@@ -24,3 +24,6 @@ coverage.html
 
 # SQLite
 *.db
+
+# Files uploaded by users to the server
+**/bucket/

@@ -99,8 +99,8 @@ func Load() (*Config, error) {
 		},
 		Storage: StorageConfig{
 			Type:           getEnvOrDefault("STORAGE_TYPE", "local"),
-			LocalBaseDir:   getEnvOrDefault("STORAGE_LOCAL_BASE_DIR", "./uploads"),
-			LocalPublicURL: getEnvOrDefault("STORAGE_LOCAL_PUBLIC_URL", "/uploads"),
+			LocalBaseDir:   getEnvOrDefault("STORAGE_LOCAL_BASE_DIR", "./bucket"),
+			LocalPublicURL: getEnvOrDefault("STORAGE_LOCAL_PUBLIC_URL", "/bucket"),
 			S3Endpoint:     os.Getenv("STORAGE_S3_ENDPOINT"),
 			S3Bucket:       getEnvOrDefault("STORAGE_S3_BUCKET", "nsw-uploads"),
 			S3Region:       getEnvOrDefault("STORAGE_S3_REGION", "us-east-1"),

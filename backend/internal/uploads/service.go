@@ -58,3 +58,13 @@ func (s *UploadService) Upload(ctx context.Context, filename string, reader io.R
 func (s *UploadService) Download(ctx context.Context, key string) (io.ReadCloser, string, error) {
 	return s.Driver.Get(ctx, key)
 }
+
+// Delete removes a file from storage
+func (s *UploadService) Delete(ctx context.Context, key string) error {
+	err := s.Driver.Delete(ctx, key)
+	if err != nil {
+		return fmt.Errorf("failed to delete file: %w", err)
+	}
+	slog.InfoContext(ctx, "File deleted successfully", "key", key)
+	return nil
+}
