@@ -40,13 +40,14 @@ const TasksAPIPath = "/api/v1/tasks"
 
 // Config contains the JSON Form configuration
 type Config struct {
-	FormID                  string            `json:"formId"`                            // Unique identifier for the form
-	Title                   string            `json:"title"`                             // Display title of the form
-	Schema                  json.RawMessage   `json:"schema"`                            // JSON Schema defining the form structure and validation
-	UISchema                json.RawMessage   `json:"uiSchema,omitempty"`                // UI Schema for rendering hints (optional)
-	FormData                json.RawMessage   `json:"formData,omitempty"`                // Default/pre-filled form data (optional)
-	SubmissionURL           string            `json:"submissionUrl,omitempty"`           // URL to submit form data to (optional)
-	Submission              *SubmissionConfig `json:"submission,omitempty"`              // Submission configuration (optional)
+	FormID                  string            `json:"formId"`                  // Unique identifier for the form
+	Title                   string            `json:"title"`                   // Display title of the form
+	Schema                  json.RawMessage   `json:"schema"`                  // JSON Schema defining the form structure and validation
+	UISchema                json.RawMessage   `json:"uiSchema,omitempty"`      // UI Schema for rendering hints (optional)
+	FormData                json.RawMessage   `json:"formData,omitempty"`      // Default/pre-filled form data (optional)
+	SubmissionURL           string            `json:"submissionUrl,omitempty"` // URL to submit form data to (optional)
+	Submission              *SubmissionConfig `json:"submission,omitempty"`    // Submission configuration (optional)
+	Callback                *CallbackConfig   `json:"callback,omitempty"`
 	RequiresOgaVerification bool              `json:"requiresOgaVerification,omitempty"` // If true, waits for OGA_VERIFICATION action; if false, completes after submission response
 }
 
@@ -57,6 +58,10 @@ type Response struct {
 type SubmissionConfig struct {
 	Url      string    `json:"url"`                // URL to submit form data to
 	Response *Response `json:"response,omitempty"` // Expected response mapping after submission
+}
+
+type CallbackConfig struct {
+	Response *Response `json:"response,omitempty"`
 }
 
 // SimpleFormResult represents the response data for form operations
@@ -391,7 +396,7 @@ func (s *SimpleForm) handleSubmitForm(ctx context.Context, content interface{}) 
 		}
 
 		// Check if OGA verification is required
-		if s.config.RequiresOgaVerification {
+		if s.requiresVerification() {
 			slog.Info("form submitted, waiting for OGA verification",
 				"formId", s.config.FormID,
 				"submissionUrl", submissionUrl)
@@ -478,12 +483,37 @@ func (s *SimpleForm) handleOgaVerification(_ context.Context, content interface{
 		}, nil
 	}
 
+	// If there are any mapping of OGA verification response to global context, parse and store in global context for future use(e.g. downstream tasks)
+	globalContextPairs := make(map[string]any)
+
+	if s.config.Callback != nil &&
+		s.config.Callback.Response != nil &&
+		s.config.Callback.Response.Mapping != nil {
+		slog.Info("parsing OGA verification response based on expected mapping",
+			"formId", s.config.FormID,
+			"mapping", s.config.Callback.Response.Mapping,
+			"verificationData", verificationData)
+
+		parsed, err := s.parseResponseData(verificationData, s.config.Callback.Response.Mapping)
+
+		if err != nil {
+			slog.Warn("failed to parse OGA verification response data based on expected mapping, skipping response mapping",
+				"formId", s.config.FormID,
+				"error", err)
+		} else {
+			for k, v := range parsed {
+				globalContextPairs[k] = v
+			}
+		}
+	}
+
 	// Mark task as COMPLETED
 	newState := Completed
 	return &ExecutionResponse{
-		NewState:      &newState,
-		ExtendedState: &pluginState,
-		Message:       "Form verified by OGA, task completed",
+		NewState:            &newState,
+		ExtendedState:       &pluginState,
+		AppendGlobalContext: globalContextPairs,
+		Message:             "Form verified by OGA, task completed",
 	}, nil
 }
 
@@ -688,6 +718,11 @@ func (s *SimpleForm) submissionUrl() string {
 		return s.config.Submission.Url
 	}
 	return s.config.SubmissionURL
+}
+
+// requiresVerification checks if callback configuration is provided
+func (s *SimpleForm) requiresVerification() bool {
+	return s.config.RequiresOgaVerification || s.config.Callback != nil
 }
 
 // parseResponseData is a helper function to parse response data based on expected mapping
