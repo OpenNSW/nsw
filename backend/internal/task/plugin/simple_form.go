@@ -157,8 +157,18 @@ func (s *SimpleForm) attachOgaContent(ctx context.Context, content map[string]an
 			s.config.Callback.Response != nil &&
 			s.config.Callback.Response.Display != nil &&
 			s.config.Callback.Response.Display.FormID != "" {
+
+			formID, err := uuid.Parse(s.config.Callback.Response.Display.FormID)
+
+			if err != nil {
+				slog.Warn("invalid OGA review form ID format, expected UUID",
+					"formId", s.config.FormID,
+					"ogaReviewFormId", s.config.Callback.Response.Display.FormID,
+					"error", err)
+				return
+			}
 			// If OGA review form is configured, fetch the form definition and include in content for rendering
-			formDef, err := s.formService.GetFormByID(ctx, uuid.MustParse(s.config.Callback.Response.Display.FormID))
+			formDef, err := s.formService.GetFormByID(ctx, formID)
 
 			if err != nil {
 				slog.Warn("failed to fetch OGA review form definition, continuing without it",
