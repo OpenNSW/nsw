@@ -5,7 +5,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"strings"
 )
 
 type HTTPHandler struct {
@@ -45,12 +44,7 @@ func (h *HTTPHandler) Upload(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPHandler) Download(w http.ResponseWriter, r *http.Request) {
-	// Extract key from URL path
-	// Assuming URL pattern is /api/uploads/{key} or similar
-	// We'll take the last path segment
-	parts := strings.Split(r.URL.Path, "/")
-	key := parts[len(parts)-1]
-
+	key := r.PathValue("key")
 	if key == "" {
 		http.Error(w, `{"error": "key is required"}`, http.StatusBadRequest)
 		return
@@ -70,10 +64,7 @@ func (h *HTTPHandler) Download(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	// Extract key from URL path
-	parts := strings.Split(r.URL.Path, "/")
-	key := parts[len(parts)-1]
-
+	key := r.PathValue("key")
 	if key == "" {
 		http.Error(w, `{"error": "key is required"}`, http.StatusBadRequest)
 		return
@@ -85,6 +76,5 @@ func (h *HTTPHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNoContent)
 }
