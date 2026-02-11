@@ -261,11 +261,15 @@ func (tm *taskManager) InitTask(ctx context.Context, request InitTaskRequest) (*
 }
 
 func (tm *taskManager) start(ctx context.Context, activeTask *container.Container) (*InitTaskResponse, error) {
-	_, err := activeTask.Start(ctx)
+	result, err := activeTask.Start(ctx)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to start task: %w", err)
 	}
+
+	// Notify the workflow manager of the initial state after starting the task (e.g., InProgress). This ensures that
+	//the workflow manager is aware of the task's state change immediately after initialization.
+	tm.notifyWorkflowManager(ctx, activeTask.TaskID, result.NewState, result.ExtendedState, result.AppendGlobalContext)
 
 	return &InitTaskResponse{Success: true}, nil
 }
