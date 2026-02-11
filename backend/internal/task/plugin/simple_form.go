@@ -40,13 +40,23 @@ const TasksAPIPath = "/api/v1/tasks"
 
 // Config contains the JSON Form configuration
 type Config struct {
-	FormID                  string          `json:"formId"`                            // Unique identifier for the form
-	Title                   string          `json:"title"`                             // Display title of the form
-	Schema                  json.RawMessage `json:"schema"`                            // JSON Schema defining the form structure and validation
-	UISchema                json.RawMessage `json:"uiSchema,omitempty"`                // UI Schema for rendering hints (optional)
-	FormData                json.RawMessage `json:"formData,omitempty"`                // Default/pre-filled form data (optional)
-	SubmissionURL           string          `json:"submissionUrl,omitempty"`           // URL to submit form data to (optional)
-	RequiresOgaVerification bool            `json:"requiresOgaVerification,omitempty"` // If true, waits for OGA_VERIFICATION action; if false, completes after submission response
+	FormID                  string            `json:"formId"`                            // Unique identifier for the form
+	Title                   string            `json:"title"`                             // Display title of the form
+	Schema                  json.RawMessage   `json:"schema"`                            // JSON Schema defining the form structure and validation
+	UISchema                json.RawMessage   `json:"uiSchema,omitempty"`                // UI Schema for rendering hints (optional)
+	FormData                json.RawMessage   `json:"formData,omitempty"`                // Default/pre-filled form data (optional)
+	SubmissionURL           string            `json:"submissionUrl,omitempty"`           // URL to submit form data to (optional)
+	Submission              *SubmissionConfig `json:"submission,omitempty"`              // Submission configuration (optional)
+	RequiresOgaVerification bool              `json:"requiresOgaVerification,omitempty"` // If true, waits for OGA_VERIFICATION action; if false, completes after submission response
+}
+
+type Response struct {
+	Mapping map[string]string `json:"mapping,omitempty"` // Data to be mapped to global context after submission
+}
+
+type SubmissionConfig struct {
+	Url      string    `json:"url"`                // URL to submit form data to
+	Response *Response `json:"response,omitempty"` // Expected response mapping after submission
 }
 
 // SimpleFormResult represents the response data for form operations
@@ -329,7 +339,8 @@ func (s *SimpleForm) handleSubmitForm(ctx context.Context, content interface{}) 
 	pluginState := string(TraderSubmitted)
 
 	// If submissionUrl is provided, send the form data to that URL
-	if s.config.SubmissionURL != "" {
+	submissionUrl := s.submissionUrl()
+	if submissionUrl != "" {
 		requestPayload := map[string]any{
 			"data":       formData,
 			"taskId":     s.api.GetTaskID().String(),
@@ -337,11 +348,11 @@ func (s *SimpleForm) handleSubmitForm(ctx context.Context, content interface{}) 
 			"serviceUrl": strings.TrimRight(s.cfg.Server.ServiceURL, "/") + TasksAPIPath,
 		}
 
-		responseData, err := s.sendFormSubmission(s.config.SubmissionURL, requestPayload)
+		responseData, err := s.sendFormSubmission(submissionUrl, requestPayload)
 		if err != nil {
 			slog.Error("failed to send form submission",
 				"formId", s.config.FormID,
-				"submissionUrl", s.config.SubmissionURL,
+				"submissionUrl", submissionUrl,
 				"error", err)
 			return &ExecutionResponse{
 				Message:             fmt.Sprintf("Failed to submit form to external system: %v", err),
@@ -356,11 +367,34 @@ func (s *SimpleForm) handleSubmitForm(ctx context.Context, content interface{}) 
 			}, err
 		}
 
+		// If there are expected response mappings, to global state keys, parse the response accordingly and store in
+		// global context for future use (e.g. in OGA verification or downstream tasks)
+		if s.config.Submission != nil &&
+			s.config.Submission.Response != nil &&
+			s.config.Submission.Response.Mapping != nil {
+			slog.Info("received response from form submission, parsing based on expected mapping",
+				"formId", s.config.FormID,
+				"submissionUrl", submissionUrl,
+				"response", responseData)
+			// parse the response data based on expected mapping if provided
+			parsed, err := s.parseResponseData(responseData, s.config.Submission.Response.Mapping)
+			if err != nil {
+				slog.Warn("failed to parse submission response data based on expected mapping, skipping response mapping",
+					"formId", s.config.FormID,
+					"submissionUrl", submissionUrl,
+					"error", err)
+			} else {
+				for k, v := range parsed {
+					globalContextPairs[k] = v
+				}
+			}
+		}
+
 		// Check if OGA verification is required
 		if s.config.RequiresOgaVerification {
 			slog.Info("form submitted, waiting for OGA verification",
 				"formId", s.config.FormID,
-				"submissionUrl", s.config.SubmissionURL)
+				"submissionUrl", submissionUrl)
 
 			// Update plugin state to OGA_ACKNOWLEDGED
 			if err := s.api.SetPluginState(string(OGAAcknowledged)); err != nil {
@@ -383,7 +417,7 @@ func (s *SimpleForm) handleSubmitForm(ctx context.Context, content interface{}) 
 		// No OGA verification required - complete the task with response data
 		slog.Info("form submitted and completed",
 			"formId", s.config.FormID,
-			"submissionUrl", s.config.SubmissionURL,
+			"submissionUrl", submissionUrl,
 			"response", responseData)
 
 		newState := Completed
@@ -646,4 +680,28 @@ func (s *SimpleForm) sendFormSubmission(url string, formData map[string]interfac
 		"response", responseData)
 
 	return responseData, nil
+}
+
+// submissionUrl returns the submission URL, preferring Submission.Url over the deprecated SubmissionURL.
+func (s *SimpleForm) submissionUrl() string {
+	if s.config.Submission != nil && s.config.Submission.Url != "" {
+		return s.config.Submission.Url
+	}
+	return s.config.SubmissionURL
+}
+
+// parseResponseData is a helper function to parse response data based on expected mapping
+func (s *SimpleForm) parseResponseData(responseData map[string]any, mapping map[string]string) (map[string]any, error) {
+	parsedData := make(map[string]any)
+	for k, v := range mapping {
+		value, exists := jsonform.GetValueByPath(responseData, k)
+
+		if !exists {
+			return nil, fmt.Errorf("expected response field '%s' not found in response data", k)
+		}
+
+		parsedData[v] = value
+	}
+
+	return parsedData, nil
 }
