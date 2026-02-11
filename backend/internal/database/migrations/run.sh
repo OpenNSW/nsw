@@ -35,7 +35,8 @@ MIGRATIONS=(
     "002_insert_seed_data.sql"
     "003_initial_schema.sql"
     "003_insert_seed_data.sql"
-    "004_unify_task_parent_id.sql"
+    "004_unify_task_parent_id.sql",
+    "005_insert_seed_data.sql"
 )
 
 echo "Starting database migrations..."
