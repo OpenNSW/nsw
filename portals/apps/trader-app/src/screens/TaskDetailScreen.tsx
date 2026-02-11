@@ -26,13 +26,8 @@ export function TaskDetailScreen() {
 
       try {
         setLoading(true)
-        const response = await getTaskInfo(taskId)
-
-        if (response.success && response.data) {
-          setRenderInfo(response.data)
-        } else {
-          setError('Failed to fetch task.')
-        }
+        const renderInfo = await getTaskInfo(taskId)
+        setRenderInfo(renderInfo)
       } catch (err) {
         setError('Failed to fetch task details.')
         console.error(err)

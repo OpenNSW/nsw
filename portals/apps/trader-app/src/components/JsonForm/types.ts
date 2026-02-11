@@ -16,7 +16,7 @@ export interface JsonSchemaProperty {
   minLength?: number;
   maxLength?: number;
   pattern?: string;
-  format?: 'email' | 'uri' | 'date' | 'date-time' | 'time';
+  format?: 'email' | 'uri' | 'date' | 'date-time' | 'time' | 'file';
   // Number validations
   minimum?: number;
   maximum?: number;

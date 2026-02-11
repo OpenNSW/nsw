@@ -1,4 +1,4 @@
-import { apiGet, apiPost, type ApiResponse } from './api'
+import { apiGet, apiPost } from './api'
 import type { RenderInfo } from "../plugins";
 
 export type TaskAction = 'FETCH_FORM' | 'SUBMIT_FORM' | 'DRAFT'
@@ -39,8 +39,12 @@ export interface SendTaskCommandRequest {
 
 const TASKS_API_URL = '/tasks'
 
-export async function getTaskInfo(taskId: string): Promise<ApiResponse<RenderInfo>> {
-  return apiGet<ApiResponse<RenderInfo>>(`${TASKS_API_URL}/${taskId}`)
+export async function getTaskInfo(taskId: string): Promise<RenderInfo> {
+  const response = await apiGet<{ success: boolean; data: RenderInfo }>(`${TASKS_API_URL}/${taskId}`)
+  if (!response.data) {
+    throw new Error('Failed to fetch task information')
+  }
+  return response.data
 }
 
 export async function sendTaskCommand(

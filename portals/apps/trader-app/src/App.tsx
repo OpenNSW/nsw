@@ -14,7 +14,8 @@ function App() {
         <Route path="/consignments" element={<DashboardScreen />} />
         <Route path="/consignments/:consignmentId" element={<ConsignmentDetailScreen />} />
         <Route path="/consignments/:consignmentId/tasks/:taskId" element={<TaskDetailScreen />} />
-        <Route path="/pre-consignment" element={<PreconsignmentScreen />} />
+        <Route path="/pre-consignments" element={<PreconsignmentScreen />} />
+        <Route path="/pre-consignments/:preConsignmentId/tasks/:taskId" element={<TaskDetailScreen />} />
       </Route>
     </Routes>
   )

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
     Button,
     Card,
@@ -13,32 +14,21 @@ import {
 import {
     FileTextIcon,
     PlayIcon,
-    ArrowLeftIcon,
     EyeOpenIcon,
     CheckCircledIcon,
     ExclamationTriangleIcon
 } from '@radix-ui/react-icons'
-import { JsonForm } from '../components/JsonForm'
 import {
     getTraderPreConsignments,
     createPreConsignment,
     getPreConsignment,
-    fetchPreConsignmentTaskForm,
-    submitPreConsignmentTask,
     type TraderPreConsignmentItem,
-    type PreConsignmentInstance,
-    type WorkflowNode
 } from '../services/preConsignment'
-import type { TaskFormData } from '../services/task'
 
 export function PreconsignmentScreen() {
+    const navigate = useNavigate()
     const [loading, setLoading] = useState(true)
     const [items, setItems] = useState<TraderPreConsignmentItem[]>([])
-    const [activeInstance, setActiveInstance] = useState<PreConsignmentInstance | null>(null)
-    const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
-    const [formData, setFormData] = useState<TaskFormData | null>(null)
-    const [formLoading, setFormLoading] = useState(false)
-    const [isReadOnly, setIsReadOnly] = useState(false)
     const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null)
 
     const loadData = async () => {
@@ -52,6 +42,19 @@ export function PreconsignmentScreen() {
         } finally {
             setLoading(false)
         }
+    }
+
+    // Check if all dependencies for a template are completed
+    const areDependenciesMet = (item: TraderPreConsignmentItem): boolean => {
+        if (!item.dependsOn || item.dependsOn.length === 0) {
+            return true // No dependencies
+        }
+
+        // Check if all dependent pre-consignments are completed
+        return item.dependsOn.every(depId => {
+            const depItem = items.find(i => i.id === depId)
+            return depItem?.state === 'COMPLETED'
+        })
     }
 
     useEffect(() => {
@@ -71,8 +74,19 @@ export function PreconsignmentScreen() {
         try {
             setLoading(true)
             const instance = await createPreConsignment(templateId)
-            await handleContinueProcess(instance)
-            loadData()
+
+            const nodes = instance.workflowNodes || []
+            const targetNode = nodes.find(
+                (node) => (node.state === 'READY' || node.state === 'IN_PROGRESS')
+                    && node.workflowNodeTemplate?.type === 'SIMPLE_FORM'
+            )
+
+            if (targetNode) {
+                navigate(`/pre-consignments/${instance.id}/tasks/${targetNode.id}`)
+            } else {
+                setNotification({ type: 'error', message: "No ready task found in pre-consignment." })
+                setLoading(false)
+            }
         } catch (error) {
             console.error('Failed to start process', error)
             setNotification({ type: 'error', message: "Failed to start registration process." })
@@ -80,104 +94,32 @@ export function PreconsignmentScreen() {
         }
     }
 
-    const handleContinueProcess = async (instanceStub: PreConsignmentInstance) => {
+    const handleContinueProcess = async (preConsignmentId: string) => {
         setNotification(null)
         try {
             setLoading(true)
-
-            const fullInstance = await getPreConsignment(instanceStub.id)
-            const nodes = fullInstance.workflowNodes || []
-            const isCompleted = fullInstance.state === 'COMPLETED';
-
-            let targetNode: WorkflowNode | undefined = nodes.find(
+            const instance = await getPreConsignment(preConsignmentId)
+            const nodes = instance.workflowNodes || []
+            
+            // Find the appropriate task
+            let targetNode = nodes.find(
                 (node) => node.state === 'IN_PROGRESS' || node.state === 'READY'
             )
-
-            if (!targetNode && isCompleted && nodes.length > 0) {
-                targetNode = nodes[nodes.length - 1];
+            if (!targetNode && nodes.length > 0) {
+                targetNode = nodes[nodes.length - 1]
             }
 
             if (targetNode) {
-                const formResponse = await fetchPreConsignmentTaskForm(fullInstance.id, targetNode.id)
-
-                if (formResponse.success && formResponse.data) {
-                    setFormData(formResponse.data)
-                    setActiveTaskId(targetNode.id)
-                    setActiveInstance(fullInstance)
-                    setIsReadOnly(isCompleted)
-                } else {
-                    console.error("API returned success=false or no data")
-                    setNotification({ type: 'error', message: "Failed to load task form data." })
-                }
+                navigate(`/pre-consignments/${instance.id}/tasks/${targetNode.id}`)
             } else {
-                console.log('No suitable task found to view.')
-                loadData()
+                setNotification({ type: 'error', message: "No task found in pre-consignment." })
+                setLoading(false)
             }
         } catch (error) {
             console.error('Failed to load process details', error)
             setNotification({ type: 'error', message: "An error occurred while loading the process details." })
-        } finally {
             setLoading(false)
         }
-    }
-
-    const handleSubmit = async (data: unknown) => {
-        if (!activeInstance || !activeTaskId) return
-        setNotification(null)
-        setFormLoading(true)
-
-        try {
-            const response = await submitPreConsignmentTask({
-                command: 'SUBMISSION',
-                preConsignmentId: activeInstance.id,
-                taskId: activeTaskId,
-                data: data as Record<string, unknown>,
-            })
-
-            if (response.success) {
-                // Poll for completion to avoid race condition with async backend
-                const maxRetries = 10;
-                let attempts = 0;
-                let isCompleted = false;
-
-                while (attempts < maxRetries && !isCompleted) {
-                    try {
-                        const updatedInstance = await getPreConsignment(activeInstance.id);
-                        if (updatedInstance.state === 'COMPLETED') {
-                            isCompleted = true;
-                        } else {
-                            await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms
-                            attempts++;
-                        }
-                    } catch (e) {
-                        console.warn("Polling failed, retrying...", e);
-                        attempts++;
-                    }
-                }
-
-                setActiveInstance(null)
-                setActiveTaskId(null)
-                setFormData(null)
-                setNotification({ type: 'success', message: 'Registration submitted successfully.' })
-                await loadData()
-            } else {
-                setNotification({ type: 'error', message: response.message || 'Submission failed' })
-            }
-        } catch (error) {
-            console.error('Submission error', error)
-            setNotification({ type: 'error', message: 'An unexpected error occurred during submission.' })
-        } finally {
-            setFormLoading(false)
-        }
-    }
-
-    const handleBack = () => {
-        setActiveInstance(null)
-        setActiveTaskId(null)
-        setFormData(null)
-        setIsReadOnly(false)
-        setNotification(null)
-        loadData()
     }
 
     // Render logic for notifications
@@ -195,44 +137,11 @@ export function PreconsignmentScreen() {
         )
     }
 
-    if (loading && !activeInstance) {
+    if (loading) {
         return (
             <Flex align="center" justify="center" style={{ height: '50vh' }}>
                 <Spinner size="3" />
             </Flex>
-        )
-    }
-
-    if (activeInstance && formData) {
-        return (
-            <Box p="6" className="max-w-4xl mx-auto bg-gray-50 min-h-full">
-                <Button variant="ghost" mb="4" onClick={handleBack} style={{ cursor: 'pointer' }}>
-                    <ArrowLeftIcon /> Back to List
-                </Button>
-
-                <Card size="3">
-                    <Flex justify="between" align="center" mb="4">
-                        <Heading size="6">{formData.title}</Heading>
-                        {isReadOnly && <Badge color="green">Read Only</Badge>}
-                    </Flex>
-
-                    {renderNotification()}
-
-                    {/* formLoading is incorrectly checked here, it replaces the form. 
-                        We want the form to stay visible but show spinner on button.
-                        Removing the spinner-replacement logic. */}
-                    <JsonForm
-                        schema={formData.schema}
-                        uiSchema={formData.uiSchema}
-                        data={formData.formData}
-                        onSubmit={(data) => { handleSubmit(data).catch(err => console.error('Failed to handle submission:', err)); }}
-                        submitLabel="Submit Registration"
-                        showAutoFillButton={import.meta.env.VITE_SHOW_AUTOFILL_BUTTON === 'true' && !isReadOnly}
-                        readonly={isReadOnly}
-                        submitting={formLoading}
-                    />
-                </Card>
-            </Box>
         )
     }
 
@@ -274,8 +183,9 @@ export function PreconsignmentScreen() {
                                     {!hasInstance ? (
                                         <Button
                                             onClick={() => handleStartProcess(item.id)}
-                                            disabled={isLocked}
-                                            style={{ cursor: isLocked ? 'not-allowed' : 'pointer' }}
+                                            disabled={isLocked || !areDependenciesMet(item)}
+                                            style={{ cursor: (isLocked || !areDependenciesMet(item)) ? 'not-allowed' : 'pointer' }}
+                                            title={!areDependenciesMet(item) ? 'Complete dependent pre-consignments first' : ''}
                                         >
                                             <PlayIcon /> Start
                                         </Button>
@@ -283,13 +193,13 @@ export function PreconsignmentScreen() {
                                         <Button
                                             variant="outline"
                                             color="green"
-                                            onClick={() => handleContinueProcess(item.preConsignment!)}
+                                            onClick={() => handleContinueProcess(item.preConsignment!.id)}
                                             style={{ cursor: 'pointer' }}
                                         >
                                             <EyeOpenIcon /> View
                                         </Button>
                                     ) : (
-                                        <Button onClick={() => handleContinueProcess(item.preConsignment!)} style={{ cursor: 'pointer' }}>
+                                        <Button onClick={() => handleContinueProcess(item.preConsignment!.id)} style={{ cursor: 'pointer' }}>
                                             Continue
                                         </Button>
                                     )}

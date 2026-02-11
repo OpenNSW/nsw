@@ -2,6 +2,7 @@
 
 import { apiGet, apiPost } from './api'
 import type { TaskFormData } from './task'
+import { sendTaskCommand, getTaskInfo } from './task'
 
 // --- Types based on Backend DTOs ---
 
@@ -47,8 +48,9 @@ export interface TraderPreConsignmentItem {
     name: string
     description: string
     state: PreConsignmentState
-    dependsOn: string[]
+    dependsOn: string[] // From template
     preConsignment?: PreConsignmentInstance
+    preConsignmentTemplate?: PreConsignmentTemplate
 }
 
 export interface TraderPreConsignmentsResponse {
@@ -109,28 +111,33 @@ export async function createPreConsignment(
     )
 }
 
-// Fetch the form schema (Action: FETCH_FORM)
+// Fetch the form schema (GET endpoint)
 export async function fetchPreConsignmentTaskForm(
-    preConsignmentId: string,
     taskId: string
-): Promise<TaskCommandResponse & { data?: TaskFormData }> {
-    return apiPost('/tasks', {
-        task_id: taskId,
-        pre_consignment_id: preConsignmentId,
-        payload: { action: 'FETCH_FORM' }
-    })
+): Promise<TaskFormData> {
+    const renderInfo = await getTaskInfo(taskId)
+    // Extract form data from the render info structure
+    // For SIMPLE_FORM type, content has traderFormInfo
+    if (renderInfo.type === 'SIMPLE_FORM' && 'traderFormInfo' in renderInfo.content) {
+        const traderFormInfo = renderInfo.content.traderFormInfo
+        return {
+            title: traderFormInfo.title,
+            schema: traderFormInfo.schema,
+            uiSchema: traderFormInfo.uiSchema,
+            formData: traderFormInfo.formData || {}
+        }
+    }
+    throw new Error('Unexpected task response structure')
 }
 
 // Submit the form data (Action: SUBMIT_FORM or DRAFT)
 export async function submitPreConsignmentTask(
     request: TaskCommandRequest
 ): Promise<TaskCommandResponse> {
-    return apiPost('/tasks', {
-        task_id: request.taskId,
-        pre_consignment_id: request.preConsignmentId,
-        payload: {
-            action: request.command === 'SAVE_DRAFT' ? 'DRAFT' : 'SUBMIT_FORM',
-            content: request.data
-        }
+    return sendTaskCommand({
+        command: request.command === 'SAVE_DRAFT' ? 'DRAFT' : 'SUBMISSION',
+        taskId: request.taskId,
+        preConsignmentId: request.preConsignmentId,
+        data: request.data || {}
     })
 }

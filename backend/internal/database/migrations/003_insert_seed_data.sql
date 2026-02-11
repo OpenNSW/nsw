@@ -6,45 +6,106 @@
 -- ============================================================================
 -- Seed Data: Pre-Consignment Forms
 -- ============================================================================
--- Insert the Form Definition
-INSERT INTO forms (id, name, schema, ui_schema, version, active) VALUES (
-  '11111111-1111-1111-1111-111111111111', 
-  'Trader Registration',
-  '{"type": "object", "required": ["companyName", "businessRegNo", "tin", "vat"], "properties": {"companyName": {"type": "string", "title": "Company Name", "minLength": 3}, "businessRegNo": {"type": "string", "title": "Business Registration Number"}, "tin": {"type": "string", "title": "Taxpayer Identification Number (TIN)"}, "vat": {"type": "string", "title": "VAT Number"}, "attachment": {"type": "string", "title": "Company Profile (PDF)", "format": "data-url", "description": "Please upload your Business Registration Certificate"}}}',
-  '{"type": "VerticalLayout", "elements": [{"type": "Control", "scope": "#/properties/companyName"}, {"type": "Control", "scope": "#/properties/businessRegNo"}, {"type": "Control", "scope": "#/properties/tin"}, {"type": "Control", "scope": "#/properties/vat"}, {"type": "Control", "scope": "#/properties/attachment"}]}',
-  '1.0',
-  true
-) ON CONFLICT (id) DO UPDATE 
-SET 
-  schema = EXCLUDED.schema, 
-  ui_schema = EXCLUDED.ui_schema,
-  name = EXCLUDED.name;
 
--- Insert the Workflow Node Template (The "Step" definition)
-INSERT INTO workflow_node_templates (id, name, description, type, config, depends_on) VALUES (
-  '3d662496-0182-4118-9706-5b236166113d',
-  'Trader Registration Form Step',
-  'Step to capture trader details',
-  'SIMPLE_FORM',
-  '{"formId": "11111111-1111-1111-1111-111111111111"}',
-  '[]'
-) ON CONFLICT (id) DO UPDATE 
-SET config = EXCLUDED.config;
+-- Form 1: Business Registration
+INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VALUES (
+    'f0000002-0001-0001-0001-000000000001',
+    'Business Registration',
+    'Business registration form for traders',
+    '{"type": "object", "required": ["businessName", "registrationNumber"], "properties": {"businessName": {"type": "string", "title": "Business Name", "x-globalContext": {"writeTo": "roc:br:business_name"}}, "businessType": {"enum": ["Sole Proprietorship", "Partnership", "Private Limited", "Public Limited"], "type": "string", "title": "Business Type"}, "registeredAddress": {"type": "string", "title": "Registered Address"}, "registrationNumber": {"type": "string", "title": "Business Registration Number", "x-globalContext": {"writeTo": "roc:br:reg_no"}}}}',
+    '{"type": "VerticalLayout", "elements": [{"text": "Business Registration", "type": "Label"}, {"type": "Control", "scope": "#/properties/businessName"}, {"type": "Control", "scope": "#/properties/registrationNumber"}, {"type": "Control", "scope": "#/properties/businessType"}, {"type": "Control", "scope": "#/properties/registeredAddress"}]}',
+    '1.0',
+    true
+);
 
--- Insert the Workflow Template (The Process Definition)
+-- Form 2: TIN Registration
+INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VALUES (
+    'f0000002-0001-0001-0001-000000000002',
+    'TIN Registration',
+    'Taxpayer Identification number',
+    '{"type": "object", "required": ["businessName", "registrationNumber", "tinNumber", "registrationDate", "tinCertificate"], "properties": {"tinNumber": {"type": "string", "title": "TIN Number"}, "businessName": {"type": "string", "title": "Business Name", "readOnly": true, "x-globalContext": {"readFrom": "roc:br:business_name"}}, "tinCertificate": {"type": "string", "title": "TIN Registration Certificate", "format": "file"}, "issuingAuthority": {"type": "string", "title": "Issuing Authority", "default": "Inland Revenue Department", "readOnly": true}, "registrationDate": {"type": "string", "title": "TIN Registration Date", "format": "date"}, "registrationNumber": {"type": "string", "title": "Business Registration Number", "readOnly": true, "x-globalContext": {"readFrom": "roc:br:reg_no"}}}}',
+    '{"type": "VerticalLayout", "elements": [{"text": "TIN Registration", "type": "Label"}, {"type": "Control", "scope": "#/properties/businessName"}, {"type": "Control", "scope": "#/properties/registrationNumber"}, {"type": "Control", "scope": "#/properties/tinNumber"}, {"type": "Control", "scope": "#/properties/issuingAuthority"}, {"type": "Control", "scope": "#/properties/registrationDate"}, {"type": "Control", "scope": "#/properties/tinCertificate"}]}',
+    '1.0',
+    true
+);
+
+-- Form 3: VAT Registration
+INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VALUES (
+    'f0000002-0001-0001-0001-000000000003',
+    'VAT Registration',
+    'Value Added Tax registration form',
+    '{"type": "object", "required": ["businessName", "registrationNumber"], "properties": {"businessName": {"type": "string", "title": "Business Name", "x-globalContext": {"writeTo": "roc:br:business_name"}}, "businessType": {"enum": ["Sole Proprietorship", "Partnership", "Private Limited", "Public Limited"], "type": "string", "title": "Business Type"}, "registeredAddress": {"type": "string", "title": "Registered Address"}, "registrationNumber": {"type": "string", "title": "Business Registration Number", "x-globalContext": {"writeTo": "roc:br:reg_no"}}}}',
+    '{"type": "VerticalLayout", "elements": [{"text": "VAT Registration", "type": "Label"}, {"type": "Control", "scope": "#/properties/businessName"}, {"type": "Control", "scope": "#/properties/registrationNumber"}, {"type": "Control", "scope": "#/properties/vatNumber"}, {"type": "Control", "scope": "#/properties/taxOffice"}, {"type": "Control", "scope": "#/properties/effectiveDate"}, {"type": "Control", "scope": "#/properties/businessActivity"}, {"type": "Control", "scope": "#/properties/vatCertificate"}]}',
+    '1.0',
+    true
+);
+
+-- ============================================================================
+-- Pre-Consignment Workflow 1: Business Registration (no dependencies)
+-- ============================================================================
+INSERT INTO workflow_node_templates (id, name, description, type, config, depends_on) VALUES
+('d0000002-0001-0001-0001-000000000001', 'Business Registration Form', 'Submit business registration details', 'SIMPLE_FORM', '{"formId": "f0000002-0001-0001-0001-000000000001"}'::jsonb, '[]'::jsonb);
+
 INSERT INTO workflow_templates (id, name, description, version, nodes) VALUES (
-  'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-  'Trader Registration Workflow',
-  'Workflow for onboarding new traders',
-  'v1',
-  '["3d662496-0182-4118-9706-5b236166113d"]'
-) ON CONFLICT (id) DO NOTHING;
+    'e0000002-0001-0001-0001-000000000001',
+    'Business Registration Workflow',
+    'Workflow for completing business registration',
+    'pre-consignment-business-registration-1.0',
+    '["d0000002-0001-0001-0001-000000000001"]'::jsonb
+);
 
--- Insert the Pre-Consignment Template
 INSERT INTO pre_consignment_templates (id, name, description, workflow_template_id, depends_on) VALUES (
-  '493d31d3-bfb4-489f-94a0-5a3ca2e7ca01',
-  'Trader Registration',
-  'Register your company to trade on the NSW Single Window',
-  'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-  '[]'
-) ON CONFLICT (id) DO NOTHING;
+    '0c000001-0001-0001-0001-000000000002',
+    'Business Registration',
+    'Register your business with the Registrar of Companies (ROC)',
+    'e0000002-0001-0001-0001-000000000001',
+    '[]'::jsonb
+);
+
+-- ============================================================================
+-- Pre-Consignment Workflow 2: TIN Registration (depends on Business Registration)
+-- ============================================================================
+INSERT INTO workflow_node_templates (id, name, description, type, config, depends_on) VALUES
+('d0000002-0001-0001-0001-000000000002', 'TIN Registration Form', 'Submit TIN registration details', 'SIMPLE_FORM', '{"formId": "f0000002-0001-0001-0001-000000000002"}'::jsonb, '[]'::jsonb);
+
+INSERT INTO workflow_templates (id, name, description, version, nodes) VALUES (
+    'e0000002-0001-0001-0001-000000000002',
+    'TIN Registration Workflow',
+    'Workflow for completing TIN registration',
+    'pre-consignment-tin-registration-1.0',
+    '["d0000002-0001-0001-0001-000000000002"]'::jsonb
+);
+
+INSERT INTO pre_consignment_templates (id, name, description, workflow_template_id, depends_on) VALUES (
+    '0c000002-0001-0001-0001-000000000002',
+    'TIN Registration',
+    'Register for Tax Identification Number with the Inland Revenue Department',
+    'e0000002-0001-0001-0001-000000000002',
+    '["0c000001-0001-0001-0001-000000000002"]'::jsonb
+);
+
+-- ============================================================================
+-- Pre-Consignment Workflow 3: VAT Registration (depends on Business Registration)
+-- ============================================================================
+INSERT INTO workflow_node_templates (id, name, description, type, config, depends_on) VALUES
+('d0000002-0001-0001-0001-000000000003', 'VAT Registration Form', 'Submit VAT registration details', 'SIMPLE_FORM', '{"formId": "f0000002-0001-0001-0001-000000000003"}'::jsonb, '[]'::jsonb);
+
+INSERT INTO workflow_templates (id, name, description, version, nodes) VALUES (
+    'e0000002-0001-0001-0001-000000000003',
+    'VAT Registration Workflow',
+    'Workflow for completing VAT registration',
+    'pre-consignment-vat-registration-1.0',
+    '["d0000002-0001-0001-0001-000000000003"]'::jsonb
+);
+
+INSERT INTO pre_consignment_templates (id, name, description, workflow_template_id, depends_on) VALUES (
+    '0c000003-0001-0001-0001-000000000002',
+    'VAT Registration',
+    'Register for Value Added Tax with the Inland Revenue Department',
+    'e0000002-0001-0001-0001-000000000003',
+    '["0c000001-0001-0001-0001-000000000002"]'::jsonb
+);
+
+-- ============================================================================
+-- Migration complete
+-- ============================================================================

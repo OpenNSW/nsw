@@ -7,6 +7,14 @@ function propertyToZod(property: JsonSchemaProperty, required: boolean): ZodType
 
   switch (type) {
     case 'string': {
+      // Handle file uploads - now just strings (file keys from server)
+      if (format === 'file') {
+        const schema = z.string();
+        return required 
+          ? schema.min(1, 'Please select a file')
+          : schema.optional();
+      }
+
       let schema = z.string();
 
       if (required) {

@@ -1,6 +1,6 @@
 import { JsonForm, useJsonForm, type JsonSchema, type UISchemaElement } from "../components/JsonForm";
 import { sendTaskCommand } from "../services/task.ts";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useState } from "react";
 import { Button } from "@radix-ui/themes";
 
@@ -22,6 +22,7 @@ function TraderForm(props: { formInfo: TaskFormData, pluginState: string }) {
     consignmentId: string
     taskId: string
   }>()
+  const location = useLocation()
   const navigate = useNavigate()
   const [error, setError] = useState<string | null>(null)
 
@@ -29,25 +30,26 @@ function TraderForm(props: { formInfo: TaskFormData, pluginState: string }) {
   const isReadOnly = READ_ONLY_STATES.includes(props.pluginState);
 
   const handleSubmit = async (data: unknown) => {
-    if (!consignmentId || !taskId) {
-      setError('Consignment ID or Task ID is missing.')
+    if (!workflowId || !taskId) {
+      setError('Workflow ID or Task ID is missing.')
       return
     }
 
     try {
       setError(null)
 
-      // Send form submission with SUBMIT_FORM action
+      // Send form submission - data now contains file keys (strings) instead of File objects
       const response = await sendTaskCommand({
         command: 'SUBMISSION',
         taskId,
-        workflowId: consignmentId,
+        workflowId: isPreConsignment ? undefined : workflowId,
+        preConsignmentId: isPreConsignment ? workflowId : undefined,
         data: data as Record<string, unknown>,
       })
 
       if (response.success) {
-        // Navigate back to consignment details
-        navigate(`/consignments/${consignmentId}`)
+        // Navigate back to appropriate workflow list
+        navigate(isPreConsignment ? '/pre-consignments' : `/consignments/${workflowId}`)
       } else {
         setError(response.message || 'Failed to submit form.')
       }
