@@ -1,0 +1,216 @@
+openapi: 3.0.3
+info:
+  title: OpenNSW File Upload API
+  version: 1.0.0
+  description: >
+    API specification for managing file uploads in the OpenNSW system.
+    Supports uploading, downloading, and deleting files for temporary storage
+    before form submission or consignment creation.
+  contact:
+    name: OpenNSW Team
+  license:
+    name: MIT
+
+servers:
+  - url: "http://localhost:8080/api/v1"
+    description: Development server (local)
+
+paths:
+  /uploads:
+    post:
+      summary: Upload File
+      description: >
+        Upload a file to temporary storage. Returns metadata including a unique key
+        that can be used to download or delete the file. Files should be deleted
+        if the associated form is not submitted or saved.
+      operationId: uploadFile
+      tags:
+        - Uploads
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The file to upload
+            encoding:
+              file:
+                contentType: application/octet-stream
+      responses:
+        "200":
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileMetadata"
+              example:
+                id: "550e8400-e29b-41d4-a716-446655440000"
+                name: "document.pdf"
+                key: "550e8400-e29b-41d4-a716-446655440000.pdf"
+                url: "/uploads/550e8400-e29b-41d4-a716-446655440000.pdf"
+                size: 1024000
+                mimeType: "application/pdf"
+        "400":
+          description: Bad request - file is required or invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "file is required"
+        "500":
+          description: Internal server error - upload failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "upload failed"
+
+  /uploads/{key}:
+    get:
+      summary: Download File
+      description: >
+        Download a previously uploaded file by its unique key.
+        Returns the file content with the appropriate content type.
+      operationId: downloadFile
+      tags:
+        - Uploads
+      parameters:
+        - name: key
+          in: path
+          description: Unique file key returned from upload
+          required: true
+          schema:
+            type: string
+          example: "550e8400-e29b-41d4-a716-446655440000.pdf"
+      responses:
+        "200":
+          description: File retrieved successfully
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            image/*:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Bad request - key is required or invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "key is required"
+        "404":
+          description: File not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "file not found"
+        "500":
+          description: Internal server error
+
+    delete:
+      summary: Delete File
+      description: >
+        Delete a previously uploaded file by its unique key.
+        This should be called when a form is not submitted or saved as a draft,
+        to clean up temporary storage. Returns 204 No Content on success.
+      operationId: deleteFile
+      tags:
+        - Uploads
+      parameters:
+        - name: key
+          in: path
+          description: Unique file key returned from upload
+          required: true
+          schema:
+            type: string
+          example: "550e8400-e29b-41d4-a716-446655440000.pdf"
+      responses:
+        "204":
+          description: File deleted successfully
+        "400":
+          description: Bad request - key is required or invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "key is required"
+        "500":
+          description: Internal server error - failed to delete file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "failed to delete file"
+
+components:
+  schemas:
+    FileMetadata:
+      type: object
+      required:
+        - id
+        - name
+        - key
+        - url
+        - size
+        - mimeType
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the uploaded file
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        name:
+          type: string
+          description: Original filename
+          example: "document.pdf"
+        key:
+          type: string
+          description: Unique storage key (UUID + extension)
+          example: "550e8400-e29b-41d4-a716-446655440000.pdf"
+        url:
+          type: string
+          description: Public URL to access the file
+          example: "/uploads/550e8400-e29b-41d4-a716-446655440000.pdf"
+        size:
+          type: integer
+          format: int64
+          description: File size in bytes
+          example: 1024000
+        mimeType:
+          type: string
+          description: MIME type of the uploaded file
+          example: "application/pdf"
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "file not found"
+
+tags:
+  - name: Uploads
+    description: File upload, download, and deletion operations
