@@ -29,12 +29,12 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
     true
 );
 
--- Form 3: VAT Registration
+-- Form 3: VAT Registration (CORRECTED)
 INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VALUES (
     'f0000002-0001-0001-0001-000000000003',
     'VAT Registration',
     'Value Added Tax registration form',
-    '{"type": "object", "required": ["businessName", "registrationNumber"], "properties": {"businessName": {"type": "string", "title": "Business Name", "x-globalContext": {"writeTo": "roc:br:business_name"}}, "businessType": {"enum": ["Sole Proprietorship", "Partnership", "Private Limited", "Public Limited"], "type": "string", "title": "Business Type"}, "registeredAddress": {"type": "string", "title": "Registered Address"}, "registrationNumber": {"type": "string", "title": "Business Registration Number", "x-globalContext": {"writeTo": "roc:br:reg_no"}}}}',
+    '{"type": "object", "required": ["businessName", "registrationNumber", "vatNumber", "effectiveDate", "vatCertificate"], "properties": {"businessName": {"type": "string", "title": "Business Name", "readOnly": true, "x-globalContext": {"readFrom": "roc:br:business_name"}}, "registrationNumber": {"type": "string", "title": "Business Registration Number", "readOnly": true, "x-globalContext": {"readFrom": "roc:br:reg_no"}}, "vatNumber": {"type": "string", "title": "VAT Registration Number"}, "taxOffice": {"type": "string", "title": "Tax Office"}, "effectiveDate": {"type": "string", "title": "VAT Effective Date", "format": "date"}, "businessActivity": {"type": "string", "title": "Primary Business Activity"}, "vatCertificate": {"type": "string", "title": "VAT Registration Certificate", "format": "file"}}}',
     '{"type": "VerticalLayout", "elements": [{"text": "VAT Registration", "type": "Label"}, {"type": "Control", "scope": "#/properties/businessName"}, {"type": "Control", "scope": "#/properties/registrationNumber"}, {"type": "Control", "scope": "#/properties/vatNumber"}, {"type": "Control", "scope": "#/properties/taxOffice"}, {"type": "Control", "scope": "#/properties/effectiveDate"}, {"type": "Control", "scope": "#/properties/businessActivity"}, {"type": "Control", "scope": "#/properties/vatCertificate"}]}',
     '1.0',
     true
