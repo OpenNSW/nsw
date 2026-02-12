@@ -14,6 +14,9 @@ servers:
   - url: "http://localhost:8080/api/v1"
     description: Development server (local)
 
+security:
+  - traderAuth: []
+
 paths:
   # HS Code Endpoints
   /hscodes:
@@ -66,18 +69,14 @@ paths:
     get:
       summary: List Consignments
       description: >
-        Retrieve all consignments for a specific trader.
+        Retrieve all consignments for the authenticated trader.
         Returns consignments with their items and associated workflow nodes.
+        Requires Authorization header with trader identification.
       operationId: listConsignments
       tags:
         - Consignments
-      parameters:
-        - name: traderId
-          in: query
-          description: Trader ID (required)
-          required: true
-          schema:
-            type: string
+      security:
+        - traderAuth: []
       responses:
         "200":
           description: List of consignments retrieved successfully
@@ -98,9 +97,12 @@ paths:
         Create a new consignment with specified flow type and items.
         The system automatically initializes workflow tasks based on HS code mappings.
         Returns the created consignment with all associated workflow nodes.
+        Requires Authorization header with trader identification.
       operationId: createConsignment
       tags:
         - Consignments
+      security:
+        - traderAuth: []
       requestBody:
         required: true
         description: Consignment creation request
@@ -133,9 +135,12 @@ paths:
       description: >
         Retrieve detailed information about a specific consignment.
         Includes all items with HS code details and associated workflow nodes.
+        Requires Authorization header with trader identification.
       operationId: getConsignmentById
       tags:
         - Consignments
+      security:
+        - traderAuth: []
       parameters:
         - name: id
           in: path
@@ -233,18 +238,14 @@ paths:
     get:
       summary: List Pre-Consignments
       description: >
-        Retrieve all pre-consignments for a trader. Pre-consignments are templates and instances
+        Retrieve all pre-consignments for the authenticated trader. Pre-consignments are templates and instances
         for initial workflow steps before full consignment creation.
+        Requires Authorization header with trader identification.
       operationId: listPreConsignments
       tags:
         - Pre-Consignments
-      parameters:
-        - name: traderId
-          in: query
-          description: Trader ID (required)
-          required: true
-          schema:
-            type: string
+      security:
+        - traderAuth: []
       responses:
         "200":
           description: List of pre-consignments retrieved successfully
@@ -264,9 +265,12 @@ paths:
       description: >
         Create a new pre-consignment instance from a pre-consignment template.
         Pre-consignments facilitate initial workflow steps before actual consignment creation.
+        Requires Authorization header with trader identification.
       operationId: createPreConsignment
       tags:
         - Pre-Consignments
+      security:
+        - traderAuth: []
       requestBody:
         required: true
         description: Pre-consignment creation request
@@ -275,7 +279,6 @@ paths:
             schema:
               $ref: "#/components/schemas/CreatePreConsignmentDTO"
             example:
-              traderId: "TRADER-001"
               preConsignmentTemplateId: "550e8400-e29b-41d4-a716-446655440000"
       responses:
         "201":
@@ -296,9 +299,12 @@ paths:
       summary: Get Pre-Consignment Details
       description: >
         Retrieve detailed information about a specific pre-consignment instance.
+        Requires Authorization header with trader identification.
       operationId: getPreConsignmentById
       tags:
         - Pre-Consignments
+      security:
+        - traderAuth: []
       parameters:
         - name: preConsignmentId
           in: path
@@ -636,12 +642,8 @@ components:
     CreatePreConsignmentDTO:
       type: object
       required:
-        - traderId
         - preConsignmentTemplateId
       properties:
-        traderId:
-          type: string
-          description: Trader ID associated with the pre-consignment
         preConsignmentTemplateId:
           type: string
           format: uuid
@@ -789,3 +791,12 @@ components:
           type: object
           description: Additional error details
           additionalProperties: true
+
+  securitySchemes:
+    traderAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: >
+        Trader authentication token in the format "TRADER-XXX" (e.g., "TRADER-001").
+        This header identifies the trader making the request and provides access to their context.
