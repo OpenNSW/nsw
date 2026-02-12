@@ -1,71 +1,21 @@
--- 1a: Customs Declaration Form
-INSERT INTO forms (id, name, description, schema, ui_schema, version, active)
-VALUES ('f0000000-1111-2222-3333-000000000001', 'Customs Declaration', 'Initial declaration submission', 
-        '{"type": "object", "properties": {"cusdecNumber": {"type": "string", "title": "CusDec Number"}}}', 
-        '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/cusdecNumber", "type": "Control"}]}', '1.0', true);
-
--- 1b: Assessment Notice Form
-INSERT INTO forms (id, name, description, schema, ui_schema, version, active)
-VALUES ('f0000000-1111-2222-3333-000000000002', 'Assessment Notice', 'Fee calculation details', 
-        '{"type": "object", "properties": {"totalPayable": {"type": "number", "title": "Total Fees Payable (LKR)"}}}', 
-        '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/totalPayable", "type": "Control"}]}', '1.0', true);
-
--- 1c: Payment Form
-INSERT INTO forms (id, name, description, schema, ui_schema, version, active)
-VALUES ('f0000000-1111-2222-3333-000000000003', 'Payment Receipt', 'Payment verification', 
-        '{"type": "object", "properties": {"receiptNumber": {"type": "string", "title": "Bank Reference Number"}}}', 
-        '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/receiptNumber", "type": "Control"}]}', '1.0', true);
-
--- 1d: Warranting Form
-INSERT INTO forms (id, name, description, schema, ui_schema, version, active)
-VALUES ('f0000000-1111-2222-3333-000000000004', 'Warranting Status', 'Official warranting registration', 
-        '{"type": "object", "properties": {"warrantingDate": {"type": "string", "format": "date", "title": "Warranting Date"}}}', 
-        '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/warrantingDate", "type": "Control"}]}', '1.0', true);
-
--- 2a: Regulatory Approval Form
-INSERT INTO forms (id, name, description, schema, ui_schema, version, active)
-VALUES ('f0000000-1111-2222-3333-000000000005', 'PGA Approval', 'Partner Government Agency approval status', 
-        '{"type": "object", "properties": {"pgaStatus": {"type": "string", "enum": ["APPROVED", "REJECTED"], "title": "Regulatory Status"}}}', 
-        '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/pgaStatus", "type": "Control"}]}', '1.0', true);
-
--- 1e: Risk Selectivity Form
-INSERT INTO forms (id, name, description, schema, ui_schema, version, active)
-VALUES ('f0000000-1111-2222-3333-000000000006', 'Risk Assessment', 'Selectivity engine output', 
-        '{"type": "object", "properties": {"riskLane": {"type": "string", "enum": ["GREEN", "YELLOW", "RED"], "title": "Assigned Risk Lane"}}}', 
-        '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/riskLane", "type": "Control"}]}', '1.0', true);
-
--- 1f: e-CDN Form
-INSERT INTO forms (id, name, description, schema, ui_schema, version, active)
-VALUES ('f0000000-1111-2222-3333-000000000007', 'e-Cargo Dispatch', 'Transport and vehicle details', 
-        '{"type": "object", "properties": {"vehicleNumber": {"type": "string", "title": "Truck/Lorry Number"}}}', 
-        '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/vehicleNumber", "type": "Control"}]}', '1.0', true);
-
--- 4: Entry to Yard Form
-INSERT INTO forms (id, name, description, schema, ui_schema, version, active)
-VALUES ('f0000000-1111-2222-3333-000000000008', 'Gate Entry', 'Confirmation of arrival at terminal', 
-        '{"type": "object", "properties": {"gateWeight": {"type": "number", "title": "Weighbridge Weight (kg)"}}}', 
-        '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/gateWeight", "type": "Control"}]}', '1.0', true);
-
--- 5b: Physical Examination Form
-INSERT INTO forms (id, name, description, schema, ui_schema, version, active)
-VALUES ('f0000000-1111-2222-3333-000000000009', 'Customs Examination', 'Results of physical inspection', 
-        '{"type": "object", "properties": {"examResult": {"type": "string", "title": "Examination Remarks"}}}', 
-        '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/examResult", "type": "Control"}]}', '1.0', true);
-
--- 6: Export Released Form
-INSERT INTO forms (id, name, description, schema, ui_schema, version, active)
-VALUES ('f0000000-1111-2222-3333-000000000010', 'Boat Note / ERO', 'Final release authorization', 
-        '{"type": "object", "properties": {"releaseOrderNumber": {"type": "string", "title": "Electronic Release Number"}}}', 
-        '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/releaseOrderNumber", "type": "Control"}]}', '1.0', true);
-
--- 8: Bill of Lading Form
-INSERT INTO forms (id, name, description, schema, ui_schema, version, active)
-VALUES ('f0000000-1111-2222-3333-000000000011', 'Bill of Lading Details', 'Shipping document reference', 
-        '{"type": "object", "properties": {"blNumber": {"type": "string", "title": "Bill of Lading Number"}}}', 
-        '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/blNumber", "type": "Control"}]}', '1.0', true);
-
--- 2b: Final Certificate Issuance Form
-INSERT INTO forms (id, name, description, schema, ui_schema, version, active)
-VALUES ('f0000000-1111-2222-3333-000000000012', 'Certificate Issuance', 'Final issuance of regulatory papers', 
-        '{"type": "object", "properties": {"certificateUrl": {"type": "string", "title": "Download Link for Certificate"}}}', 
-        '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/certificateUrl", "type": "Control"}]}', '1.0', true);
+INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VALUES
+('b1d0a101-0001-4000-8000-000000000001', '7ai: Customs Declaration', 'Export declaration for DC', '{"type": "object", "properties": {"no": {"type": "string", "title": "CusDec No"}}}', '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/no", "type": "Control"}]}', '1.0', true),
+('b1d0a101-0001-4000-8000-000000000002', '7aii: Assessment Notice', 'Cess and fee calculation', '{"type": "object", "properties": {"amt": {"type": "number", "title": "Amount"}}}', '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/amt", "type": "Control"}]}', '1.0', true),
+('b1d0a101-0001-4000-8000-000000000003', '7aiii: Payment on Account', 'Payment verification', '{"type": "object", "properties": {"ref": {"type": "string", "title": "Bank Ref"}}}', '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/ref", "type": "Control"}]}', '1.0', true),
+('b1d0a101-0001-4000-8000-000000000004', '5bi: CDA Quality Application', 'Application for DC Quality Cert', '{"type": "object", "properties": {"appNo": {"type": "string", "title": "App No"}}}', '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/appNo", "type": "Control"}]}', '1.0', true),
+('b1d0a101-0001-4000-8000-000000000005', '5bii: CDA Email Confirmation', 'Email confirmation for release', '{"type": "object", "properties": {"status": {"type": "boolean", "title": "Ready"}}}', '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/status", "type": "Control"}]}', '1.0', true),
+('b1d0a101-0001-4000-8000-000000000006', '5biii: CDA AsyCuda Tick', 'Approved for Export tick', '{"type": "object", "properties": {"ticked": {"type": "boolean", "title": "Ticked"}}}', '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/ticked", "type": "Control"}]}', '1.0', true),
+('b1d0a101-0001-4000-8000-000000000007', '7bi: Warranting', 'Official Export Warranting', '{"type": "object", "properties": {"wNo": {"type": "string", "title": "Warrant No"}}}', '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/wNo", "type": "Control"}]}', '1.0', true),
+('b1d0a101-0001-4000-8000-000000000008', '7bii: Cargo Selectivity', 'Risk status update', '{"type": "object", "properties": {"lane": {"type": "string", "title": "Lane"}}}', '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/lane", "type": "Control"}]}', '1.0', true),
+('b1d0a101-0001-4000-8000-000000000009', '7biii: e-CDN', 'Truck and Lorry details', '{"type": "object", "properties": {"truck": {"type": "string", "title": "Truck No"}}}', '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/truck", "type": "Control"}]}', '1.0', true),
+('b1d0a101-0001-4000-8000-000000000010', '8ai: Phyto Approval', 'PGA Approval status', '{"type": "object", "properties": {"st": {"type": "string", "title": "Status"}}}', '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/st", "type": "Control"}]}', '1.0', true),
+('b1d0a101-0001-4000-8000-000000000011', '9: Health Certificate', 'Health Cert Issuance', '{"type": "object", "properties": {"hNo": {"type": "string", "title": "Cert No"}}}', '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/hNo", "type": "Control"}]}', '1.0', true),
+('b1d0a101-0001-4000-8000-000000000012', '10ai: Entry to Yard', 'Arrival at EFC Yard', '{"type": "object", "properties": {"in": {"type": "string", "title": "Entry Time"}}}', '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/in", "type": "Control"}]}', '1.0', true),
+('b1d0a101-0001-4000-8000-000000000013', '10bi: Exam FCL Exempted', 'Exemption verification', '{"type": "object", "properties": {"ok": {"type": "boolean", "title": "Verified"}}}', '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/ok", "type": "Control"}]}', '1.0', true),
+('b1d0a101-0001-4000-8000-000000000014', '10bii: Exam FCL Panel', 'Panel inspection result', '{"type": "object", "properties": {"res": {"type": "string", "title": "Result"}}}', '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/res", "type": "Control"}]}', '1.0', true),
+('b1d0a101-0001-4000-8000-000000000015', '10biii: Exam LCL', 'LCL inspection result', '{"type": "object", "properties": {"res": {"type": "string", "title": "Result"}}}', '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/res", "type": "Control"}]}', '1.0', true),
+('b1d0a101-0001-4000-8000-000000000016', '10ci: Export Released', 'AsyCuda Release / Boat Note', '{"type": "object", "properties": {"boat": {"type": "string", "title": "Boat Note"}}}', '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/boat", "type": "Control"}]}', '1.0', true),
+('b1d0a101-0001-4000-8000-000000000017', '11: SLPA Takeover', 'Logistics handover confirmation', '{"type": "object", "properties": {"ack": {"type": "boolean", "title": "Ack"}}}', '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/ack", "type": "Control"}]}', '1.0', true),
+('b1d0a101-0001-4000-8000-000000000018', '12: Bill of Lading', 'Final shipping document', '{"type": "object", "properties": {"bl": {"type": "string", "title": "B/L No"}}}', '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/bl", "type": "Control"}]}', '1.0', true),
+('b1d0a101-0001-4000-8000-000000000019', '13: Country of Origin', 'COO Issuance', '{"type": "object", "properties": {"coo": {"type": "string", "title": "COO No"}}}', '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/coo", "type": "Control"}]}', '1.0', true),
+('b1d0a101-0001-4000-8000-000000000020', '8bi: Phyto Issuance', 'Final Phyto Certificate', '{"type": "object", "properties": {"pNo": {"type": "string", "title": "Phyto No"}}}', '{"type": "VerticalLayout", "elements": [{"scope": "#/properties/pNo", "type": "Control"}]}', '1.0', true);
