@@ -38,6 +38,7 @@ MIGRATIONS=(
     "004_unify_task_parent_id.sql"
     "005_insert_seed_data.sql"
     "006_insert_seed_data.sql"
+    "007_create_trader_contexts.sql"
 )
 
 echo "Starting database migrations..."
