@@ -1,74 +1,40 @@
--- 1a: Custom Declaration
-INSERT INTO workflow_node_templates (id, name, description, type, config, depends_on)
-VALUES ('e1111111-1001-4001-a001-000000000001', 'Customs Declaration (CusDec)', 'Initial submission of export declaration', 'SIMPLE_FORM', '{"formId": "f0000000-1111-2222-3333-000000000001"}'::jsonb, '[]'::jsonb);
-
--- 1b: Assessment Notice
-INSERT INTO workflow_node_templates (id, name, description, type, config, depends_on)
-VALUES ('e1111111-1001-4001-a001-000000000002', 'Assessment Notice', 'Auto-calculation of Cess and other fees', 'SIMPLE_FORM', '{"formId": "f0000000-1111-2222-3333-000000000002"}'::jsonb, '["e1111111-1001-4001-a001-000000000001"]'::jsonb);
-
--- 1c: Payment
-INSERT INTO workflow_node_templates (id, name, description, type, config, depends_on)
-VALUES ('e1111111-1001-4001-a001-000000000003', 'Payment on Account', 'Payment confirmation for assessment notice', 'SIMPLE_FORM', '{"formId": "f0000000-1111-2222-3333-000000000003"}'::jsonb, '["e1111111-1001-4001-a001-000000000002"]'::jsonb);
-
--- 1d: Warranting
-INSERT INTO workflow_node_templates (id, name, description, type, config, depends_on)
-VALUES ('e1111111-1001-4001-a001-000000000004', 'Warranting for Exports', 'Official registration and approval for export processing', 'SIMPLE_FORM', '{"formId": "f0000000-1111-2222-3333-000000000004"}'::jsonb, '["e1111111-1001-4001-a001-000000000003"]'::jsonb);
-
--- 2a: Phyto/Health Approval (Parallel to logistics)
-INSERT INTO workflow_node_templates (id, name, description, type, config, depends_on)
-VALUES ('e1111111-1001-4001-a001-000000000005', 'Regulatory Approval (PGA)', 'Approval for Phytosanitary or Health Certificates', 'SIMPLE_FORM', '{"formId": "f0000000-1111-2222-3333-000000000005"}'::jsonb, '["e1111111-1001-4001-a001-000000000001"]'::jsonb);
-
--- 1e: Selectivity
-INSERT INTO workflow_node_templates (id, name, description, type, config, depends_on)
-VALUES ('e1111111-1001-4001-a001-000000000006', 'Risk Selectivity Run', 'Automated risk engine assessment (Green/Red lane)', 'SIMPLE_FORM', '{"formId": "f0000000-1111-2222-3333-000000000006"}'::jsonb, '["e1111111-1001-4001-a001-000000000004"]'::jsonb);
-
--- 1f: e-CDN
-INSERT INTO workflow_node_templates (id, name, description, type, config, depends_on)
-VALUES ('e1111111-1001-4001-a001-000000000007', 'e-Cargo Dispatch Note', 'Details for Lorry and Truck transport', 'SIMPLE_FORM', '{"formId": "f0000000-1111-2222-3333-000000000007"}'::jsonb, '["e1111111-1001-4001-a001-000000000004"]'::jsonb);
-
--- 4: Entry to Yard
-INSERT INTO workflow_node_templates (id, name, description, type, config, depends_on)
-VALUES ('e1111111-1001-4001-a001-000000000008', 'Entry to EFC Yard', 'Physical arrival of container at the export yard', 'SIMPLE_FORM', '{"formId": "f0000000-1111-2222-3333-000000000008"}'::jsonb, '["e1111111-1001-4001-a001-000000000007"]'::jsonb);
-
--- 5b: Panel Examination
-INSERT INTO workflow_node_templates (id, name, description, type, config, depends_on)
-VALUES ('e1111111-1001-4001-a001-000000000009', 'Physical Examination', 'Customs examination result entry', 'SIMPLE_FORM', '{"formId": "f0000000-1111-2222-3333-000000000009"}'::jsonb, '["e1111111-1001-4001-a001-000000000006", "e1111111-1001-4001-a001-000000000008"]'::jsonb);
-
--- 6: Export Released (The Convergent Node)
-INSERT INTO workflow_node_templates (id, name, description, type, config, depends_on)
-VALUES ('e1111111-1001-4001-a001-000000000010', 'Export Released (Boat Note)', 'Final release to SLPA based on all approvals', 'SIMPLE_FORM', '{"formId": "f0000000-1111-2222-3333-000000000010"}'::jsonb, '["e1111111-1001-4001-a001-000000000009", "e1111111-1001-4001-a001-000000000005"]'::jsonb);
-
--- 8: Bill of Lading
-INSERT INTO workflow_node_templates (id, name, description, type, config, depends_on)
-VALUES ('e1111111-1001-4001-a001-000000000011', 'Bill of Lading', 'Issuance of shipping document', 'SIMPLE_FORM', '{"formId": "f0000000-1111-2222-3333-000000000011"}'::jsonb, '["e1111111-1001-4001-a001-000000000010"]'::jsonb);
-
--- 2b: Final Certificate Issuance
-INSERT INTO workflow_node_templates (id, name, description, type, config, depends_on)
-VALUES ('e1111111-1001-4001-a001-000000000012', 'Certificate Issuance', 'Final issuance of Phyto/Health/COO certificates', 'SIMPLE_FORM', '{"formId": "f0000000-1111-2222-3333-000000000012"}'::jsonb, '["e1111111-1001-4001-a001-000000000011"]'::jsonb);
-
+INSERT INTO workflow_node_templates (id, name, description, type, config, depends_on) VALUES
+('d2e0f202-0001-4000-9000-000000000001', '7ai: Custom Declaration', '7ai', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-000000000001"}', '[]'),
+('d2e0f202-0001-4000-9000-000000000002', '7aii: Assessment Notice', '7aii', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-000000000002"}', '["d2e0f202-0001-4000-9000-000000000001"]'),
+('d2e0f202-0001-4000-9000-000000000003', '7aiii: Payment', '7aiii', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-000000000003"}', '["d2e0f202-0001-4000-9000-000000000002"]'),
+('d2e0f202-0001-4000-9000-000000000004', '5bi: CDA Application', '5bi', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-000000000004"}', '["d2e0f202-0001-4000-9000-000000000003"]'),
+('d2e0f202-0001-4000-9000-000000000005', '5bii: CDA Email Confirm', '5bii', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-000000000005"}', '["d2e0f202-0001-4000-9000-000000000004"]'),
+('d2e0f202-0001-4000-9000-000000000006', '5biii: CDA AsyCuda Tick', '5biii', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-000000000006"}', '["d2e0f202-0001-4000-9000-000000000005"]'),
+('d2e0f202-0001-4000-9000-000000000007', '7bi: Warranting', '7bi', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-000000000007"}', '["d2e0f202-0001-4000-9000-000000000006"]'),
+('d2e0f202-0001-4000-9000-000000000008', '7bii: Cargo Selectivity', '7bii', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-000000000008"}', '["d2e0f202-0001-4000-9000-000000000007"]'),
+('d2e0f202-0001-4000-9000-000000000009', '7biii: e-CDN', '7biii', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-000000000009"}', '["d2e0f202-0001-4000-9000-000000000008"]'),
+('d2e0f202-0001-4000-9000-000000000010', '8ai: Phyto Approval', '8ai', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-000000000010"}', '[]'),
+('d2e0f202-0001-4000-9000-000000000011', '9: Health Certificate', '9', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-000000000011"}', '[]'),
+('d2e0f202-0001-4000-9000-000000000012', '10ai: Entry to Yard', '10ai', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-000000000012"}', '["d2e0f202-0001-4000-9000-000000000009"]'),
+('d2e0f202-0001-4000-9000-000000000013', '10bi: Exam FCL Exempted', '10bi', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-000000000013"}', '["d2e0f202-0001-4000-9000-000000000009"]'),
+('d2e0f202-0001-4000-9000-000000000014', '10bii: Exam FCL Panel', '10bii', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-000000000014"}', '["d2e0f202-0001-4000-9000-000000000009"]'),
+('d2e0f202-0001-4000-9000-000000000015', '10biii: Exam LCL', '10biii', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-000000000015"}', '["d2e0f202-0001-4000-9000-000000000009"]'),
+('d2e0f202-0001-4000-9000-000000000016', '10ci: Export Released', '10ci', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-000000000016"}', '["d2e0f202-0001-4000-9000-000000000012", "d2e0f202-0001-4000-9000-000000000013", "d2e0f202-0001-4000-9000-000000000014", "d2e0f202-0001-4000-9000-000000000015"]'),
+('d2e0f202-0001-4000-9000-000000000017', '11: SLPA Takeover', '11', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-000000000017"}', '["d2e0f202-0001-4000-9000-000000000016"]'),
+('d2e0f202-0001-4000-9000-000000000018', '12: Bill of Lading', '12', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-000000000018"}', '["d2e0f202-0001-4000-9000-000000000017"]'),
+('d2e0f202-0001-4000-9000-000000000019', '13: Country of Origin', '13', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-000000000019"}', '["d2e0f202-0001-4000-9000-000000000018"]'),
+('d2e0f202-0001-4000-9000-000000000020', '8bi: Phyto Issuance', '8bi', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-000000000020"}', '["d2e0f202-0001-4000-9000-000000000010", "d2e0f202-0001-4000-9000-000000000019"]');
 
 INSERT INTO workflow_templates (id, name, description, version, nodes)
-VALUES (
-    'a0000000-9999-8888-7777-666666666666', 
-    'NSW National Export Workflow', 
-    'Standard operating procedure for Sea Cargo exports via SLPA', 
-    '1.0.0', 
-    '[
-        "e1111111-1001-4001-a001-000000000001", 
-        "e1111111-1001-4001-a001-000000000002", 
-        "e1111111-1001-4001-a001-000000000003", 
-        "e1111111-1001-4001-a001-000000000004", 
-        "e1111111-1001-4001-a001-000000000005", 
-        "e1111111-1001-4001-a001-000000000006", 
-        "e1111111-1001-4001-a001-000000000007", 
-        "e1111111-1001-4001-a001-000000000008", 
-        "e1111111-1001-4001-a001-000000000009", 
-        "e1111111-1001-4001-a001-000000000010", 
-        "e1111111-1001-4001-a001-000000000011", 
-        "e1111111-1001-4001-a001-000000000012"
-    ]'::jsonb
-);
+VALUES ('f9a8b7c6-0001-4000-a000-000000000000', 'Desiccated Coconut Export', '20-node DC flow with CDA/SLPA integration', '1.0', 
+'[
+  "d2e0f202-0001-4000-9000-000000000001", "d2e0f202-0001-4000-9000-000000000002", 
+  "d2e0f202-0001-4000-9000-000000000003", "d2e0f202-0001-4000-9000-000000000004", 
+  "d2e0f202-0001-4000-9000-000000000005", "d2e0f202-0001-4000-9000-000000000006", 
+  "d2e0f202-0001-4000-9000-000000000007", "d2e0f202-0001-4000-9000-000000000008", 
+  "d2e0f202-0001-4000-9000-000000000009", "d2e0f202-0001-4000-9000-000000000010", 
+  "d2e0f202-0001-4000-9000-000000000011", "d2e0f202-0001-4000-9000-000000000012", 
+  "d2e0f202-0001-4000-9000-000000000013", "d2e0f202-0001-4000-9000-000000000014", 
+  "d2e0f202-0001-4000-9000-000000000015", "d2e0f202-0001-4000-9000-000000000016", 
+  "d2e0f202-0001-4000-9000-000000000017", "d2e0f202-0001-4000-9000-000000000018", 
+  "d2e0f202-0001-4000-9000-000000000019", "d2e0f202-0001-4000-9000-000000000020"
+]'::jsonb);
 
 INSERT INTO workflow_template_maps (id, hs_code_id, consignment_flow, workflow_template_id)
 VALUES ('688574a0-e24c-48e4-86eb-1496d5d21da2', '8a0783e4-82e6-488e-b96e-6140a8912f39', 'EXPORT',
-        'a0000000-9999-8888-7777-666666666666');
+        'f9a8b7c6-0001-4000-a000-000000000000');
