@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/config"
 	"github.com/OpenNSW/nsw/internal/database"
 	"github.com/OpenNSW/nsw/internal/form"
@@ -96,6 +97,19 @@ func main() {
 	uploadService := uploads.NewUploadService(storageDriver)
 	uploadHandler := uploads.NewHTTPHandler(uploadService)
 
+	// Initialize authentication manager
+	authManager := auth.NewManager(db)
+	defer func() {
+		if err := authManager.Close(); err != nil {
+			slog.Error("failed to close auth manager", "error", err)
+		}
+	}()
+
+	// Verify auth system is healthy
+	if err := authManager.Health(); err != nil {
+		log.Fatalf("auth system health check failed: %v", err)
+	}
+
 	// Set up HTTP routes
 	mux := http.NewServeMux()
 
@@ -120,8 +134,10 @@ func main() {
 	// Set up graceful shutdown
 	serverAddr := fmt.Sprintf(":%d", cfg.Server.Port)
 
-	// Wrap handler with CORS middleware
-	handler := middleware.CORS(&cfg.CORS)(mux)
+	// Wrap handler with CORS and Auth middleware
+	// Order: CORS -> Auth -> Routes
+	// This ensures CORS headers are set before auth middleware processes the request
+	handler := middleware.CORS(&cfg.CORS)(authManager.Middleware()(mux))
 
 	server := &http.Server{
 		Addr:    serverAddr,
