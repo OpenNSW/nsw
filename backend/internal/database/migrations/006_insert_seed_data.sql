@@ -8,4 +8,4 @@ UPDATE workflow_node_templates SET config = '{"agency": "NPQS", "formId": "22222
 WHERE id = 'c0000003-0003-0003-0003-000000000003';
 
 UPDATE workflow_node_templates SET config = '{"agency": "EDB", "formId": "33333333-3333-3333-3333-333333333333", "service": "food-control-administration-unit", "callback": {"response": {"display": {"formId": "95d7e7fe-5be0-43cb-ac71-94bc70d3a01d"}}}, "submission": {"url": "http://localhost:8082/api/oga/inject"}}'::jsonb
-WHERE id = 'c0000003-0003-0003-0003-000000000002';
+WHERE id = 'c0000003-0003-0003-0003-000000000004';
