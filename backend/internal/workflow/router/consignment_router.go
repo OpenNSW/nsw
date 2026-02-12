@@ -3,6 +3,7 @@ package router
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/google/uuid"
 
@@ -68,8 +69,9 @@ func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *ht
 }
 
 // HandleGetConsignmentsByTraderID handles GET /api/v1/consignments
-// No query params required - uses traderId from auth context
-// Response: array of ConsignmentResponseDTO
+// No query params required for traderId - uses traderId from auth context
+// Pagination query params: offset (optional), limit (optional)
+// Response: ConsignmentListResult
 func (c *ConsignmentRouter) HandleGetConsignmentsByTraderID(w http.ResponseWriter, r *http.Request) {
 	// Require authentication
 	authCtx := auth.GetAuthContext(r.Context())
@@ -81,8 +83,28 @@ func (c *ConsignmentRouter) HandleGetConsignmentsByTraderID(w http.ResponseWrite
 	// Use traderId from auth context
 	traderID := authCtx.TraderID
 
+	var offset, limit *int
+
+	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
+		offsetVal, err := strconv.Atoi(offsetStr)
+		if err != nil {
+			http.Error(w, "invalid 'offset' query parameter, must be an integer", http.StatusBadRequest)
+			return
+		}
+		offset = &offsetVal
+	}
+
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		limitVal, err := strconv.Atoi(limitStr)
+		if err != nil {
+			http.Error(w, "invalid 'limit' query parameter, must be an integer", http.StatusBadRequest)
+			return
+		}
+		limit = &limitVal
+	}
+
 	// Get consignments from service
-	consignments, err := c.cs.GetConsignmentsByTraderID(r.Context(), traderID)
+	consignments, err := c.cs.GetConsignmentsByTraderID(r.Context(), traderID, offset, limit)
 	if err != nil {
 		http.Error(w, "failed to retrieve consignments: "+err.Error(), http.StatusInternalServerError)
 		return

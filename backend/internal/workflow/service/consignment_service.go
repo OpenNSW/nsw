@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/OpenNSW/nsw/internal/workflow/model"
+	"github.com/OpenNSW/nsw/utils"
 )
 
 // ConsignmentService handles consignment-related operations.
@@ -196,16 +197,36 @@ func (s *ConsignmentService) GetConsignmentByID(ctx context.Context, consignment
 }
 
 // GetConsignmentsByTraderID retrieves consignments associated with a specific trader ID.
-func (s *ConsignmentService) GetConsignmentsByTraderID(ctx context.Context, traderID string) ([]model.ConsignmentResponseDTO, error) {
-	var consignments []model.Consignment
-	// Use Preload to fetch WorkflowNodes and their templates - GORM handles the joins
-	result := s.db.WithContext(ctx).Preload("WorkflowNodes.WorkflowNodeTemplate").Where("trader_id = ?", traderID).Find(&consignments)
-	if result.Error != nil {
-		return nil, fmt.Errorf("failed to retrieve consignments for trader %s: %w", traderID, result.Error)
+func (s *ConsignmentService) GetConsignmentsByTraderID(ctx context.Context, traderID string, offset *int, limit *int) (*model.ConsignmentListResult, error) {
+	// Get total count first for pagination
+	var totalCount int64
+	countQuery := s.db.WithContext(ctx).Model(&model.Consignment{}).Where("trader_id = ?", traderID)
+	if err := countQuery.Count(&totalCount).Error; err != nil {
+		return nil, fmt.Errorf("failed to count consignments for trader %s: %w", traderID, err)
 	}
 
-	if len(consignments) == 0 {
-		return []model.ConsignmentResponseDTO{}, nil
+	if totalCount == 0 {
+		return &model.ConsignmentListResult{
+			TotalCount: 0,
+			Items:      []model.ConsignmentResponseDTO{},
+			Offset:     0,
+			Limit:      0,
+		}, nil
+	}
+
+	var consignments []model.Consignment
+	query := s.db.WithContext(ctx).Preload("WorkflowNodes.WorkflowNodeTemplate").Where("trader_id = ?", traderID)
+
+	// Apply pagination with defaults and limits
+	finalOffset, finalLimit := utils.GetPaginationParams(offset, limit)
+	query = query.Offset(finalOffset).Limit(finalLimit)
+
+	// Add ordering for consistent pagination (e.g. by created_at desc)
+	query = query.Order("created_at DESC")
+
+	result := query.Find(&consignments)
+	if result.Error != nil {
+		return nil, fmt.Errorf("failed to retrieve consignments for trader %s: %w", traderID, result.Error)
 	}
 
 	// Batch load HS codes for all JSONB items
@@ -227,7 +248,12 @@ func (s *ConsignmentService) GetConsignmentsByTraderID(ctx context.Context, trad
 		consignmentDTOs = append(consignmentDTOs, *responseDTO)
 	}
 
-	return consignmentDTOs, nil
+	return &model.ConsignmentListResult{
+		TotalCount: totalCount,
+		Items:      consignmentDTOs,
+		Offset:     finalOffset,
+		Limit:      finalLimit,
+	}, nil
 }
 
 // UpdateConsignment updates an existing consignment in the database.

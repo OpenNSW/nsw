@@ -3,6 +3,7 @@ package router
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/google/uuid"
 
@@ -24,7 +25,9 @@ func NewPreConsignmentRouter(pcs *service.PreConsignmentService) *PreConsignment
 }
 
 // HandleGetTraderPreConsignments handles GET /api/v1/pre-consignments
-// Returns all pre-consignment templates with computed state for authenticated trader
+// No query params required for traderId - uses traderId from auth context
+// Pagination query params: offset (optional), limit (optional)
+// Response: TraderPreConsignmentsResponseDTO
 func (r *PreConsignmentRouter) HandleGetTraderPreConsignments(w http.ResponseWriter, req *http.Request) {
 	// Require authentication
 	authCtx := auth.GetAuthContext(req.Context())
@@ -36,7 +39,27 @@ func (r *PreConsignmentRouter) HandleGetTraderPreConsignments(w http.ResponseWri
 	// Use traderId from auth context
 	traderID := authCtx.TraderID
 
-	templates, err := r.pcs.GetTraderPreConsignments(req.Context(), traderID, nil, nil)
+	var offset, limit *int
+
+	if offsetStr := req.URL.Query().Get("offset"); offsetStr != "" {
+		offsetVal, err := strconv.Atoi(offsetStr)
+		if err != nil {
+			http.Error(w, "invalid 'offset' query parameter, must be an integer", http.StatusBadRequest)
+			return
+		}
+		offset = &offsetVal
+	}
+
+	if limitStr := req.URL.Query().Get("limit"); limitStr != "" {
+		limitVal, err := strconv.Atoi(limitStr)
+		if err != nil {
+			http.Error(w, "invalid 'limit' query parameter, must be an integer", http.StatusBadRequest)
+			return
+		}
+		limit = &limitVal
+	}
+
+	templates, err := r.pcs.GetTraderPreConsignments(req.Context(), traderID, offset, limit)
 	if err != nil {
 		http.Error(w, "failed to retrieve pre-consignment templates: "+err.Error(), http.StatusInternalServerError)
 		return
