@@ -64,3 +64,10 @@ export interface CreateConsignmentRequest {
 }
 
 export type CreateConsignmentResponse = Consignment
+
+export interface ConsignmentListResult {
+  totalCount: number
+  items: Consignment[]
+  offset: number
+  limit: number
+}

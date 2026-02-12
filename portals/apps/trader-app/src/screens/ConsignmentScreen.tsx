@@ -11,6 +11,7 @@ import { getStateColor, formatState, formatDate } from '../utils/consignmentUtil
 export function ConsignmentScreen() {
   const navigate = useNavigate()
   const [consignments, setConsignments] = useState<Consignment[]>([])
+  const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
 
   // Filters
@@ -26,7 +27,8 @@ export function ConsignmentScreen() {
     async function fetchConsignments() {
       try {
         const data = await getAllConsignments()
-        setConsignments(data)
+        setConsignments(data.items)
+        setTotalCount(data.totalCount)
       } catch (error) {
         console.error('Failed to fetch consignments:', error)
       } finally {
@@ -76,7 +78,6 @@ export function ConsignmentScreen() {
   })
 
   // Stats
-  const totalConsignments = consignments.length
   const inProgressConsignments = consignments.filter(c => c.state === 'IN_PROGRESS').length
   const completedConsignments = consignments.filter(c => c.state === 'FINISHED').length
 
@@ -109,7 +110,7 @@ export function ConsignmentScreen() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-sm font-medium text-gray-500">Total Consignments</h3>
-          <p className="mt-2 text-3xl font-semibold text-gray-900">{totalConsignments}</p>
+          <p className="mt-2 text-3xl font-semibold text-gray-900">{totalCount}</p>
         </div>
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-sm font-medium text-gray-500">In Progress</h3>

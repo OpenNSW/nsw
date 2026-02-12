@@ -1,5 +1,6 @@
 import type {
   Consignment,
+  ConsignmentListResult,
   CreateConsignmentRequest,
   CreateConsignmentResponse,
 } from './types/consignment'
@@ -26,6 +27,19 @@ export async function getConsignment(id: string): Promise<Consignment | null> {
   }
 }
 
-export async function getAllConsignments(): Promise<Consignment[]> {
-  return apiGet<Consignment[]>('/consignments')
+export async function getAllConsignments(): Promise<ConsignmentListResult> {
+  const response = await apiGet<Consignment[] | ConsignmentListResult>(
+    '/consignments'
+  )
+
+  if (Array.isArray(response)) {
+    return {
+      totalCount: response.length,
+      items: response,
+      offset: 0,
+      limit: response.length,
+    }
+  }
+
+  return response
 }
