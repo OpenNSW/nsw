@@ -196,37 +196,56 @@ func (s *ConsignmentService) GetConsignmentByID(ctx context.Context, consignment
 	return responseDTO, nil
 }
 
-// GetConsignmentsByTraderID retrieves consignments associated with a specific trader ID.
-func (s *ConsignmentService) GetConsignmentsByTraderID(ctx context.Context, traderID string, offset *int, limit *int) (*model.ConsignmentListResult, error) {
-	// Get total count first for pagination
+// GetConsignmentsByTraderID retrieves consignments associated with a specific trader ID with optional filtering.
+func (s *ConsignmentService) GetConsignmentsByTraderID(ctx context.Context, traderID string, offset *int, limit *int, filter model.ConsignmentFilter) (*model.ConsignmentListResult, error) {
+	// Apply pagination with defaults and limits
+	finalOffset, finalLimit := utils.GetPaginationParams(offset, limit)
+
+	// Base query for this trader
+	baseQuery := s.db.WithContext(ctx).Model(&model.Consignment{}).Where("trader_id = ?", traderID)
+
+	// Calculate Summary (on un-filtered data for this trader)
+	var summary model.ConsignmentSummary
+	if err := baseQuery.Count(&summary.Total).Error; err != nil {
+		return nil, fmt.Errorf("failed to count total consignments: %w", err)
+	}
+	s.db.WithContext(ctx).Model(&model.Consignment{}).Where("trader_id = ? AND state = ?", traderID, model.ConsignmentStateInProgress).Count(&summary.InProgress)
+	s.db.WithContext(ctx).Model(&model.Consignment{}).Where("trader_id = ? AND state = ?", traderID, model.ConsignmentStateFinished).Count(&summary.Finished)
+
+	// Apply Filters
+	query := baseQuery
+	if filter.State != nil {
+		query = query.Where("state = ?", *filter.State)
+	}
+	if filter.Flow != nil {
+		query = query.Where("flow = ?", *filter.Flow)
+	}
+
+	// Get total count of FILTERED records
 	var totalCount int64
-	countQuery := s.db.WithContext(ctx).Model(&model.Consignment{}).Where("trader_id = ?", traderID)
-	if err := countQuery.Count(&totalCount).Error; err != nil {
-		return nil, fmt.Errorf("failed to count consignments for trader %s: %w", traderID, err)
+	if err := query.Count(&totalCount).Error; err != nil {
+		return nil, fmt.Errorf("failed to count filtered consignments: %w", err)
 	}
 
 	if totalCount == 0 {
 		return &model.ConsignmentListResult{
 			TotalCount: 0,
 			Items:      []model.ConsignmentResponseDTO{},
-			Offset:     0,
-			Limit:      0,
+			Offset:     finalOffset,
+			Limit:      finalLimit,
+			Summary:    summary,
 		}, nil
 	}
 
 	var consignments []model.Consignment
-	query := s.db.WithContext(ctx).Preload("WorkflowNodes.WorkflowNodeTemplate").Where("trader_id = ?", traderID)
+	// Apply Preloads, Pagination, and Ordering to the filtered query
+	query = query.Preload("WorkflowNodes.WorkflowNodeTemplate").
+		Offset(finalOffset).
+		Limit(finalLimit).
+		Order("created_at DESC")
 
-	// Apply pagination with defaults and limits
-	finalOffset, finalLimit := utils.GetPaginationParams(offset, limit)
-	query = query.Offset(finalOffset).Limit(finalLimit)
-
-	// Add ordering for consistent pagination (e.g. by created_at desc)
-	query = query.Order("created_at DESC")
-
-	result := query.Find(&consignments)
-	if result.Error != nil {
-		return nil, fmt.Errorf("failed to retrieve consignments for trader %s: %w", traderID, result.Error)
+	if err := query.Find(&consignments).Error; err != nil {
+		return nil, fmt.Errorf("failed to retrieve consignments: %w", err)
 	}
 
 	// Batch load HS codes for all JSONB items
@@ -253,6 +272,7 @@ func (s *ConsignmentService) GetConsignmentsByTraderID(ctx context.Context, trad
 		Items:      consignmentDTOs,
 		Offset:     finalOffset,
 		Limit:      finalLimit,
+		Summary:    summary,
 	}, nil
 }
 

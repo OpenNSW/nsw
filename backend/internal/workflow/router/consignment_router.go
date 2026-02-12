@@ -3,13 +3,13 @@ package router
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"github.com/google/uuid"
 
 	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
+	"github.com/OpenNSW/nsw/utils"
 )
 
 type ConsignmentRouter struct {
@@ -83,28 +83,25 @@ func (c *ConsignmentRouter) HandleGetConsignmentsByTraderID(w http.ResponseWrite
 	// Use traderId from auth context
 	traderID := authCtx.TraderID
 
-	var offset, limit *int
-
-	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
-		offsetVal, err := strconv.Atoi(offsetStr)
-		if err != nil {
-			http.Error(w, "invalid 'offset' query parameter, must be an integer", http.StatusBadRequest)
-			return
-		}
-		offset = &offsetVal
+	offset, limit, err := utils.ParsePaginationParams(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
-	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
-		limitVal, err := strconv.Atoi(limitStr)
-		if err != nil {
-			http.Error(w, "invalid 'limit' query parameter, must be an integer", http.StatusBadRequest)
-			return
-		}
-		limit = &limitVal
+	// Parse optional filters
+	var filter model.ConsignmentFilter
+	if stateStr := r.URL.Query().Get("state"); stateStr != "" {
+		state := model.ConsignmentState(stateStr)
+		filter.State = &state
+	}
+	if flowStr := r.URL.Query().Get("flow"); flowStr != "" {
+		flow := model.ConsignmentFlow(flowStr)
+		filter.Flow = &flow
 	}
 
 	// Get consignments from service
-	consignments, err := c.cs.GetConsignmentsByTraderID(r.Context(), traderID, offset, limit)
+	consignments, err := c.cs.GetConsignmentsByTraderID(r.Context(), traderID, offset, limit, filter)
 	if err != nil {
 		http.Error(w, "failed to retrieve consignments: "+err.Error(), http.StatusInternalServerError)
 		return

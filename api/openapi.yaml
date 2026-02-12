@@ -78,12 +78,6 @@ paths:
       security:
         - traderAuth: []
       parameters:
-        - name: traderId
-          in: query
-          description: Trader ID (required)
-          required: true
-          schema:
-            type: string
         - name: offset
           in: query
           description: Pagination offset (default 0)
@@ -100,6 +94,20 @@ paths:
             type: integer
             default: 50
             minimum: 1
+        - name: state
+          in: query
+          description: Filter by consignment state
+          required: false
+          schema:
+            type: string
+            enum: [IN_PROGRESS, REQUIRES_REWORK, FINISHED, COMPLETED]
+        - name: flow
+          in: query
+          description: Filter by trade flow
+          required: false
+          schema:
+            type: string
+            enum: [IMPORT, EXPORT]
       responses:
         "200":
           description: List of consignments retrieved successfully
@@ -268,12 +276,6 @@ paths:
       security:
         - traderAuth: []
       parameters:
-        - name: traderId
-          in: query
-          description: Trader ID (required)
-          required: true
-          schema:
-            type: string
         - name: offset
           in: query
           description: Pagination offset (default 0)
@@ -600,6 +602,7 @@ components:
         - items
         - offset
         - limit
+        - summary
       properties:
         totalCount:
           type: integer
@@ -615,6 +618,22 @@ components:
         limit:
           type: integer
           description: Pagination limit used in the query
+        summary:
+          $ref: "#/components/schemas/ConsignmentSummary"
+
+    ConsignmentSummary:
+      type: object
+      required:
+        - total
+        - inProgress
+        - finished
+      properties:
+        total:
+          type: integer
+        inProgress:
+          type: integer
+        finished:
+          type: integer
 
     # Task Schemas
     ExecutionRequest:

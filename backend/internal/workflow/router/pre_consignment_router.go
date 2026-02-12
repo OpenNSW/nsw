@@ -3,13 +3,13 @@ package router
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"github.com/google/uuid"
 
 	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
+	"github.com/OpenNSW/nsw/utils"
 )
 
 // PreConsignmentRouter handles HTTP routing for pre-consignment endpoints.
@@ -39,24 +39,10 @@ func (r *PreConsignmentRouter) HandleGetTraderPreConsignments(w http.ResponseWri
 	// Use traderId from auth context
 	traderID := authCtx.TraderID
 
-	var offset, limit *int
-
-	if offsetStr := req.URL.Query().Get("offset"); offsetStr != "" {
-		offsetVal, err := strconv.Atoi(offsetStr)
-		if err != nil {
-			http.Error(w, "invalid 'offset' query parameter, must be an integer", http.StatusBadRequest)
-			return
-		}
-		offset = &offsetVal
-	}
-
-	if limitStr := req.URL.Query().Get("limit"); limitStr != "" {
-		limitVal, err := strconv.Atoi(limitStr)
-		if err != nil {
-			http.Error(w, "invalid 'limit' query parameter, must be an integer", http.StatusBadRequest)
-			return
-		}
-		limit = &limitVal
+	offset, limit, err := utils.ParsePaginationParams(req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	templates, err := r.pcs.GetTraderPreConsignments(req.Context(), traderID, offset, limit)
