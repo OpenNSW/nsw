@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
 )
@@ -22,13 +23,18 @@ func NewPreConsignmentRouter(pcs *service.PreConsignmentService) *PreConsignment
 	}
 }
 
-// HandleGetTraderPreConsignments handles GET /api/v1/pre-consignments?traderId={traderId}
+// HandleGetTraderPreConsignments handles GET /api/v1/pre-consignments
+// Returns all pre-consignment templates with computed state for authenticated trader
 func (r *PreConsignmentRouter) HandleGetTraderPreConsignments(w http.ResponseWriter, req *http.Request) {
-	traderID := req.URL.Query().Get("traderId")
-	if traderID == "" {
-		http.Error(w, "traderId query parameter is required", http.StatusBadRequest)
+	// Require authentication
+	authCtx := auth.GetAuthContext(req.Context())
+	if authCtx == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
+
+	// Use traderId from auth context
+	traderID := authCtx.TraderID
 
 	templates, err := r.pcs.GetTraderPreConsignments(req.Context(), traderID, nil, nil)
 	if err != nil {
@@ -46,13 +52,30 @@ func (r *PreConsignmentRouter) HandleGetTraderPreConsignments(w http.ResponseWri
 
 // HandleCreatePreConsignment handles POST /api/v1/pre-consignments
 func (r *PreConsignmentRouter) HandleCreatePreConsignment(w http.ResponseWriter, req *http.Request) {
+	// Require authentication
+	authCtx := auth.GetAuthContext(req.Context())
+	if authCtx == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	var createReq model.CreatePreConsignmentDTO
 	if err := json.NewDecoder(req.Body).Decode(&createReq); err != nil {
 		http.Error(w, "invalid request body: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	preConsignment, _, err := r.pcs.InitializePreConsignment(req.Context(), &createReq)
+	// Extract traderId from auth context
+	traderId := authCtx.TraderID
+
+	// Extract traderContext from auth
+	traderContext, err := authCtx.GetTraderContextMap()
+	if err != nil {
+		http.Error(w, "failed to parse trader context", http.StatusInternalServerError)
+		return
+	}
+
+	preConsignment, _, err := r.pcs.InitializePreConsignment(req.Context(), &createReq, traderId, traderContext)
 	if err != nil {
 		http.Error(w, "failed to create pre-consignment: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -66,13 +89,18 @@ func (r *PreConsignmentRouter) HandleCreatePreConsignment(w http.ResponseWriter,
 	}
 }
 
-// HandleGetPreConsignmentsByTraderID handles GET /api/v1/pre-consignments?traderId={traderId}
+// HandleGetPreConsignmentsByTraderID handles GET /api/v1/pre-consignments
+// Returns all pre-consignment instances for authenticated trader
 func (r *PreConsignmentRouter) HandleGetPreConsignmentsByTraderID(w http.ResponseWriter, req *http.Request) {
-	traderID := req.URL.Query().Get("traderId")
-	if traderID == "" {
-		http.Error(w, "traderId query parameter is required", http.StatusBadRequest)
+	// Require authentication
+	authCtx := auth.GetAuthContext(req.Context())
+	if authCtx == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
+
+	// Use traderId from auth context
+	traderID := authCtx.TraderID
 
 	preConsignments, err := r.pcs.GetPreConsignmentsByTraderID(req.Context(), traderID)
 	if err != nil {

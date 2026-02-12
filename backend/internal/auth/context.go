@@ -1,6 +1,9 @@
 package auth
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // TraderContext represents the context of a trader in the database.
 // This model persists trader information and associated metadata.
@@ -24,4 +27,19 @@ func (t *TraderContext) TableName() string {
 // - Additional JWT-specific fields
 type AuthContext struct {
 	*TraderContext
+}
+
+// GetTraderContextMap returns the trader context as a map for convenient access.
+// If no context exists, it returns an empty map.
+func (ac *AuthContext) GetTraderContextMap() (map[string]any, error) {
+	contextMap := make(map[string]any)
+	if ac == nil || ac.TraderContext == nil || len(ac.TraderContext.TraderContext) == 0 {
+		return contextMap, nil
+	}
+
+	if err := json.Unmarshal(ac.TraderContext.TraderContext, &contextMap); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal trader context: %w", err)
+	}
+
+	return contextMap, nil
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
 )
@@ -24,6 +25,13 @@ func NewConsignmentRouter(cs *service.ConsignmentService, _ interface{}) *Consig
 // Request body: CreateConsignmentDTO
 // Response: ConsignmentResponseDTO
 func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *http.Request) {
+	// Require authentication
+	authCtx := auth.GetAuthContext(r.Context())
+	if authCtx == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	var req model.CreateConsignmentDTO
 
 	// Parse request body
@@ -32,15 +40,14 @@ func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *ht
 		return
 	}
 
-	// TODO: Get trader ID from auth context
-	// For now use a mock trader ID if not provided
-	traderId := "TRADER-001"
+	// Extract traderId from auth context
+	traderId := authCtx.TraderID
 
-	// TODO: Inital global context should be get from auth context or other sources. For now, we will use mock data.
-	globalContext := map[string]any{
-		"roc:br:br_no":   "PV 00234567",
-		"ird:vat:vat_no": "114234222-7000",
-		"ird:tin:tin_no": "114234222",
+	// Extract globalContext from auth context
+	globalContext, err := authCtx.GetTraderContextMap()
+	if err != nil {
+		http.Error(w, "failed to parse trader context", http.StatusInternalServerError)
+		return
 	}
 
 	// Create consignment through service
@@ -60,16 +67,19 @@ func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *ht
 	}
 }
 
-// HandleGetConsignmentsByTraderID handles GET /api/v1/consignments?traderId={traderId}
-// Query params: traderId (required)
+// HandleGetConsignmentsByTraderID handles GET /api/v1/consignments
+// No query params required - uses traderId from auth context
 // Response: array of ConsignmentResponseDTO
 func (c *ConsignmentRouter) HandleGetConsignmentsByTraderID(w http.ResponseWriter, r *http.Request) {
-	// Get traderId from query params
-	traderID := r.URL.Query().Get("traderId")
-	if traderID == "" {
-		http.Error(w, "traderId query parameter is required", http.StatusBadRequest)
+	// Require authentication
+	authCtx := auth.GetAuthContext(r.Context())
+	if authCtx == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
+
+	// Use traderId from auth context
+	traderID := authCtx.TraderID
 
 	// Get consignments from service
 	consignments, err := c.cs.GetConsignmentsByTraderID(r.Context(), traderID)

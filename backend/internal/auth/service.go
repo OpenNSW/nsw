@@ -2,6 +2,7 @@ package auth
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -42,9 +43,9 @@ func (as *AuthService) GetTraderContext(traderID string) (*TraderContext, error)
 	result := as.db.Where("trader_id = ?", traderID).First(&traderCtx)
 
 	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			slog.Debug("trader context not found", "trader_id", traderID)
-			return nil, fmt.Errorf("trader context not found for trader_id: %s", traderID)
+			return nil, result.Error
 		}
 		slog.Error("failed to fetch trader context from database",
 			"trader_id", traderID,

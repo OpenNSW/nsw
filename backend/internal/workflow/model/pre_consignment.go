@@ -41,7 +41,6 @@ func (pc *PreConsignment) TableName() string {
 
 // CreatePreConsignmentDTO is used to create a new pre-consignment.
 type CreatePreConsignmentDTO struct {
-	TraderID                 string    `json:"traderId" validate:"required"`                 // Trader ID associated with the pre-consignment
 	PreConsignmentTemplateID uuid.UUID `json:"preConsignmentTemplateId" validate:"required"` // ID of the pre-consignment template to use
 }
 

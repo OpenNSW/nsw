@@ -2,8 +2,12 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
+
+	"gorm.io/gorm"
 )
 
 // ContextKey is a custom type for context keys to avoid collisions
@@ -62,13 +66,24 @@ func Middleware(authService *AuthService, tokenExtractor *TokenExtractor) func(h
 			// Get trader context from database
 			traderCtx, err := authService.GetTraderContext(traderID)
 			if err != nil {
-				slog.Warn("failed to get trader context from database",
-					"trader_id", traderID,
-					"error", err,
-				)
-				// Don't fail the request, just continue without auth context
-				next.ServeHTTP(w, r)
-				return
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					// Trader doesn't have context yet - create empty context
+					slog.Info("trader context not found, initializing empty context",
+						"trader_id", traderID,
+					)
+					traderCtx = &TraderContext{
+						TraderID:      traderID,
+						TraderContext: json.RawMessage(`{}`),
+					}
+				} else {
+					// Database error - log and continue without auth context
+					slog.Warn("failed to get trader context from database",
+						"trader_id", traderID,
+						"error", err,
+					)
+					next.ServeHTTP(w, r)
+					return
+				}
 			}
 
 			// Wrap the trader context in AuthContext
