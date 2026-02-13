@@ -72,6 +72,8 @@ export interface ControlOptions {
   readonly?: boolean;
   format?: string; // override format detection
   showUnfocusedDescription?: boolean;
+  maxSize?: number; // for file upload (in bytes)
+  accept?: string; // for file upload (MIME types or extensions)
 }
 
 // Form state types
