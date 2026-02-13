@@ -19,7 +19,7 @@ export function WorkflowDetailScreen() {
   const [loading, setLoading] = useState(true)
   const [formData, setFormData] = useState<Record<string, unknown>>({})
   const [reviewerName, setReviewerName] = useState('')
-  const [decision, setDecision] = useState<Decision>('APPROVED')
+  const [decision, setDecision] = useState<Decision>(null)
   const [comments, setComments] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -288,9 +288,11 @@ export function WorkflowDetailScreen() {
               {application.status === 'PENDING' ? (
                 <>
                   <Box>
-                    <Text as="label" size="2" weight="bold" mb="1" className="block">Reviewer Name *</Text>
+                    <Text as="label" size="2" weight="bold" mb="1" className="block">
+                      Reference Number <span className="text-red-600">*</span>
+                    </Text>
                     <TextField.Root
-                      placeholder="Enter your full name"
+                      placeholder="Enter reference number"
                       value={reviewerName}
                       onChange={(e) => setReviewerName(e.target.value)}
                       disabled={isSubmitting}
@@ -299,12 +301,12 @@ export function WorkflowDetailScreen() {
                   </Box>
 
                   <Box mt="4">
-                    <Text as="label" size="2" weight="bold" mb="1" className="block">Final Decision *</Text>
+                    <Text as="label" size="2" weight="bold" mb="1" className="block">Final Decision <span className="text-red-600">*</span></Text>
                     <Flex gap="4" mt="2">
                       <Button
                         size="3"
                         variant={decision === 'APPROVED' ? 'solid' : 'soft'}
-                        color="green"
+                        color={decision === 'APPROVED' ? 'green' : 'gray'}
                         className="flex-1 cursor-pointer"
                         onClick={() => setDecision('APPROVED')}
                         disabled={isSubmitting}
@@ -314,7 +316,7 @@ export function WorkflowDetailScreen() {
                       <Button
                         size="3"
                         variant={decision === 'REJECTED' ? 'solid' : 'soft'}
-                        color="red"
+                        color={decision === 'REJECTED' ? 'red' : 'gray'}
                         className="flex-1 cursor-pointer"
                         onClick={() => setDecision('REJECTED')}
                         disabled={isSubmitting}
@@ -331,7 +333,7 @@ export function WorkflowDetailScreen() {
                     size="3"
                     onClick={handleUpdateDocuments}
                     loading={isSubmitting}
-                    disabled={isSubmitting || !reviewerName.trim()}
+                    disabled={isSubmitting || !reviewerName.trim() || !decision}
                   >
                     Update Documents
                   </Button>
@@ -359,7 +361,7 @@ export function WorkflowDetailScreen() {
                       className="w-full cursor-pointer"
                       onClick={handleApprove}
                       loading={isSubmitting}
-                      disabled={isSubmitting || !reviewerName.trim()}
+                      disabled={isSubmitting || !reviewerName.trim() || !decision}
                     >
                       Submit Final Review
                     </Button>

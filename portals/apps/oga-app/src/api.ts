@@ -2,7 +2,7 @@
 
 const API_BASE_URL = (import.meta.env.VITE_OGA_API_BASE_URL as string | undefined) ?? 'http://localhost:8081';
 
-export type Decision = 'APPROVED' | 'REJECTED';
+export type Decision = 'APPROVED' | 'REJECTED' | null;
 
 export interface ApproveRequest {
   formData: Record<string, unknown>;
