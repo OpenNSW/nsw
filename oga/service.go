@@ -28,38 +28,76 @@ type OGAService interface {
 	GetApplication(ctx context.Context, taskID uuid.UUID) (*Application, error)
 
 	// ReviewApplication approves or rejects an application and sends response back to service
-	ReviewApplication(ctx context.Context, taskID uuid.UUID, decision string, reviewerNotes string) error
+	ReviewApplication(ctx context.Context, taskID uuid.UUID, reviewerData map[string]any) error
 
 	// Close closes the service and releases resources
 	Close() error
 }
 
+type Meta struct {
+	VerificationType string `json:"type"`
+	VerificationId   string `json:"verificationId"`
+}
+
 // InjectRequest represents the incoming data from services
 type InjectRequest struct {
-	TaskID     uuid.UUID              `json:"taskId"`
-	WorkflowID uuid.UUID              `json:"workflowId"`
-	Data       map[string]interface{} `json:"data"`
-	ServiceURL string                 `json:"serviceUrl"` // URL to send response back to
+	TaskID     uuid.UUID      `json:"taskId"`
+	WorkflowID uuid.UUID      `json:"workflowId"`
+	Data       map[string]any `json:"data"`
+	ServiceURL string         `json:"serviceUrl"` // URL to send response back to
+	Meta       *Meta          `json:"meta,omitempty"`
 }
 
 // Application represents an application for display in the UI
 type Application struct {
-	TaskID        uuid.UUID              `json:"taskId"`
-	WorkflowID    uuid.UUID              `json:"workflowId"`
-	ServiceURL    string                 `json:"serviceUrl"`
-	Data          map[string]interface{} `json:"data"`
-	Status        string                 `json:"status"`
-	ReviewerNotes string                 `json:"reviewerNotes,omitempty"`
-	ReviewedAt    *time.Time             `json:"reviewedAt,omitempty"`
-	CreatedAt     time.Time              `json:"createdAt"`
-	UpdatedAt     time.Time              `json:"updatedAt"`
+	TaskID     uuid.UUID      `json:"taskId"`
+	WorkflowID uuid.UUID      `json:"workflowId"`
+	ServiceURL string         `json:"serviceUrl"`
+	Data       map[string]any `json:"data"`
+	Meta       *Meta          `json:"meta,omitempty"`
+	Status     string         `json:"status"`
+	ReviewedAt *time.Time     `json:"reviewedAt,omitempty"`
+	CreatedAt  time.Time      `json:"createdAt"`
+	UpdatedAt  time.Time      `json:"updatedAt"`
 }
 
 // TaskResponse represents the response sent back to the service
 type TaskResponse struct {
-	TaskID     uuid.UUID   `json:"task_id"`
-	WorkflowID uuid.UUID   `json:"workflow_id"`
-	Payload    interface{} `json:"payload"`
+	TaskID     uuid.UUID `json:"task_id"`
+	WorkflowID uuid.UUID `json:"workflow_id"`
+	Payload    any       `json:"payload"`
+}
+
+// metaToJSONB converts a *Meta struct to JSONB via JSON round-trip.
+func metaToJSONB(m *Meta) (JSONB, error) {
+	if m == nil {
+		return nil, nil
+	}
+	data, err := json.Marshal(m)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal Meta: %w", err)
+	}
+	var j JSONB
+	if err := json.Unmarshal(data, &j); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal Meta to JSONB: %w", err)
+	}
+	return j, nil
+}
+
+// metaFromJSONB converts a JSONB map back to a *Meta struct via JSON round-trip.
+func metaFromJSONB(j JSONB) *Meta {
+	if j == nil {
+		return nil
+	}
+	data, err := json.Marshal(j)
+	if err != nil {
+		return nil
+	}
+	var m Meta
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil
+	}
+	return &m
 }
 
 type ogaService struct {
@@ -90,11 +128,17 @@ func (s *ogaService) CreateApplication(ctx context.Context, req *InjectRequest) 
 		return fmt.Errorf("serviceUrl is required")
 	}
 
+	metaJSON, err := metaToJSONB(req.Meta)
+	if err != nil {
+		return fmt.Errorf("failed to convert meta: %w", err)
+	}
+
 	appRecord := &ApplicationRecord{
 		TaskID:     req.TaskID,
 		WorkflowID: req.WorkflowID,
 		ServiceURL: req.ServiceURL,
 		Data:       req.Data,
+		Meta:       metaJSON,
 		Status:     "PENDING",
 	}
 
@@ -127,15 +171,15 @@ func (s *ogaService) GetApplications(ctx context.Context, status string) ([]Appl
 	applications := make([]Application, len(records))
 	for i, record := range records {
 		applications[i] = Application{
-			TaskID:        record.TaskID,
-			WorkflowID:    record.WorkflowID,
-			ServiceURL:    record.ServiceURL,
-			Data:          record.Data,
-			Status:        record.Status,
-			ReviewerNotes: record.ReviewerNotes,
-			ReviewedAt:    record.ReviewedAt,
-			CreatedAt:     record.CreatedAt,
-			UpdatedAt:     record.UpdatedAt,
+			TaskID:     record.TaskID,
+			WorkflowID: record.WorkflowID,
+			ServiceURL: record.ServiceURL,
+			Data:       record.Data,
+			Meta:       metaFromJSONB(record.Meta),
+			Status:     record.Status,
+			ReviewedAt: record.ReviewedAt,
+			CreatedAt:  record.CreatedAt,
+			UpdatedAt:  record.UpdatedAt,
 		}
 	}
 
@@ -150,38 +194,33 @@ func (s *ogaService) GetApplication(ctx context.Context, taskID uuid.UUID) (*App
 	}
 
 	return &Application{
-		TaskID:        record.TaskID,
-		WorkflowID:    record.WorkflowID,
-		ServiceURL:    record.ServiceURL,
-		Data:          record.Data,
-		Status:        record.Status,
-		ReviewerNotes: record.ReviewerNotes,
-		ReviewedAt:    record.ReviewedAt,
-		CreatedAt:     record.CreatedAt,
-		UpdatedAt:     record.UpdatedAt,
+		TaskID:     record.TaskID,
+		WorkflowID: record.WorkflowID,
+		ServiceURL: record.ServiceURL,
+		Data:       record.Data,
+		Meta:       metaFromJSONB(record.Meta),
+		Status:     record.Status,
+		ReviewedAt: record.ReviewedAt,
+		CreatedAt:  record.CreatedAt,
+		UpdatedAt:  record.UpdatedAt,
 	}, nil
 }
 
 // ReviewApplication approves or rejects an application and sends response back to service
-func (s *ogaService) ReviewApplication(ctx context.Context, taskID uuid.UUID, decision string, reviewerNotes string) error {
+func (s *ogaService) ReviewApplication(ctx context.Context, taskID uuid.UUID, reviewerResponse map[string]any) error {
 	// Get the application to retrieve service URL and workflow ID
 	app, err := s.GetApplication(ctx, taskID)
 	if err != nil {
 		return err
 	}
 
-	// Update status in database
-	var status string
-	switch decision {
-	case "APPROVED", "APPROVE":
-		status = "APPROVED"
-	case "REJECTED", "REJECT":
-		status = "REJECTED"
-	default:
-		return fmt.Errorf("invalid decision: %s (must be APPROVED or REJECTED)", decision)
+	decision, ok := reviewerResponse["decision"].(string)
+	if !ok || decision == "" {
+		return fmt.Errorf("reviewerResponse must contain a non-empty 'decision' string")
 	}
+	status := decision
 
-	if err := s.store.UpdateStatus(taskID, status, reviewerNotes); err != nil {
+	if err := s.store.UpdateStatus(taskID, status, reviewerResponse); err != nil {
 		return fmt.Errorf("failed to update application status: %w", err)
 	}
 
@@ -189,13 +228,9 @@ func (s *ogaService) ReviewApplication(ctx context.Context, taskID uuid.UUID, de
 	response := TaskResponse{
 		TaskID:     app.TaskID,
 		WorkflowID: app.WorkflowID,
-		Payload: map[string]interface{}{
-			"action": "OGA_VERIFICATION",
-			"content": map[string]interface{}{
-				"decision":      decision,
-				"reviewerNotes": reviewerNotes,
-				"reviewedAt":    time.Now().Format(time.RFC3339),
-			},
+		Payload: map[string]any{
+			"action":  "OGA_VERIFICATION",
+			"content": reviewerResponse,
 		},
 	}
 
@@ -210,7 +245,6 @@ func (s *ogaService) ReviewApplication(ctx context.Context, taskID uuid.UUID, de
 
 	slog.InfoContext(ctx, "application reviewed and response sent",
 		"taskID", taskID,
-		"decision", decision,
 		"serviceURL", app.ServiceURL)
 
 	return nil

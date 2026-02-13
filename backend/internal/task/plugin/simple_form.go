@@ -51,6 +51,13 @@ type Config struct {
 	RequiresOgaVerification bool              `json:"requiresOgaVerification,omitempty"` // If true, waits for OGA_VERIFICATION action; if false, completes after submission response
 }
 
+type Meta struct {
+	VerificationType string `json:"type"`
+	VerificationId   string `json:"verificationId"`
+}
+type Request struct {
+	Meta *Meta `json:"meta"`
+}
 type Response struct {
 	Mapping map[string]string `json:"mapping,omitempty"` // Data to be mapped to global context after submission
 	Display *Display          `json:"display,omitempty"`
@@ -61,7 +68,8 @@ type Display struct {
 }
 
 type SubmissionConfig struct {
-	Url      string    `json:"url"`                // URL to submit form data to
+	Url      string    `json:"url"` // URL to submit form data to
+	Request  *Request  `json:"request,omitempty"`
 	Response *Response `json:"response,omitempty"` // Expected response mapping after submission
 }
 
@@ -399,6 +407,11 @@ func (s *SimpleForm) handleSubmitForm(ctx context.Context, content interface{}) 
 			"taskId":     s.api.GetTaskID().String(),
 			"workflowId": s.api.GetWorkflowID().String(),
 			"serviceUrl": strings.TrimRight(s.cfg.Server.ServiceURL, "/") + TasksAPIPath,
+		}
+
+		if s.config.Submission != nil && s.config.Submission.Request != nil {
+			// Attach the submission request payload to the request payload
+			requestPayload["meta"] = s.config.Submission.Request.Meta
 		}
 
 		responseData, err := s.sendFormSubmission(submissionUrl, requestPayload)
