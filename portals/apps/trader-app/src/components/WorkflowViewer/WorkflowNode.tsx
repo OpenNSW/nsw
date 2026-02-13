@@ -140,7 +140,7 @@ export function WorkflowNode({ data }: NodeProps<WorkflowNodeType>) {
 
   return (
     <div
-      className={`px-3 py-2 rounded-lg border-2 hover:cursor-default shadow-sm w-56 ${statusStyle.bgColor
+      className={`px-3 py-2 rounded-lg border-2 hover:cursor-default shadow-sm w-56 min-h-[80px] flex flex-col justify-center ${statusStyle.bgColor
         } ${statusStyle.borderColor} ${step.state === 'READY' ? 'ring-2 ring-blue-300 ring-offset-2' : ''
         }`}
     >
@@ -159,7 +159,7 @@ export function WorkflowNode({ data }: NodeProps<WorkflowNodeType>) {
               <Text
                 size="1"
                 weight="bold"
-                className={`${statusStyle.textColor} block cursor-pointer truncate`}
+                className={`${statusStyle.textColor} block cursor-pointer whitespace-normal break-words leading-tight`}
               >
                 {getStepLabel()}
               </Text>

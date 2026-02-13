@@ -100,7 +100,7 @@ export function PreconsignmentScreen() {
             setLoading(true)
             const instance = await getPreConsignment(preConsignmentId)
             const nodes = instance.workflowNodes || []
-            
+
             // Find the appropriate task
             let targetNode = nodes.find(
                 (node) => node.state === 'IN_PROGRESS' || node.state === 'READY'
@@ -147,7 +147,7 @@ export function PreconsignmentScreen() {
 
     return (
         <Box p="6">
-            <Heading mb="6">Pre-Consignment Registration</Heading>
+            <Heading mb="6">Verified Documents</Heading>
 
             {renderNotification()}
 

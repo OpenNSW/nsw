@@ -134,7 +134,7 @@ function WorkflowViewerContent({ steps, className = '', onRefresh, refreshing = 
           nodes: readyNodeIds.map((id) => ({ id })),
           padding: 1.5,
           maxZoom: 1.0,
-          duration: 800,
+          duration: 1000,
         })
       }, 100)
     } else {
