@@ -40,6 +40,7 @@ MIGRATIONS=(
 
     "003_initial_schema.sql"
     "003_insert_seed_data.sql"
+    "onetime_annual_templates.sql"
     "004_unify_task_parent_id.sql"
     "005_insert_seed_data.sql"
     "006_insert_seed_data.sql"
