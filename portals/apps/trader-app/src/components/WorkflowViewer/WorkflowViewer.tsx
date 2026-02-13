@@ -128,20 +128,18 @@ function WorkflowViewerContent({ steps, className = '', onRefresh, refreshing = 
 
   const focusOnReadyNodes = useCallback(() => {
     const readyNodeIds = steps.filter((s) => s.state === 'READY').map((s) => s.id)
-    if (readyNodeIds.length > 0) {
-      setTimeout(() => {
+    setTimeout(() => {
+      if (readyNodeIds.length > 0) {
         fitView({
           nodes: readyNodeIds.map((id) => ({ id })),
           padding: 1.5,
           maxZoom: 1.0,
-          duration: 1000,
+          duration: 800,
         })
-      }, 100)
-    } else {
-      setTimeout(() => {
+      } else {
         fitView({ padding: 0.5, maxZoom: 1.0, duration: 800 })
-      }, 100)
-    }
+      }
+    }, 100)
   }, [steps, fitView])
 
   // Update nodes and edges when steps change
@@ -200,7 +198,7 @@ function WorkflowViewerContent({ steps, className = '', onRefresh, refreshing = 
         nodesDraggable={isSpacePressed}
         nodesConnectable={false}
         panOnDrag={true}
-        style={{ cursor: isSpacePressed ? 'grabbing' : 'grab' }}
+        style={{ cursor: isSpacePressed ? 'move' : 'grab' }}
       >
         <Background color="#e2e8f0" gap={16} />
         <Controls showInteractive={false} />
