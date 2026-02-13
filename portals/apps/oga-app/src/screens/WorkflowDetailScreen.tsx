@@ -257,9 +257,36 @@ export function WorkflowDetailScreen() {
                         <Text size="1" color="gray" as="div" className="capitalize mb-1">
                           {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
                         </Text>
-                        <Text size="2" weight="medium">
-                          {typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value)}
-                        </Text>
+                        {(() => {
+                          const fileExtensions = ['.png', '.jpeg', '.jpg', '.pdf'];
+                          const strValue = String(value);
+                          const isFile = fileExtensions.some(ext => strValue.toLowerCase().endsWith(ext));
+
+                          if (isFile) {
+                            const fileUrl = `http://localhost:8080/api/v1/uploads/${strValue}`;
+                            return (
+                              <Flex gap="2" align="center">
+                                <Text size="2" weight="medium" className="truncate flex-1">
+                                  {strValue}
+                                </Text>
+                                <Button
+                                  size="1"
+                                  variant="soft"
+                                  color="blue"
+                                  onClick={() => window.open(fileUrl, '_blank')}
+                                >
+                                  View
+                                </Button>
+                              </Flex>
+                            );
+                          }
+
+                          return (
+                            <Text size="2" weight="medium">
+                              {typeof value === 'object' && value !== null ? JSON.stringify(value) : strValue}
+                            </Text>
+                          );
+                        })()}
                       </Box>
                     ))}
                   </div>
