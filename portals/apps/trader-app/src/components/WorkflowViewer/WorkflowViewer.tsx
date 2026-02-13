@@ -14,6 +14,7 @@ import { ReloadIcon } from '@radix-ui/react-icons'
 import type { WorkflowNode as WorkflowNodeData } from '../../services/types/consignment'
 import { WorkflowNode } from './WorkflowNode'
 import type { WorkflowNodeType } from './WorkflowNode'
+import { ReactFlowProvider, useReactFlow } from '@xyflow/react'
 
 interface WorkflowViewerProps {
   steps: WorkflowNodeData[]
@@ -62,14 +63,14 @@ function getNodePosition(
   const indexAtDepth = stepsAtSameDepth.findIndex((s) => s.id === step.id)
   const totalAtDepth = stepsAtSameDepth.length
 
-  // Center nodes vertically within their depth layer (horizontal flow)
+  // Center nodes horizontally within their depth layer (vertical flow)
+  const verticalSpacing = 200
   const horizontalSpacing = 300
-  const verticalSpacing = 120
-  const startY = -(totalAtDepth - 1) * verticalSpacing / 2
+  const startX = -(totalAtDepth - 1) * horizontalSpacing / 2
 
   return {
-    x: depth * horizontalSpacing,
-    y: startY + indexAtDepth * verticalSpacing,
+    x: startX + indexAtDepth * horizontalSpacing,
+    y: depth * verticalSpacing,
   }
 }
 
@@ -113,8 +114,9 @@ function convertToReactFlow(steps: WorkflowNodeData[]): {
   return { nodes, edges }
 }
 
-export function WorkflowViewer({ steps, className = '', onRefresh, refreshing = false }: WorkflowViewerProps) {
+function WorkflowViewerContent({ steps, className = '', onRefresh, refreshing = false }: WorkflowViewerProps) {
   const [isSpacePressed, setIsSpacePressed] = useState(false)
+  const { fitView } = useReactFlow()
 
   const { nodes: initialNodes, edges: initialEdges } = useMemo(
     () => convertToReactFlow(steps),
@@ -124,15 +126,30 @@ export function WorkflowViewer({ steps, className = '', onRefresh, refreshing = 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
 
+  const focusOnReadyNodes = useCallback(() => {
+    const readyNodeIds = steps.filter((s) => s.state === 'READY').map((s) => s.id)
+    if (readyNodeIds.length > 0) {
+      setTimeout(() => {
+        fitView({
+          nodes: readyNodeIds.map((id) => ({ id })),
+          padding: 1.5,
+          maxZoom: 1.0,
+          duration: 800,
+        })
+      }, 100)
+    } else {
+      setTimeout(() => {
+        fitView({ padding: 0.5, maxZoom: 1.0, duration: 800 })
+      }, 100)
+    }
+  }, [steps, fitView])
+
   // Update nodes and edges when steps change
   useEffect(() => {
     setNodes(initialNodes)
     setEdges(initialEdges)
-  }, [initialNodes, initialEdges, setNodes, setEdges])
-
-  const onInit = useCallback(() => {
-    // Fit view is handled by ReactFlow's fitView prop
-  }, [])
+    focusOnReadyNodes()
+  }, [initialNodes, initialEdges, setNodes, setEdges, focusOnReadyNodes])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -157,7 +174,7 @@ export function WorkflowViewer({ steps, className = '', onRefresh, refreshing = 
   }, [])
 
   return (
-    <div className={`w-full h-80 bg-slate-50 rounded-lg border border-gray-200 relative ${className}`}>
+    <div className={`w-full bg-slate-50 rounded-lg border border-gray-200 relative flex flex-col ${className}`}>
       {onRefresh && (
         <div className="absolute top-3 right-3 z-10">
           <Button
@@ -177,18 +194,25 @@ export function WorkflowViewer({ steps, className = '', onRefresh, refreshing = 
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
-        onInit={onInit}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.2 }}
+        fitViewOptions={{ padding: 0.5, maxZoom: 1.0 }}
         nodesDraggable={isSpacePressed}
         nodesConnectable={false}
-        panOnDrag={isSpacePressed}
-        style={{ cursor: isSpacePressed ? 'grab' : 'default' }}
+        panOnDrag={true}
+        style={{ cursor: isSpacePressed ? 'grabbing' : 'grab' }}
       >
         <Background color="#e2e8f0" gap={16} />
         <Controls showInteractive={false} />
       </ReactFlow>
     </div>
+  )
+}
+
+export function WorkflowViewer(props: WorkflowViewerProps) {
+  return (
+    <ReactFlowProvider>
+      <WorkflowViewerContent {...props} />
+    </ReactFlowProvider>
   )
 }

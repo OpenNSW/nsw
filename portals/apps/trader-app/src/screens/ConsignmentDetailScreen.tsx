@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useState} from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Button, Badge, Spinner, Text } from '@radix-ui/themes'
 import { ArrowLeftIcon } from '@radix-ui/react-icons'
@@ -87,7 +87,7 @@ export function ConsignmentDetailScreen() {
   const totalSteps = workflowNodes.length
 
   return (
-    <div className="p-6">
+    <div className="p-6 h-[calc(100vh-64px)] flex flex-col">
       <div className="mb-6">
         <Button variant="ghost" color="gray" onClick={() => navigate('/consignments')}>
           <ArrowLeftIcon />
@@ -95,7 +95,7 @@ export function ConsignmentDetailScreen() {
         </Button>
       </div>
 
-      <div className="bg-white rounded-lg shadow">
+      <div className="bg-white rounded-lg shadow flex flex-col flex-1 min-h-0">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <div>
@@ -145,13 +145,6 @@ export function ConsignmentDetailScreen() {
           </div>
         </div>
 
-        {workflowNodes.length > 0 && (
-          <div className="p-6 border-t border-gray-200">
-            <h3 className="text-sm font-medium text-gray-500 mb-4">Workflow Process</h3>
-            <WorkflowViewer steps={workflowNodes} onRefresh={handleRefresh} refreshing={refreshing} />
-          </div>
-        )}
-
         <div className="p-6 border-t border-gray-200 bg-gray-50">
           <h3 className="text-sm font-medium text-gray-500 mb-2">Next Steps</h3>
           {workflowNodes.some(n => n.state === 'READY') ? (
@@ -168,6 +161,13 @@ export function ConsignmentDetailScreen() {
             </p>
           )}
         </div>
+
+        {workflowNodes.length > 0 && (
+          <div className="p-6 border-t border-gray-200 flex-1 flex flex-col min-h-0">
+            <h3 className="text-sm font-medium text-gray-500 mb-4">Workflow Process</h3>
+            <WorkflowViewer className="flex-1" steps={workflowNodes} onRefresh={handleRefresh} refreshing={refreshing} />
+          </div>
+        )}
       </div>
     </div>
   )
