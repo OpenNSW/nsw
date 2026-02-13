@@ -42,12 +42,34 @@ func NewPreConsignmentService(db *gorm.DB, templateProvider TemplateProvider, no
 	}
 }
 
-// GetTraderPreConsignments retrieves all pre-consignment templates and computes their state
+// GetTraderPreConsignments retrieves a paginated list of pre-consignment templates and computes their state
 // based on the trader's existing pre-consignments and their dependencies.
 func (s *PreConsignmentService) GetTraderPreConsignments(ctx context.Context, traderID string, offset *int, limit *int) (model.TraderPreConsignmentsResponseDTO, error) {
-	// Fetch all pre-consignment templates
+	// Apply pagination with defaults and limits
+	finalOffset, finalLimit := utils.GetPaginationParams(offset, limit)
+
+	// Get total count of templates first for pagination
+	var totalCount int64
+	if err := s.db.WithContext(ctx).Model(&model.PreConsignmentTemplate{}).Count(&totalCount).Error; err != nil {
+		return model.TraderPreConsignmentsResponseDTO{}, fmt.Errorf("failed to count pre-consignment templates: %w", err)
+	}
+
+	if totalCount == 0 {
+		return model.TraderPreConsignmentsResponseDTO{
+			TotalCount: 0,
+			Items:      []model.TraderPreConsignmentResponseDTO{},
+			Offset:     int64(finalOffset),
+			Limit:      int64(finalLimit),
+		}, nil
+	}
+
+	// Fetch pre-consignment templates for the current page
 	var templates []model.PreConsignmentTemplate
-	if err := s.db.WithContext(ctx).Find(&templates).Error; err != nil {
+	if err := s.db.WithContext(ctx).
+		Order("name ASC").
+		Offset(finalOffset).
+		Limit(finalLimit).
+		Find(&templates).Error; err != nil {
 		return model.TraderPreConsignmentsResponseDTO{}, fmt.Errorf("failed to retrieve pre-consignment templates: %w", err)
 	}
 
@@ -65,11 +87,11 @@ func (s *PreConsignmentService) GetTraderPreConsignments(ctx context.Context, tr
 		templateIDToPreConsignment[pc.PreConsignmentTemplateID] = pc
 	}
 
-	// Build response DTOs with computed state
-	allResponseDTOs := make([]model.TraderPreConsignmentResponseDTO, 0, len(templates))
+	// Build response DTOs with computed state ONLY for the fetched templates (the current page)
+	responseDTOs := make([]model.TraderPreConsignmentResponseDTO, 0, len(templates))
 	for _, template := range templates {
 		if pc, exists := templateIDToPreConsignment[template.ID]; exists {
-			allResponseDTOs = append(allResponseDTOs, model.TraderPreConsignmentResponseDTO{
+			responseDTOs = append(responseDTOs, model.TraderPreConsignmentResponseDTO{
 				ID:             template.ID,
 				Name:           template.Name,
 				Description:    template.Description,
@@ -100,7 +122,7 @@ func (s *PreConsignmentService) GetTraderPreConsignments(ctx context.Context, tr
 			dependsOn = []string{}
 		}
 
-		allResponseDTOs = append(allResponseDTOs, model.TraderPreConsignmentResponseDTO{
+		responseDTOs = append(responseDTOs, model.TraderPreConsignmentResponseDTO{
 			ID:          template.ID,
 			Name:        template.Name,
 			Description: template.Description,
@@ -109,25 +131,9 @@ func (s *PreConsignmentService) GetTraderPreConsignments(ctx context.Context, tr
 		})
 	}
 
-	// Apply pagination using utility function
-	totalCount := int64(len(allResponseDTOs))
-	finalOffset, finalLimit := utils.GetPaginationParams(offset, limit)
-
-	start := int64(finalOffset)
-	end := start + int64(finalLimit)
-
-	if start > totalCount {
-		start = totalCount
-	}
-	if end > totalCount {
-		end = totalCount
-	}
-
-	paginatedDTOs := allResponseDTOs[start:end]
-
 	return model.TraderPreConsignmentsResponseDTO{
 		TotalCount: totalCount,
-		Items:      paginatedDTOs,
+		Items:      responseDTOs,
 		Offset:     int64(finalOffset),
 		Limit:      int64(finalLimit),
 	}, nil
