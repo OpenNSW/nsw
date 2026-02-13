@@ -4,8 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { getFileUrl } from '../../../services/upload';
 import { UploadIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
 
-export function FileField({ control, value, error, touched, onChange, onBlur }: FieldProps) {
-  const isReadonly = control.options?.readonly;
+export function FileField({ control, value, error, touched, onChange, onBlur, readOnly }: FieldProps) {
+  const isReadonly = readOnly ?? control.options?.readonly;
   const [displayName, setDisplayName] = useState<string>('');
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [dragActive, setDragActive] = useState(false);
@@ -110,7 +110,7 @@ export function FileField({ control, value, error, touched, onChange, onBlur }: 
 
   // Show remove only if it is not readonly AND the value is a File object (meaning it's a new upload).
   // If value is a string, it implies it is a saved file from the server (Completed state), so we hide Remove.
-  const showRemoveButton = !isReadonly && value instanceof File;
+  const showRemoveButton = !isReadonly ;
 
   return (
     <FieldWrapper control={control} error={error} touched={touched}>

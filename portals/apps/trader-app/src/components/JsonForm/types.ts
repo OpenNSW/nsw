@@ -106,6 +106,7 @@ export interface FieldProps {
   touched: boolean;
   onChange: (value: unknown) => void;
   onBlur: () => void;
+  readOnly?: boolean;
 }
 
 // Main component props
@@ -118,4 +119,5 @@ export interface JsonFormProps {
   setValue: (name: string, value: unknown) => void;
   setTouched: (name: string) => void;
   className?: string;
+  readOnly?: boolean;
 }
