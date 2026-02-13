@@ -10,25 +10,25 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Exporter Name & Address",
       "x-globalContext": { "writeTo": "global_exporter_name" },
-      "demo-autofill": "Ceylon Coconut Exports PLC, No 45, Colombo 01"
+      "example": "Ceylon Coconut Exports PLC, No 45, Colombo 01"
     },
     "exporterTin": {
       "type": "string",
       "title": "Exporter TIN",
       "x-globalContext": { "writeTo": "global_exporter_tin" },
-      "demo-autofill": "TIN-99283341"
+      "example": "TIN-99283341"
     },
     "consigneeName": {
       "type": "string",
       "title": "Consignee Name & Address",
       "x-globalContext": { "writeTo": "global_consignee_name" },
-      "demo-autofill": "Global Foods GMBH, Berlin, Germany"
+      "example": "Global Foods GMBH, Berlin, Germany"
     },
     "declarantName": {
       "type": "string",
       "title": "Declarant/Agent Name",
       "x-globalContext": { "writeTo": "global_declarant_name" },
-      "demo-autofill": "Logistics Pro Clearing (Pvt) Ltd"
+      "example": "Logistics Pro Clearing (Pvt) Ltd"
     }
   }
 }',
@@ -113,41 +113,41 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "1. Declaration Type",
       "enum": ["EX1 - Export to Third Country", "EX2 - Temporary Export", "EX3 - Re-export"],
-      "demo-autofill": "EX1 - Export to Third Country"
+      "example": "EX1 - Export to Third Country"
     },
     "countryDestination": {
       "type": "string",
       "title": "17. Country of Destination",
       "x-globalcontext": { "writeTo": "global_destination_country" },
-      "demo-autofill": "Germany (DE)"
+      "example": "Germany (DE)"
     },
     "totalItems": {
       "type": "integer",
       "title": "5. Total Items",
-      "demo-autofill": 1
+      "example": 1
     },
     "packageSummary": {
       "type": "string",
       "title": "31. Packages & Description",
-      "demo-autofill": "450 Bags of Desiccated Coconut (Fine Grade)"
+      "example": "450 Bags of Desiccated Coconut (Fine Grade)"
     },
     "totalPackages": {
       "type": "integer",
       "title": "6. Total Packages",
       "x-globalcontext": { "writeTo": "global_package_count" },
-      "demo-autofill": 450
+      "example": 450
     },
     "totalGrossMass": {
       "type": "number",
       "title": "35. Total Gross Mass (Kg)",
       "x-globalcontext": { "writeTo": "global_total_weight" },
-      "demo-autofill": 11250.00
+      "example": 11250.00
     },
     "totalInvoicedValue": {
       "type": "number",
       "title": "22. Total Invoice Value (USD)",
       "x-globalcontext": { "writeTo": "global_invoice_value" },
-      "demo-autofill": 24500.00
+      "example": 24500.00
     }
   }
 }',
@@ -220,41 +220,41 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Assessment Notice Number",
       "x-globalcontext": { "writeTo": "global_assessment_no" },
-      "demo-autofill": "ASMT/2026/00912",
+      "example": "ASMT/2026/00912",
       "default": "ASMT/2026/00912"
     },
     "cessAmount": {
       "type": "number",
       "title": "Cess Amount (LKR)",
       "readOnly": true,
-      "demo-autofill": 12500.00,
+      "example": 12500.00,
       "default": 12500.00
     },
     "exportLevy": {
       "type": "number",
       "title": "Export Levy (LKR)",
       "readOnly": true,
-      "demo-autofill": 2500.00,
+      "example": 2500.00,
       "default": 2500.00
     },
     "totalPayable": {
       "type": "number",
       "title": "Total Amount Payable (LKR)",
       "readOnly": true,
-      "demo-autofill": 15000.00,
+      "example": 15000.00,
       "default": 15000.00
     },
     "paymentMethod": {
       "type": "string",
       "title": "Payment Method",
       "enum": ["Bank Transfer", "Online Credit Card", "Direct Debit"],
-      "demo-autofill": "Bank Transfer",
+      "example": "Bank Transfer",
       "default": "Bank Transfer"
     },
     "ATTACHMENT_paymentReceipt": {
       "type": "string",
       "title": "ATTACHMENT: Scanned Copy of Payment Receipt",
-      "demo-autofill": "receipt_C12994.pdf"
+      "example": "receipt_C12994.pdf"
     }
   }
 }',
