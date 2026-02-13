@@ -95,19 +95,19 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "1. Exporter",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_exporter_name" }
+      "x-globalContext": { "readFrom": "global_exporter_name" }
     },
     "consigneeDetails": {
       "type": "string",
       "title": "8. Consignee",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_consignee_name" }
+      "x-globalContext": { "readFrom": "global_consignee_name" }
     },
     "declarantDetails": {
       "type": "string",
       "title": "14. Declarant / Representative",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_declarant_name" }
+      "x-globalContext": { "readFrom": "global_declarant_name" }
     },
     "declarationType": {
       "type": "string",
@@ -118,7 +118,7 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
     "countryDestination": {
       "type": "string",
       "title": "17. Country of Destination",
-      "x-globalcontext": { "writeTo": "global_destination_country" },
+      "x-globalContext": { "writeTo": "global_destination_country" },
       "example": "Germany (DE)"
     },
     "totalItems": {
@@ -129,24 +129,25 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
     "packageSummary": {
       "type": "string",
       "title": "31. Packages & Description",
+      "x-globalContext": { "writeTo": "global_package_summary" },
       "example": "450 Bags of Desiccated Coconut (Fine Grade)"
     },
     "totalPackages": {
       "type": "integer",
       "title": "6. Total Packages",
-      "x-globalcontext": { "writeTo": "global_package_count" },
+      "x-globalContext": { "writeTo": "global_package_count" },
       "example": 450
     },
     "totalGrossMass": {
       "type": "number",
       "title": "35. Total Gross Mass (Kg)",
-      "x-globalcontext": { "writeTo": "global_total_weight" },
+      "x-globalContext": { "writeTo": "global_total_weight" },
       "example": 11250.00
     },
     "totalInvoicedValue": {
       "type": "number",
       "title": "22. Total Invoice Value (USD)",
-      "x-globalcontext": { "writeTo": "global_invoice_value" },
+      "x-globalContext": { "writeTo": "global_invoice_value" },
       "example": 24500.00
     }
   }
@@ -209,17 +210,17 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Referenced Cusdec No",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_cusdec_no" }
+      "x-globalContext": { "readFrom": "global_cusdec_no" }
     },
     "invoiceValue": {
       "type": "number",
       "title": "Declared Invoice Value (USD)",
-      "x-globalcontext": { "readFrom": "global_invoice_value" }
+      "x-globalContext": { "readFrom": "global_invoice_value" }
     },
     "assessmentNoticeNo": {
       "type": "string",
       "title": "Assessment Notice Number",
-      "x-globalcontext": { "writeTo": "global_assessment_no" },
+      "x-globalContext": { "writeTo": "global_assessment_no" },
       "example": "ASMT/2026/00912",
       "default": "ASMT/2026/00912"
     },
@@ -314,19 +315,19 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Exporter Name",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_exporter_name" }
+      "x-globalContext": { "readFrom": "global_exporter_name" }
     },
     "assessmentRef": {
       "type": "string",
       "title": "Linked Assessment Notice No",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_assessment_no" }
+      "x-globalContext": { "readFrom": "global_assessment_no" }
     },
     "declaredWeight": {
       "type": "number",
       "title": "Declared Gross Weight (Kg)",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_total_weight" }
+      "x-globalContext": { "readFrom": "global_total_weight" }
     },
     "dcGrade": {
       "type": "string",
@@ -412,29 +413,30 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Exporter Details",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_exporter_name" }
+      "x-globalContext": { "readFrom": "global_exporter_name" }
     },
     "consigneeName": {
       "type": "string",
       "title": "Consignee Details",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_consignee_name" }
+      "x-globalContext": { "readFrom": "global_consignee_name" }
     },
     "cusdecRef": {
       "type": "string",
       "title": "Cusdec Number",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_cusdec_no" }
+      "x-globalContext": { "readFrom": "global_cusdec_no" }
     },
     "botanicalName": {
       "type": "string",
       "title": "Botanical Name of Plants/Products",
+      "x-globalContext": { "readFrom": "global_package_summary" },
       "default": "Cocos nucifera"
     },
     "descriptionOfGoods": {
       "type": "string",
       "title": "Description of Goods",
-      "x-globalcontext": { "readFrom": "global_package_summary" },
+      "x-globalContext": { "readFrom": "global_package_summary" },
       "readOnly": true
     },
     "placeOfOrigin": {
@@ -450,7 +452,7 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
     "pointOfEntry": {
       "type": "string",
       "title": "Declaring Point of Entry",
-      "x-globalcontext": { "readFrom": "global_destination_country" },
+      "x-globalContext": { "readFrom": "global_destination_country" },
       "readOnly": true
     },
     "distinguishingMarks": {
@@ -528,24 +530,24 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Exporter Name",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_exporter_name" }
+      "x-globalContext": { "readFrom": "global_exporter_name" }
     },
     "consigneeName": {
       "type": "string",
       "title": "Consignee Name",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_consignee_name" }
+      "x-globalContext": { "readFrom": "global_consignee_name" }
     },
     "cusdecRef": {
       "type": "string",
       "title": "Cusdec Reference",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_cusdec_no" }
+      "x-globalContext": { "readFrom": "global_cusdec_no" }
     },
     "natureOfProduct": {
       "type": "string",
       "title": "Nature of Product",
-      "x-globalcontext": { "readFrom": "global_package_summary" },
+      "x-globalContext": { "readFrom": "global_package_summary" },
       "readOnly": true
     },
     "batchNumbers": {
@@ -628,14 +630,14 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Cusdec Number",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_cusdec_no" }
+      "x-globalContext": { "readFrom": "global_cusdec_no" }
     },
     "paymentVerification": {
       "type": "string",
       "title": "Payment Status (Customs/Cess)",
       "readOnly": true,
       "default": "Verified & Settled",
-      "x-globalcontext": { "readFrom": "global_assessment_no" }
+      "x-globalContext": { "readFrom": "global_assessment_no" }
     },
     "cdaApprovalStatus": {
       "type": "string",
@@ -646,7 +648,7 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
     "warrantNumber": {
       "type": "string",
       "title": "Official Warrant Number",
-      "x-globalcontext": { "writeTo": "global_warrant_no" },
+      "x-globalContext": { "writeTo": "global_warrant_no" },
       "default": "W-2026-99102-X"
     },
     "warrantDate": {
@@ -701,20 +703,20 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Reference Warrant No",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_warrant_no" }
+      "x-globalContext": { "readFrom": "global_warrant_no" }
     },
     "riskLevel": {
       "type": "string",
       "title": "Assigned Channel (Lane)",
       "enum": ["GREEN - Document Release", "YELLOW - Document Check", "RED - Physical Examination"],
       "default": "GREEN - Document Release",
-      "x-globalcontext": { "writeTo": "global_assigned_lane" }
+      "x-globalContext": { "writeTo": "global_assigned_lane" }
     },
     "examinationRequired": {
       "type": "boolean",
       "title": "Physical Examination Required?",
       "default": false,
-      "x-globalcontext": { "writeTo": "global_exam_required" }
+      "x-globalContext": { "writeTo": "global_exam_required" }
     },
     "selectivityTimestamp": {
       "type": "string",
@@ -767,12 +769,12 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Warrant Number",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_warrant_no" }
+      "x-globalContext": { "readFrom": "global_warrant_no" }
     },
     "containerNumber": {
       "type": "string",
       "title": "Container Number",
-      "x-globalcontext": { "writeTo": "global_container_no" },
+      "x-globalContext": { "writeTo": "global_container_no" },
       "default": "MSCU-882910-4"
     },
     "vehicleNumber": {
@@ -784,19 +786,19 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Customs Assigned Lane",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_assigned_lane" }
+      "x-globalContext": { "readFrom": "global_assigned_lane" }
     },
     "declaredPackages": {
       "type": "integer",
       "title": "Declared Package Count",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_package_count" }
+      "x-globalContext": { "readFrom": "global_package_count" }
     },
     "declaredWeight": {
       "type": "number",
       "title": "Declared Weight (Kg)",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_total_weight" }
+      "x-globalContext": { "readFrom": "global_total_weight" }
     },
     "gateInTimestamp": {
       "type": "string",
@@ -871,24 +873,25 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Cusdec Reference",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_cusdec_no" }
+      "x-globalContext": { "readFrom": "global_cusdec_no" }
     },
     "containerNo": {
       "type": "string",
       "title": "Container Identification",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_container_no" }
+      "x-globalContext": { "readFrom": "global_container_no" }
     },
     "boatNoteNumber": {
       "type": "string",
       "title": "Boat Note Number",
-      "x-globalcontext": { "writeTo": "global_boat_note_no" },
+      "x-globalContext": { "writeTo": "global_boat_note_no" },
       "default": "BN-2026-X883"
     },
     "vesselName": {
       "type": "string",
       "title": "Vessel Name / Voyage",
-      "default": "MSC EMMA / V.2403"
+      "x-globalcontext": { "writeTo": "global_vessel_name" },
+      "default": "MSC EMMA / V.2403"    
     },
     "releaseTimestamp": {
       "type": "string",
@@ -963,18 +966,18 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Cusdec Reference",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_cusdec_no" }
+      "x-globalContext": { "readFrom": "global_cusdec_no" }
     },
     "containerNo": {
       "type": "string",
       "title": "Container Number",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_container_no" }
+      "x-globalContext": { "readFrom": "global_container_no" }
     },
     "billOfLadingNo": {
       "type": "string",
       "title": "Bill of Lading Number",
-      "x-globalcontext": { "writeTo": "global_bl_no" },
+      "x-globalContext": { "writeTo": "global_bl_no" },
       "default": "MSCU-CMB-1299"
     },
     "shippingLine": {
@@ -985,14 +988,14 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
     "vesselName": {
       "type": "string",
       "title": "Vessel Name / Voyage",
-      "x-globalcontext": { "readFrom": "global_vessel_name" },
+      "x-globalContext": { "readFrom": "global_vessel_name" },
       "readOnly": true
     },
     "onBoardDate": {
       "type": "string",
       "format": "date",
       "title": "Shipped on Board Date",
-      "x-globalcontext": { "writeTo": "global_onboard_date" },
+      "x-globalContext": { "writeTo": "global_onboard_date" },
       "default": "2026-02-13"
     },
     "portOfLoading": {
@@ -1003,7 +1006,7 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
     "portOfDischarge": {
       "type": "string",
       "title": "Port of Discharge",
-      "x-globalcontext": { "readFrom": "global_destination_country" },
+      "x-globalContext": { "readFrom": "global_destination_country" },
       "readOnly": true
     },
     "ATTACHMENT_billOfLading": {
@@ -1068,26 +1071,26 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
     "certificateNo": {
       "type": "string",
       "title": "Phyto Certificate Number",
-      "x-globalcontext": { "writeTo": "global_phyto_cert_no" },
+      "x-globalContext": { "writeTo": "global_phyto_cert_no" },
       "default": "PSC/LK/2026/08821"
     },
     "billOfLadingRef": {
       "type": "string",
       "title": "Associated B/L Number",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_bl_no" }
+      "x-globalContext": { "readFrom": "global_bl_no" }
     },
     "shippedOnDate": {
       "type": "string",
       "title": "Vessel Departure Date",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_onboard_date" }
+      "x-globalContext": { "readFrom": "global_onboard_date" }
     },
     "botanicalName": {
       "type": "string",
       "title": "Botanical Name",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_botanical_name" }
+      "x-globalContext": { "readFrom": "global_botanical_name" }
     },
     "inspectionResult": {
       "type": "string",
@@ -1161,26 +1164,26 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
     "healthCertNo": {
       "type": "string",
       "title": "Health Certificate Number",
-      "x-globalcontext": { "writeTo": "global_health_cert_no" },
+      "x-globalContext": { "writeTo": "global_health_cert_no" },
       "default": "H-CERT-2026-4412"
     },
     "cusdecRef": {
       "type": "string",
       "title": "Cusdec Reference",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_cusdec_no" }
+      "x-globalContext": { "readFrom": "global_cusdec_no" }
     },
     "billOfLadingRef": {
       "type": "string",
       "title": "Bill of Lading Number",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_bl_no" }
+      "x-globalContext": { "readFrom": "global_bl_no" }
     },
     "natureOfProduct": {
       "type": "string",
       "title": "Product Description",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_package_summary" }
+      "x-globalContext": { "readFrom": "global_package_summary" }
     },
     "labTestResult": {
       "type": "string",
@@ -1262,31 +1265,31 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Certificate Number",
       "default": "COO-SL-2026-8812",
-      "x-globalcontext": { "writeTo": "global_coo_no" }
+      "x-globalContext": { "writeTo": "global_coo_no" }
     },
     "exporterDetails": {
       "type": "string",
       "title": "Exporter (Name, Address, Country)",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_exporter_name" }
+      "x-globalContext": { "readFrom": "global_exporter_name" }
     },
     "consigneeDetails": {
       "type": "string",
       "title": "Consignee (Name, Address, Country)",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_consignee_name" }
+      "x-globalContext": { "readFrom": "global_consignee_name" }
     },
     "transportDetails": {
       "type": "string",
       "title": "Transport Details (Vessel/V_No/BL_No)",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_bl_no" }
+      "x-globalContext": { "readFrom": "global_bl_no" }
     },
     "itemDescription": {
       "type": "string",
       "title": "Description of Goods",
       "readOnly": true,
-      "x-globalcontext": { "readFrom": "global_package_summary" }
+      "x-globalContext": { "readFrom": "global_package_summary" }
     },
     "originCriteria": {
       "type": "string",
