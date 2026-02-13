@@ -38,3 +38,21 @@ export function formatDate(dateString: string): string {
     day: 'numeric',
   })
 }
+
+/**
+ * Format a date string with time for display
+ * Example: 2026-01-27T10:30:00Z -> January 27, 2026 at 10:30 AM
+ */
+export function formatDateTime(dateString: string): string {
+  const date = new Date(dateString)
+  if (isNaN(date.getTime())) {
+    return '-'
+  }
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}

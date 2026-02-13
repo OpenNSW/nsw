@@ -132,9 +132,14 @@ function WorkflowViewerContent({ steps, className = '', onRefresh, refreshing = 
       if (readyNodeIds.length > 0) {
         fitView({
           nodes: readyNodeIds.map((id) => ({ id })),
-          padding: 1.5,
+          padding: {
+            x: 2,
+            y: 0,
+          },
           maxZoom: 1.0,
+          minZoom: 0.5,
           duration: 800,
+          interpolate : "linear",
         })
       } else {
         fitView({ padding: 0.5, maxZoom: 1.0, duration: 800 })
