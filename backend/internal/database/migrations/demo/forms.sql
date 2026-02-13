@@ -217,25 +217,16 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "title": "Declared Invoice Value (USD)",
       "x-globalContext": { "readFrom": "global_invoice_value" }
     },
-    "assessmentNoticeNo": {
-      "type": "string",
-      "title": "Assessment Notice Number",
-      "x-globalContext": { "writeTo": "global_assessment_no" },
-      "example": "ASMT/2026/00912",
-      "default": "ASMT/2026/00912"
-    },
     "cessAmount": {
       "type": "number",
       "title": "Cess Amount (LKR)",
       "readOnly": true,
-      "example": 12500.00,
       "default": 12500.00
     },
     "exportLevy": {
       "type": "number",
       "title": "Export Levy (LKR)",
       "readOnly": true,
-      "example": 2500.00,
       "default": 2500.00
     },
     "totalPayable": {
@@ -249,8 +240,7 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Payment Method",
       "enum": ["Bank Transfer", "Online Credit Card", "Direct Debit"],
-      "example": "Bank Transfer",
-      "default": "Bank Transfer"
+      "example": "Bank Transfer"
     },
     "ATTACHMENT_paymentReceipt": {
       "type": "string",
@@ -266,13 +256,7 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "Group",
       "label": "Assessment Reference",
       "elements": [
-        {
-          "type": "HorizontalLayout",
-          "elements": [
-            { "type": "Control", "scope": "#/properties/cusdecRef" },
-            { "type": "Control", "scope": "#/properties/assessmentNoticeNo" }
-          ]
-        },
+        { "type": "Control", "scope": "#/properties/cusdecRef" },
         { "type": "Control", "scope": "#/properties/invoiceValue" }
       ]
     },
@@ -333,28 +317,28 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Desiccated Coconut Grade",
       "enum": ["Fine", "Medium", "Chips", "Flakes"],
-      "default": "Fine"
+      "example": "Fine"
     },
     "millNumber": {
       "type": "string",
       "title": "Source Mill Number",
-      "default": "CDA/ML/4492"
+      "example": "CDA/ML/4492"
     },
     "productionDate": {
       "type": "string",
       "format": "date",
       "title": "Date of Production",
-      "default": "2026-02-10"
+      "example": "2026-02-10"
     },
     "lotNumber": {
       "type": "string",
       "title": "Batch / Lot Number",
-      "default": "LOT-2026-001"
+      "example": "LOT-2026-001"
     },
     "ATTACHMENT_productionDetail": {
       "type": "string",
       "title": "ATTACHMENT: Production Details (Bags/Weights Breakdown)",
-      "default": "prod_details_batch01.pdf"
+      "example": "prod_details_batch01.pdf"
     }
   }
 }',
@@ -431,7 +415,7 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Botanical Name of Plants/Products",
       "x-globalContext": { "readFrom": "global_package_summary" },
-      "default": "Cocos nucifera"
+      "example": "Cocos nucifera"
     },
     "descriptionOfGoods": {
       "type": "string",
@@ -442,12 +426,12 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
     "placeOfOrigin": {
       "type": "string",
       "title": "Place of Origin",
-      "default": "Sri Lanka"
+      "example": "Sri Lanka"
     },
     "declaredMeansOfTransport": {
       "type": "string",
       "title": "Means of Transport",
-      "default": "Sea Freight"
+      "example": "Sea Freight"
     },
     "pointOfEntry": {
       "type": "string",
@@ -458,12 +442,12 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
     "distinguishingMarks": {
       "type": "string",
       "title": "Distinguishing Marks (Container/Seal Nos)",
-      "default": "CONU-1234567 / SL-00921"
+      "example": "CONU-1234567 / SL-00921"
     },
     "ATTACHMENT_phytoRequestLetter": {
       "type": "string",
       "title": "ATTACHMENT: Request Letter for Inspection",
-      "default": "phyto_request_v1.pdf"
+      "example": "phyto_request_v1.pdf"
     }
   }
 }',
@@ -553,28 +537,28 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
     "batchNumbers": {
       "type": "string",
       "title": "Batch / Code Numbers",
-      "default": "B-992/2026"
+      "example": "B-992/2026"
     },
     "sampleSubmissionDate": {
       "type": "string",
       "format": "date",
       "title": "Date of Sample Submission",
-      "default": "2026-02-12"
+      "example": "2026-02-12"
     },
     "labReference": {
       "type": "string",
       "title": "Laboratory Reference Number (if any)",
-      "default": "LAB-H-0042"
+      "example": "LAB-H-0042"
     },
     "storageConditions": {
       "type": "string",
       "title": "Storage Conditions During Transport",
-      "default": "Dry and Cool Environment"
+      "example": "Dry and Cool Environment"
     },
     "ATTACHMENT_healthApplicationForm": {
       "type": "string",
       "title": "ATTACHMENT: Completed FCAU Application Form",
-      "default": "fcau_app_v2.pdf"
+      "example": "fcau_app_v2.pdf"
     }
   }
 }',
@@ -636,32 +620,32 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Payment Status (Customs/Cess)",
       "readOnly": true,
-      "default": "Verified & Settled",
+      "example": "Verified & Settled",
       "x-globalContext": { "readFrom": "global_assessment_no" }
     },
     "cdaApprovalStatus": {
       "type": "string",
       "title": "CDA Regulatory Status",
       "readOnly": true,
-      "default": "Quality Certificate Issued (Tick Received)"
+      "example": "Quality Certificate Issued (Tick Received)"
     },
     "warrantNumber": {
       "type": "string",
       "title": "Official Warrant Number",
       "x-globalContext": { "writeTo": "global_warrant_no" },
-      "default": "W-2026-99102-X"
+      "example": "W-2026-99102-X"
     },
     "warrantDate": {
       "type": "string",
       "title": "Warranting Timestamp",
       "readOnly": true,
-      "default": "2026-02-12 14:30:00"
+      "example": "2026-02-12 14:30:00"
     },
     "systemRemark": {
       "type": "string",
       "title": "System Remarks",
       "readOnly": true,
-      "default": "Consignment is authorized for export movement."
+      "example": "Consignment is authorized for export movement."
     }
   }
 }',
@@ -709,26 +693,26 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Assigned Channel (Lane)",
       "enum": ["GREEN - Document Release", "YELLOW - Document Check", "RED - Physical Examination"],
-      "default": "GREEN - Document Release",
+      "example": "GREEN - Document Release",
       "x-globalContext": { "writeTo": "global_assigned_lane" }
     },
     "examinationRequired": {
       "type": "boolean",
       "title": "Physical Examination Required?",
-      "default": false,
+      "example": false,
       "x-globalContext": { "writeTo": "global_exam_required" }
     },
     "selectivityTimestamp": {
       "type": "string",
       "title": "Selectivity Run Time",
       "readOnly": true,
-      "default": "2026-02-12 14:45:10"
+      "example": "2026-02-12 14:45:10"
     },
     "instructions": {
       "type": "string",
       "title": "Customs Instructions",
       "readOnly": true,
-      "default": "Proceed to Export Facilitation Center (EFC) for gating. No physical examination required for this consignment."
+      "example": "Proceed to Export Facilitation Center (EFC) for gating. No physical examination required for this consignment."
     }
   }
 }',
@@ -775,12 +759,12 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Container Number",
       "x-globalContext": { "writeTo": "global_container_no" },
-      "default": "MSCU-882910-4"
+      "example": "MSCU-882910-4"
     },
     "vehicleNumber": {
       "type": "string",
       "title": "Truck / Vehicle No",
-      "default": "WP-LY-5521"
+      "example": "WP-LY-5521"
     },
     "assignedLane": {
       "type": "string",
@@ -804,12 +788,12 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Gate-In Time",
       "readOnly": true,
-      "default": "2026-02-12 16:20:00"
+      "example": "2026-02-12 16:20:00"
     },
     "terminalLocation": {
       "type": "string",
       "title": "Yard Storage Location",
-      "default": "BLOCK-C / SL-04"
+      "example": "BLOCK-C / SL-04"
     }
   }
 }',
@@ -885,30 +869,30 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Boat Note Number",
       "x-globalContext": { "writeTo": "global_boat_note_no" },
-      "default": "BN-2026-X883"
+      "example": "BN-2026-X883"
     },
     "vesselName": {
       "type": "string",
       "title": "Vessel Name / Voyage",
       "x-globalcontext": { "writeTo": "global_vessel_name" },
-      "default": "MSC EMMA / V.2403"    
+      "example": "MSC EMMA / V.2403"    
     },
     "releaseTimestamp": {
       "type": "string",
       "title": "Customs Release Time",
       "readOnly": true,
-      "default": "2026-02-12 18:00:00"
+      "example": "2026-02-12 18:00:00"
     },
     "customsOfficerID": {
       "type": "string",
       "title": "Authorizing Officer ID",
-      "default": "SLC-OFF-093"
+      "example": "SLC-OFF-093"
     },
     "status": {
       "type": "string",
       "title": "Release Status",
       "readOnly": true,
-      "default": "EXPORT RELEASED"
+      "example": "EXPORT RELEASED"
     }
   }
 }',
@@ -978,12 +962,12 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Bill of Lading Number",
       "x-globalContext": { "writeTo": "global_bl_no" },
-      "default": "MSCU-CMB-1299"
+      "example": "MSCU-CMB-1299"
     },
     "shippingLine": {
       "type": "string",
       "title": "Shipping Line",
-      "default": "MSC - Mediterranean Shipping Company"
+      "example": "MSC - Mediterranean Shipping Company"
     },
     "vesselName": {
       "type": "string",
@@ -996,12 +980,12 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "format": "date",
       "title": "Shipped on Board Date",
       "x-globalContext": { "writeTo": "global_onboard_date" },
-      "default": "2026-02-13"
+      "example": "2026-02-13"
     },
     "portOfLoading": {
       "type": "string",
       "title": "Port of Loading",
-      "default": "Colombo (LKCMB)"
+      "example": "Colombo (LKCMB)"
     },
     "portOfDischarge": {
       "type": "string",
@@ -1012,7 +996,7 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
     "ATTACHMENT_billOfLading": {
       "type": "string",
       "title": "ATTACHMENT: Final Bill of Lading (PDF)",
-      "default": "bl_mscu_1299.pdf"
+      "example": "bl_mscu_1299.pdf"
     }
   }
 }',
@@ -1096,17 +1080,17 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Inspection Findings",
       "readOnly": true,
-      "default": "Consignment inspected and found free from quarantine pests."
+      "example": "Consignment inspected and found free from quarantine pests."
     },
     "issuingOfficer": {
       "type": "string",
       "title": "Authorized NPQS Officer",
-      "default": "Dr. S. Perera (NPQS)"
+      "example": "Dr. S. Perera (NPQS)"
     },
     "ATTACHMENT_finalPhytoCert": {
       "type": "string",
       "title": "DOWNLOAD: Digital Phytosanitary Certificate (Signed)",
-      "default": "phyto_cert_signed_final.pdf"
+      "example": "phyto_cert_signed_final.pdf"
     }
   }
 }',
@@ -1165,7 +1149,7 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Health Certificate Number",
       "x-globalContext": { "writeTo": "global_health_cert_no" },
-      "default": "H-CERT-2026-4412"
+      "example": "H-CERT-2026-4412"
     },
     "cusdecRef": {
       "type": "string",
@@ -1189,23 +1173,23 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Laboratory Analysis Result",
       "readOnly": true,
-      "default": "PASSED - No Salmonella or contaminants detected."
+      "example": "PASSED - No Salmonella or contaminants detected."
     },
     "expiryDate": {
       "type": "string",
       "format": "date",
       "title": "Certificate Expiry Date",
-      "default": "2026-08-12"
+      "example": "2026-08-12"
     },
     "issuingAuthority": {
       "type": "string",
       "title": "Issuing Authority",
-      "default": "Food Control Administration Unit (FCAU)"
+      "example": "Food Control Administration Unit (FCAU)"
     },
     "ATTACHMENT_signedHealthCert": {
       "type": "string",
       "title": "DOWNLOAD: Digital Health Certificate (Signed)",
-      "default": "health_cert_final_signed.pdf"
+      "example": "health_cert_final_signed.pdf"
     }
   }
 }',
@@ -1264,7 +1248,7 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
     "cooNumber": {
       "type": "string",
       "title": "Certificate Number",
-      "default": "COO-SL-2026-8812",
+      "example": "COO-SL-2026-8812",
       "x-globalContext": { "writeTo": "global_coo_no" }
     },
     "exporterDetails": {
@@ -1295,17 +1279,17 @@ INSERT INTO forms (id, name, description, schema, ui_schema, version, active) VA
       "type": "string",
       "title": "Origin Criterion",
       "enum": ["Wholly Obtained (WO)", "Value Added (VA)", "Change in Tariff Heading (CTH)"],
-      "default": "Wholly Obtained (WO)"
+      "example": "Wholly Obtained (WO)"
     },
     "issuingBody": {
       "type": "string",
       "title": "Issuing Authority",
-      "default": "Department of Commerce, Sri Lanka"
+      "example": "Department of Commerce, Sri Lanka"
     },
     "ATTACHMENT_finalCOO": {
       "type": "string",
       "title": "DOWNLOAD: Digital Certificate of Origin (Signed)",
-      "default": "coo_final_signed.pdf"
+      "example": "coo_final_signed.pdf"
     }
   }
 }',
