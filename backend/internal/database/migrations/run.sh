@@ -31,10 +31,13 @@ PGPASSWORD=$DB_PASSWORD psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d po
 
 # Define the file paths
 MIGRATIONS=(
+
     "002_initial_schema.sql"
     "002_insert_seed_data.sql"
-    "002_insert_form_templates.sql"
-    "002_insert_dc_data.sql"
+
+    "demo/forms.sql"
+    "demo/workflow.sql"
+
     "003_initial_schema.sql"
     "003_insert_seed_data.sql"
     "004_unify_task_parent_id.sql"
@@ -42,6 +45,7 @@ MIGRATIONS=(
     "006_insert_seed_data.sql"
     "007_create_trader_contexts.sql"
 )
+
 
 echo "Starting database migrations..."
 

@@ -1,0 +1,49 @@
+INSERT INTO workflow_node_templates (id, name, description, type, config, depends_on) VALUES
+
+-- Generate Info
+('d2e0f202-0001-4000-9000-100000000001', 'General Info', 'General Info', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-100000000001"}', '[]'),
+
+
+-- Phase 1 & 2: Initiation & Parallel Apps
+('d2e0f202-0001-4000-9000-200000000001', '7ai: Customs Declaration', '7ai', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-200000000001"}', '["d2e0f202-0001-4000-9000-100000000001"]'),
+('d2e0f202-0001-4000-9000-200000000002', '7a-FIN: Financial Settlement', '7afin', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-200000000002"}', '["d2e0f202-0001-4000-9000-200000000001"]'),
+('d2e0f202-0001-4000-9000-200000000008', '8ai: Phyto Application', '8ai', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-200000000008"}', '["d2e0f202-0001-4000-9000-200000000001"]'),
+('d2e0f202-0001-4000-9000-200000000010', '9-App: Health Application', '9app', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-200000000010"}', '["d2e0f202-0001-4000-9000-200000000001"]'),
+
+-- -- Phase 3: The Financial Gate
+('d2e0f202-0001-4000-9000-200000000004', '5b: CDA Quality Clearance', '5b', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-200000000004"}', '["d2e0f202-0001-4000-9000-200000000002"]'),
+
+-- -- Phase 4: Customs Finalization (Dual Dependency)
+('d2e0f202-0001-4000-9000-200000000007', '7bi: Warranting', '7bi', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-200000000007"}', '["d2e0f202-0001-4000-9000-200000000002", "d2e0f202-0001-4000-9000-200000000004"]'),
+('d2e0f202-0001-4000-9000-200000000021', '7bii: Cargo Selectivity', '7bii', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-200000000021"}', '["d2e0f202-0001-4000-9000-200000000007"]'),
+
+-- -- Phase 5: Logistics & Physical Release
+('d2e0f202-0001-4000-9000-200000000012', '10ai: Logistics & Yard Entry', '10ai', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-200000000012"}', '["d2e0f202-0001-4000-9000-200000000021"]'),
+('d2e0f202-0001-4000-9000-200000000016', '10ci: Export Release', '10ci', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-200000000016"}', '["d2e0f202-0001-4000-9000-200000000012"]'),
+
+-- -- Phase 6: Post-Shipment Trigger
+('d2e0f202-0001-4000-9000-200000000018', '12: Bill of Lading', '12', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-200000000018"}', '["d2e0f202-0001-4000-9000-200000000016"]'),
+
+-- -- Phase 7: Final Issuances
+('d2e0f202-0001-4000-9000-200000000020', '8bi: Phyto Issuance', '8bi', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-200000000020"}', '["d2e0f202-0001-4000-9000-200000000018"]'),
+('d2e0f202-0001-4000-9000-200000000011', '9-Iss: Health Issuance', '9iss', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-200000000011"}', '["d2e0f202-0001-4000-9000-200000000018"]'),
+('d2e0f202-0001-4000-9000-200000000019', '13: Country of Origin', '13', 'SIMPLE_FORM', '{"formId": "b1d0a101-0001-4000-8000-200000000019"}', '["d2e0f202-0001-4000-9000-200000000018"]');
+
+
+
+
+INSERT INTO workflow_templates (id, name, description, version, nodes)
+VALUES ('f9a8b7c6-0001-4000-a000-100000000000', 'DC Export Dependency Demo', 'Mermaid-aligned workflow structure', '1.2', 
+'[
+  "d2e0f202-0001-4000-9000-100000000001", "d2e0f202-0001-4000-9000-200000000001", 
+  "d2e0f202-0001-4000-9000-200000000002", "d2e0f202-0001-4000-9000-200000000004",
+  "d2e0f202-0001-4000-9000-200000000008", "d2e0f202-0001-4000-9000-200000000010",
+  "d2e0f202-0001-4000-9000-200000000007", "d2e0f202-0001-4000-9000-200000000021",
+  "d2e0f202-0001-4000-9000-200000000012", "d2e0f202-0001-4000-9000-200000000016",
+  "d2e0f202-0001-4000-9000-200000000018",  "d2e0f202-0001-4000-9000-200000000020", 
+  "d2e0f202-0001-4000-9000-200000000011"
+]'::jsonb);
+
+INSERT INTO workflow_template_maps (id, hs_code_id, consignment_flow, workflow_template_id)
+VALUES ('688574a0-e24c-48e4-86eb-1496d5d21da2', '8a0783e4-82e6-488e-b96e-6140a8912f39', 'EXPORT',
+'f9a8b7c6-0001-4000-a000-100000000000');
