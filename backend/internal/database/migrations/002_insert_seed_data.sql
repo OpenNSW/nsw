@@ -200,8 +200,6 @@ VALUES ('44bbe677-d327-4968-bf72-1d314246b486',
 
 INSERT INTO workflow_template_maps (id, hs_code_id, consignment_flow, workflow_template_id)
 VALUES ('5edbd5cb-b347-4272-9541-eee10ce9c387', '36a58d44-8ff6-4bea-8c9b-3db84bb5a083', 'EXPORT',
-        '44bbe677-d327-4968-bf72-1d314246b486'),
-       ('688574a0-e24c-48e4-86eb-1496d5d21da2', '8a0783e4-82e6-488e-b96e-6140a8912f39', 'EXPORT',
         '44bbe677-d327-4968-bf72-1d314246b486');
 
 -- ============================================================================
