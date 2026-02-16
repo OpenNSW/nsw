@@ -204,14 +204,6 @@ func (s *ConsignmentService) GetConsignmentsByTraderID(ctx context.Context, trad
 	// Base query for this trader
 	baseQuery := s.db.WithContext(ctx).Model(&model.Consignment{}).Where("trader_id = ?", traderID)
 
-	// Calculate Summary (on un-filtered data for this trader)
-	var summary model.ConsignmentSummary
-	if err := baseQuery.Count(&summary.Total).Error; err != nil {
-		return nil, fmt.Errorf("failed to count total consignments: %w", err)
-	}
-	s.db.WithContext(ctx).Model(&model.Consignment{}).Where("trader_id = ? AND state = ?", traderID, model.ConsignmentStateInProgress).Count(&summary.InProgress)
-	s.db.WithContext(ctx).Model(&model.Consignment{}).Where("trader_id = ? AND state = ?", traderID, model.ConsignmentStateFinished).Count(&summary.Finished)
-
 	// Apply Filters
 	query := baseQuery
 	if filter.State != nil {
@@ -233,7 +225,6 @@ func (s *ConsignmentService) GetConsignmentsByTraderID(ctx context.Context, trad
 			Items:      []model.ConsignmentResponseDTO{},
 			Offset:     finalOffset,
 			Limit:      finalLimit,
-			Summary:    summary,
 		}, nil
 	}
 
@@ -272,7 +263,6 @@ func (s *ConsignmentService) GetConsignmentsByTraderID(ctx context.Context, trad
 		Items:      consignmentDTOs,
 		Offset:     finalOffset,
 		Limit:      finalLimit,
-		Summary:    summary,
 	}, nil
 }
 

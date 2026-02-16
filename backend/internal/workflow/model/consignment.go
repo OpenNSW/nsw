@@ -89,14 +89,6 @@ type ConsignmentListResult struct {
 	Items      []ConsignmentResponseDTO `json:"items"`
 	Offset     int                      `json:"offset"`
 	Limit      int                      `json:"limit"`
-	Summary    ConsignmentSummary       `json:"summary"`
-}
-
-// ConsignmentSummary represents total counts per state
-type ConsignmentSummary struct {
-	Total      int64 `json:"total"`
-	InProgress int64 `json:"inProgress"`
-	Finished   int64 `json:"finished"`
 }
 
 // ConsignmentFilter will be used when querying consignments as batch

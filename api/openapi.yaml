@@ -602,7 +602,7 @@ components:
         - items
         - offset
         - limit
-        - summary
+
       properties:
         totalCount:
           type: integer
@@ -618,22 +618,9 @@ components:
         limit:
           type: integer
           description: Pagination limit used in the query
-        summary:
-          $ref: "#/components/schemas/ConsignmentSummary"
 
-    ConsignmentSummary:
-      type: object
-      required:
-        - total
-        - inProgress
-        - finished
-      properties:
-        total:
-          type: integer
-        inProgress:
-          type: integer
-        finished:
-          type: integer
+
+
 
     # Task Schemas
     ExecutionRequest:
