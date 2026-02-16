@@ -1,4 +1,4 @@
-package oga
+package internal
 
 import (
 	"bytes"
@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // ErrApplicationNotFound is returned when an application is not found
@@ -21,8 +22,8 @@ type OGAService interface {
 	// CreateApplication creates a new application from injected data
 	CreateApplication(ctx context.Context, req *InjectRequest) error
 
-	// GetApplications returns all applications (optionally filtered by status)
-	GetApplications(ctx context.Context, status string) ([]Application, error)
+	// GetApplications returns a paginated list of applications (optionally filtered by status)
+	GetApplications(ctx context.Context, status string, page, pageSize int) (*PagedResponse[Application], error)
 
 	// GetApplication returns a specific application by task ID
 	GetApplication(ctx context.Context, taskID uuid.UUID) (*Application, error)
@@ -50,15 +51,24 @@ type InjectRequest struct {
 
 // Application represents an application for display in the UI
 type Application struct {
-	TaskID     uuid.UUID      `json:"taskId"`
-	WorkflowID uuid.UUID      `json:"workflowId"`
-	ServiceURL string         `json:"serviceUrl"`
-	Data       map[string]any `json:"data"`
-	Meta       *Meta          `json:"meta,omitempty"`
-	Status     string         `json:"status"`
-	ReviewedAt *time.Time     `json:"reviewedAt,omitempty"`
-	CreatedAt  time.Time      `json:"createdAt"`
-	UpdatedAt  time.Time      `json:"updatedAt"`
+	TaskID     uuid.UUID       `json:"taskId"`
+	WorkflowID uuid.UUID       `json:"workflowId"`
+	ServiceURL string          `json:"serviceUrl"`
+	Data       map[string]any  `json:"data"`
+	Meta       *Meta           `json:"meta,omitempty"`
+	Form       json.RawMessage `json:"form,omitempty"`
+	Status     string          `json:"status"`
+	ReviewedAt *time.Time      `json:"reviewedAt,omitempty"`
+	CreatedAt  time.Time       `json:"createdAt"`
+	UpdatedAt  time.Time       `json:"updatedAt"`
+}
+
+// PagedResponse is a generic paginated response wrapper.
+type PagedResponse[T any] struct {
+	Items    []T   `json:"items"`
+	Total    int64 `json:"total"`
+	Page     int   `json:"page"`
+	PageSize int   `json:"pageSize"`
 }
 
 // TaskResponse represents the response sent back to the service
@@ -102,13 +112,15 @@ func metaFromJSONB(j JSONB) *Meta {
 
 type ogaService struct {
 	store      *ApplicationStore
+	formStore  *FormStore
 	httpClient *http.Client
 }
 
 // NewOGAService creates a new OGA service instance with database storage
-func NewOGAService(store *ApplicationStore) OGAService {
+func NewOGAService(store *ApplicationStore, formStore *FormStore) OGAService {
 	return &ogaService{
-		store: store,
+		store:     store,
+		formStore: formStore,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -153,29 +165,30 @@ func (s *ogaService) CreateApplication(ctx context.Context, req *InjectRequest) 
 	return nil
 }
 
-// GetApplications returns all applications (optionally filtered by status)
-func (s *ogaService) GetApplications(ctx context.Context, status string) ([]Application, error) {
-	var records []ApplicationRecord
-	var err error
-
-	if status != "" {
-		records, err = s.store.GetByStatus(status)
-	} else {
-		records, err = s.store.GetAll()
+// GetApplications returns a paginated list of applications (optionally filtered by status)
+func (s *ogaService) GetApplications(ctx context.Context, status string, page, pageSize int) (*PagedResponse[Application], error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
 	}
 
+	offset := (page - 1) * pageSize
+	records, total, err := s.store.List(ctx, status, offset, pageSize)
 	if err != nil {
 		return nil, err
 	}
 
 	applications := make([]Application, len(records))
 	for i, record := range records {
+		meta := metaFromJSONB(record.Meta)
 		applications[i] = Application{
 			TaskID:     record.TaskID,
 			WorkflowID: record.WorkflowID,
 			ServiceURL: record.ServiceURL,
 			Data:       record.Data,
-			Meta:       metaFromJSONB(record.Meta),
+			Meta:       meta,
 			Status:     record.Status,
 			ReviewedAt: record.ReviewedAt,
 			CreatedAt:  record.CreatedAt,
@@ -183,27 +196,55 @@ func (s *ogaService) GetApplications(ctx context.Context, status string) ([]Appl
 		}
 	}
 
-	return applications, nil
+	return &PagedResponse[Application]{
+		Items:    applications,
+		Total:    total,
+		Page:     page,
+		PageSize: pageSize,
+	}, nil
 }
 
 // GetApplication returns a specific application by task ID
 func (s *ogaService) GetApplication(ctx context.Context, taskID uuid.UUID) (*Application, error) {
 	record, err := s.store.GetByTaskID(taskID)
 	if err != nil {
-		return nil, ErrApplicationNotFound
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrApplicationNotFound
+		}
+		return nil, fmt.Errorf("failed to get application: %w", err)
 	}
 
-	return &Application{
+	meta := metaFromJSONB(record.Meta)
+	app := &Application{
 		TaskID:     record.TaskID,
 		WorkflowID: record.WorkflowID,
 		ServiceURL: record.ServiceURL,
 		Data:       record.Data,
-		Meta:       metaFromJSONB(record.Meta),
+		Meta:       meta,
 		Status:     record.Status,
 		ReviewedAt: record.ReviewedAt,
 		CreatedAt:  record.CreatedAt,
 		UpdatedAt:  record.UpdatedAt,
-	}, nil
+	}
+
+	// Attach form: look up by meta, fall back to default
+	formID := FormIDFromMeta(meta)
+	if formID != "" {
+		if form, err := s.formStore.GetForm(formID); err == nil {
+			app.Form = form
+		} else {
+			slog.WarnContext(ctx, "form not found for application, using default", "taskID", taskID, "formID", formID)
+			if form, err := s.formStore.GetDefaultForm(); err == nil {
+				app.Form = form
+			}
+		}
+	} else {
+		if form, err := s.formStore.GetDefaultForm(); err == nil {
+			app.Form = form
+		}
+	}
+
+	return app, nil
 }
 
 // ReviewApplication approves or rejects an application and sends response back to service

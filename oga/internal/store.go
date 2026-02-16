@@ -1,6 +1,7 @@
-package oga
+package internal
 
 import (
+	"context"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
@@ -92,22 +93,25 @@ func (s *ApplicationStore) GetByTaskID(taskID uuid.UUID) (*ApplicationRecord, er
 	return &app, nil
 }
 
-// GetAll retrieves all applications
-func (s *ApplicationStore) GetAll() ([]ApplicationRecord, error) {
+// List retrieves applications with optional status filter and pagination.
+func (s *ApplicationStore) List(ctx context.Context, status string, offset, limit int) ([]ApplicationRecord, int64, error) {
 	var apps []ApplicationRecord
-	if err := s.db.Find(&apps).Error; err != nil {
-		return nil, err
-	}
-	return apps, nil
-}
+	var total int64
 
-// GetByStatus retrieves applications by status
-func (s *ApplicationStore) GetByStatus(status string) ([]ApplicationRecord, error) {
-	var apps []ApplicationRecord
-	if err := s.db.Where("status = ?", status).Order("created_at DESC").Find(&apps).Error; err != nil {
-		return nil, err
+	query := s.db.WithContext(ctx).Model(&ApplicationRecord{})
+	if status != "" {
+		query = query.Where("status = ?", status)
 	}
-	return apps, nil
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if err := query.Order("created_at DESC").Offset(offset).Limit(limit).Find(&apps).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return apps, total, nil
 }
 
 func (s *ApplicationStore) UpdateStatus(taskID uuid.UUID, status string, reviewerResponse map[string]any) error {
@@ -119,14 +123,21 @@ func (s *ApplicationStore) UpdateStatus(taskID uuid.UUID, status string, reviewe
 		return fmt.Errorf("failed to marshal reviewer response: %w", err)
 	}
 
-	return s.db.Model(&ApplicationRecord{}).
+	result := s.db.Model(&ApplicationRecord{}).
 		Where("task_id = ?", taskID).
 		Updates(map[string]any{
 			"status":            status,
 			"reviewed_at":       now,
 			"updated_at":        now,
-			"reviewer_response": jsonResponse, // <-- store as JSON
-		}).Error
+			"reviewer_response": jsonResponse,
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("application with task_id %s not found", taskID)
+	}
+	return nil
 }
 
 // Delete removes an application by task ID

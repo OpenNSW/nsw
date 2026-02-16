@@ -1,10 +1,11 @@
-package oga
+package internal
 
 import (
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/google/uuid"
 )
@@ -81,15 +82,17 @@ func (h *OGAHandler) HandleGetApplications(w http.ResponseWriter, r *http.Reques
 
 	ctx := r.Context()
 	status := r.URL.Query().Get("status")
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	pageSize, _ := strconv.Atoi(r.URL.Query().Get("pageSize"))
 
-	applications, err := h.service.GetApplications(ctx, status)
+	result, err := h.service.GetApplications(ctx, status, page, pageSize)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get applications", "error", err)
 		WriteJSONError(w, http.StatusInternalServerError, "Failed to get applications")
 		return
 	}
 
-	WriteJSONResponse(w, http.StatusOK, applications)
+	WriteJSONResponse(w, http.StatusOK, result)
 }
 
 // HandleGetApplication handles GET /api/oga/applications/{taskId}
