@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Text, Box, Flex, Badge, Spinner, TextField, ScrollArea, IconButton } from '@radix-ui/themes'
 import { MagnifyingGlassIcon, Cross2Icon } from '@radix-ui/react-icons'
-import {getHSCodes} from "../../services/hsCode.ts";
-import type {HSCode} from "../../services/types/hsCode.ts";
+import { getHSCodes } from "../../services/hsCode.ts";
+import type { HSCode } from "../../services/types/hsCode.ts";
 
 interface HSCodeSearchProps {
   value: HSCode | null
@@ -35,7 +35,7 @@ export function HSCodeSearch({ value, onChange }: HSCodeSearchProps) {
           hsCodeStartsWith: searchQuery,
           limit: 20,
         })
-        setHsCodes(result.items)
+        setHsCodes(result.data)
       } catch (error) {
         console.error('Failed to fetch HS codes:', error)
       } finally {
@@ -120,11 +120,10 @@ export function HSCodeSearch({ value, onChange }: HSCodeSearchProps) {
                       py="2"
                       gap="3"
                       align="start"
-                      className={`cursor-pointer transition-colors ${
-                        isSelected
+                      className={`cursor-pointer transition-colors ${isSelected
                           ? 'bg-blue-50 hover:bg-blue-100'
                           : 'hover:bg-gray-50'
-                      }`}
+                        }`}
                       onClick={() => handleSelect(hsCode)}
                     >
                       <Box pt="1">

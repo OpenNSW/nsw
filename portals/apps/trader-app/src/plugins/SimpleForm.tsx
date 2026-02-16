@@ -1,10 +1,30 @@
-import {JsonForm, type JsonSchema, type UISchemaElement, useJsonForm} from "../components/JsonForm";
-import {sendTaskCommand} from "../services/task.ts";
-import {uploadFile} from "../services/upload";
-import {useLocation, useNavigate, useParams} from "react-router-dom";
-import {useState} from "react";
-import {Button} from "@radix-ui/themes";
+import { JsonForms } from '@jsonforms/react';
+import { radixRenderers } from '@lsf/ui';
+import { sendTaskCommand } from "../services/task.ts";
+import { uploadFile } from "../services/upload";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useState, useCallback } from "react";
+import { Button } from "@radix-ui/themes";
+import type { JsonSchema, UISchemaElement } from '@jsonforms/core';
+import { autoFillForm } from "../utils/formUtils";
 
+// Helper to convert Data URL to File
+function dataURLtoFile(dataurl: string, filename: string): File {
+  const arr = dataurl.split(',');
+  if (arr.length < 2) {
+    console.warn(`Invalid data URL for ${filename}, creating empty file.`);
+    return new File([], filename, { type: 'application/octet-stream' });
+  }
+  const match = arr[0].match(/:(.*?);/);
+  const mime = match ? match[1] : 'application/octet-stream';
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new File([u8arr], filename, { type: mime });
+}
 
 export interface TaskFormData {
   title: string
@@ -26,7 +46,10 @@ function TraderForm(props: { formInfo: TaskFormData, pluginState: string }) {
   }>()
   const location = useLocation()
   const navigate = useNavigate()
-  const [error, setError] = useState<string | null>(null)
+  const [data, setData] = useState<Record<string, unknown>>(props.formInfo.formData || {})
+  const [errors, setErrors] = useState<any[]>([])
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const READ_ONLY_STATES = ['OGA_REVIEWED', 'SUBMITTED', 'OGA_ACKNOWLEDGED'];
   const isReadOnly = READ_ONLY_STATES.includes(props.pluginState);
@@ -35,9 +58,20 @@ function TraderForm(props: { formInfo: TaskFormData, pluginState: string }) {
   const workflowId = preConsignmentId || consignmentId
 
   const replaceFilesWithKeys = async (value: unknown): Promise<unknown> => {
-    if (value instanceof File) {
-      const metadata = await uploadFile(value)
-      return metadata.key
+    // Detect Data URL (string starting with data:)
+    if (typeof value === 'string' && value.startsWith('data:')) {
+      const mime = value.split(';')[0].split(':')[1] || '';
+      const ext = mime.split('/')[1] || 'bin';
+      const filename = `upload-${Date.now()}.${ext}`;
+      const file = dataURLtoFile(value, filename);
+
+      try {
+        const metadata = await uploadFile(file);
+        return metadata.key;
+      } catch (e) {
+        console.error("Failed to upload file", e);
+        throw new Error("Failed to upload file");
+      }
     }
 
     if (Array.isArray(value)) {
@@ -57,15 +91,22 @@ function TraderForm(props: { formInfo: TaskFormData, pluginState: string }) {
     return value
   }
 
-  const handleSubmit = async (data: unknown) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!workflowId || !taskId) {
-      setError('Workflow ID or Task ID is missing.')
+      setSubmitError('Workflow ID or Task ID is missing.')
       return
     }
 
-    try {
-      setError(null)
+    if (errors.length > 0) {
+      setSubmitError('Please fix validation errors before submitting.');
+      return;
+    }
 
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
       // Send form submission - data now contains file keys (strings) instead of File objects
       const preparedData = await replaceFilesWithKeys(data) as Record<string, unknown>
 
@@ -80,19 +121,20 @@ function TraderForm(props: { formInfo: TaskFormData, pluginState: string }) {
         // Navigate back to appropriate workflow list
         navigate(isPreConsignment ? '/pre-consignments' : `/consignments/${workflowId}`)
       } else {
-        setError(response.error?.message || 'Failed to submit form.')
+        setSubmitError(response.error?.message || 'Failed to submit form.')
       }
     } catch (err) {
       console.error('Error submitting form:', err)
-      setError('Failed to submit form. Please try again.')
+      setSubmitError('Failed to submit form. Please try again.')
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
-  const form = useJsonForm({
-    schema: props.formInfo.schema,
-    data: props.formInfo.formData,
-    onSubmit: handleSubmit,
-  })
+  const handleAutoFill = useCallback(() => {
+    const filledData = autoFillForm(props.formInfo.schema, data);
+    setData(filledData);
+  }, [props.formInfo.schema, data]);
 
   const showAutoFillButton = import.meta.env.VITE_SHOW_AUTOFILL_BUTTON === 'true'
 
@@ -103,16 +145,17 @@ function TraderForm(props: { formInfo: TaskFormData, pluginState: string }) {
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
-        <form onSubmit={form.handleSubmit} noValidate>
-          <JsonForm
+        <form onSubmit={handleSubmit} noValidate>
+          <JsonForms
             schema={props.formInfo.schema}
-            uiSchema={props.formInfo.uiSchema}
-            values={form.values}
-            errors={form.errors}
-            touched={form.touched}
-            setValue={form.setValue}
-            setTouched={form.setTouched}
-            readOnly={isReadOnly}
+            uischema={props.formInfo.uiSchema}
+            data={data}
+            renderers={radixRenderers}
+            readonly={isReadOnly}
+            onChange={({ data, errors }) => {
+              setData(data);
+              setErrors(errors || []);
+            }}
           />
           {!isReadOnly && (
             <div className={`mt-4 flex gap-3 ${showAutoFillButton ? 'justify-between' : ''}`}>
@@ -123,28 +166,28 @@ function TraderForm(props: { formInfo: TaskFormData, pluginState: string }) {
                   color="purple"
                   size={"3"}
                   className={"flex-1!"}
-                  onClick={form.autoFillForm}
-                  disabled={form.isSubmitting}
+                  onClick={handleAutoFill}
+                  disabled={isSubmitting}
                 >
                   Demo - Auto Fill
                 </Button>
               )}
               <Button
                 type="submit"
-                disabled={form.isSubmitting}
+                disabled={isSubmitting}
                 className={'flex-1!'}
                 size={"3"}
               >
-                {form.isSubmitting ? 'Submitting...' : 'Submit Form'}
+                {isSubmitting ? 'Submitting...' : 'Submit Form'}
               </Button>
             </div>
           )}
         </form>
       </div>
 
-      {error && (
+      {submitError && (
         <div className="bg-red-100 text-red-700 rounded-lg p-4 mt-4">
-          <p>{error}</p>
+          <p>{submitError}</p>
         </div>
       )}
     </>
@@ -152,11 +195,7 @@ function TraderForm(props: { formInfo: TaskFormData, pluginState: string }) {
 }
 
 function OgaReviewForm(props: { formInfo: TaskFormData }) {
-  const form = useJsonForm({
-    schema: props.formInfo.schema,
-    data: props.formInfo.formData,
-    onSubmit: () => {},
-  })
+  const [data] = useState(props.formInfo.formData)
 
   return (
     <>
@@ -165,15 +204,12 @@ function OgaReviewForm(props: { formInfo: TaskFormData }) {
       </div>
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg shadow-md p-6">
-        <JsonForm
+        <JsonForms
           schema={props.formInfo.schema}
-          uiSchema={props.formInfo.uiSchema}
-          values={form.values}
-          errors={form.errors}
-          touched={form.touched}
-          setValue={form.setValue}
-          setTouched={form.setTouched}
-          readOnly={true}
+          uischema={props.formInfo.uiSchema}
+          data={data}
+          renderers={radixRenderers}
+          readonly={true}
         />
       </div>
     </>

@@ -3,7 +3,6 @@ import type { ControlElement, JsonSchema } from '@jsonforms/core';
 import { Card, Flex, Text, Box, IconButton } from '@radix-ui/themes';
 import { UploadIcon, FileTextIcon, Cross2Icon, CheckCircledIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
 import { useState, useRef, type ChangeEvent, type DragEvent } from 'react';
-import React from 'react';
 
 interface FileControlProps {
     data: string | null;
@@ -46,6 +45,9 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
         const isFileTypeAccepted = acceptedTypes.some((type: string) => {
             if (type.endsWith('/*')) {
                 return file.type.startsWith(type.slice(0, -1));
+            }
+            if (type.startsWith('.')) {
+                return file.name.toLowerCase().endsWith(type.toLowerCase());
             }
             return file.type === type;
         });
