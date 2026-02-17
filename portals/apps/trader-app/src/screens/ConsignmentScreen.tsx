@@ -4,15 +4,18 @@ import { Button, Text, TextField, Spinner, Select, Badge } from '@radix-ui/theme
 import { MagnifyingGlassIcon, PlusIcon } from '@radix-ui/react-icons'
 import { HSCodePicker } from '../components/HSCodePicker'
 import type { HSCode } from "../services/types/hsCode.ts"
-import type { Consignment, TradeFlow } from "../services/types/consignment.ts"
+import type { Consignment, TradeFlow, ConsignmentState } from "../services/types/consignment.ts"
 import { createConsignment, getAllConsignments } from "../services/consignment.ts"
 import { getStateColor, formatState, formatDate } from '../utils/consignmentUtils'
 
 export function ConsignmentScreen() {
   const navigate = useNavigate()
   const [consignments, setConsignments] = useState<Consignment[]>([])
+
   const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(0)
+  const PAGE_SIZE = 20
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('')
@@ -25,8 +28,14 @@ export function ConsignmentScreen() {
 
   useEffect(() => {
     async function fetchConsignments() {
+      setLoading(true)
       try {
-        const data = await getAllConsignments()
+        const data = await getAllConsignments(
+          page * PAGE_SIZE,
+          PAGE_SIZE,
+          stateFilter as ConsignmentState | 'all',
+          tradeFlowFilter as TradeFlow | 'all'
+        )
         setConsignments(data.items)
         setTotalCount(data.totalCount)
       } catch (error) {
@@ -37,7 +46,7 @@ export function ConsignmentScreen() {
     }
 
     fetchConsignments()
-  }, [])
+  }, [page, stateFilter, tradeFlowFilter])
 
   const handleSelect = async (hsCode: HSCode, tradeFlow: TradeFlow) => {
     setCreating(true)
@@ -71,15 +80,10 @@ export function ConsignmentScreen() {
       hsCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
       description.toLowerCase().includes(searchQuery.toLowerCase())
 
-    const matchesState = stateFilter === 'all' || c.state === stateFilter
-    const matchesTradeFlow = tradeFlowFilter === 'all' || c.flow === tradeFlowFilter
-
-    return matchesSearch && matchesState && matchesTradeFlow
+    return matchesSearch
   })
 
-  // Stats
-  const inProgressConsignments = consignments.filter(c => c.state === 'IN_PROGRESS').length
-  const completedConsignments = consignments.filter(c => c.state === 'FINISHED').length
+
 
   if (loading) {
     return (
@@ -112,14 +116,6 @@ export function ConsignmentScreen() {
           <h3 className="text-sm font-medium text-gray-500">Total Consignments</h3>
           <p className="mt-2 text-3xl font-semibold text-gray-900">{totalCount}</p>
         </div>
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-sm font-medium text-gray-500">In Progress</h3>
-          <p className="mt-2 text-3xl font-semibold text-gray-900">{inProgressConsignments}</p>
-        </div>
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-sm font-medium text-gray-500">Completed</h3>
-          <p className="mt-2 text-3xl font-semibold text-gray-900">{completedConsignments}</p>
-        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow mb-6">
@@ -138,7 +134,13 @@ export function ConsignmentScreen() {
               </TextField.Root>
             </div>
             <div className="flex gap-3">
-              <Select.Root value={stateFilter} onValueChange={setStateFilter}>
+              <Select.Root
+                value={stateFilter}
+                onValueChange={(val) => {
+                  setStateFilter(val)
+                  setPage(0)
+                }}
+              >
                 <Select.Trigger placeholder="State" />
                 <Select.Content>
                   <Select.Item value="all">All States</Select.Item>
@@ -147,7 +149,13 @@ export function ConsignmentScreen() {
                   <Select.Item value="REQUIRES_REWORK">Requires Rework</Select.Item>
                 </Select.Content>
               </Select.Root>
-              <Select.Root value={tradeFlowFilter} onValueChange={setTradeFlowFilter}>
+              <Select.Root
+                value={tradeFlowFilter}
+                onValueChange={(val) => {
+                  setTradeFlowFilter(val)
+                  setPage(0)
+                }}
+              >
                 <Select.Trigger placeholder="Trade Flow" />
                 <Select.Content>
                   <Select.Item value="all">All Types</Select.Item>
@@ -237,6 +245,50 @@ export function ConsignmentScreen() {
             </table>
           </div>
         )}
+
+
+        {/* Pagination Controls */}
+        <div className="border-t border-gray-200 px-4 py-3 flex items-center justify-between sm:px-6">
+          <div className="flex-1 flex justify-between sm:hidden">
+            <Button
+              variant="soft"
+              onClick={() => setPage(page - 1)}
+              disabled={page === 0}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="soft"
+              onClick={() => setPage(page + 1)}
+              disabled={(page + 1) * PAGE_SIZE >= totalCount}
+            >
+              Next
+            </Button>
+          </div>
+          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+            <div>
+              <Text size="2" color="gray">
+                Showing <span className="font-medium">{Math.min(page * PAGE_SIZE + 1, totalCount)}</span> to <span className="font-medium">{Math.min((page + 1) * PAGE_SIZE, totalCount)}</span> of <span className="font-medium">{totalCount}</span> results
+              </Text>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="soft"
+                onClick={() => setPage(page - 1)}
+                disabled={page === 0}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="soft"
+                onClick={() => setPage(page + 1)}
+                disabled={(page + 1) * PAGE_SIZE >= totalCount}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <HSCodePicker
@@ -245,6 +297,6 @@ export function ConsignmentScreen() {
         onSelect={handleSelect}
         isCreating={creating}
       />
-    </div>
+    </div >
   )
 }

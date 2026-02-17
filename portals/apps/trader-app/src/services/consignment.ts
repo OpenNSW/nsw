@@ -3,6 +3,8 @@ import type {
   ConsignmentListResult,
   CreateConsignmentRequest,
   CreateConsignmentResponse,
+  ConsignmentState,
+  TradeFlow,
 } from './types/consignment'
 import { apiGet, apiPost } from './api'
 
@@ -27,9 +29,19 @@ export async function getConsignment(id: string): Promise<Consignment | null> {
   }
 }
 
-export async function getAllConsignments(): Promise<ConsignmentListResult> {
+export async function getAllConsignments(
+  offset: number = 0,
+  limit: number = 50,
+  state?: ConsignmentState | 'all',
+  flow?: TradeFlow | 'all'
+): Promise<ConsignmentListResult> {
+  const params: Record<string, string | number> = { offset, limit }
+  if (state && state !== 'all') params.state = state
+  if (flow && flow !== 'all') params.flow = flow
+
   const response = await apiGet<Consignment[] | ConsignmentListResult>(
-    '/consignments'
+    '/consignments',
+    params
   )
 
   if (Array.isArray(response)) {
