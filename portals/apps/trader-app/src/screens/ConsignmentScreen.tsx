@@ -15,7 +15,7 @@ export function ConsignmentScreen() {
   const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
-  const PAGE_SIZE = 20
+  const PAGE_SIZE = 50
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('')
