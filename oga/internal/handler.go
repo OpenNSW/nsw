@@ -82,8 +82,16 @@ func (h *OGAHandler) HandleGetApplications(w http.ResponseWriter, r *http.Reques
 
 	ctx := r.Context()
 	status := r.URL.Query().Get("status")
-	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	pageSize, _ := strconv.Atoi(r.URL.Query().Get("pageSize"))
+	page, err := strconv.Atoi(r.URL.Query().Get("page"))
+
+	if err != nil {
+		WriteJSONError(w, http.StatusBadRequest, "Invalid page number")
+	}
+	pageSize, err := strconv.Atoi(r.URL.Query().Get("pageSize"))
+
+	if err != nil {
+		WriteJSONError(w, http.StatusBadRequest, "Invalid page size")
+	}
 
 	result, err := h.service.GetApplications(ctx, status, page, pageSize)
 	if err != nil {
@@ -163,6 +171,11 @@ func (h *OGAHandler) HandleReviewApplication(w http.ResponseWriter, r *http.Requ
 	decision, ok := requestBody["decision"].(string)
 	if !ok || decision == "" {
 		WriteJSONError(w, http.StatusBadRequest, "Request body must contain a non-empty 'decision' string")
+		return
+	}
+
+	if decision != "APPROVED" && decision != "REJECTED" {
+		WriteJSONError(w, http.StatusBadRequest, "Invalid decision value")
 		return
 	}
 

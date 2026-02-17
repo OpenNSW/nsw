@@ -59,7 +59,7 @@ function resolveControl(
     property = currentSchema.properties?.[segment];
 
     if (!property) {
-      console.log(`Property not found: ${control.scope}`, { path, segment, currentSchema });
+      console.error(`Property not found: ${control.scope}`, { path, segment, currentSchema });
       return null;
     }
 
