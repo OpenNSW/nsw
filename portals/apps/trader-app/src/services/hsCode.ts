@@ -1,4 +1,5 @@
-import { apiGet, type PaginatedResponse } from './api'
+import { apiGet } from './api'
+import type { PaginatedResponse } from './types/common'
 import type { HSCode, HSCodeQueryParams } from './types/hsCode'
 
 

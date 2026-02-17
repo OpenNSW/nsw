@@ -9,6 +9,7 @@ import (
 	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
+	"github.com/OpenNSW/nsw/utils"
 )
 
 // PreConsignmentRouter handles HTTP routing for pre-consignment endpoints.
@@ -24,7 +25,9 @@ func NewPreConsignmentRouter(pcs *service.PreConsignmentService) *PreConsignment
 }
 
 // HandleGetTraderPreConsignments handles GET /api/v1/pre-consignments
-// Returns all pre-consignment templates with computed state for authenticated trader
+// No query params required for traderId - uses traderId from auth context
+// Pagination query params: offset (optional), limit (optional)
+// Response: TraderPreConsignmentsResponseDTO
 func (r *PreConsignmentRouter) HandleGetTraderPreConsignments(w http.ResponseWriter, req *http.Request) {
 	// Require authentication
 	authCtx := auth.GetAuthContext(req.Context())
@@ -36,7 +39,13 @@ func (r *PreConsignmentRouter) HandleGetTraderPreConsignments(w http.ResponseWri
 	// Use traderId from auth context
 	traderID := authCtx.TraderID
 
-	templates, err := r.pcs.GetTraderPreConsignments(req.Context(), traderID, nil, nil)
+	offset, limit, err := utils.ParsePaginationParams(req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	templates, err := r.pcs.GetTraderPreConsignments(req.Context(), traderID, offset, limit)
 	if err != nil {
 		http.Error(w, "failed to retrieve pre-consignment templates: "+err.Error(), http.StatusInternalServerError)
 		return

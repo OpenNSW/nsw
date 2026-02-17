@@ -9,6 +9,7 @@ import (
 	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
+	"github.com/OpenNSW/nsw/utils"
 )
 
 type ConsignmentRouter struct {
@@ -68,8 +69,9 @@ func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *ht
 }
 
 // HandleGetConsignmentsByTraderID handles GET /api/v1/consignments
-// No query params required - uses traderId from auth context
-// Response: array of ConsignmentResponseDTO
+// No query params required for traderId - uses traderId from auth context
+// Pagination query params: offset (optional), limit (optional)
+// Response: ConsignmentListResult
 func (c *ConsignmentRouter) HandleGetConsignmentsByTraderID(w http.ResponseWriter, r *http.Request) {
 	// Require authentication
 	authCtx := auth.GetAuthContext(r.Context())
@@ -81,8 +83,25 @@ func (c *ConsignmentRouter) HandleGetConsignmentsByTraderID(w http.ResponseWrite
 	// Use traderId from auth context
 	traderID := authCtx.TraderID
 
+	offset, limit, err := utils.ParsePaginationParams(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Parse optional filters
+	var filter model.ConsignmentFilter
+	if stateStr := r.URL.Query().Get("state"); stateStr != "" {
+		state := model.ConsignmentState(stateStr)
+		filter.State = &state
+	}
+	if flowStr := r.URL.Query().Get("flow"); flowStr != "" {
+		flow := model.ConsignmentFlow(flowStr)
+		filter.Flow = &flow
+	}
+
 	// Get consignments from service
-	consignments, err := c.cs.GetConsignmentsByTraderID(r.Context(), traderID)
+	consignments, err := c.cs.GetConsignmentsByTraderID(r.Context(), traderID, offset, limit, filter)
 	if err != nil {
 		http.Error(w, "failed to retrieve consignments: "+err.Error(), http.StatusInternalServerError)
 		return

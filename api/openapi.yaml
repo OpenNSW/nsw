@@ -77,15 +77,44 @@ paths:
         - Consignments
       security:
         - traderAuth: []
+      parameters:
+        - name: offset
+          in: query
+          description: Pagination offset (default 0)
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: limit
+          in: query
+          description: Pagination limit (default 50)
+          required: false
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+        - name: state
+          in: query
+          description: Filter by consignment state
+          required: false
+          schema:
+            type: string
+            enum: [IN_PROGRESS, REQUIRES_REWORK, FINISHED, COMPLETED]
+        - name: flow
+          in: query
+          description: Filter by trade flow
+          required: false
+          schema:
+            type: string
+            enum: [IMPORT, EXPORT]
       responses:
         "200":
           description: List of consignments retrieved successfully
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/ConsignmentResponseDTO"
+                $ref: "#/components/schemas/ConsignmentListResult"
         "400":
           description: Invalid query parameters or missing traderId
         "500":
@@ -246,15 +275,30 @@ paths:
         - Pre-Consignments
       security:
         - traderAuth: []
+      parameters:
+        - name: offset
+          in: query
+          description: Pagination offset (default 0)
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: limit
+          in: query
+          description: Pagination limit (default 50)
+          required: false
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
       responses:
         "200":
           description: List of pre-consignments retrieved successfully
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/PreConsignmentResponseDTO"
+                $ref: "#/components/schemas/TraderPreConsignmentsResponseDTO"
         "400":
           description: Invalid query parameters or missing traderId
         "500":
@@ -558,6 +602,7 @@ components:
         - items
         - offset
         - limit
+
       properties:
         totalCount:
           type: integer
@@ -573,7 +618,6 @@ components:
         limit:
           type: integer
           description: Pagination limit used in the query
-
     # Task Schemas
     ExecutionRequest:
       type: object

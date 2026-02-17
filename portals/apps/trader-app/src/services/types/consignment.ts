@@ -64,3 +64,7 @@ export interface CreateConsignmentRequest {
 }
 
 export type CreateConsignmentResponse = Consignment
+
+import type { PaginatedResponse } from './common'
+
+export type ConsignmentListResult = PaginatedResponse<Consignment>

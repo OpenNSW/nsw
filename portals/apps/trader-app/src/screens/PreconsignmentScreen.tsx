@@ -24,18 +24,24 @@ import {
     getPreConsignment,
     type TraderPreConsignmentItem,
 } from '../services/preConsignment'
+import { PaginationControl } from '../components/common/PaginationControl'
 
 export function PreconsignmentScreen() {
     const navigate = useNavigate()
     const [loading, setLoading] = useState(true)
     const [items, setItems] = useState<TraderPreConsignmentItem[]>([])
+    const [totalCount, setTotalCount] = useState(0)
+    const [page, setPage] = useState(0)
+    const limit = 15
+
     const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null)
 
     const loadData = async () => {
         try {
             setLoading(true)
-            const response = await getTraderPreConsignments()
+            const response = await getTraderPreConsignments(page * limit, limit)
             setItems(response.items || [])
+            setTotalCount(response.totalCount)
         } catch (error) {
             console.error('Failed to load pre-consignments', error)
             setNotification({ type: 'error', message: 'Failed to load pre-consignments list.' })
@@ -59,7 +65,7 @@ export function PreconsignmentScreen() {
 
     useEffect(() => {
         loadData()
-    }, [])
+    }, [page])
 
     // Auto-dismiss success notifications
     useEffect(() => {
@@ -210,10 +216,19 @@ export function PreconsignmentScreen() {
                 })}
             </div>
 
-            {items.length === 0 && (
-                <Text color="gray" align="center" as="p" mt="9">
-                    No registration templates available at this time.
-                </Text>
+
+
+            {/* Pagination Controls */}
+            {items.length > 0 && (
+                <PaginationControl
+                    currentPage={page + 1}
+                    totalPages={Math.ceil(totalCount / limit)}
+                    onPageChange={(p) => setPage(p - 1)}
+                    hasNext={(page + 1) * limit < totalCount}
+                    hasPrev={page > 0}
+                    totalCount={totalCount}
+
+                />
             )}
         </Box>
     )
