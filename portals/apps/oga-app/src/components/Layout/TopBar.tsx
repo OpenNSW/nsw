@@ -1,13 +1,13 @@
 import { BellIcon, MagnifyingGlassIcon, PersonIcon } from '@radix-ui/react-icons'
+import {appConfig} from "../../config.ts";
 
 export function TopBar() {
-  const appTitle = import.meta.env.VITE_APP_TITLE as string || 'OGA Officer Portal';
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
       {/* Logo */}
       <div className="flex items-center">
-        <span className="text-xl font-bold text-gray-900">{appTitle}</span>
+        <span className="text-xl font-bold text-gray-900">{appConfig.branding.appName}</span>
       </div>
 
       {/* Right Side Actions */}

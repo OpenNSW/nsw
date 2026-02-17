@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Badge, Text, TextField, Spinner, Select } from '@radix-ui/themes'
-import { MagnifyingGlassIcon } from '@radix-ui/react-icons'
-import { fetchPendingApplications, type OGAApplication } from '../api'
+import { Badge, Text, TextField, Spinner, Select, IconButton } from '@radix-ui/themes'
+import { MagnifyingGlassIcon, ChevronLeftIcon, ChevronRightIcon } from '@radix-ui/react-icons'
+import { fetchApplications, type OGAApplication } from '../api'
+
+const PAGE_SIZE = 20
 
 
 
@@ -12,13 +14,22 @@ export function WorkflowListScreen() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('PENDING')
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  useEffect(() => {
+    setPage(1)
+  }, [statusFilter])
 
   useEffect(() => {
     async function fetchData() {
       try {
         const filterStatus = statusFilter === 'all' ? undefined : statusFilter
-        const apps = await fetchPendingApplications(filterStatus)
-        setApplications(apps)
+        const result = await fetchApplications({ status: filterStatus, page, pageSize: PAGE_SIZE })
+        setApplications(result.items)
+        setTotal(result.total)
       } catch (error) {
         console.error('Failed to fetch applications:', error)
       } finally {
@@ -31,7 +42,7 @@ export function WorkflowListScreen() {
     // Poll for new applications every 10 seconds
     const interval = setInterval(fetchData, 10000)
     return () => clearInterval(interval)
-  }, [statusFilter])
+  }, [statusFilter, page])
 
   const filteredApplications = applications.filter((app) => {
     return searchQuery === '' ||
@@ -69,7 +80,7 @@ export function WorkflowListScreen() {
         </div>
         <div className="flex items-center gap-4">
           <Badge color="blue" variant="soft" size="2">
-            {filteredApplications.length} Pending Review
+            {total} {statusFilter === 'all' ? 'Total' : statusFilter === 'PENDING' ? 'Pending Review' : statusFilter.charAt(0) + statusFilter.slice(1).toLowerCase()}
           </Badge>
         </div>
       </div>
@@ -169,6 +180,33 @@ export function WorkflowListScreen() {
             </div>
           )}
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between pt-2">
+            <Text size="2" color="gray">
+              Page {page} of {totalPages} ({total} results)
+            </Text>
+            <div className="flex items-center gap-2">
+              <IconButton
+                size="1"
+                variant="soft"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                <ChevronLeftIcon />
+              </IconButton>
+              <IconButton
+                size="1"
+                variant="soft"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                <ChevronRightIcon />
+              </IconButton>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
