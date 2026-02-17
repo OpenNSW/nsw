@@ -246,9 +246,6 @@ export function ConsignmentScreen() {
             </table>
           </div>
         )}
-
-
-        {/* Pagination Controls */}
         <PaginationControl
           currentPage={page + 1}
           totalPages={Math.ceil(totalCount / limit)}

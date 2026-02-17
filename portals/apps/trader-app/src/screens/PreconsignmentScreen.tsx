@@ -215,10 +215,6 @@ export function PreconsignmentScreen() {
                     )
                 })}
             </div>
-
-
-
-            {/* Pagination Controls */}
             {items.length > 0 && (
                 <PaginationControl
                     currentPage={page + 1}
