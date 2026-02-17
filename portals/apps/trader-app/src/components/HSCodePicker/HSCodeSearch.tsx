@@ -35,7 +35,7 @@ export function HSCodeSearch({ value, onChange }: HSCodeSearchProps) {
           hsCodeStartsWith: searchQuery,
           limit: 20,
         })
-        setHsCodes(result.data)
+        setHsCodes(result.items)
       } catch (error) {
         console.error('Failed to fetch HS codes:', error)
       } finally {
@@ -121,8 +121,8 @@ export function HSCodeSearch({ value, onChange }: HSCodeSearchProps) {
                       gap="3"
                       align="start"
                       className={`cursor-pointer transition-colors ${isSelected
-                          ? 'bg-blue-50 hover:bg-blue-100'
-                          : 'hover:bg-gray-50'
+                        ? 'bg-blue-50 hover:bg-blue-100'
+                        : 'hover:bg-gray-50'
                         }`}
                       onClick={() => handleSelect(hsCode)}
                     >

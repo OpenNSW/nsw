@@ -1,30 +1,14 @@
 import { JsonForms } from '@jsonforms/react';
 import { radixRenderers } from '@lsf/ui';
 import { sendTaskCommand } from "../services/task.ts";
-import { uploadFile } from "../services/upload";
+
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useState, useCallback } from "react";
 import { Button } from "@radix-ui/themes";
 import type { JsonSchema, UISchemaElement } from '@jsonforms/core';
 import { autoFillForm } from "../utils/formUtils";
 
-// Helper to convert Data URL to File
-function dataURLtoFile(dataurl: string, filename: string): File {
-  const arr = dataurl.split(',');
-  if (arr.length < 2) {
-    console.warn(`Invalid data URL for ${filename}, creating empty file.`);
-    return new File([], filename, { type: 'application/octet-stream' });
-  }
-  const match = arr[0].match(/:(.*?);/);
-  const mime = match ? match[1] : 'application/octet-stream';
-  const bstr = atob(arr[1]);
-  let n = bstr.length;
-  const u8arr = new Uint8Array(n);
-  while (n--) {
-    u8arr[n] = bstr.charCodeAt(n);
-  }
-  return new File([u8arr], filename, { type: mime });
-}
+
 
 export interface TaskFormData {
   title: string
@@ -57,39 +41,7 @@ function TraderForm(props: { formInfo: TaskFormData, pluginState: string }) {
   const isPreConsignment = location.pathname.includes('/pre-consignments/')
   const workflowId = preConsignmentId || consignmentId
 
-  const replaceFilesWithKeys = async (value: unknown): Promise<unknown> => {
-    // Detect Data URL (string starting with data:)
-    if (typeof value === 'string' && value.startsWith('data:')) {
-      const mime = value.split(';')[0].split(':')[1] || '';
-      const ext = mime.split('/')[1] || 'bin';
-      const filename = `upload-${Date.now()}.${ext}`;
-      const file = dataURLtoFile(value, filename);
 
-      try {
-        const metadata = await uploadFile(file);
-        return metadata.key;
-      } catch (e) {
-        console.error("Failed to upload file", e);
-        throw new Error("Failed to upload file");
-      }
-    }
-
-    if (Array.isArray(value)) {
-      return await Promise.all(value.map(replaceFilesWithKeys))
-    }
-
-    if (value && typeof value === 'object') {
-      const entries = await Promise.all(
-        Object.entries(value as Record<string, unknown>).map(async ([key, nested]) => [
-          key,
-          await replaceFilesWithKeys(nested),
-        ] as const)
-      )
-      return Object.fromEntries(entries)
-    }
-
-    return value
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,8 +59,8 @@ function TraderForm(props: { formInfo: TaskFormData, pluginState: string }) {
     setSubmitError(null);
 
     try {
-      // Send form submission - data now contains file keys (strings) instead of File objects
-      const preparedData = await replaceFilesWithKeys(data) as Record<string, unknown>
+      // Send form submission
+      const preparedData = data
 
       const response = await sendTaskCommand({
         command: 'SUBMISSION',
