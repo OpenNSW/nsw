@@ -81,8 +81,11 @@ export interface TaskCommandResponse {
 
 // --- API Methods ---
 
-export async function getTraderPreConsignments(): Promise<TraderPreConsignmentsResponse> {
-    const response = await apiGet<PreConsignmentListApiResponse>('/pre-consignments')
+export async function getTraderPreConsignments(
+    offset: number = 0,
+    limit: number = 50
+): Promise<TraderPreConsignmentsResponse> {
+    const response = await apiGet<PreConsignmentListApiResponse>('/pre-consignments', { offset, limit })
 
     if (Array.isArray(response)) {
         const items: TraderPreConsignmentItem[] = response.map((instance) => ({
@@ -102,6 +105,8 @@ export async function getTraderPreConsignments(): Promise<TraderPreConsignmentsR
             limit: items.length,
         }
     }
+
+
 
     return response
 }

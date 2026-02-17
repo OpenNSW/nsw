@@ -29,13 +29,18 @@ export function PreconsignmentScreen() {
     const navigate = useNavigate()
     const [loading, setLoading] = useState(true)
     const [items, setItems] = useState<TraderPreConsignmentItem[]>([])
+    const [totalCount, setTotalCount] = useState(0)
+    const [page, setPage] = useState(0)
+    const PAGE_SIZE = 15
+
     const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null)
 
     const loadData = async () => {
         try {
             setLoading(true)
-            const response = await getTraderPreConsignments()
+            const response = await getTraderPreConsignments(page * PAGE_SIZE, PAGE_SIZE)
             setItems(response.items || [])
+            setTotalCount(response.totalCount)
         } catch (error) {
             console.error('Failed to load pre-consignments', error)
             setNotification({ type: 'error', message: 'Failed to load pre-consignments list.' })
@@ -59,7 +64,7 @@ export function PreconsignmentScreen() {
 
     useEffect(() => {
         loadData()
-    }, [])
+    }, [page])
 
     // Auto-dismiss success notifications
     useEffect(() => {
@@ -100,7 +105,7 @@ export function PreconsignmentScreen() {
             setLoading(true)
             const instance = await getPreConsignment(preConsignmentId)
             const nodes = instance.workflowNodes || []
-            
+
             // Find the appropriate task
             let targetNode = nodes.find(
                 (node) => node.state === 'IN_PROGRESS' || node.state === 'READY'
@@ -210,10 +215,51 @@ export function PreconsignmentScreen() {
                 })}
             </div>
 
-            {items.length === 0 && (
-                <Text color="gray" align="center" as="p" mt="9">
-                    No registration templates available at this time.
-                </Text>
+
+
+            {/* Pagination Controls */}
+            {items.length > 0 && (
+                <div className="border-t border-gray-200 mt-6 pt-4 flex items-center justify-between">
+                    <div className="flex-1 flex justify-between sm:hidden">
+                        <Button
+                            variant="soft"
+                            onClick={() => setPage(page - 1)}
+                            disabled={page === 0}
+                        >
+                            Previous
+                        </Button>
+                        <Button
+                            variant="soft"
+                            onClick={() => setPage(page + 1)}
+                            disabled={(page + 1) * PAGE_SIZE >= totalCount}
+                        >
+                            Next
+                        </Button>
+                    </div>
+                    <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                        <div>
+                            <Text size="2" color="gray">
+                                Showing <span className="font-medium">{Math.min(page * PAGE_SIZE + 1, totalCount)}</span> to <span className="font-medium">{Math.min((page + 1) * PAGE_SIZE, totalCount)}</span> of <span className="font-medium">{totalCount}</span> results
+                            </Text>
+                        </div>
+                        <div className="flex gap-2">
+                            <Button
+                                variant="soft"
+                                onClick={() => setPage(page - 1)}
+                                disabled={page === 0}
+                            >
+                                Previous
+                            </Button>
+                            <Button
+                                variant="soft"
+                                onClick={() => setPage(page + 1)}
+                                disabled={(page + 1) * PAGE_SIZE >= totalCount}
+                            >
+                                Next
+                            </Button>
+                        </div>
+                    </div>
+                </div>
             )}
         </Box>
     )
