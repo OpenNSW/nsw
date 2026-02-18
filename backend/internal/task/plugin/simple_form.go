@@ -337,7 +337,6 @@ func (s *SimpleForm) submitHandler(ctx context.Context, content any) (*Execution
 		}
 		return nil
 	})
-
 	if err != nil {
 		return &ExecutionResponse{
 			ApiResponse: &ApiResponse{

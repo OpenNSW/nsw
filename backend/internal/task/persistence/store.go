@@ -17,7 +17,7 @@ type TaskInfo struct {
 	WorkflowID             uuid.UUID       `gorm:"type:uuid;column:workflow_id;not null;index" json:"workflowId"`
 	WorkflowNodeTemplateID uuid.UUID       `gorm:"type:uuid;column:workflow_node_template_id;not null" json:"workflowNodeTemplateId"`
 	Type                   plugin.Type     `gorm:"type:varchar(50);column:type;not null" json:"type"`
-	State                  plugin.State    `gorm:"type:varchar(50);column:state;not null" json:"state"`      // Container-level state (lifecycle)
+	State                  plugin.State    `gorm:"type:varchar(50);column:state" json:"state"`               // Container-level state (lifecycle)
 	PluginState            string          `gorm:"type:varchar(100);column:plugin_state" json:"pluginState"` // Plugin-level state (business logic)
 	Config                 json.RawMessage `gorm:"type:jsonb;column:config;serializer:json" json:"config"`
 	LocalState             json.RawMessage `gorm:"type:jsonb;column:local_state;serializer:json" json:"localState"`
