@@ -2,8 +2,6 @@ import { apiGet } from './api'
 import type { PaginatedResponse } from './types/common'
 import type { HSCode, HSCodeQueryParams } from './types/hsCode'
 
-
-
 export async function getHSCodes(
   params: HSCodeQueryParams = {}
 ): Promise<PaginatedResponse<HSCode>> {

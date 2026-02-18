@@ -3,6 +3,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080
 // TODO: Should remove this after implementing proper authentication, and use the auth token instead of a hardcoded trader ID
 const TRADER_ID = 'TRADER-001'
 
+
 export type ErrorResponse = {
   code: string
   message: string
@@ -13,6 +14,14 @@ export type ApiResponse<T> = {
   success: boolean
   data: T
   error?: ErrorResponse
+}
+
+export type PaginatedResponse<T> = {
+  data: T[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
 }
 
 export interface QueryParams {
