@@ -5,12 +5,7 @@ export interface HSCode {
   category: string
 }
 
-export interface HSCodeListResult {
-  totalCount: number
-  items: HSCode[]
-  offset: number
-  limit: number
-}
+
 
 export interface HSCodeQueryParams {
   hsCodeStartsWith?: string

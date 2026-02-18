@@ -1,11 +1,10 @@
 import { apiGet } from './api'
-import type { HSCodeListResult, HSCodeQueryParams } from './types/hsCode'
-
-
+import type { PaginatedResponse } from './types/common'
+import type { HSCode, HSCodeQueryParams } from './types/hsCode'
 
 export async function getHSCodes(
   params: HSCodeQueryParams = {}
-): Promise<HSCodeListResult> {
+): Promise<PaginatedResponse<HSCode>> {
   // Convert HSCodeQueryParams to QueryParams
   const queryParams: Record<string, string | number> = {}
   if (params.hsCodeStartsWith) {
@@ -18,7 +17,7 @@ export async function getHSCodes(
     queryParams.offset = params.offset
   }
 
-  return apiGet<HSCodeListResult>(
+  return apiGet<PaginatedResponse<HSCode>>(
     '/hscodes',
     queryParams
   )
