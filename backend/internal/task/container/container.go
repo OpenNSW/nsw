@@ -68,7 +68,10 @@ func (c *Container) Transition(action string) error {
 }
 
 func (c *Container) Start(ctx context.Context) (*plugin.ExecutionResponse, error) {
-	prev := c.GetPluginState()
+	c.mu.RLock()
+	prev := c.pluginState
+	c.mu.RUnlock()
+
 	resp, err := c.Executable.Start(ctx)
 	if err != nil {
 		return resp, err
@@ -76,13 +79,17 @@ func (c *Container) Start(ctx context.Context) (*plugin.ExecutionResponse, error
 	if resp == nil {
 		resp = &plugin.ExecutionResponse{}
 	}
+
 	c.mu.RLock()
-	state, pluginState := c.State, c.pluginState
+	state := c.State
+	pluginState := c.pluginState
 	c.mu.RUnlock()
+
 	if pluginState != prev {
 		resp.NewState = &state
 		resp.ExtendedState = &pluginState
 	}
+
 	return resp, nil
 }
 
