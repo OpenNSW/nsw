@@ -10,15 +10,16 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/OpenNSW/nsw/internal/config"
-	"github.com/OpenNSW/nsw/internal/task/container"
-	"github.com/OpenNSW/nsw/internal/task/persistence"
-	"github.com/OpenNSW/nsw/internal/task/plugin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+
+	"github.com/OpenNSW/nsw/internal/config"
+	"github.com/OpenNSW/nsw/internal/task/container"
+	"github.com/OpenNSW/nsw/internal/task/persistence"
+	"github.com/OpenNSW/nsw/internal/task/plugin"
 )
 
 // MockTaskFactory
@@ -135,6 +136,24 @@ func (m *MockPlugin) GetRenderInfo(ctx context.Context) (*plugin.ApiResponse, er
 	return args.Get(0).(*plugin.ApiResponse), args.Error(1)
 }
 
+func setupTest(t *testing.T) (*taskManager, *MockTaskFactory, *MockTaskStore, *MockPlugin) {
+	t.Helper()
+
+	mockFactory := new(MockTaskFactory)
+	mockStore := new(MockTaskStore)
+	mockPlugin := new(MockPlugin)
+	cfg := &config.Config{}
+
+	tm := &taskManager{
+		factory:        mockFactory,
+		store:          mockStore,
+		config:         cfg,
+		containerCache: newContainerCache(10),
+	}
+
+	return tm, mockFactory, mockStore, mockPlugin
+}
+
 func TestInitTask(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockFactory := new(MockTaskFactory)
@@ -177,15 +196,7 @@ func TestInitTask(t *testing.T) {
 	})
 
 	t.Run("BuildExecutor Error", func(t *testing.T) {
-		mockFactory := new(MockTaskFactory)
-		mockStore := new(MockTaskStore)
-		cfg := &config.Config{}
-		tm := &taskManager{
-			factory:        mockFactory,
-			store:          mockStore,
-			config:         cfg,
-			containerCache: newContainerCache(10),
-		}
+		tm, mockFactory, _, _ := setupTest(t)
 		ctx := context.Background()
 		req := InitTaskRequest{
 			TaskID: uuid.New(),
@@ -202,16 +213,7 @@ func TestInitTask(t *testing.T) {
 	})
 
 	t.Run("Plugin Start Error", func(t *testing.T) {
-		mockFactory := new(MockTaskFactory)
-		mockStore := new(MockTaskStore)
-		mockPlugin := new(MockPlugin)
-		cfg := &config.Config{}
-		tm := &taskManager{
-			factory:        mockFactory,
-			store:          mockStore,
-			config:         cfg,
-			containerCache: newContainerCache(10),
-		}
+		tm, mockFactory, mockStore, mockPlugin := setupTest(t)
 		ctx := context.Background()
 		req := InitTaskRequest{
 			TaskID: uuid.New(),
@@ -236,16 +238,7 @@ func TestInitTask(t *testing.T) {
 	})
 
 	t.Run("Store Create Error", func(t *testing.T) {
-		mockFactory := new(MockTaskFactory)
-		mockStore := new(MockTaskStore)
-		mockPlugin := new(MockPlugin)
-		cfg := &config.Config{}
-		tm := &taskManager{
-			factory:        mockFactory,
-			store:          mockStore,
-			config:         cfg,
-			containerCache: newContainerCache(10),
-		}
+		tm, mockFactory, mockStore, mockPlugin := setupTest(t)
 		ctx := context.Background()
 		req := InitTaskRequest{
 			TaskID: uuid.New(),
@@ -270,16 +263,7 @@ func TestInitTask(t *testing.T) {
 
 func TestHandleExecuteTask(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		mockFactory := new(MockTaskFactory)
-		mockStore := new(MockTaskStore)
-		mockPlugin := new(MockPlugin)
-		cfg := &config.Config{}
-		tm := &taskManager{
-			factory:        mockFactory,
-			store:          mockStore,
-			config:         cfg,
-			containerCache: newContainerCache(10),
-		}
+		tm, mockFactory, mockStore, mockPlugin := setupTest(t)
 
 		taskID := uuid.New()
 		workflowID := uuid.New()
@@ -324,16 +308,7 @@ func TestHandleExecuteTask(t *testing.T) {
 	})
 
 	t.Run("Execute Error", func(t *testing.T) {
-		mockFactory := new(MockTaskFactory)
-		mockStore := new(MockTaskStore)
-		mockPlugin := new(MockPlugin)
-		cfg := &config.Config{}
-		tm := &taskManager{
-			factory:        mockFactory,
-			store:          mockStore,
-			config:         cfg,
-			containerCache: newContainerCache(10),
-		}
+		tm, mockFactory, mockStore, mockPlugin := setupTest(t)
 
 		taskID := uuid.New()
 		workflowID := uuid.New()
@@ -393,16 +368,7 @@ func TestHandleExecuteTask(t *testing.T) {
 
 func TestHandleGetTask(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		mockFactory := new(MockTaskFactory)
-		mockStore := new(MockTaskStore)
-		mockPlugin := new(MockPlugin)
-		cfg := &config.Config{}
-		tm := &taskManager{
-			factory:        mockFactory,
-			store:          mockStore,
-			config:         cfg,
-			containerCache: newContainerCache(10),
-		}
+		tm, mockFactory, mockStore, mockPlugin := setupTest(t)
 
 		taskID := uuid.New()
 		workflowID := uuid.New()
@@ -444,16 +410,7 @@ func TestHandleGetTask(t *testing.T) {
 	})
 
 	t.Run("GetRenderInfo Error", func(t *testing.T) {
-		mockFactory := new(MockTaskFactory)
-		mockStore := new(MockTaskStore)
-		mockPlugin := new(MockPlugin)
-		cfg := &config.Config{}
-		tm := &taskManager{
-			factory:        mockFactory,
-			store:          mockStore,
-			config:         cfg,
-			containerCache: newContainerCache(10),
-		}
+		tm, mockFactory, mockStore, mockPlugin := setupTest(t)
 
 		taskID := uuid.New()
 		req := httptest.NewRequest(http.MethodGet, "/tasks/"+taskID.String(), nil)
@@ -481,15 +438,7 @@ func TestHandleGetTask(t *testing.T) {
 	})
 
 	t.Run("Task Not Found", func(t *testing.T) {
-		mockFactory := new(MockTaskFactory)
-		mockStore := new(MockTaskStore)
-		cfg := &config.Config{}
-		tm := &taskManager{
-			factory:        mockFactory,
-			store:          mockStore,
-			config:         cfg,
-			containerCache: newContainerCache(10),
-		}
+		tm, _, mockStore, _ := setupTest(t)
 		taskID := uuid.New()
 
 		req := httptest.NewRequest(http.MethodGet, "/tasks/"+taskID.String(), nil)
@@ -505,7 +454,7 @@ func TestHandleGetTask(t *testing.T) {
 	})
 
 	t.Run("Invalid Task ID", func(t *testing.T) {
-		tm := &taskManager{}
+		tm, _, _, _ := setupTest(t)
 		req := httptest.NewRequest(http.MethodGet, "/tasks/invalid", nil)
 		req.SetPathValue("id", "invalid")
 		w := httptest.NewRecorder()
@@ -562,15 +511,7 @@ func TestNotifyWorkflowManager(t *testing.T) {
 
 func TestGetTask_CacheRebuild(t *testing.T) {
 	t.Run("Cache Hit", func(t *testing.T) {
-		mockFactory := new(MockTaskFactory)
-		mockStore := new(MockTaskStore)
-		mockPlugin := new(MockPlugin)
-
-		tm := &taskManager{
-			containerCache: newContainerCache(10),
-			factory:        mockFactory,
-			store:          mockStore,
-		}
+		tm, _, _, mockPlugin := setupTest(t)
 		taskID := uuid.New()
 
 		// Expect Init call
@@ -587,14 +528,7 @@ func TestGetTask_CacheRebuild(t *testing.T) {
 	})
 
 	t.Run("Cache Miss Rebuild Success", func(t *testing.T) {
-		mockFactory := new(MockTaskFactory)
-		mockStore := new(MockTaskStore)
-		mockPlugin := new(MockPlugin)
-		tm := &taskManager{
-			containerCache: newContainerCache(10),
-			factory:        mockFactory,
-			store:          mockStore,
-		}
+		tm, mockFactory, mockStore, mockPlugin := setupTest(t)
 		taskID := uuid.New()
 		workflowID := uuid.New()
 
@@ -628,11 +562,7 @@ func TestGetTask_CacheRebuild(t *testing.T) {
 	})
 
 	t.Run("Cache Miss Store Error", func(t *testing.T) {
-		mockStore := new(MockTaskStore)
-		tm := &taskManager{
-			containerCache: newContainerCache(10),
-			store:          mockStore,
-		}
+		tm, _, mockStore, _ := setupTest(t)
 		taskID := uuid.New()
 
 		mockStore.On("GetByID", taskID).Return(nil, errors.New("store error")).Once()

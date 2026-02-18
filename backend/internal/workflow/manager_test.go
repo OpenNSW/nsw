@@ -3,9 +3,10 @@ package workflow
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/OpenNSW/nsw/internal/task/plugin"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestPluginStateToWorkflowNodeState(t *testing.T) {

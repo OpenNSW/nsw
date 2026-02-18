@@ -4,11 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"gorm.io/gorm"
+
+	"github.com/OpenNSW/nsw/internal/workflow/model"
 )
 
 // MockWorkflowNodeRepository is a mock implementation of WorkflowNodeRepository
@@ -212,15 +213,17 @@ func TestInitializeNodesFromTemplates(t *testing.T) {
 		assert.Len(t, newReadyNodes, 1)
 
 		// Verify the node without dependencies is READY
-		var readyNode *model.WorkflowNode
+		assert.Len(t, newReadyNodes, 1)
+		assert.Equal(t, template1ID, newReadyNodes[0].WorkflowNodeTemplateID)
+
+		var foundInCreated bool
 		for _, node := range createdNodes {
 			if node.WorkflowNodeTemplateID == template1ID {
-				readyNode = &node
-				break
+				assert.Equal(t, model.WorkflowNodeStateReady, node.State)
+				foundInCreated = true
 			}
 		}
-		assert.NotNil(t, readyNode)
-		assert.Equal(t, model.WorkflowNodeStateReady, readyNode.State)
+		assert.True(t, foundInCreated, "ready node not found in createdNodes with correct state")
 	})
 
 	t.Run("Create Nodes Without Dependencies", func(t *testing.T) {
