@@ -274,7 +274,7 @@ func (s *SimpleForm) dispatch(ctx context.Context, action string, content any) (
 
 // draftHandler saves the current form data as a draft to local store.
 func (s *SimpleForm) draftHandler(_ context.Context, content any) (*ExecutionResponse, error) {
-	if err := s.api.WriteToLocalStore("trader:draft", content); err != nil {
+	if err := s.api.WriteToLocalStore("trader:form", content); err != nil {
 		return &ExecutionResponse{
 			ApiResponse: &ApiResponse{
 				Success: false,
@@ -299,8 +299,7 @@ func (s *SimpleForm) submitHandler(ctx context.Context, content any) (*Execution
 		}, err
 	}
 
-	// Saving as draft until, form is submitted successfully
-	if err := s.api.WriteToLocalStore("trader:draft", formData); err != nil {
+	if err := s.api.WriteToLocalStore("trader:form", formData); err != nil {
 		slog.Warn("failed to write form data to local store", "error", err)
 	}
 
@@ -338,6 +337,7 @@ func (s *SimpleForm) submitHandler(ctx context.Context, content any) (*Execution
 		}
 		return nil
 	})
+
 	if err != nil {
 		return &ExecutionResponse{
 			ApiResponse: &ApiResponse{
@@ -377,12 +377,6 @@ func (s *SimpleForm) submitHandler(ctx context.Context, content any) (*Execution
 				Error:   &ApiError{Code: "FORM_SUBMISSION_FAILED", Message: "Failed to submit form to external system."},
 			},
 		}, err
-	}
-
-	// persisting the trader submission data as submitted since submission is successful.
-	if err := s.api.WriteToLocalStore("trader:submission", formData); err != nil {
-		slog.Warn("failed to write form submission data to local store",
-			"formId", s.config.FormID, "submissionUrl", submissionUrl, "error", err)
 	}
 
 	if s.config.Submission != nil &&
@@ -469,10 +463,8 @@ func (s *SimpleForm) resolveFormData(ctx context.Context, state SimpleFormState)
 	switch state {
 	case SimpleFormInitialized:
 		return s.prepopulateFormData(ctx, s.config.FormData)
-	case TraderSavedAsDraft:
-		return s.api.ReadFromLocalStore("trader:draft")
-	case TraderSubmitted, OGAAcknowledged, OGAReviewed:
-		return s.api.ReadFromLocalStore("trader:submission")
+	case TraderSavedAsDraft, TraderSubmitted, OGAAcknowledged, OGAReviewed:
+		return s.api.ReadFromLocalStore("trader:form")
 	default:
 		return s.config.FormData, nil
 	}
