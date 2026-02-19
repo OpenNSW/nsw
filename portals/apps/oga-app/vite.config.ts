@@ -11,7 +11,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@opennsw/ui': path.resolve(__dirname, '../../ui/src')
+      '@opennsw/ui': path.resolve(__dirname, '../../packages/ui/src'),
+      '@opennsw/jsonforms-renderers': path.resolve(__dirname, '../../packages/jsonforms-renderers/src')
     }
   }
 })

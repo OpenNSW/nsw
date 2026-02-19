@@ -30,7 +30,10 @@
     "noUncheckedSideEffectImports": true,
     "paths": {
       "@opennsw/ui": [
-        "../../ui/src/index.ts"
+        "../../packages/ui/src/index.ts"
+      ],
+      "@opennsw/jsonforms-renderers": [
+        "../../packages/jsonforms-renderers/src/index.ts"
       ]
     }
   },
