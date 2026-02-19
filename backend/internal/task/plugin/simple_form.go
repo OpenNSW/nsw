@@ -266,7 +266,7 @@ func (s *SimpleForm) dispatch(ctx context.Context, action string, content any) (
 	case simpleFormFSMOgaRejected:
 		return s.ogaRejectedHandler(ctx, content)
 	default:
-		return &ExecutionResponse{}, nil
+		return nil, fmt.Errorf("unhandled FSM action: %q", action)
 	}
 }
 
