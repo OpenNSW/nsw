@@ -1,9 +1,13 @@
-import {JsonForm, type JsonSchema, type UISchemaElement, useJsonForm} from "../components/JsonForm";
-import {sendTaskCommand} from "../services/task.ts";
-import {uploadFile} from "../services/upload";
-import {useLocation, useNavigate, useParams} from "react-router-dom";
-import {useState} from "react";
-import {Button} from "@radix-ui/themes";
+import { JsonForms } from '@jsonforms/react';
+import { radixRenderers } from '@lsf/ui';
+import { sendTaskCommand } from "../services/task.ts";
+
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useState, useCallback } from "react";
+import { Button } from "@radix-ui/themes";
+import type { JsonSchema, UISchemaElement } from '@jsonforms/core';
+import { autoFillForm } from "../utils/formUtils";
+
 
 
 export interface TaskFormData {
@@ -27,7 +31,10 @@ function TraderForm(props: { formInfo: TaskFormData, pluginState: string }) {
   }>()
   const location = useLocation()
   const navigate = useNavigate()
-  const [error, setError] = useState<string | null>(null)
+  const [data, setData] = useState<Record<string, unknown>>(props.formInfo.formData || {})
+  const [errors, setErrors] = useState<any[]>([])
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const READ_ONLY_STATES = ['OGA_REVIEWED', 'SUBMITTED', 'OGA_ACKNOWLEDGED'];
   const isReadOnly = READ_ONLY_STATES.includes(props.pluginState);
@@ -35,40 +42,26 @@ function TraderForm(props: { formInfo: TaskFormData, pluginState: string }) {
   const isPreConsignment = location.pathname.includes('/pre-consignments/')
   const workflowId = preConsignmentId || consignmentId
 
-  const replaceFilesWithKeys = async (value: unknown): Promise<unknown> => {
-    if (value instanceof File) {
-      const metadata = await uploadFile(value)
-      return metadata.key
-    }
 
-    if (Array.isArray(value)) {
-      return await Promise.all(value.map(replaceFilesWithKeys))
-    }
 
-    if (value && typeof value === 'object') {
-      const entries = await Promise.all(
-        Object.entries(value as Record<string, unknown>).map(async ([key, nested]) => [
-          key,
-          await replaceFilesWithKeys(nested),
-        ] as const)
-      )
-      return Object.fromEntries(entries)
-    }
-
-    return value
-  }
-
-  const handleSubmit = async (data: unknown) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!workflowId || !taskId) {
-      setError('Workflow ID or Task ID is missing.')
+      setSubmitError('Workflow ID or Task ID is missing.')
       return
     }
 
-    try {
-      setError(null)
+    if (errors.length > 0) {
+      setSubmitError('Please fix validation errors before submitting.');
+      return;
+    }
 
-      // Send form submission - data now contains file keys (strings) instead of File objects
-      const preparedData = await replaceFilesWithKeys(data) as Record<string, unknown>
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      // Send form submission
+      const preparedData = data
 
       const response = await sendTaskCommand({
         command: 'SUBMISSION',
@@ -81,19 +74,20 @@ function TraderForm(props: { formInfo: TaskFormData, pluginState: string }) {
         // Navigate back to appropriate workflow list
         navigate(isPreConsignment ? '/pre-consignments' : `/consignments/${workflowId}`)
       } else {
-        setError(response.error?.message || 'Failed to submit form.')
+        setSubmitError(response.error?.message || 'Failed to submit form.')
       }
     } catch (err) {
       console.error('Error submitting form:', err)
-      setError('Failed to submit form. Please try again.')
+      setSubmitError('Failed to submit form. Please try again.')
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
-  const form = useJsonForm({
-    schema: props.formInfo.schema,
-    data: props.formInfo.formData,
-    onSubmit: handleSubmit,
-  })
+  const handleAutoFill = useCallback(() => {
+    const filledData = autoFillForm(props.formInfo.schema, data);
+    setData(filledData);
+  }, [props.formInfo.schema, data]);
 
   const showAutoFillButton = import.meta.env.VITE_SHOW_AUTOFILL_BUTTON === 'true'
 
@@ -104,16 +98,17 @@ function TraderForm(props: { formInfo: TaskFormData, pluginState: string }) {
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
-        <form onSubmit={form.handleSubmit} noValidate>
-          <JsonForm
+        <form onSubmit={handleSubmit} noValidate>
+          <JsonForms
             schema={props.formInfo.schema}
-            uiSchema={props.formInfo.uiSchema}
-            values={form.values}
-            errors={form.errors}
-            touched={form.touched}
-            setValue={form.setValue}
-            setTouched={form.setTouched}
-            readOnly={isReadOnly}
+            uischema={props.formInfo.uiSchema}
+            data={data}
+            renderers={radixRenderers}
+            readonly={isReadOnly}
+            onChange={({ data, errors }) => {
+              setData(data);
+              setErrors(errors || []);
+            }}
           />
           {!isReadOnly && (
             <div className={`mt-4 flex gap-3 ${showAutoFillButton ? 'justify-between' : ''}`}>
@@ -124,28 +119,28 @@ function TraderForm(props: { formInfo: TaskFormData, pluginState: string }) {
                   color="purple"
                   size={"3"}
                   className={"flex-1!"}
-                  onClick={form.autoFillForm}
-                  disabled={form.isSubmitting}
+                  onClick={handleAutoFill}
+                  disabled={isSubmitting}
                 >
                   Demo - Auto Fill
                 </Button>
               )}
               <Button
                 type="submit"
-                disabled={form.isSubmitting}
+                disabled={isSubmitting}
                 className={'flex-1!'}
                 size={"3"}
               >
-                {form.isSubmitting ? 'Submitting...' : 'Submit Form'}
+                {isSubmitting ? 'Submitting...' : 'Submit Form'}
               </Button>
             </div>
           )}
         </form>
       </div>
 
-      {error && (
+      {submitError && (
         <div className="bg-red-100 text-red-700 rounded-lg p-4 mt-4">
-          <p>{error}</p>
+          <p>{submitError}</p>
         </div>
       )}
     </>
@@ -153,12 +148,6 @@ function TraderForm(props: { formInfo: TaskFormData, pluginState: string }) {
 }
 
 function SubmissionResponseForm(props: { formInfo: TaskFormData }) {
-  const form = useJsonForm({
-    schema: props.formInfo.schema,
-    data: props.formInfo.formData,
-    onSubmit: () => {
-    },
-  })
 
   return (
     <div className="mt-6 border-l-4 border-emerald-500 rounded-r-lg overflow-hidden shadow-sm">
@@ -175,7 +164,7 @@ function SubmissionResponseForm(props: { formInfo: TaskFormData }) {
       </div>
 
       <div className="bg-white border-t border-emerald-100 p-6">
-        <JsonForm
+        <JsonForms
           schema={props.formInfo.schema}
           uiSchema={props.formInfo.uiSchema}
           values={form.values}
@@ -191,12 +180,7 @@ function SubmissionResponseForm(props: { formInfo: TaskFormData }) {
 }
 
 function OgaReviewForm(props: { formInfo: TaskFormData }) {
-  const form = useJsonForm({
-    schema: props.formInfo.schema,
-    data: props.formInfo.formData,
-    onSubmit: () => {
-    },
-  })
+  const [data] = useState(props.formInfo.formData)
 
   return (
     <div className="mt-6 rounded-lg overflow-hidden shadow-sm border border-indigo-200">
@@ -213,16 +197,13 @@ function OgaReviewForm(props: { formInfo: TaskFormData }) {
         </div>
       </div>
 
-      <div className="bg-indigo-50 p-6">
-        <JsonForm
+      <div className="bg-blue-50 border border-blue-200 rounded-lg shadow-md p-6">
+        <JsonForms
           schema={props.formInfo.schema}
-          uiSchema={props.formInfo.uiSchema}
-          values={form.values}
-          errors={form.errors}
-          touched={form.touched}
-          setValue={form.setValue}
-          setTouched={form.setTouched}
-          readOnly={true}
+          uischema={props.formInfo.uiSchema}
+          data={data}
+          renderers={radixRenderers}
+          readonly={true}
         />
       </div>
     </div>

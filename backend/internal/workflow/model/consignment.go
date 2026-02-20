@@ -71,8 +71,8 @@ type UpdateConsignmentDTO struct {
 	AppendToGlobalContext map[string]any    `json:"appendToGlobalContext,omitempty"`  // Additional global context to append to the consignment (optional)
 }
 
-// ConsignmentResponseDTO represents the consignment data returned in responses.
-type ConsignmentResponseDTO struct {
+// ConsignmentDetailDTO represents the full consignment data returned in detailed responses.
+type ConsignmentDetailDTO struct {
 	ID            uuid.UUID                    `json:"id"`            // Consignment ID
 	Flow          ConsignmentFlow              `json:"flow"`          // e.g., IMPORT, EXPORT
 	TraderID      string                       `json:"traderId"`      // ID of the trader associated with the consignment
@@ -83,12 +83,25 @@ type ConsignmentResponseDTO struct {
 	WorkflowNodes []WorkflowNodeResponseDTO    `json:"workflowNodes"` // Associated workflow nodes with template details
 }
 
+// ConsignmentSummaryDTO represents the consignment data returned in list responses.
+type ConsignmentSummaryDTO struct {
+	ID                         uuid.UUID                    `json:"id"`                         // Consignment ID
+	Flow                       ConsignmentFlow              `json:"flow"`                       // e.g., IMPORT, EXPORT
+	TraderID                   string                       `json:"traderId"`                   // ID of the trader associated with the consignment
+	State                      ConsignmentState             `json:"state"`                      // State of the consignment
+	Items                      []ConsignmentItemResponseDTO `json:"items"`                      // Items in the consignment with full HS Code details
+	CreatedAt                  string                       `json:"createdAt"`                  // Timestamp of consignment creation
+	UpdatedAt                  string                       `json:"updatedAt"`                  // Timestamp of last consignment update
+	WorkflowNodeCount          int                          `json:"workflowNodeCount"`          // Total number of workflow nodes
+	CompletedWorkflowNodeCount int                          `json:"completedWorkflowNodeCount"` // Number of completed workflow nodes
+}
+
 // ConsignmentListResult represents the result of querying consignments with pagination
 type ConsignmentListResult struct {
-	TotalCount int64                    `json:"totalCount"`
-	Items      []ConsignmentResponseDTO `json:"items"`
-	Offset     int                      `json:"offset"`
-	Limit      int                      `json:"limit"`
+	TotalCount int64                   `json:"totalCount"`
+	Items      []ConsignmentSummaryDTO `json:"items"`
+	Offset     int                     `json:"offset"`
+	Limit      int                     `json:"limit"`
 }
 
 // ConsignmentFilter will be used when querying consignments as batch

@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Button, Spinner, Text } from '@radix-ui/themes'
 import { ArrowLeftIcon } from '@radix-ui/react-icons'
-import {getTaskInfo} from '../services/task'
-import PluginRenderer, {type RenderInfo} from '../plugins'
+import { getTaskInfo } from '../services/task'
+import PluginRenderer, { type RenderInfo } from '../plugins'
 
 
 export function TaskDetailScreen() {
@@ -27,6 +27,7 @@ export function TaskDetailScreen() {
       try {
         setLoading(true)
         const renderInfo = await getTaskInfo(taskId)
+
         setRenderInfo(renderInfo)
       } catch (err) {
         setError('Failed to fetch task details.')

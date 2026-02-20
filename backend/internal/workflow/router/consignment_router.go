@@ -24,7 +24,7 @@ func NewConsignmentRouter(cs *service.ConsignmentService, _ interface{}) *Consig
 
 // HandleCreateConsignment handles POST /api/v1/consignments
 // Request body: CreateConsignmentDTO
-// Response: ConsignmentResponseDTO
+// Response: ConsignmentDetailDTO
 func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *http.Request) {
 	// Require authentication
 	authCtx := auth.GetAuthContext(r.Context())
@@ -71,7 +71,7 @@ func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *ht
 // HandleGetConsignmentsByTraderID handles GET /api/v1/consignments
 // No query params required for traderId - uses traderId from auth context
 // Pagination query params: offset (optional), limit (optional)
-// Response: ConsignmentListResult
+// Response: ConsignmentListResult (containing ConsignmentSummaryDTO)
 func (c *ConsignmentRouter) HandleGetConsignmentsByTraderID(w http.ResponseWriter, r *http.Request) {
 	// Require authentication
 	authCtx := auth.GetAuthContext(r.Context())
@@ -118,7 +118,7 @@ func (c *ConsignmentRouter) HandleGetConsignmentsByTraderID(w http.ResponseWrite
 
 // HandleGetConsignmentByID handles GET /api/v1/consignments/{id}
 // Path param: id (required)
-// Response: ConsignmentResponseDTO
+// Response: ConsignmentDetailDTO
 func (c *ConsignmentRouter) HandleGetConsignmentByID(w http.ResponseWriter, r *http.Request) {
 	// Extract consignment ID from path
 	consignmentIDStr := r.PathValue("id")

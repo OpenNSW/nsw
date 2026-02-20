@@ -70,7 +70,7 @@ paths:
       summary: List Consignments
       description: >
         Retrieve all consignments for the authenticated trader.
-        Returns consignments with their items and associated workflow nodes.
+        Returns a paginated list of consignment summaries (excluding full workflow node details).
         Requires Authorization header with trader identification.
       operationId: listConsignments
       tags:
@@ -125,7 +125,7 @@ paths:
       description: >
         Create a new consignment with specified flow type and items.
         The system automatically initializes workflow tasks based on HS code mappings.
-        Returns the created consignment with all associated workflow nodes.
+        Returns the created consignment with full details including all associated workflow nodes.
         Requires Authorization header with trader identification.
       operationId: createConsignment
       tags:
@@ -150,7 +150,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ConsignmentResponseDTO"
+                $ref: "#/components/schemas/ConsignmentDetailDTO"
         "400":
           description: Invalid request body or validation error
         "422":
@@ -184,7 +184,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ConsignmentResponseDTO"
+                $ref: "#/components/schemas/ConsignmentDetailDTO"
         "400":
           description: Invalid consignment ID or format
         "404":
@@ -554,7 +554,7 @@ components:
             type: string
             format: uuid
 
-    ConsignmentResponseDTO:
+    ConsignmentDetailDTO:
       type: object
       required:
         - id
@@ -583,9 +583,53 @@ components:
             $ref: "#/components/schemas/ConsignmentItemResponseDTO"
         workflowNodes:
           type: array
-          description: Associated workflow nodes
+          description: Associated workflow nodes (included only in detailed view)
           items:
             $ref: "#/components/schemas/WorkflowNodeResponseDTO"
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp of consignment creation
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp of last consignment update
+
+    ConsignmentSummaryDTO:
+      type: object
+      required:
+        - id
+        - flow
+        - traderId
+        - state
+        - items
+        - createdAt
+        - updatedAt
+        - workflowNodeCount
+        - completedWorkflowNodeCount
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Consignment ID
+        flow:
+          $ref: "#/components/schemas/ConsignmentFlow"
+        traderId:
+          type: string
+          description: ID of the trader associated with the consignment
+        state:
+          $ref: "#/components/schemas/ConsignmentState"
+        items:
+          type: array
+          description: Items in the consignment with HS code details
+          items:
+            $ref: "#/components/schemas/ConsignmentItemResponseDTO"
+        workflowNodeCount:
+          type: integer
+          description: Total number of workflow nodes
+        completedWorkflowNodeCount:
+          type: integer
+          description: Number of completed workflow nodes
         createdAt:
           type: string
           format: date-time
@@ -611,7 +655,7 @@ components:
           type: array
           description: List of consignments
           items:
-            $ref: "#/components/schemas/ConsignmentResponseDTO"
+            $ref: "#/components/schemas/ConsignmentSummaryDTO"
         offset:
           type: integer
           description: Pagination offset used in the query
