@@ -22,6 +22,6 @@
   "private": true,
   "workspaces": [
     "apps/*",
-    "ui"
+    "packages/*"
   ]
 }
