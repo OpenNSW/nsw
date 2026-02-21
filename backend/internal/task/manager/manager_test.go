@@ -29,6 +29,9 @@ type MockTaskFactory struct {
 
 func (m *MockTaskFactory) BuildExecutor(ctx context.Context, taskType plugin.Type, config json.RawMessage) (plugin.Executor, error) {
 	args := m.Called(ctx, taskType, config)
+	if args.Get(0) == nil {
+		return plugin.Executor{}, args.Error(1)
+	}
 	return args.Get(0).(plugin.Executor), args.Error(1)
 }
 
@@ -152,17 +155,43 @@ func setupTest(t *testing.T) (*taskManager, *MockTaskFactory, *MockTaskStore, *M
 }
 
 func TestInitTask(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
-		mockFactory := new(MockTaskFactory)
-		mockStore := new(MockTaskStore)
-		mockPlugin := new(MockPlugin)
-		cfg := &config.Config{}
-		tm := &taskManager{
-			factory:        mockFactory,
-			store:          mockStore,
-			config:         cfg,
-			containerCache: newContainerCache(10),
+	t.Run("Cache Hit", func(t *testing.T) {
+		tm, mockFactory, mockStore, mockPlugin := setupTest(t)
+		ctx := context.Background()
+		taskID := uuid.New()
+		req := InitTaskRequest{
+			TaskID:                 taskID,
+			WorkflowID:             uuid.New(),
+			WorkflowNodeTemplateID: uuid.New(),
+			Type:                   plugin.TaskTypeSimpleForm,
+			Config:                 json.RawMessage(`{}`),
+			GlobalState:            map[string]any{},
 		}
+
+		// Pre-populate cache
+		mockPlugin.On("Init", mock.Anything).Return().Once()
+
+		container := container.NewContainer(taskID, uuid.New(), uuid.New(), plugin.InProgress, nil, nil, nil, mockPlugin, nil)
+		tm.containerCache.Set(taskID, container)
+
+		// Expect Start to be called on the *existing* container's plugin
+		state := plugin.InProgress
+		resp := &plugin.ExecutionResponse{
+			NewState: &state,
+		}
+		mockPlugin.On("Start", ctx).Return(resp, nil).Once()
+
+		result, err := tm.InitTask(ctx, req)
+		assert.NoError(t, err)
+		assert.True(t, result.Success)
+
+		// Assert that Factory and Store methods were NOT called
+		mockFactory.AssertNotCalled(t, "BuildExecutor", mock.Anything, mock.Anything, mock.Anything)
+		mockStore.AssertNotCalled(t, "Create", mock.Anything)
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		tm, mockFactory, mockStore, mockPlugin := setupTest(t)
 		ctx := context.Background()
 		taskID := uuid.New()
 		req := InitTaskRequest{
@@ -515,13 +544,13 @@ func TestGetTask_CacheRebuild(t *testing.T) {
 		mockPlugin.On("Init", mock.Anything).Return().Once()
 
 		// Pre-populate cache
-		c := container.NewContainer(taskID, uuid.New(), uuid.New(), plugin.Initialized, nil, nil, nil, mockPlugin, nil)
-		tm.containerCache.Set(taskID, c)
+		container := container.NewContainer(taskID, uuid.New(), uuid.New(), plugin.InProgress, nil, nil, nil, mockPlugin, nil)
+		tm.containerCache.Set(taskID, container)
 
 		// Act
 		result, err := tm.getTask(context.Background(), taskID)
 		assert.NoError(t, err)
-		assert.Equal(t, c, result)
+		assert.Equal(t, container, result)
 	})
 
 	t.Run("Cache Miss Rebuild Success", func(t *testing.T) {
