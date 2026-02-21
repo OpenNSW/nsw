@@ -179,8 +179,11 @@ func (s *SimpleForm) GetRenderInfo(ctx context.Context) (*ApiResponse, error) {
 		},
 	}
 
-	if pluginState == OGAReviewed {
-		s.attachOgaContent(ctx, content)
+	if s.config.Submission != nil {
+		s.attachFormDisplay(ctx, content, "submissionResponse", displayFormID(s.config.Submission.Response), "submissionResponseForm")
+	}
+	if s.config.Callback != nil {
+		s.attachFormDisplay(ctx, content, "ogaResponse", displayFormID(s.config.Callback.Response), "ogaReviewForm")
 	}
 
 	return &ApiResponse{
@@ -379,6 +382,10 @@ func (s *SimpleForm) submitHandler(ctx context.Context, content any) (*Execution
 		}, err
 	}
 
+	if err := s.api.WriteToLocalStore("submissionResponse", responseData); err != nil {
+		slog.Warn("failed to write submission response to local store", "formId", s.config.FormID, "error", err)
+	}
+
 	if s.config.Submission != nil &&
 		s.config.Submission.Response != nil &&
 		s.config.Submission.Response.Mapping != nil {
@@ -470,44 +477,42 @@ func (s *SimpleForm) resolveFormData(ctx context.Context, state SimpleFormState)
 	}
 }
 
-// attachOgaContent enriches the render content with OGA response data
-// and, if configured, the OGA review form definition.
-func (s *SimpleForm) attachOgaContent(ctx context.Context, content map[string]any) {
-	ogaResponse, err := s.api.ReadFromLocalStore("ogaResponse")
-	if err != nil {
-		slog.Warn("failed to read OGA response from local store",
-			"formId", s.config.FormID, "error", err)
+// displayFormID extracts the display form ID from a Response config, returning "" if unset.
+func displayFormID(r *Response) string {
+	if r != nil && r.Display != nil {
+		return r.Display.FormID
 	}
+	return ""
+}
 
-	if ogaResponse != nil {
-		if s.config.Callback != nil &&
-			s.config.Callback.Response != nil &&
-			s.config.Callback.Response.Display != nil &&
-			s.config.Callback.Response.Display.FormID != "" {
-
-			formID, err := uuid.Parse(s.config.Callback.Response.Display.FormID)
-			if err != nil {
-				slog.Warn("invalid OGA review form ID format, expected UUID",
-					"formId", s.config.FormID,
-					"ogaReviewFormId", s.config.Callback.Response.Display.FormID,
-					"error", err)
-				return
-			}
-			formDef, err := s.formService.GetFormByID(ctx, formID)
-			if err != nil {
-				slog.Warn("failed to fetch OGA review form definition, continuing without it",
-					"formId", s.config.FormID,
-					"ogaReviewFormId", s.config.Callback.Response.Display.FormID,
-					"error", err)
-				return
-			}
-			content["ogaReviewForm"] = map[string]any{
-				"title":    formDef.Name,
-				"uiSchema": formDef.UISchema,
-				"schema":   formDef.Schema,
-				"formData": ogaResponse,
-			}
+// attachFormDisplay fetches a form definition and attaches it to content under contentKey,
+// using data read from storeKey as the formData. A no-op if formID or stored data is absent.
+func (s *SimpleForm) attachFormDisplay(ctx context.Context, content map[string]any, storeKey, formID, contentKey string) {
+	if formID == "" {
+		return
+	}
+	data, err := s.api.ReadFromLocalStore(storeKey)
+	if err != nil || data == nil {
+		if err != nil {
+			slog.Warn("failed to read from local store", "formId", s.config.FormID, "key", storeKey, "error", err)
 		}
+		return
+	}
+	id, err := uuid.Parse(formID)
+	if err != nil {
+		slog.Warn("invalid display form ID, expected UUID", "formId", s.config.FormID, "displayFormId", formID, "error", err)
+		return
+	}
+	def, err := s.formService.GetFormByID(ctx, id)
+	if err != nil {
+		slog.Warn("failed to fetch display form definition", "formId", s.config.FormID, "displayFormId", formID, "error", err)
+		return
+	}
+	content[contentKey] = map[string]any{
+		"title":    def.Name,
+		"uiSchema": def.UISchema,
+		"schema":   def.Schema,
+		"formData": data,
 	}
 }
 

@@ -27,12 +27,9 @@ type MockTaskFactory struct {
 	mock.Mock
 }
 
-func (m *MockTaskFactory) BuildExecutor(ctx context.Context, taskType plugin.Type, config json.RawMessage) (plugin.Plugin, error) {
+func (m *MockTaskFactory) BuildExecutor(ctx context.Context, taskType plugin.Type, config json.RawMessage) (plugin.Executor, error) {
 	args := m.Called(ctx, taskType, config)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(plugin.Plugin), args.Error(1)
+	return args.Get(0).(plugin.Executor), args.Error(1)
 }
 
 // MockTaskStore
@@ -177,7 +174,7 @@ func TestInitTask(t *testing.T) {
 			GlobalState:            map[string]any{},
 		}
 
-		mockFactory.On("BuildExecutor", ctx, req.Type, req.Config).Return(mockPlugin, nil).Once()
+		mockFactory.On("BuildExecutor", ctx, req.Type, req.Config).Return(plugin.Executor{Plugin: mockPlugin}, nil).Once()
 		mockStore.On("GetLocalState", req.TaskID).Return(json.RawMessage(`{}`), nil).Once()
 		mockStore.On("GetPluginState", req.TaskID).Return("", nil).Once()
 		mockStore.On("Create", mock.AnythingOfType("*persistence.TaskInfo")).Return(nil).Once()
@@ -204,7 +201,7 @@ func TestInitTask(t *testing.T) {
 			Config: json.RawMessage(`{}`),
 		}
 
-		mockFactory.On("BuildExecutor", ctx, req.Type, req.Config).Return(nil, errors.New("build error")).Once()
+		mockFactory.On("BuildExecutor", ctx, req.Type, req.Config).Return(plugin.Executor{}, errors.New("build error")).Once()
 
 		result, err := tm.InitTask(ctx, req)
 		assert.Error(t, err)
@@ -221,7 +218,7 @@ func TestInitTask(t *testing.T) {
 			Config: json.RawMessage(`{}`),
 		}
 
-		mockFactory.On("BuildExecutor", ctx, req.Type, req.Config).Return(mockPlugin, nil).Once()
+		mockFactory.On("BuildExecutor", ctx, req.Type, req.Config).Return(plugin.Executor{Plugin: mockPlugin}, nil).Once()
 		mockStore.On("GetLocalState", req.TaskID).Return(json.RawMessage(`{}`), nil).Once()
 		mockStore.On("GetPluginState", req.TaskID).Return("", nil).Once()
 		mockPlugin.On("Init", mock.Anything).Return().Once()
@@ -246,7 +243,7 @@ func TestInitTask(t *testing.T) {
 			Config: json.RawMessage(`{}`),
 		}
 
-		mockFactory.On("BuildExecutor", ctx, req.Type, req.Config).Return(mockPlugin, nil).Once()
+		mockFactory.On("BuildExecutor", ctx, req.Type, req.Config).Return(plugin.Executor{Plugin: mockPlugin}, nil).Once()
 		mockStore.On("GetLocalState", req.TaskID).Return(json.RawMessage(`{}`), nil).Once()
 		mockStore.On("GetPluginState", req.TaskID).Return("", nil).Once()
 		mockPlugin.On("Init", mock.Anything).Return().Once()
@@ -287,7 +284,7 @@ func TestHandleExecuteTask(t *testing.T) {
 			GlobalContext:          json.RawMessage(`{}`),
 		}
 		mockStore.On("GetByID", taskID).Return(taskInfo, nil).Once()
-		mockFactory.On("BuildExecutor", mock.Anything, taskInfo.Type, taskInfo.Config).Return(mockPlugin, nil).Once()
+		mockFactory.On("BuildExecutor", mock.Anything, taskInfo.Type, taskInfo.Config).Return(plugin.Executor{Plugin: mockPlugin}, nil).Once()
 		mockStore.On("GetLocalState", taskID).Return(json.RawMessage(`{}`), nil).Once()
 		mockStore.On("GetPluginState", taskID).Return("", nil).Once()
 		mockPlugin.On("Init", mock.Anything).Return().Once()
@@ -329,7 +326,7 @@ func TestHandleExecuteTask(t *testing.T) {
 			Config: json.RawMessage(`{}`),
 		}
 		mockStore.On("GetByID", taskID).Return(taskInfo, nil).Once()
-		mockFactory.On("BuildExecutor", mock.Anything, taskInfo.Type, taskInfo.Config).Return(mockPlugin, nil).Once()
+		mockFactory.On("BuildExecutor", mock.Anything, taskInfo.Type, taskInfo.Config).Return(plugin.Executor{Plugin: mockPlugin}, nil).Once()
 		mockStore.On("GetLocalState", taskID).Return(json.RawMessage(`{}`), nil).Once()
 		mockStore.On("GetPluginState", taskID).Return("", nil).Once()
 		mockPlugin.On("Init", mock.Anything).Return().Once()
@@ -387,7 +384,7 @@ func TestHandleGetTask(t *testing.T) {
 			GlobalContext:          json.RawMessage(`{}`),
 		}
 		mockStore.On("GetByID", taskID).Return(taskInfo, nil).Once()
-		mockFactory.On("BuildExecutor", mock.Anything, taskInfo.Type, taskInfo.Config).Return(mockPlugin, nil).Once()
+		mockFactory.On("BuildExecutor", mock.Anything, taskInfo.Type, taskInfo.Config).Return(plugin.Executor{Plugin: mockPlugin}, nil).Once()
 		mockStore.On("GetLocalState", taskID).Return(json.RawMessage(`{}`), nil).Once()
 		mockStore.On("GetPluginState", taskID).Return("", nil).Once()
 
@@ -424,7 +421,7 @@ func TestHandleGetTask(t *testing.T) {
 			Config: json.RawMessage(`{}`),
 		}
 		mockStore.On("GetByID", taskID).Return(taskInfo, nil).Once()
-		mockFactory.On("BuildExecutor", mock.Anything, taskInfo.Type, taskInfo.Config).Return(mockPlugin, nil).Once()
+		mockFactory.On("BuildExecutor", mock.Anything, taskInfo.Type, taskInfo.Config).Return(plugin.Executor{Plugin: mockPlugin}, nil).Once()
 		mockStore.On("GetLocalState", taskID).Return(json.RawMessage(`{}`), nil).Once()
 		mockStore.On("GetPluginState", taskID).Return("", nil).Once()
 		mockPlugin.On("Init", mock.Anything).Return().Once()
@@ -518,13 +515,13 @@ func TestGetTask_CacheRebuild(t *testing.T) {
 		mockPlugin.On("Init", mock.Anything).Return().Once()
 
 		// Pre-populate cache
-		container := container.NewContainer(taskID, uuid.New(), uuid.New(), nil, nil, nil, mockPlugin)
-		tm.containerCache.Set(taskID, container)
+		c := container.NewContainer(taskID, uuid.New(), uuid.New(), plugin.Initialized, nil, nil, nil, mockPlugin, nil)
+		tm.containerCache.Set(taskID, c)
 
 		// Act
 		result, err := tm.getTask(context.Background(), taskID)
 		assert.NoError(t, err)
-		assert.Equal(t, container, result)
+		assert.Equal(t, c, result)
 	})
 
 	t.Run("Cache Miss Rebuild Success", func(t *testing.T) {
@@ -546,7 +543,7 @@ func TestGetTask_CacheRebuild(t *testing.T) {
 		mockStore.On("GetPluginState", taskID).Return("", nil).Once()
 
 		// Mock Factory
-		mockFactory.On("BuildExecutor", mock.Anything, taskInfo.Type, taskInfo.Config).Return(mockPlugin, nil).Once()
+		mockFactory.On("BuildExecutor", mock.Anything, taskInfo.Type, taskInfo.Config).Return(plugin.Executor{Plugin: mockPlugin}, nil).Once()
 
 		mockPlugin.On("Init", mock.Anything).Return().Once()
 
