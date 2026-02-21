@@ -24,7 +24,7 @@ export const SelectControl = ({ data, handleChange, path, label, required, error
         <Box mb="4">
             <Flex direction="column" gap="1">
                 <Text as="label" size="2" weight="bold" htmlFor={path}>
-                    {label} {required && '*'}
+                    {label} {required && <Text color="red">*</Text>}
                 </Text>
                 <Select.Root
                     value={value}
@@ -42,7 +42,7 @@ export const SelectControl = ({ data, handleChange, path, label, required, error
                         ))}
                     </Select.Content>
                 </Select.Root>
-                {!isValid && (
+                {!isValid && errors !== "is a required property" && (
                     <Text color="red" size="1">
                         {errors}
                     </Text>

@@ -1,26 +1,26 @@
-import { type ControlProps, isStringControl, type RankedTester, rankWith } from '@jsonforms/core';
+import { type ControlProps, isDateControl, type RankedTester, rankWith } from '@jsonforms/core';
 import { withJsonFormsControlProps } from '@jsonforms/react';
 import { TextField, Text, Flex, Box } from '@radix-ui/themes';
 
 
-export const TextControl = ({ data, handleChange, path, label, required, errors, uischema, schema, enabled }: ControlProps) => {
+export const DateControl = ({ data, handleChange, path, label, required, errors, schema, enabled }: ControlProps) => {
     const isValid = errors.length === 0;
 
     return (
         <Box mb="4">
             <Flex direction="column" gap="1">
                 <Text as="label" size="2" weight="bold" htmlFor={path}>
-                    {label} {required && '*'}
+                    {label} {required && <Text color="red">*</Text>}
                 </Text>
                 <TextField.Root
+                    type="date"
                     value={data || ''}
                     onChange={(e) => handleChange(path, e.target.value)}
                     disabled={!enabled}
-                    placeholder={uischema.options?.placeholder}
                     color={!isValid ? 'red' : undefined}
                     id={path}
                 />
-                {!isValid && (
+                {!isValid && errors !== "is a required property" && (
                     <Text color="red" size="1">
                         {errors}
                     </Text>
@@ -35,9 +35,9 @@ export const TextControl = ({ data, handleChange, path, label, required, errors,
     );
 };
 
-export const TextControlTester: RankedTester = rankWith(
-    1,
-    isStringControl
+export const DateControlTester: RankedTester = rankWith(
+    2,
+    isDateControl
 );
 
-export default withJsonFormsControlProps(TextControl);
+export default withJsonFormsControlProps(DateControl);

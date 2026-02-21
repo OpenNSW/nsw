@@ -21,7 +21,7 @@ export const NumberControl = ({ data, handleChange, path, label, required, error
         <Box mb="4">
             <Flex direction="column" gap="1">
                 <Text as="label" size="2" weight="bold" htmlFor={path}>
-                    {label} {required && '*'}
+                    {label} {required && <Text color="red">*</Text>}
                 </Text>
                 <TextField.Root
                     type="number"
@@ -32,7 +32,7 @@ export const NumberControl = ({ data, handleChange, path, label, required, error
                     color={!isValid ? 'red' : undefined}
                     id={path}
                 />
-                {!isValid && (
+                {!isValid && errors !== "is a required property" && (
                     <Text color="red" size="1">
                         {errors}
                     </Text>

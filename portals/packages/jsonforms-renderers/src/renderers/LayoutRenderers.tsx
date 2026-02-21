@@ -82,7 +82,7 @@ export const GroupLayoutRenderer = ({ uischema, schema, path, renderers, cells, 
 export const GroupLayoutTester: RankedTester = rankWith(1, uiTypeIs('Group'));
 
 // Categorization Layout (Tabs)
-interface CategorizationLayoutProps extends LayoutProps {
+export interface CategorizationLayoutProps extends LayoutProps {
     data: any;
 }
 
