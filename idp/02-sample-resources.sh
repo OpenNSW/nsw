@@ -134,6 +134,52 @@ fi
 echo ""
 
 # ============================================================================
+# Fetch Default Authentication and Registration Flows
+# ============================================================================
+log_info "Fetching default authentication and registration flows..."
+
+AUTH_FLOW_ID=""
+REG_FLOW_ID=""
+
+# Fetch authentication flow (default-basic-flow)
+RESPONSE=$(thunder_api_call GET "/flows?limit=30&offset=0&flowType=AUTHENTICATION")
+HTTP_CODE="${RESPONSE: -3}"
+BODY="${RESPONSE%???}"
+
+if [[ "$HTTP_CODE" == "200" ]]; then
+    # Extract flow ID for "default-basic-flow" by handle
+    AUTH_FLOW_ID=$(echo "$BODY" | grep -o '{[^}]*"handle":"default-basic-flow"[^}]*}' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+    
+    if [[ -n "$AUTH_FLOW_ID" ]]; then
+        log_success "Found default authentication flow with ID: $AUTH_FLOW_ID"
+    else
+        log_warning "Default authentication flow not found"
+    fi
+else
+    log_warning "Failed to fetch authentication flows (HTTP $HTTP_CODE)"
+fi
+
+# Fetch registration flow (default-basic-flow)
+RESPONSE=$(thunder_api_call GET "/flows?limit=30&offset=0&flowType=REGISTRATION")
+HTTP_CODE="${RESPONSE: -3}"
+BODY="${RESPONSE%???}"
+
+if [[ "$HTTP_CODE" == "200" ]]; then
+    # Extract flow ID for "default-basic-flow" by handle
+    REG_FLOW_ID=$(echo "$BODY" | grep -o '{[^}]*"handle":"default-basic-flow"[^}]*}' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+    
+    if [[ -n "$REG_FLOW_ID" ]]; then
+        log_success "Found default registration flow with ID: $REG_FLOW_ID"
+    else
+        log_warning "Default registration flow not found"
+    fi
+else
+    log_warning "Failed to fetch registration flows (HTTP $HTTP_CODE)"
+fi
+
+echo ""
+
+# ============================================================================
 # Create Trader Portal React Application
 # ============================================================================
 log_info "Creating Trader Portal React App application..."
@@ -144,11 +190,24 @@ if [[ -n "$CLASSIC_THEME_ID" ]]; then
     THEME_ID_FIELD="\"theme_id\": \"${CLASSIC_THEME_ID}\","
 fi
 
+# Build auth_flow_id and registration_flow_id fields conditionally
+AUTH_FLOW_FIELD=""
+if [[ -n "$AUTH_FLOW_ID" ]]; then
+    AUTH_FLOW_FIELD="\"auth_flow_id\": \"${AUTH_FLOW_ID}\","
+fi
+
+REG_FLOW_FIELD=""
+if [[ -n "$REG_FLOW_ID" ]]; then
+    REG_FLOW_FIELD="\"registration_flow_id\": \"${REG_FLOW_ID}\","
+fi
+
 read -r -d '' TRADER_PORTAL_APP_PAYLOAD <<JSON || true
 {
     "name": "TraderApp",
     "description": "Application for trader portal built with React",
     ${THEME_ID_FIELD}
+    ${AUTH_FLOW_FIELD}
+    ${REG_FLOW_FIELD}
     "is_registration_flow_enabled": false,
     "template": "react",
     "logo_url": "https://ssl.gstatic.com/docs/common/profile/kiwi_lg.png",
