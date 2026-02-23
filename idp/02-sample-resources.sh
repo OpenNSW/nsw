@@ -108,13 +108,47 @@ fi
 echo ""
 
 # ============================================================================
+# Fetch Classic Theme ID
+# ============================================================================
+log_info "Fetching Classic theme..."
+
+CLASSIC_THEME_ID=""
+RESPONSE=$(thunder_api_call GET "/design/themes")
+HTTP_CODE="${RESPONSE: -3}"
+BODY="${RESPONSE%???}"
+
+if [[ "$HTTP_CODE" == "200" ]]; then
+    # Extract theme ID for "Classic" theme by displayName
+    # Parse JSON to find theme with displayName "Classic"
+    CLASSIC_THEME_ID=$(echo "$BODY" | grep -o '{[^}]*"displayName":"Classic"[^}]*}' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+    
+    if [[ -n "$CLASSIC_THEME_ID" ]]; then
+        log_success "Found Classic theme with ID: $CLASSIC_THEME_ID"
+    else
+        log_warning "Classic theme not found, will use default theme"
+    fi
+else
+    log_warning "Failed to fetch themes (HTTP $HTTP_CODE), will use default theme"
+fi
+
+echo ""
+
+# ============================================================================
 # Create Trader Portal React Application
 # ============================================================================
 log_info "Creating Trader Portal React App application..."
 
+# Build theme_id field conditionally
+THEME_ID_FIELD=""
+if [[ -n "$CLASSIC_THEME_ID" ]]; then
+    THEME_ID_FIELD="\"theme_id\": \"${CLASSIC_THEME_ID}\","
+fi
+
 read -r -d '' TRADER_PORTAL_APP_PAYLOAD <<JSON || true
 {
     "name": "TraderApp",
+    "description": "Application for trader portal built with React",
+    ${THEME_ID_FIELD}
     "is_registration_flow_enabled": false,
     "template": "react",
     "logo_url": "https://ssl.gstatic.com/docs/common/profile/kiwi_lg.png",
@@ -144,10 +178,20 @@ read -r -d '' TRADER_PORTAL_APP_PAYLOAD <<JSON || true
                 "public_client": true,
                 "token": {
                     "access_token": {
-                        "validity_period": 3600
+                        "validity_period": 3600,
+                        "user_attributes": [
+                            "email",
+                            "family_name",
+                            "given_name"
+                        ]
                     },
                     "id_token": {
-                        "validity_period": 3600
+                        "validity_period": 3600,
+                        "user_attributes": [
+                            "family_name",
+                            "given_name",
+                            "email"
+                        ]
                     }
                 },
                 "scopes": [
@@ -155,7 +199,13 @@ read -r -d '' TRADER_PORTAL_APP_PAYLOAD <<JSON || true
                     "profile",
                     "email"
                 ],
-                "user_info": {}
+                "user_info": {
+                    "user_attributes": [
+                        "family_name",
+                        "given_name",
+                        "email"
+                    ]
+                }
             }
         }
     ],
