@@ -114,27 +114,24 @@ log_info "Creating Trader Portal React App application..."
 
 read -r -d '' TRADER_PORTAL_APP_PAYLOAD <<JSON || true
 {
-    "name": "Trader Portal",
-    "description": "React application for trader portal",
-    "logo_url": "https://ssl.gstatic.com/docs/common/profile/tiger_lg.png",
-    "user_attributes": [
-        "given_name",
-        "family_name",
-        "email",
-        "groups"
-    ],
+    "name": "TraderApp",
     "is_registration_flow_enabled": true,
-    "allowed_user_types": [
-        "Trader"
-    ],
     "template": "react",
+    "logo_url": "https://ssl.gstatic.com/docs/common/profile/kiwi_lg.png",
+    "assertion": {
+        "validity_period": 3600
+    },
+    "certificate": {
+        "type": "NONE"
+    },
     "inbound_auth_config": [
         {
             "type": "oauth2",
             "config": {
                 "client_id": "TRADER_PORTAL_APP",
-                "public_client": true,
-                "pkce_required": true,
+                "redirect_uris": [
+                    "http://localhost:5173"
+                ],
                 "grant_types": [
                     "authorization_code",
                     "refresh_token"
@@ -142,17 +139,28 @@ read -r -d '' TRADER_PORTAL_APP_PAYLOAD <<JSON || true
                 "response_types": [
                     "code"
                 ],
-                "redirect_uris": [
-                    "http://localhost:5173"
-                ],
                 "token_endpoint_auth_method": "none",
+                "pkce_required": true,
+                "public_client": true,
+                "token": {
+                    "access_token": {
+                        "validity_period": 3600
+                    },
+                    "id_token": {
+                        "validity_period": 3600
+                    }
+                },
                 "scopes": [
                     "openid",
                     "profile",
                     "email"
-                ]
+                ],
+                "user_info": {}
             }
         }
+    ],
+    "allowed_user_types": [
+        "Trader"
     ]
 }
 JSON
