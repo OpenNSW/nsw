@@ -11,4 +11,5 @@ type WorkflowManagerNotification struct {
 	UpdatedState        *plugin.State
 	AppendGlobalContext map[string]any
 	ExtendedState       *string
+	Outcome             *string // Outcome sub-state for COMPLETED transitions (e.g., APPROVED, REJECTED)
 }
