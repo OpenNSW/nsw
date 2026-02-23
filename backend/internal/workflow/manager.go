@@ -101,6 +101,7 @@ func (m *Manager) StartWorkflowNodeUpdateListener() {
 					State:               workflowState,
 					AppendGlobalContext: update.AppendGlobalContext,
 					ExtendedState:       update.ExtendedState,
+					Outcome:             update.Outcome,
 				}
 
 				// Determine which service should handle the update by looking up the node

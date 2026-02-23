@@ -24,6 +24,13 @@ type StateTransitionResult struct {
 	AllNodesCompleted bool
 }
 
+// WorkflowCompletionConfig holds configuration for determining workflow completion.
+// If EndNodeTemplateID is set, the workflow is complete when that specific end node is completed.
+// If EndNodeTemplateID is nil, the workflow is complete when all nodes are completed (backward compatible).
+type WorkflowCompletionConfig struct {
+	EndNodeTemplateID *uuid.UUID
+}
+
 // ParentRef identifies the parent entity (consignment or pre-consignment) that owns workflow nodes.
 // Exactly one of ConsignmentID or PreConsignmentID must be set.
 type ParentRef struct {
@@ -48,11 +55,13 @@ func NewWorkflowNodeStateMachine(nodeRepo WorkflowNodeRepository) *WorkflowNodeS
 // TransitionToCompleted transitions a workflow node to COMPLETED state and propagates
 // the change to dependent nodes, unlocking them if all their dependencies are met.
 // Returns a StateTransitionResult containing all updated nodes and newly ready nodes.
+// The completionConfig determines how workflow completion is evaluated.
 func (sm *WorkflowNodeStateMachine) TransitionToCompleted(
 	ctx context.Context,
 	tx *gorm.DB,
 	node *model.WorkflowNode,
 	updateReq *model.UpdateWorkflowNodeDTO,
+	completionConfig ...*WorkflowCompletionConfig,
 ) (*StateTransitionResult, error) {
 	if node == nil {
 		return nil, fmt.Errorf("node cannot be nil")
@@ -74,6 +83,7 @@ func (sm *WorkflowNodeStateMachine) TransitionToCompleted(
 	// Update the current node to COMPLETED
 	node.State = model.WorkflowNodeStateCompleted
 	node.ExtendedState = updateReq.ExtendedState
+	node.Outcome = updateReq.Outcome
 	nodesToUpdate := []model.WorkflowNode{*node}
 
 	// Get all sibling nodes to check dependencies
@@ -83,7 +93,7 @@ func (sm *WorkflowNodeStateMachine) TransitionToCompleted(
 	}
 
 	// Find and unlock dependent nodes
-	newReadyNodes, unlockedNodes := sm.unlockDependentNodes(allNodes, node.ID)
+	newReadyNodes, unlockedNodes := sm.unlockDependentNodes(allNodes, node.ID, updateReq.Outcome)
 	nodesToUpdate = append(nodesToUpdate, unlockedNodes...)
 
 	// Sort nodes by ID to prevent deadlocks
@@ -94,8 +104,14 @@ func (sm *WorkflowNodeStateMachine) TransitionToCompleted(
 		return nil, fmt.Errorf("failed to update workflow nodes: %w", err)
 	}
 
-	// Check if all nodes are completed
-	allCompleted := sm.areAllNodesCompleted(allNodes, nodesToUpdate)
+	// Extract completion config if provided
+	var cfg *WorkflowCompletionConfig
+	if len(completionConfig) > 0 {
+		cfg = completionConfig[0]
+	}
+
+	// Check if workflow is completed
+	allCompleted := sm.isWorkflowCompleted(allNodes, nodesToUpdate, cfg)
 
 	return &StateTransitionResult{
 		UpdatedNodes:      nodesToUpdate,
@@ -209,6 +225,12 @@ func (sm *WorkflowNodeStateMachine) InitializeNodesFromTemplates(
 	var nodesToUpdate []model.WorkflowNode
 	var newReadyNodes []model.WorkflowNode
 
+	// Build template ID -> node instance ID mapping for UnlockConfiguration resolution
+	templateToNodeID := make(map[uuid.UUID]uuid.UUID)
+	for templateID, node := range nodeByTemplateID {
+		templateToNodeID[templateID] = node.ID
+	}
+
 	for i, node := range createdNodes {
 		template, exists := templateMap[node.WorkflowNodeTemplateID]
 		if !exists {
@@ -224,6 +246,15 @@ func (sm *WorkflowNodeStateMachine) InitializeNodesFromTemplates(
 		}
 		createdNodes[i].DependsOn = dependsOnNodeIDs
 
+		// Resolve UnlockConfiguration from template-level (template IDs) to instance-level (node IDs)
+		if template.UnlockConfiguration != nil {
+			resolvedConfig, err := template.UnlockConfiguration.ResolveToInstanceIDs(templateToNodeID)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to resolve unlock configuration for node template %s: %w", template.ID, err)
+			}
+			createdNodes[i].UnlockConfiguration = resolvedConfig
+		}
+
 		// Determine if this node needs to be updated
 		needsUpdate := false
 
@@ -232,8 +263,13 @@ func (sm *WorkflowNodeStateMachine) InitializeNodesFromTemplates(
 			needsUpdate = true
 		}
 
-		// Node needs update if it has no dependencies (will be set to READY)
-		if len(dependsOnNodeIDs) == 0 {
+		// Node needs update if it has an unlock configuration
+		if createdNodes[i].UnlockConfiguration != nil {
+			needsUpdate = true
+		}
+
+		// Node needs update if it has no dependencies and no unlock config (will be set to READY)
+		if len(dependsOnNodeIDs) == 0 && createdNodes[i].UnlockConfiguration == nil {
 			createdNodes[i].State = model.WorkflowNodeStateReady
 			newReadyNodes = append(newReadyNodes, createdNodes[i])
 			needsUpdate = true
@@ -259,12 +295,14 @@ func (sm *WorkflowNodeStateMachine) InitializeNodesFromTemplates(
 func (sm *WorkflowNodeStateMachine) unlockDependentNodes(
 	allNodes []model.WorkflowNode,
 	completedNodeID uuid.UUID,
+	outcome *string,
 ) ([]model.WorkflowNode, []model.WorkflowNode) {
 	// Build a map of current node states, including the newly completed node
 	nodeMap := make(map[uuid.UUID]model.WorkflowNode)
 	for _, node := range allNodes {
 		if node.ID == completedNodeID {
 			node.State = model.WorkflowNodeStateCompleted
+			node.Outcome = outcome
 		}
 		nodeMap[node.ID] = node
 	}
@@ -278,7 +316,7 @@ func (sm *WorkflowNodeStateMachine) unlockDependentNodes(
 			continue
 		}
 
-		if sm.areDependenciesMet(node.DependsOn, nodeMap) {
+		if sm.areDependenciesMet(node, nodeMap) {
 			node.State = model.WorkflowNodeStateReady
 			newReadyNodes = append(newReadyNodes, node)
 			unlockedNodes = append(unlockedNodes, node)
@@ -288,12 +326,20 @@ func (sm *WorkflowNodeStateMachine) unlockDependentNodes(
 	return newReadyNodes, unlockedNodes
 }
 
-// areDependenciesMet checks if all dependencies for a node are in COMPLETED state.
+// areDependenciesMet checks if all dependencies for a node are satisfied.
+// If the node has an UnlockConfiguration, it evaluates the DNF expression.
+// Otherwise, it uses the legacy AND-all logic on the DependsOn list.
 func (sm *WorkflowNodeStateMachine) areDependenciesMet(
-	dependsOn []uuid.UUID,
+	node model.WorkflowNode,
 	nodeMap map[uuid.UUID]model.WorkflowNode,
 ) bool {
-	for _, depID := range dependsOn {
+	// If the node has a conditional unlock configuration, use DNF evaluation
+	if node.UnlockConfiguration != nil {
+		return node.UnlockConfiguration.Evaluate(nodeMap)
+	}
+
+	// Legacy behavior: all dependencies must be COMPLETED (AND-all)
+	for _, depID := range node.DependsOn {
 		depNode, exists := nodeMap[depID]
 		if !exists {
 			return false
@@ -305,22 +351,41 @@ func (sm *WorkflowNodeStateMachine) areDependenciesMet(
 	return true
 }
 
-// areAllNodesCompleted checks if all nodes are in COMPLETED state, considering pending updates.
-func (sm *WorkflowNodeStateMachine) areAllNodesCompleted(
+// isWorkflowCompleted checks if the workflow is completed.
+// If a WorkflowCompletionConfig with an EndNodeTemplateID is provided, the workflow
+// is considered complete when the end node is COMPLETED.
+// Otherwise, falls back to checking if ALL nodes are COMPLETED (backward compatible).
+func (sm *WorkflowNodeStateMachine) isWorkflowCompleted(
 	allNodes []model.WorkflowNode,
 	updatedNodes []model.WorkflowNode,
+	config *WorkflowCompletionConfig,
 ) bool {
 	// Build map of updated states
-	updatedStateMap := make(map[uuid.UUID]model.WorkflowNodeState)
+	updatedNodeMap := make(map[uuid.UUID]model.WorkflowNode)
 	for _, node := range updatedNodes {
-		updatedStateMap[node.ID] = node.State
+		updatedNodeMap[node.ID] = node
 	}
 
-	// Check all nodes
+	// If an end node template ID is configured, check only that specific node
+	if config != nil && config.EndNodeTemplateID != nil {
+		for _, node := range allNodes {
+			if node.WorkflowNodeTemplateID == *config.EndNodeTemplateID {
+				state := node.State
+				if updatedNode, wasUpdated := updatedNodeMap[node.ID]; wasUpdated {
+					state = updatedNode.State
+				}
+				return state == model.WorkflowNodeStateCompleted
+			}
+		}
+		// End node not found among sibling nodes — workflow is not complete
+		return false
+	}
+
+	// Legacy behavior: all nodes must be COMPLETED
 	for _, node := range allNodes {
 		state := node.State
-		if updatedState, wasUpdated := updatedStateMap[node.ID]; wasUpdated {
-			state = updatedState
+		if updatedNode, wasUpdated := updatedNodeMap[node.ID]; wasUpdated {
+			state = updatedNode.State
 		}
 		if state != model.WorkflowNodeStateCompleted {
 			return false
