@@ -43,6 +43,8 @@ MIGRATIONS=(
     "007_create_trader_contexts.sql"
     "009_modify_constraint.sql"
     "010_add_review_response_form.sql"
+    "011_add_unlock_configuration.sql"
+    "011_insert_unlock_config_seed.sql"
 )
 
 echo "Starting database migrations..."
