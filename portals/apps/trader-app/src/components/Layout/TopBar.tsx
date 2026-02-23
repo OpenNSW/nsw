@@ -5,13 +5,32 @@ export function TopBar() {
   const { signOut, clearSession } = useAsgardeo()
 
   const handleSignOut = async () => {
+    let didNavigate = false
+    const handleUnload = () => {
+      didNavigate = true
+    }
+
+    window.addEventListener('beforeunload', handleUnload)
+
     try {
       await signOut()
-    } finally {
+    } catch {
+      window.removeEventListener('beforeunload', handleUnload)
       await clearSession()
       // Ensure UI reflects signed-out state even if SDK state lags.
       window.location.assign(window.location.origin)
+      return
     }
+
+    window.setTimeout(async () => {
+      window.removeEventListener('beforeunload', handleUnload)
+      if (didNavigate) {
+        return
+      }
+      await clearSession()
+      // Ensure UI reflects signed-out state even if SDK state lags.
+      window.location.assign(window.location.origin)
+    }, 300)
   }
 
   return (
