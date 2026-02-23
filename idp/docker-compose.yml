@@ -1,7 +1,7 @@
 services:
   # Initialize database from the image
   thunder-db-init:
-    image: ghcr.io/asgardeo/thunder:0.22.0
+    image: ghcr.io/asgardeo/thunder:0.23.0
     command: sh -c "cp -r /opt/thunder/repository/database/* /data/"
     volumes:
       - thunder-db:/data
@@ -9,7 +9,7 @@ services:
 
   # Run setup once with the shared database
   thunder-setup:
-    image: ghcr.io/asgardeo/thunder:0.22.0
+    image: ghcr.io/asgardeo/thunder:0.23.0
     command: ./setup.sh
     environment:
       - THUNDER_ADMIN_USERNAME=${THUNDER_ADMIN_USERNAME:-admin}
@@ -27,7 +27,7 @@ services:
 
   # Run Thunder server with the shared database
   thunder:
-    image: ghcr.io/asgardeo/thunder:0.22.0
+    image: ghcr.io/asgardeo/thunder:0.23.0
     depends_on:
       thunder-setup:
         condition: service_completed_successfully
@@ -35,6 +35,7 @@ services:
       - "8090:8090"
     volumes:
       - thunder-db:/opt/thunder/repository/database
+      - ./deployment.yaml:/opt/thunder/repository/conf/deployment.yaml
 
 volumes:
   thunder-db:
