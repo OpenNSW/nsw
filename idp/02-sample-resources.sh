@@ -115,7 +115,7 @@ log_info "Creating Trader Portal React App application..."
 read -r -d '' TRADER_PORTAL_APP_PAYLOAD <<JSON || true
 {
     "name": "TraderApp",
-    "is_registration_flow_enabled": true,
+    "is_registration_flow_enabled": false,
     "template": "react",
     "logo_url": "https://ssl.gstatic.com/docs/common/profile/kiwi_lg.png",
     "assertion": {
@@ -194,6 +194,72 @@ elif [[ "$HTTP_CODE" == "400" ]] && [[ "$BODY" =~ (Application already exists|AP
     log_warning "Trader Portal React App already exists, skipping"
 else
     log_error "Failed to create Trader Portal React App (HTTP $HTTP_CODE)"
+    echo "Response: $BODY"
+    exit 1
+fi
+
+echo ""
+# ============================================================================
+# Add a sample user of user type Trader
+# ============================================================================
+log_info "Creating sample trader user..."
+read -r -d '' SAMPLE_USER_PAYLOAD <<JSON || true
+{
+    "type": "Trader",
+    "organizationUnit": "${TRADER_OU_ID}",
+    "attributes": {
+        "username": "user123",
+        "password": "1234",
+        "sub": "user123",
+        "email": "user123@trader.dev",
+        "email_verified": true,
+        "name": "Sample Trader",
+        "given_name": "User",
+        "family_name": "Trader"
+    }
+}
+JSON
+
+RESPONSE=$(thunder_api_call POST "/users" "${SAMPLE_USER_PAYLOAD}")
+HTTP_CODE="${RESPONSE: -3}"
+BODY="${RESPONSE%???}"
+if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]]; then
+    log_success "Sample trader user created successfully"
+    log_info "Username: user123"
+    log_info "Password: 1234"
+
+    SAMPLE_TRADER_USER_ID=$(echo "$BODY" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+    if [[ -z "$SAMPLE_TRADER_USER_ID" ]]; then
+        log_warning "Could not extract sample trader user ID from response"
+    else
+        log_info "Sample trader user ID: $SAMPLE_TRADER_USER_ID"
+    fi
+elif [[ "$HTTP_CODE" == "409" ]]; then
+    log_warning "Sample trader user already exists, retrieving user ID..."
+
+    RESPONSE=$(thunder_api_call GET "/users")
+    HTTP_CODE="${RESPONSE: -3}"
+    BODY="${RESPONSE%???}"
+
+    if [[ "$HTTP_CODE" == "200" ]]; then
+        SAMPLE_TRADER_USER_ID=$(echo "$BODY" | grep -o '"id":"[^"]*","[^"]*":"[^"]*","attributes":{[^}]*"username":"user123"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+        if [[ -z "$SAMPLE_TRADER_USER_ID" ]]; then
+            SAMPLE_TRADER_USER_ID=$(echo "$BODY" | sed 's/},{/}\n{/g' | grep '"username":"user123"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+        fi
+
+        if [[ -n "$SAMPLE_TRADER_USER_ID" ]]; then
+            log_success "Found sample trader user ID: $SAMPLE_TRADER_USER_ID"
+        else
+            log_error "Could not find sample trader user in response"
+            exit 1
+        fi
+    else
+        log_error "Failed to fetch users (HTTP $HTTP_CODE)"
+        exit 1
+    fi
+else
+    log_error "Failed to create sample trader user (HTTP $HTTP_CODE)"
     echo "Response: $BODY"
     exit 1
 fi
