@@ -33,7 +33,7 @@ type WorkflowNodeTemplate struct {
 	Type                taskPlugin.Type `gorm:"type:varchar(50);column:type;not null" json:"type"`                                           // Type of the workflow node
 	Config              json.RawMessage `gorm:"type:jsonb;column:config;not null;serializer:json" json:"config"`                             // Configuration specific to the workflow node type
 	DependsOn           UUIDArray       `gorm:"type:jsonb;column:depends_on;not null;serializer:json" json:"depends_on"`                     // Array of workflow node template IDs this node depends on
-	UnlockConfiguration *UnlockConfig   `gorm:"type:jsonb;column:unlock_configuration;serializer:json" json:"unlockConfiguration,omitempty"` // Optional conditional unlock configuration (DNF expression). If nil, DependsOn uses AND-all logic.
+	UnlockConfiguration *UnlockConfig   `gorm:"type:jsonb;column:unlock_configuration;serializer:json" json:"unlockConfiguration,omitempty"` // Optional conditional unlock configuration (supports nested AND/OR boolean expressions). If nil, DependsOn uses AND-all logic.
 }
 
 func (wnt *WorkflowNodeTemplate) TableName() string {

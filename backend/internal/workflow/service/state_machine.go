@@ -368,13 +368,13 @@ func (sm *WorkflowNodeStateMachine) unlockDependentNodes(
 }
 
 // areDependenciesMet checks if all dependencies for a node are satisfied.
-// If the node has an UnlockConfiguration, it evaluates the DNF expression.
+// If the node has an UnlockConfiguration, it evaluates its boolean expression.
 // Otherwise, it uses the legacy AND-all logic on the DependsOn list.
 func (sm *WorkflowNodeStateMachine) areDependenciesMet(
 	node model.WorkflowNode,
 	nodeMap map[uuid.UUID]model.WorkflowNode,
 ) bool {
-	// If the node has a conditional unlock configuration, use DNF evaluation
+	// If the node has a conditional unlock configuration, use boolean expression evaluation
 	if node.UnlockConfiguration != nil {
 		return node.UnlockConfiguration.Evaluate(nodeMap)
 	}

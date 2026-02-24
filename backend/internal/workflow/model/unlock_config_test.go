@@ -663,3 +663,144 @@ func TestUnlockConfig_JSON(t *testing.T) {
 		assert.Equal(t, "FAST_TRACKED", *uc.AnyOf[1].AllOf[0].Outcome)
 	})
 }
+
+func TestUnlockConfig_Expression_Validate(t *testing.T) {
+	nodeA := uuid.New()
+	nodeB := uuid.New()
+
+	t.Run("Valid Nested Expression", func(t *testing.T) {
+		uc := &UnlockConfig{
+			Expression: &UnlockExpression{
+				AllOf: []UnlockExpression{
+					{NodeTemplateID: nodeA, State: strPtr("COMPLETED")},
+					{
+						AnyOf: []UnlockExpression{
+							{NodeTemplateID: nodeB, Outcome: strPtr("APPROVED")},
+							{NodeTemplateID: nodeB, State: strPtr("FAILED")},
+						},
+					},
+				},
+			},
+		}
+		assert.NoError(t, uc.Validate())
+	})
+
+	t.Run("Invalid Mixed Operator And Leaf", func(t *testing.T) {
+		uc := &UnlockConfig{
+			Expression: &UnlockExpression{
+				NodeTemplateID: nodeA,
+				AllOf: []UnlockExpression{
+					{NodeTemplateID: nodeB, State: strPtr("COMPLETED")},
+				},
+			},
+		}
+		err := uc.Validate()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "exactly one")
+	})
+
+	t.Run("Invalid When Both Legacy And Expression Set", func(t *testing.T) {
+		uc := &UnlockConfig{
+			AnyOf: []UnlockGroup{{AllOf: []UnlockCondition{{NodeTemplateID: nodeA, State: strPtr("COMPLETED")}}}},
+			Expression: &UnlockExpression{
+				NodeTemplateID: nodeB,
+				State:          strPtr("COMPLETED"),
+			},
+		}
+		err := uc.Validate()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot define both expression and anyOf")
+	})
+}
+
+func TestUnlockConfig_Expression_Evaluate(t *testing.T) {
+	nodeA := uuid.New()
+	nodeB := uuid.New()
+	nodeC := uuid.New()
+
+	uc := &UnlockConfig{
+		Expression: &UnlockExpression{
+			AllOf: []UnlockExpression{
+				{NodeTemplateID: nodeA, State: strPtr("COMPLETED")},
+				{
+					AnyOf: []UnlockExpression{
+						{NodeTemplateID: nodeB, Outcome: strPtr("APPROVED")},
+						{NodeTemplateID: nodeC, State: strPtr("FAILED")},
+					},
+				},
+			},
+		},
+	}
+
+	outcomeApproved := "APPROVED"
+	assert.True(t, uc.Evaluate(map[uuid.UUID]WorkflowNode{
+		nodeA: {State: WorkflowNodeStateCompleted},
+		nodeB: {State: WorkflowNodeStateCompleted, Outcome: &outcomeApproved},
+		nodeC: {State: WorkflowNodeStateLocked},
+	}))
+
+	assert.True(t, uc.Evaluate(map[uuid.UUID]WorkflowNode{
+		nodeA: {State: WorkflowNodeStateCompleted},
+		nodeB: {State: WorkflowNodeStateCompleted},
+		nodeC: {State: WorkflowNodeStateFailed},
+	}))
+
+	assert.False(t, uc.Evaluate(map[uuid.UUID]WorkflowNode{
+		nodeA: {State: WorkflowNodeStateInProgress},
+		nodeB: {State: WorkflowNodeStateCompleted, Outcome: &outcomeApproved},
+		nodeC: {State: WorkflowNodeStateFailed},
+	}))
+}
+
+func TestUnlockConfig_Expression_ResolveToInstanceIDs(t *testing.T) {
+	templateA := uuid.New()
+	templateB := uuid.New()
+	instanceA := uuid.New()
+	instanceB := uuid.New()
+
+	uc := &UnlockConfig{
+		Expression: &UnlockExpression{
+			AllOf: []UnlockExpression{
+				{NodeTemplateID: templateA, State: strPtr("COMPLETED")},
+				{NodeTemplateID: templateB, Outcome: strPtr("APPROVED")},
+			},
+		},
+	}
+
+	resolved, err := uc.ResolveToInstanceIDs(map[uuid.UUID]uuid.UUID{
+		templateA: instanceA,
+		templateB: instanceB,
+	})
+	assert.NoError(t, err)
+	if assert.NotNil(t, resolved.Expression) {
+		assert.Equal(t, instanceA, resolved.Expression.AllOf[0].NodeTemplateID)
+		assert.Equal(t, instanceB, resolved.Expression.AllOf[1].NodeTemplateID)
+	}
+}
+
+func TestUnlockConfig_Expression_JSON(t *testing.T) {
+	jsonStr := `{
+		"expression": {
+			"allOf": [
+				{"nodeTemplateId": "00000000-0000-0000-0000-000000000001", "state": "COMPLETED"},
+				{
+					"anyOf": [
+						{"nodeTemplateId": "00000000-0000-0000-0000-000000000002", "outcome": "APPROVED"},
+						{"nodeTemplateId": "00000000-0000-0000-0000-000000000003", "state": "FAILED"}
+					]
+				}
+			]
+		}
+	}`
+
+	var uc UnlockConfig
+	err := json.Unmarshal([]byte(jsonStr), &uc)
+	assert.NoError(t, err)
+	if assert.NotNil(t, uc.Expression) {
+		assert.Len(t, uc.Expression.AllOf, 2)
+		assert.Equal(t, "COMPLETED", *uc.Expression.AllOf[0].State)
+		assert.Len(t, uc.Expression.AllOf[1].AnyOf, 2)
+		assert.Equal(t, "APPROVED", *uc.Expression.AllOf[1].AnyOf[0].Outcome)
+		assert.Equal(t, "FAILED", *uc.Expression.AllOf[1].AnyOf[1].State)
+	}
+}
