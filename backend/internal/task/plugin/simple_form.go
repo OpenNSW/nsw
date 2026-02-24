@@ -83,7 +83,8 @@ type SubmissionConfig struct {
 }
 
 type CallbackConfig struct {
-	Response *Response `json:"response,omitempty"`
+	Transition *TransitionConfig `json:"transition"`
+	Response   *Response         `json:"response,omitempty"`
 }
 
 // SimpleFormResult represents the response data for form operations
@@ -246,8 +247,14 @@ func (s *SimpleForm) resolveAction(request *ExecutionRequest) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("invalid verification data: %w", err)
 		}
+
+		if s.config.Callback != nil && s.config.Callback.Transition != nil {
+			return s.config.Callback.Transition.Resolve(data)
+		}
+
+		// Legacy fallback: hardcoded field + value
 		decision, _ := data["decision"].(string)
-		if strings.ToUpper(decision) == "APPROVED" { // TODO: Need to change this hardcoded APPROVED
+		if strings.ToUpper(decision) == "APPROVED" {
 			return simpleFormFSMOgaApproved, nil
 		}
 		return simpleFormFSMOgaRejected, nil
