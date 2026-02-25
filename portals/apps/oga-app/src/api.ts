@@ -1,5 +1,5 @@
 // API service for OGA Portal
-import type {JsonSchema, UISchemaElement} from "./components/JsonForm";
+import type { JsonSchema, UISchemaElement } from '@jsonforms/core';
 
 const API_BASE_URL = (import.meta.env.VITE_OGA_API_BASE_URL as string | undefined) ?? 'http://localhost:8081';
 

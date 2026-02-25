@@ -1,11 +1,11 @@
-import {useState, useEffect} from 'react'
-import {useNavigate, useSearchParams} from 'react-router-dom'
-import {Button, Badge, Spinner, Text, Card, Flex, Box, Callout} from '@radix-ui/themes'
-import {ArrowLeftIcon, CheckCircledIcon, ExclamationTriangleIcon, InfoCircledIcon} from '@radix-ui/react-icons'
-import {fetchApplicationDetail, submitReview, type OGAApplication} from '../api'
-import {JsonForm, useJsonForm, type UISchemaElement, type JsonSchema} from "../components/JsonForm";
-
-const EMPTY_SCHEMA: JsonSchema = {type: 'object', properties: {}}
+import { useState, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Button, Badge, Spinner, Text, Card, Flex, Box, Callout } from '@radix-ui/themes'
+import { ArrowLeftIcon, CheckCircledIcon, ExclamationTriangleIcon, InfoCircledIcon } from '@radix-ui/react-icons'
+import { fetchApplicationDetail, submitReview, type OGAApplication } from '../api'
+import { JsonForms } from '@jsonforms/react';
+import { radixRenderers } from '@opennsw/jsonforms-renderers';
+import type { JsonSchema, UISchemaElement } from '@jsonforms/core';
 
 export function WorkflowDetailScreen() {
   const navigate = useNavigate()
@@ -21,29 +21,34 @@ export function WorkflowDetailScreen() {
   const [success, setSuccess] = useState(false)
 
   const [formConfig, setFormConfig] = useState<{ schema: JsonSchema; uiSchema: UISchemaElement } | null>(null)
+  const [formData, setFormData] = useState<Record<string, unknown>>({})
+  const [formErrors, setFormErrors] = useState<any[]>([])
 
-  const form = useJsonForm({
-    schema: formConfig?.schema ?? EMPTY_SCHEMA,
-    onSubmit: async (formValues) => {
-      if (!taskId || !application) {
-        setError('Application data not available')
-        return
-      }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!taskId || !application) {
+      setError('Application data not available')
+      return
+    }
 
-      setIsSubmitting(true)
-      setError(null)
+    if (formErrors.length > 0) {
+      setError('Please fix validation errors before submitting.');
+      return;
+    }
 
-      try {
-        await submitReview(taskId, formValues)
-        setSuccess(true)
-        setTimeout(() => navigate('/workflows'), 2000)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to submit review')
-      } finally {
-        setIsSubmitting(false)
-      }
-    },
-  })
+    setIsSubmitting(true)
+    setError(null)
+
+    try {
+      await submitReview(taskId, formData)
+      setSuccess(true)
+      setTimeout(() => navigate('/workflows'), 2000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit review')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   useEffect(() => {
     async function fetchData() {
@@ -56,7 +61,7 @@ export function WorkflowDetailScreen() {
       try {
         const data = await fetchApplicationDetail(taskId)
         setApplication(data)
-        setFormConfig({schema: data.form.schema, uiSchema: data.form.uiSchema})
+        setFormConfig({ schema: data.form.schema, uiSchema: data.form.uiSchema })
       } catch (err) {
         setError('Failed to load application details')
         console.error(err)
@@ -72,7 +77,7 @@ export function WorkflowDetailScreen() {
   if (loading) {
     return (
       <Flex align="center" justify="center" py="9">
-        <Spinner size="3"/>
+        <Spinner size="3" />
         <Text size="3" color="gray" ml="3">Loading application details...</Text>
       </Flex>
     )
@@ -82,13 +87,13 @@ export function WorkflowDetailScreen() {
     return (
       <Box p="6">
         <Callout.Root color="red">
-          <Callout.Icon><ExclamationTriangleIcon/></Callout.Icon>
+          <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
           <Callout.Text>{error}</Callout.Text>
         </Callout.Root>
         <Button variant="soft" mt="4" onClick={() => {
           void navigate('/workflows')
         }}>
-          <ArrowLeftIcon/> Back to List
+          <ArrowLeftIcon /> Back to List
         </Button>
       </Box>
     )
@@ -98,13 +103,13 @@ export function WorkflowDetailScreen() {
     return (
       <Box p="6">
         <Callout.Root color="red">
-          <Callout.Icon><ExclamationTriangleIcon/></Callout.Icon>
+          <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
           <Callout.Text>Application not found</Callout.Text>
         </Callout.Root>
         <Button variant="soft" mt="4" onClick={() => {
           void navigate('/workflows')
         }}>
-          <ArrowLeftIcon/> Back to List
+          <ArrowLeftIcon /> Back to List
         </Button>
       </Box>
     )
@@ -116,7 +121,7 @@ export function WorkflowDetailScreen() {
         <Button variant="ghost" color="gray" onClick={() => {
           void navigate('/workflows')
         }}>
-          <ArrowLeftIcon/> Back to Workflows
+          <ArrowLeftIcon /> Back to Workflows
         </Button>
         <Flex gap="3">
           <Badge size="2" color={
@@ -131,14 +136,14 @@ export function WorkflowDetailScreen() {
 
       {error && (
         <Callout.Root color="red" mb="6">
-          <Callout.Icon><ExclamationTriangleIcon/></Callout.Icon>
+          <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
           <Callout.Text>{error}</Callout.Text>
         </Callout.Root>
       )}
 
       {success && (
         <Callout.Root color="green" mb="6">
-          <Callout.Icon><CheckCircledIcon/></Callout.Icon>
+          <Callout.Icon><CheckCircledIcon /></Callout.Icon>
           <Callout.Text>Review submitted successfully! Redirecting...</Callout.Text>
         </Callout.Root>
       )}
@@ -171,7 +176,7 @@ export function WorkflowDetailScreen() {
                 <Text size="2" weight="medium">
                   {(() => {
                     const date = new Date(application.createdAt)
-                    const datePart = date.toLocaleDateString('en-US', {month: 'long', day: 'numeric', year: 'numeric'})
+                    const datePart = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
                     const timePart = date.toLocaleTimeString('en-US', {
                       hour: '2-digit',
                       minute: '2-digit',
@@ -219,7 +224,7 @@ export function WorkflowDetailScreen() {
         <div className="lg:col-span-2">
           <Card size="3">
             <Flex align="center" gap="2" mb="4">
-              <InfoCircledIcon className="text-primary-600 w-5 h-5"/>
+              <InfoCircledIcon className="text-primary-600 w-5 h-5" />
               <Text size="4" weight="bold">
                 {application.status === 'PENDING' ? 'Review Application' : 'Application Details'}
               </Text>
@@ -228,7 +233,7 @@ export function WorkflowDetailScreen() {
             {application.status !== 'PENDING' ? (
               <Callout.Root color={application.status === 'APPROVED' ? 'green' : 'red'} mb="6">
                 <Callout.Icon>
-                  {application.status === 'APPROVED' ? <CheckCircledIcon/> : <ExclamationTriangleIcon/>}
+                  {application.status === 'APPROVED' ? <CheckCircledIcon /> : <ExclamationTriangleIcon />}
                 </Callout.Icon>
                 <Callout.Text>
                   This application has been {application.status.toLowerCase()}.
@@ -240,8 +245,8 @@ export function WorkflowDetailScreen() {
               {/* Submitted Data Section */}
               <div className="bg-gray-50 rounded-lg p-5 border border-gray-200">
                 <Text size="2" weight="bold" color="gray" mb="4" as="div"
-                      className="uppercase tracking-wider flex items-center gap-2">
-                  <InfoCircledIcon/>
+                  className="uppercase tracking-wider flex items-center gap-2">
+                  <InfoCircledIcon />
                   Submitted Information
                 </Text>
 
@@ -267,38 +272,40 @@ export function WorkflowDetailScreen() {
 
               <div className="border-t border-gray-100 my-4"></div>
 
-              {formConfig && <JsonForm
-                  schema={formConfig?.schema}
-                  uiSchema={formConfig?.uiSchema}
-                  values={form.values}
-                  touched={form.touched}
-                  setValue={form.setValue}
-                  setTouched={form.setTouched}
-                  errors={form.errors}
-              />
-              }
-
-              <Flex justify="end" gap="3" mt="6">
-                <Button
-                  variant="soft"
-                  color="gray"
-                  onClick={() => {
-                    void navigate('/workflows')
-                  }}
-                  disabled={form.isSubmitting || isSubmitting}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={(e) => {
-                    void form.handleSubmit(e as unknown as React.FormEvent)
-                  }}
-                  disabled={form.isSubmitting || isSubmitting}
-                >
-                  {form.isSubmitting || isSubmitting ? <Spinner size="1"/> : null}
-                  Submit Review
-                </Button>
-              </Flex>
+              {formConfig && (
+                <form onSubmit={handleSubmit} noValidate>
+                  <JsonForms
+                    schema={formConfig.schema}
+                    uischema={formConfig.uiSchema}
+                    data={formData}
+                    renderers={radixRenderers}
+                    onChange={({ data, errors }) => {
+                      setFormData(data);
+                      setFormErrors(errors || []);
+                    }}
+                  />
+                  <Flex justify="end" gap="3" mt="6">
+                    <Button
+                      variant="soft"
+                      color="gray"
+                      onClick={() => {
+                        void navigate('/workflows')
+                      }}
+                      disabled={isSubmitting}
+                      type="button"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? <Spinner size="1" /> : null}
+                      Submit Review
+                    </Button>
+                  </Flex>
+                </form>
+              )}
             </div>
           </Card>
         </div>
