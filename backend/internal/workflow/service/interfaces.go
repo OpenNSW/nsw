@@ -23,6 +23,9 @@ type TemplateProvider interface {
 
 	// GetWorkflowNodeTemplateByID retrieves a workflow node template by its ID.
 	GetWorkflowNodeTemplateByID(ctx context.Context, id uuid.UUID) (*model.WorkflowNodeTemplate, error)
+
+	// GetEndNodeTemplate retrieves the special end node template.
+	GetEndNodeTemplate(ctx context.Context) (*model.WorkflowNodeTemplate, error)
 }
 
 // WorkflowNodeRepository defines the interface for workflow node data access operations.

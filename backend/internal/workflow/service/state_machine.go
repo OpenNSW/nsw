@@ -12,8 +12,6 @@ import (
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 )
 
-const DEFAULT_END_NODE_TEMPLATE_ID = "e1a00001-0001-4000-b000-000000000006"
-
 // StateTransitionResult represents the result of a workflow node state transition.
 type StateTransitionResult struct {
 	// UpdatedNodes contains all nodes that were updated during the transition.
@@ -221,7 +219,7 @@ func (sm *WorkflowNodeStateMachine) InitializeNodesFromTemplates(
 	parentRef ParentRef,
 	nodeTemplates []model.WorkflowNodeTemplate,
 	workflowTemplates []model.WorkflowTemplate,
-) ([]model.WorkflowNode, []model.WorkflowNode, *model.WorkflowNode, error) {
+) ([]model.WorkflowNode, []model.WorkflowNode, *uuid.UUID, error) {
 	if len(nodeTemplates) == 0 {
 		return []model.WorkflowNode{}, []model.WorkflowNode{}, nil, nil
 	}
@@ -243,25 +241,6 @@ func (sm *WorkflowNodeStateMachine) InitializeNodesFromTemplates(
 			DependsOn:              model.UUIDArray(make([]uuid.UUID, 0)),
 		}
 		workflowNodes = append(workflowNodes, workflowNode)
-	}
-
-	// Create UUIDArray of all DepEndNodeTemplateIDs from workflow templates
-	depEndNodeTemplateIDs := model.UUIDArray(make([]uuid.UUID, 0))
-	for _, wt := range workflowTemplates {
-		if wt.EndNodeTemplateID != nil {
-			depEndNodeTemplateIDs = append(depEndNodeTemplateIDs, *wt.EndNodeTemplateID)
-		}
-	}
-
-	// Add a endNode if parent ref is consignment (not pre-consignment)
-	if parentRef.ConsignmentID != nil && len(depEndNodeTemplateIDs) > 0 {
-		endNode := model.WorkflowNode{
-			ConsignmentID:          parentRef.ConsignmentID,
-			PreConsignmentID:       parentRef.PreConsignmentID,
-			WorkflowNodeTemplateID: uuid.MustParse(DEFAULT_END_NODE_TEMPLATE_ID), // Use the default end node template ID
-			State:                  model.WorkflowNodeStateLocked,
-		}
-		workflowNodes = append(workflowNodes, endNode)
 	}
 
 	// Persist nodes to get their IDs
@@ -286,24 +265,15 @@ func (sm *WorkflowNodeStateMachine) InitializeNodesFromTemplates(
 		templateToNodeID[templateID] = node.ID
 	}
 
-	var endNode_ *model.WorkflowNode
+	var endNodeID *uuid.UUID
 	for i, node := range createdNodes {
 		template, exists := templateMap[node.WorkflowNodeTemplateID]
 		if !exists {
-			// If node is the end node (which has no template), skip dependency resolution
-			if node.WorkflowNodeTemplateID == uuid.MustParse(DEFAULT_END_NODE_TEMPLATE_ID) {
-				dependsOnNodeID := make([]uuid.UUID, 0)
-				for _, endNodeTemplateID := range depEndNodeTemplateIDs {
-					if depNode, found := nodeByTemplateID[endNodeTemplateID]; found {
-						dependsOnNodeID = append(dependsOnNodeID, depNode.ID)
-					}
-				}
-				createdNodes[i].DependsOn = dependsOnNodeID
-				nodesToUpdate = append(nodesToUpdate, createdNodes[i])
-				endNode_ = &createdNodes[i]
-				continue
-			}
 			return nil, nil, nil, fmt.Errorf("workflow node template with ID %s not found", node.WorkflowNodeTemplateID)
+		}
+
+		if template.Type == model.WorkFlowNodeTypeEndNode {
+			endNodeID = &createdNodes[i].ID
 		}
 
 		dependsOnNodeIDs := make([]uuid.UUID, 0)
@@ -355,7 +325,7 @@ func (sm *WorkflowNodeStateMachine) InitializeNodesFromTemplates(
 		}
 	}
 
-	return createdNodes, newReadyNodes, endNode_, nil
+	return createdNodes, newReadyNodes, endNodeID, nil
 }
 
 // unlockDependentNodes finds all locked nodes whose dependencies are now met and unlocks them.

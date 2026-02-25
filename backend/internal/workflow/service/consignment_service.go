@@ -104,14 +104,14 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 	}
 
 	// Create Workflow Nodes
-	_, newReadyWorkflowNodes, endNode, err := s.createWorkflowNodesInTx(ctx, tx, consignment.ID, workflowTemplates)
+	_, newReadyWorkflowNodes, endNodeID, err := s.createWorkflowNodesInTx(ctx, tx, consignment.ID, workflowTemplates)
 	if err != nil {
 		tx.Rollback()
 		return nil, nil, fmt.Errorf("failed to create workflow nodes: %w", err)
 	}
 
-	if endNode != nil {
-		consignment.EndNodeID = &endNode.ID
+	if endNodeID != nil {
+		consignment.EndNodeID = endNodeID
 		if err := tx.Save(consignment).Error; err != nil {
 			tx.Rollback()
 			return nil, nil, fmt.Errorf("failed to update consignment with end node ID: %w", err)
@@ -154,13 +154,20 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 }
 
 // createWorkflowNodesInTx builds workflow nodes for the consignment within a transaction.
-func (s *ConsignmentService) createWorkflowNodesInTx(ctx context.Context, tx *gorm.DB, consignmentID uuid.UUID, workflowTemplates []model.WorkflowTemplate) ([]model.WorkflowNode, []model.WorkflowNode, *model.WorkflowNode, error) {
+func (s *ConsignmentService) createWorkflowNodesInTx(ctx context.Context, tx *gorm.DB, consignmentID uuid.UUID, workflowTemplates []model.WorkflowTemplate) ([]model.WorkflowNode, []model.WorkflowNode, *uuid.UUID, error) {
 	// Collect unique node template IDs from all workflow templates
 	uniqueNodeTemplateIDs := make(map[uuid.UUID]bool)
+
+	// 	// Create UUIDArray of all DepEndNodeTemplateIDs from workflow templates
+	depEndNodeTemplateIDs := model.UUIDArray(make([]uuid.UUID, 0))
+
 	for _, wt := range workflowTemplates {
 		nodeTemplateIDs := wt.GetNodeTemplateIDs()
 		for _, nodeTemplateID := range nodeTemplateIDs {
 			uniqueNodeTemplateIDs[nodeTemplateID] = true
+		}
+		if wt.EndNodeTemplateID != nil {
+			depEndNodeTemplateIDs = append(depEndNodeTemplateIDs, *wt.EndNodeTemplateID)
 		}
 	}
 
@@ -173,6 +180,16 @@ func (s *ConsignmentService) createWorkflowNodesInTx(ctx context.Context, tx *go
 	nodeTemplates, err := s.templateProvider.GetWorkflowNodeTemplatesByIDs(ctx, nodeTemplateIDsList)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to retrieve workflow node templates: %w", err)
+	}
+
+	// Add a endNode if depEndNodeTemplateIDs exist
+	if len(depEndNodeTemplateIDs) > 0 {
+		endNodeTemplate, err := s.templateProvider.GetEndNodeTemplate(ctx)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to get end node template: %w", err)
+		}
+		endNodeTemplate.DependsOn = depEndNodeTemplateIDs
+		nodeTemplates = append(nodeTemplates, *endNodeTemplate)
 	}
 
 	// Delegate to the state machine for node initialization
@@ -579,10 +596,6 @@ func (s *ConsignmentService) buildConsignmentDetailDTO(_ context.Context, consig
 	// Build WorkflowNodeResponseDTOs using preloaded templates
 	nodeResponseDTOs := make([]model.WorkflowNodeResponseDTO, 0, len(consignment.WorkflowNodes))
 	for _, node := range consignment.WorkflowNodes {
-		// Exclude the EndNode Refrence in the response if it exists, as it's an internal implementation detail
-		if consignment.EndNodeID != nil && node.ID == *consignment.EndNodeID {
-			continue
-		}
 		nodeResponseDTOs = append(nodeResponseDTOs, model.WorkflowNodeResponseDTO{
 			ID:        node.ID,
 			CreatedAt: node.CreatedAt.Format(time.RFC3339),

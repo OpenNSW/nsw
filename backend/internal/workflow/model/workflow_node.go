@@ -8,11 +8,10 @@ import (
 	taskPlugin "github.com/OpenNSW/nsw/internal/task/plugin"
 )
 
-type WorkflowNodeType string
+type WorkflowNodeTemplateType = taskPlugin.Type
 
 const (
-	WorkflowNodeTypeSimpleForm   WorkflowNodeType = "SIMPLE_FORM"    // Node for simple form submission
-	WorkflowNodeTypeWaitForEvent WorkflowNodeType = "WAIT_FOR_EVENT" // Node that waits for an external event to occur
+	WorkFlowNodeTypeEndNode WorkflowNodeTemplateType = "END_NODE" // Special type for end nodes that don't correspond to a task plugin
 )
 
 type WorkflowNodeState string
@@ -28,12 +27,12 @@ const (
 // WorkflowNodeTemplate represents a template for a workflow node.
 type WorkflowNodeTemplate struct {
 	BaseModel
-	Name                string          `gorm:"type:varchar(255);column:name;not null" json:"name"`                                          // Human-readable name of the workflow node template
-	Description         string          `gorm:"type:text;column:description" json:"description"`                                             // Optional description of the workflow node template
-	Type                taskPlugin.Type `gorm:"type:varchar(50);column:type;not null" json:"type"`                                           // Type of the workflow node
-	Config              json.RawMessage `gorm:"type:jsonb;column:config;not null;serializer:json" json:"config"`                             // Configuration specific to the workflow node type
-	DependsOn           UUIDArray       `gorm:"type:jsonb;column:depends_on;not null;serializer:json" json:"depends_on"`                     // Array of workflow node template IDs this node depends on
-	UnlockConfiguration *UnlockConfig   `gorm:"type:jsonb;column:unlock_configuration;serializer:json" json:"unlockConfiguration,omitempty"` // Optional conditional unlock configuration (supports nested AND/OR boolean expressions). If nil, DependsOn uses AND-all logic.
+	Name                string                   `gorm:"type:varchar(255);column:name;not null" json:"name"`                                          // Human-readable name of the workflow node template
+	Description         string                   `gorm:"type:text;column:description" json:"description"`                                             // Optional description of the workflow node template
+	Type                WorkflowNodeTemplateType `gorm:"type:varchar(50);column:type;not null" json:"type"`                                           // Type of the workflow node
+	Config              json.RawMessage          `gorm:"type:jsonb;column:config;not null;serializer:json" json:"config"`                             // Configuration specific to the workflow node type
+	DependsOn           UUIDArray                `gorm:"type:jsonb;column:depends_on;not null;serializer:json" json:"depends_on"`                     // Array of workflow node template IDs this node depends on
+	UnlockConfiguration *UnlockConfig            `gorm:"type:jsonb;column:unlock_configuration;serializer:json" json:"unlockConfiguration,omitempty"` // Optional conditional unlock configuration (supports nested AND/OR boolean expressions). If nil, DependsOn uses AND-all logic.
 }
 
 func (wnt *WorkflowNodeTemplate) TableName() string {
