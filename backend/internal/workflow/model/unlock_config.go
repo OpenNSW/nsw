@@ -14,8 +14,10 @@ import (
 // Used within UnlockGroup to form AND conditions across multiple nodes.
 type UnlockCondition struct {
 	// NodeTemplateID references the workflow node template to check (template-level).
-	// At the instance level, this is resolved to the actual workflow node ID.
 	NodeTemplateID uuid.UUID `json:"nodeTemplateId"`
+
+	// NodeID is the resolved workflow node instance ID (after resolution). Optional in the condition definition, but will be populated during evaluation.
+	NodeID *uuid.UUID `json:"nodeId,omitempty"`
 
 	// State is the expected state of the referenced node (e.g., "COMPLETED", "FAILED").
 	// Optional — if nil, the node's state is not checked.
@@ -43,9 +45,10 @@ type UnlockExpression struct {
 	AnyOf []UnlockExpression `json:"anyOf,omitempty"`
 	AllOf []UnlockExpression `json:"allOf,omitempty"`
 
-	NodeTemplateID uuid.UUID `json:"nodeTemplateId,omitempty"`
-	State          *string   `json:"state,omitempty"`
-	Outcome        *string   `json:"outcome,omitempty"`
+	NodeTemplateID uuid.UUID  `json:"nodeTemplateId,omitempty"`
+	NodeID         *uuid.UUID `json:"nodeId,omitempty"`
+	State          *string    `json:"state,omitempty"`
+	Outcome        *string    `json:"outcome,omitempty"`
 }
 
 // UnlockConfig represents the unlock configuration for a workflow node.
@@ -124,6 +127,9 @@ func (uc *UnlockConfig) validateCondition(cond UnlockCondition, path string) err
 	if cond.NodeTemplateID == uuid.Nil {
 		return fmt.Errorf("%s has nil nodeTemplateId", path)
 	}
+	if cond.State == nil && cond.Outcome == nil {
+		return fmt.Errorf("%s must specify at least state or outcome", path)
+	}
 	if cond.State != nil && len(strings.TrimSpace(*cond.State)) == 0 {
 		return fmt.Errorf("%s has empty state", path)
 	}
@@ -184,6 +190,12 @@ func (uc *UnlockConfig) validateExpression(expr UnlockExpression, path string) e
 // ResolveToInstanceIDs creates a copy of the UnlockConfig with template IDs replaced by instance node IDs.
 // The templateToNodeID map should contain template ID -> node instance ID mappings.
 func (uc *UnlockConfig) ResolveToInstanceIDs(templateToNodeID map[uuid.UUID]uuid.UUID) (*UnlockConfig, error) {
+	// Validate the config before resolution
+	if err := uc.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid unlock configuration: %w", err)
+	}
+
+	// If it's an expression-based config, resolve the expression
 	if uc.Expression != nil {
 		resolvedExpr, err := uc.resolveExpressionToInstanceIDs(*uc.Expression, templateToNodeID)
 		if err != nil {
@@ -205,7 +217,8 @@ func (uc *UnlockConfig) ResolveToInstanceIDs(templateToNodeID map[uuid.UUID]uuid
 				return nil, fmt.Errorf("no instance node found for template ID %s in unlock configuration", cond.NodeTemplateID)
 			}
 			resolved.AnyOf[i].AllOf[j] = UnlockCondition{
-				NodeTemplateID: nodeID, // At instance level, this field holds the node instance ID
+				NodeTemplateID: cond.NodeTemplateID,
+				NodeID:         &nodeID,
 				State:          cond.State,
 				Outcome:        cond.Outcome,
 			}
@@ -243,7 +256,8 @@ func (uc *UnlockConfig) resolveExpressionToInstanceIDs(expr UnlockExpression, te
 		if !found {
 			return UnlockExpression{}, fmt.Errorf("no instance node found for template ID %s in unlock configuration", expr.NodeTemplateID)
 		}
-		resolved.NodeTemplateID = nodeID
+		resolved.NodeID = &nodeID
+		resolved.NodeTemplateID = expr.NodeTemplateID
 	}
 
 	return resolved, nil
@@ -268,7 +282,7 @@ func (uc *UnlockConfig) Evaluate(nodeMap map[uuid.UUID]WorkflowNode) bool {
 // evaluateGroup checks if all conditions in a group are satisfied (AND).
 func (uc *UnlockConfig) evaluateGroup(group UnlockGroup, nodeMap map[uuid.UUID]WorkflowNode) bool {
 	for _, cond := range group.AllOf {
-		node, exists := nodeMap[cond.NodeTemplateID] // After resolution, NodeTemplateID holds the node instance ID
+		node, exists := nodeMap[*cond.NodeID]
 		if !exists {
 			return false
 		}
@@ -307,13 +321,14 @@ func (uc *UnlockConfig) evaluateExpression(expr UnlockExpression, nodeMap map[uu
 
 	return uc.evaluateCondition(UnlockCondition{
 		NodeTemplateID: expr.NodeTemplateID,
+		NodeID:         expr.NodeID,
 		State:          expr.State,
 		Outcome:        expr.Outcome,
 	}, nodeMap)
 }
 
 func (uc *UnlockConfig) evaluateCondition(cond UnlockCondition, nodeMap map[uuid.UUID]WorkflowNode) bool {
-	node, exists := nodeMap[cond.NodeTemplateID] // After resolution, NodeTemplateID holds the node instance ID
+	node, exists := nodeMap[*cond.NodeID]
 	if !exists {
 		return false
 	}

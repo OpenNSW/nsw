@@ -399,7 +399,7 @@ func TestUnlockWithUnlockConfiguration(t *testing.T) {
 				AnyOf: []model.UnlockGroup{
 					{
 						AllOf: []model.UnlockCondition{
-							{NodeTemplateID: nodeAID, State: strPtr("COMPLETED"), Outcome: strPtr("APPROVED")},
+							{NodeTemplateID: nodeAID, NodeID: &nodeAID, State: strPtr("COMPLETED"), Outcome: strPtr("APPROVED")},
 						},
 					},
 				},
@@ -442,7 +442,7 @@ func TestUnlockWithUnlockConfiguration(t *testing.T) {
 				AnyOf: []model.UnlockGroup{
 					{
 						AllOf: []model.UnlockCondition{
-							{NodeTemplateID: nodeAID, Outcome: strPtr("APPROVED")},
+							{NodeTemplateID: nodeAID, NodeID: &nodeAID, Outcome: strPtr("APPROVED")},
 						},
 					},
 				},
@@ -486,12 +486,12 @@ func TestUnlockWithUnlockConfiguration(t *testing.T) {
 				AnyOf: []model.UnlockGroup{
 					{
 						AllOf: []model.UnlockCondition{
-							{NodeTemplateID: nodeAID, Outcome: strPtr("APPROVED")},
+							{NodeTemplateID: nodeAID, NodeID: &nodeAID, Outcome: strPtr("APPROVED")},
 						},
 					},
 					{
 						AllOf: []model.UnlockCondition{
-							{NodeTemplateID: nodeAID, Outcome: strPtr("FAST_TRACKED")},
+							{NodeTemplateID: nodeAID, NodeID: &nodeAID, Outcome: strPtr("FAST_TRACKED")},
 						},
 					},
 				},
@@ -535,7 +535,7 @@ func TestUnlockWithUnlockConfiguration(t *testing.T) {
 				AnyOf: []model.UnlockGroup{
 					{
 						AllOf: []model.UnlockCondition{
-							{NodeTemplateID: nodeAID, State: strPtr("COMPLETED")},
+							{NodeTemplateID: nodeAID, NodeID: &nodeAID, State: strPtr("COMPLETED")},
 						},
 					},
 				},
@@ -635,6 +635,57 @@ func TestEndNodeWorkflowCompletion(t *testing.T) {
 		result, err := sm.TransitionToCompleted(ctx, nil, nodeA, updateReq, completionConfig)
 		assert.NoError(t, err)
 		assert.False(t, result.WorkflowFinished, "workflow should not be complete when end node is still locked")
+	})
+
+	t.Run("End Node Unlocks And Auto-Completes", func(t *testing.T) {
+		endNodeID := uuid.New()
+		nodeAID := uuid.New()
+		consignmentID := uuid.New()
+
+		// Node A is completed, end node depends on it.
+		nodeA := &model.WorkflowNode{
+			BaseModel:              model.BaseModel{ID: nodeAID},
+			ConsignmentID:          &consignmentID,
+			WorkflowNodeTemplateID: uuid.New(),
+			State:                  model.WorkflowNodeStateInProgress,
+		}
+
+		endNode := model.WorkflowNode{
+			BaseModel:              model.BaseModel{ID: endNodeID},
+			ConsignmentID:          &consignmentID,
+			WorkflowNodeTemplateID: uuid.New(),
+			State:                  model.WorkflowNodeStateLocked,
+			DependsOn:              model.UUIDArray{nodeAID},
+		}
+
+		updateReq := &model.UpdateWorkflowNodeDTO{}
+
+		mockRepo.On("GetWorkflowNodesByConsignmentIDInTx", ctx, (*gorm.DB)(nil), consignmentID).Return([]model.WorkflowNode{*nodeA, endNode}, nil).Once()
+		mockRepo.On("UpdateWorkflowNodesInTx", ctx, (*gorm.DB)(nil), mock.MatchedBy(func(nodes []model.WorkflowNode) bool {
+			if len(nodes) != 2 {
+				return false
+			}
+			var nodeACompleted bool
+			var endNodeCompleted bool
+			for _, node := range nodes {
+				switch node.ID {
+				case nodeAID:
+					nodeACompleted = node.State == model.WorkflowNodeStateCompleted
+				case endNodeID:
+					endNodeCompleted = node.State == model.WorkflowNodeStateCompleted
+				}
+			}
+			return nodeACompleted && endNodeCompleted
+		})).Return(nil).Once()
+
+		completionConfig := &WorkflowCompletionConfig{
+			EndNodeID: &endNodeID,
+		}
+
+		result, err := sm.TransitionToCompleted(ctx, nil, nodeA, updateReq, completionConfig)
+		assert.NoError(t, err)
+		assert.True(t, result.WorkflowFinished, "workflow should be complete when end node auto-completes")
+		assert.Empty(t, result.NewReadyNodes, "end node should not remain READY after auto-completion")
 	})
 
 	t.Run("No EndNodeID - Falls Back To All Nodes", func(t *testing.T) {
@@ -752,8 +803,12 @@ func TestInitializeNodesWithUnlockConfiguration(t *testing.T) {
 					if n.UnlockConfiguration == nil {
 						return false
 					}
-					// The unlock config should have the node instance ID, not template ID
-					if n.UnlockConfiguration.AnyOf[0].AllOf[0].NodeTemplateID != node1ID {
+					condition := n.UnlockConfiguration.AnyOf[0].AllOf[0]
+					if condition.NodeTemplateID != template1ID {
+						return false
+					}
+					// The unlock config should have resolved node instance ID in NodeID
+					if condition.NodeID == nil || *condition.NodeID != node1ID {
 						return false
 					}
 				}
