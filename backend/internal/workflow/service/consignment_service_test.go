@@ -105,7 +105,7 @@ func TestConsignmentService_InitializeConsignment(t *testing.T) {
 	// Create Consignment
 	// GORM might use Exec if it doesn't need to return generated values (since we calculate UUID in BeforeCreate)
 	sqlMock.ExpectExec(`INSERT INTO "consignments"`).
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	// Create Workflow Nodes
@@ -259,8 +259,8 @@ func TestConsignmentService_UpdateWorkflowNodeStateAndPropagateChanges(t *testin
 
 	// Save(consignment)
 	// Save updates all fields
-	sqlMock.ExpectExec(`UPDATE "consignments" SET "created_at"=\$1,"updated_at"=\$2,"flow"=\$3,"trader_id"=\$4,"state"=\$5,"items"=\$6,"global_context"=\$7 WHERE "id" = \$8`).
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), consignmentID).
+	sqlMock.ExpectExec(`UPDATE "consignments" SET "created_at"=\$1,"updated_at"=\$2,"flow"=\$3,"trader_id"=\$4,"state"=\$5,"items"=\$6,"global_context"=\$7,"end_node_id"=\$8 WHERE "id" = \$9`).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), consignmentID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	sqlMock.ExpectCommit()
@@ -397,6 +397,11 @@ func TestConsignmentService_UpdateWorkflowNodeState_Completion(t *testing.T) {
 	// Get Workflow Node (In Tx)
 	mockNodeRepo.On("GetWorkflowNodeByIDInTx", ctx, mock.Anything, nodeID).Return(node, nil).Once()
 
+	// The new SELECT consignment for EndNodeID
+	sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE id = \$1`).
+		WithArgs(consignmentID, 1).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "state"}).AddRow(consignmentID, "IN_PROGRESS"))
+
 	// Transition (Completed)
 	// Update Node State
 	mockNodeRepo.On("UpdateWorkflowNodesInTx", ctx, mock.Anything, mock.MatchedBy(func(nodes []model.WorkflowNode) bool {
@@ -414,8 +419,8 @@ func TestConsignmentService_UpdateWorkflowNodeState_Completion(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "state"}).AddRow(consignmentID, "IN_PROGRESS"))
 
 	// Save(consignment) -> State = FINISHED
-	sqlMock.ExpectExec(`UPDATE "consignments" SET "created_at"=\$1,"updated_at"=\$2,"flow"=\$3,"trader_id"=\$4,"state"=\$5,"items"=\$6,"global_context"=\$7 WHERE "id" = \$8`).
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), "FINISHED", sqlmock.AnyArg(), sqlmock.AnyArg(), consignmentID).
+	sqlMock.ExpectExec(`UPDATE "consignments" SET "created_at"=\$1,"updated_at"=\$2,"flow"=\$3,"trader_id"=\$4,"state"=\$5,"items"=\$6,"global_context"=\$7,"end_node_id"=\$8 WHERE "id" = \$9`).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), "FINISHED", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), consignmentID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	// Append Global Context
@@ -425,8 +430,8 @@ func TestConsignmentService_UpdateWorkflowNodeState_Completion(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "state", "global_context"}).AddRow(consignmentID, "FINISHED", []byte("{}")))
 
 	// Save(consignment) - Updates Global Context, State should remain FINISHED
-	sqlMock.ExpectExec(`UPDATE "consignments" SET "created_at"=\$1,"updated_at"=\$2,"flow"=\$3,"trader_id"=\$4,"state"=\$5,"items"=\$6,"global_context"=\$7 WHERE "id" = \$8`).
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), "FINISHED", sqlmock.AnyArg(), sqlmock.AnyArg(), consignmentID).
+	sqlMock.ExpectExec(`UPDATE "consignments" SET "created_at"=\$1,"updated_at"=\$2,"flow"=\$3,"trader_id"=\$4,"state"=\$5,"items"=\$6,"global_context"=\$7,"end_node_id"=\$8 WHERE "id" = \$9`).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), "FINISHED", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), consignmentID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	sqlMock.ExpectCommit()

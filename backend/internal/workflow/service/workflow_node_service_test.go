@@ -47,7 +47,7 @@ func TestWorkflowNodeService_CreateWorkflowNodesInTx(t *testing.T) {
 
 	// Expectation: Create
 	sqlMock.ExpectExec(`INSERT INTO "workflow_nodes"`).
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	result, err := service.CreateWorkflowNodesInTx(ctx, tx, nodes)
@@ -76,8 +76,8 @@ func TestWorkflowNodeService_UpdateWorkflowNodesInTx(t *testing.T) {
 
 	// Expectation: Save (Update)
 	// Save updates all fields
-	sqlMock.ExpectExec(`UPDATE "workflow_nodes" SET "created_at"=\$1,"updated_at"=\$2,"consignment_id"=\$3,"pre_consignment_id"=\$4,"workflow_node_template_id"=\$5,"state"=\$6,"extended_state"=\$7,"depends_on"=\$8 WHERE "id" = \$9`).
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), "COMPLETED", sqlmock.AnyArg(), sqlmock.AnyArg(), nodeID).
+	sqlMock.ExpectExec(`UPDATE "workflow_nodes" SET "created_at"=\$1,"updated_at"=\$2,"consignment_id"=\$3,"pre_consignment_id"=\$4,"workflow_node_template_id"=\$5,"state"=\$6,"extended_state"=\$7,"outcome"=\$8,"depends_on"=\$9,"unlock_configuration"=\$10 WHERE "id" = \$11`).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), "COMPLETED", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), nodeID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	err := service.UpdateWorkflowNodesInTx(ctx, tx, nodes)
