@@ -7,9 +7,21 @@ import {TaskDetailScreen} from "./screens/TaskDetailScreen.tsx";
 import {PreconsignmentScreen} from "./screens/PreconsignmentScreen.tsx"
 import {useAsgardeo, SignedOut} from '@asgardeo/react'
 import {LoginScreen} from "./screens/LoginScreen.tsx";
+import {useEffect} from 'react'
+import {setAccessTokenProvider} from './services/api'
 
 function ProtectedLayout() {
-  const {isSignedIn, isLoading} = useAsgardeo()
+  const {isSignedIn, isLoading, getAccessToken} = useAsgardeo()
+
+  useEffect(() => {
+    if (isSignedIn) {
+      setAccessTokenProvider(async () => getAccessToken())
+      return
+    }
+
+    setAccessTokenProvider(null)
+  }, [getAccessToken, isSignedIn])
+
   if (isLoading) return null
   if (!isSignedIn) return <Navigate to="/login" replace/>
   return <Layout/>

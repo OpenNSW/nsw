@@ -1,7 +1,12 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1'
 
-// TODO: Should remove this after implementing proper authentication, and use the auth token instead of a hardcoded trader ID
-const TRADER_ID = 'TRADER-001'
+type AccessTokenProvider = () => Promise<string | null | undefined>
+
+let accessTokenProvider: AccessTokenProvider | null = null
+
+export function setAccessTokenProvider(provider: AccessTokenProvider | null) {
+  accessTokenProvider = provider
+}
 
 
 export type ErrorResponse = {
@@ -38,6 +43,21 @@ function buildQueryString(params: QueryParams): string {
   return searchParams.toString()
 }
 
+async function buildHeaders(): Promise<HeadersInit> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+
+  if (accessTokenProvider) {
+    const accessToken = await accessTokenProvider()
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`
+    }
+  }
+
+  return headers
+}
+
 export async function apiGet<T>(
   endpoint: string,
   params: QueryParams = {}
@@ -46,10 +66,7 @@ export async function apiGet<T>(
   const url = `${API_BASE_URL}${endpoint}${queryString ? `?${queryString}` : ''}`
 
   const response = await fetch(url, {
-    headers: {
-      'Authorization': TRADER_ID,
-      'Content-Type': 'application/json',
-    },
+    headers: await buildHeaders(),
   })
   if (!response.ok) {
     throw new Error(`API error: ${response.status} ${response.statusText}`)
@@ -65,10 +82,7 @@ export async function apiPost<T, R>(
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Authorization': TRADER_ID,
-      'Content-Type': 'application/json',
-    },
+    headers: await buildHeaders(),
     body: JSON.stringify(body),
   })
 
