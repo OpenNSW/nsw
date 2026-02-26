@@ -20,7 +20,7 @@ import (
 
 // SimpleFormAction represents the action to perform on the form
 const (
-	SimpleFormActionDraft     = "DRAFT_FORM"
+	SimpleFormActionDraft     = "SAVE_AS_DRAFT"
 	SimpleFormActionSubmit    = "SUBMIT_FORM"
 	SimpleFormActionOgaVerify = "OGA_VERIFICATION"
 )
