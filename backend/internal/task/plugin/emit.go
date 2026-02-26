@@ -23,7 +23,7 @@ type FieldCondition struct {
 }
 
 // Evaluate walks the rules in order and returns the outcome of the first rule
-// whose conditions all pass against data. Returns an empty string if no rule matched.
+// whose conditions all pass against data. Returns nil if no rule matched.
 // Rules are expected to be non-overlapping; the first match wins.
 func (e *EmissionConfig) Evaluate(data map[string]any) *string {
 	for _, rule := range e.Rules {

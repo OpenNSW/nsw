@@ -515,12 +515,15 @@ func (s *SimpleForm) buildLocalContext() map[string]any {
 	ctx := make(map[string]any)
 	for _, key := range localStoreKeys {
 		val, err := s.api.ReadFromLocalStore(key)
-		if err != nil || val == nil {
+		if err != nil {
+			slog.Warn("failed to read from local store for emission context", "key", key, "error", err)
 			continue
 		}
-		if m, ok := val.(map[string]any); ok {
-			ctx[key] = m
+		if val == nil {
+			continue
 		}
+
+		ctx[key] = val
 	}
 	return ctx
 }
