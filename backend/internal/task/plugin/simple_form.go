@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -30,6 +31,7 @@ const (
 const (
 	simpleFormFSMSubmitComplete = "SUBMIT_FORM_COMPLETE"
 	simpleFormFSMSubmitAwaitOGA = "SUBMIT_FORM_AWAIT_OGA"
+	simpleFormFSMSubmitFailed   = "SUBMIT_FORM_FAILED"
 	simpleFormFSMOgaApproved    = "OGA_VERIFICATION_APPROVED"
 	simpleFormFSMOgaRejected    = "OGA_VERIFICATION_REJECTED"
 )
@@ -43,9 +45,19 @@ const (
 	TraderSubmitted       SimpleFormState = "SUBMITTED"
 	OGAAcknowledged       SimpleFormState = "OGA_ACKNOWLEDGED"
 	OGAReviewed           SimpleFormState = "OGA_REVIEWED"
+	SubmissionFailed      SimpleFormState = "SUBMISSION_FAILED"
 )
 
 const TasksAPIPath = "/api/v1/tasks"
+
+// submissionFailedErr wraps an HTTP submission error to signal that Execute should
+// transition the plugin to SUBMISSION_FAILED. This distinguishes a real external-call
+// failure (where the remote system may have already recorded the data) from earlier
+// validation failures, preventing the task from entering an unrecoverable zombie state.
+type submissionFailedErr struct{ cause error }
+
+func (e submissionFailedErr) Error() string { return e.cause.Error() }
+func (e submissionFailedErr) Unwrap() error { return e.cause }
 
 // Config contains the JSON Form configuration
 type Config struct {
@@ -107,27 +119,38 @@ type SimpleForm struct {
 //
 // State graph:
 //
-//	""               ──START──────────────────────► INITIALIZED      [no task state change]
-//	INITIALIZED      ──DRAFT_FORM─────────────────► DRAFT            [IN_PROGRESS]
-//	INITIALIZED      ──SUBMIT_FORM_COMPLETE────────► SUBMITTED        [COMPLETED]
-//	INITIALIZED      ──SUBMIT_FORM_AWAIT_OGA───────► OGA_ACKNOWLEDGED [IN_PROGRESS]
-//	DRAFT            ──DRAFT_FORM─────────────────► DRAFT            [IN_PROGRESS]
-//	DRAFT            ──SUBMIT_FORM_COMPLETE────────► SUBMITTED        [COMPLETED]
-//	DRAFT            ──SUBMIT_FORM_AWAIT_OGA───────► OGA_ACKNOWLEDGED [IN_PROGRESS]
-//	OGA_ACKNOWLEDGED ──OGA_VERIFICATION_APPROVED──► OGA_REVIEWED     [COMPLETED]
-//	OGA_ACKNOWLEDGED ──OGA_VERIFICATION_REJECTED──► OGA_REVIEWED     [FAILED]
+//	""                ──START──────────────────────► INITIALIZED       [no task state change]
+//	INITIALIZED       ──DRAFT_FORM─────────────────► DRAFT             [IN_PROGRESS]
+//	INITIALIZED       ──SUBMIT_FORM_COMPLETE────────► SUBMITTED         [COMPLETED]
+//	INITIALIZED       ──SUBMIT_FORM_AWAIT_OGA───────► OGA_ACKNOWLEDGED  [IN_PROGRESS]
+//	INITIALIZED       ──SUBMIT_FORM_FAILED─────────► SUBMISSION_FAILED  [IN_PROGRESS]
+//	DRAFT             ──DRAFT_FORM─────────────────► DRAFT             [IN_PROGRESS]
+//	DRAFT             ──SUBMIT_FORM_COMPLETE────────► SUBMITTED         [COMPLETED]
+//	DRAFT             ──SUBMIT_FORM_AWAIT_OGA───────► OGA_ACKNOWLEDGED  [IN_PROGRESS]
+//	DRAFT             ──SUBMIT_FORM_FAILED─────────► SUBMISSION_FAILED  [IN_PROGRESS]
+//	SUBMISSION_FAILED ──DRAFT_FORM─────────────────► DRAFT             [IN_PROGRESS]
+//	SUBMISSION_FAILED ──SUBMIT_FORM_COMPLETE────────► SUBMITTED         [COMPLETED]
+//	SUBMISSION_FAILED ──SUBMIT_FORM_AWAIT_OGA───────► OGA_ACKNOWLEDGED  [IN_PROGRESS]
+//	OGA_ACKNOWLEDGED  ──OGA_VERIFICATION_APPROVED──► OGA_REVIEWED      [COMPLETED]
+//	OGA_ACKNOWLEDGED  ──OGA_VERIFICATION_REJECTED──► OGA_REVIEWED      [FAILED]
 func NewSimpleFormFSM() *PluginFSM {
 	return NewPluginFSM(map[TransitionKey]TransitionOutcome{
 		{"", FSMActionStart}: {string(SimpleFormInitialized), ""},
 
 		{string(SimpleFormInitialized), SimpleFormActionDraft}: {string(TraderSavedAsDraft), InProgress},
 		{string(TraderSavedAsDraft), SimpleFormActionDraft}:    {string(TraderSavedAsDraft), InProgress},
+		{string(SubmissionFailed), SimpleFormActionDraft}:      {string(TraderSavedAsDraft), InProgress},
 
 		{string(SimpleFormInitialized), simpleFormFSMSubmitComplete}: {string(TraderSubmitted), Completed},
 		{string(TraderSavedAsDraft), simpleFormFSMSubmitComplete}:    {string(TraderSubmitted), Completed},
+		{string(SubmissionFailed), simpleFormFSMSubmitComplete}:      {string(TraderSubmitted), Completed},
 
 		{string(SimpleFormInitialized), simpleFormFSMSubmitAwaitOGA}: {string(OGAAcknowledged), InProgress},
 		{string(TraderSavedAsDraft), simpleFormFSMSubmitAwaitOGA}:    {string(OGAAcknowledged), InProgress},
+		{string(SubmissionFailed), simpleFormFSMSubmitAwaitOGA}:      {string(OGAAcknowledged), InProgress},
+
+		{string(SimpleFormInitialized), simpleFormFSMSubmitFailed}: {string(SubmissionFailed), InProgress},
+		{string(TraderSavedAsDraft), simpleFormFSMSubmitFailed}:    {string(SubmissionFailed), InProgress},
 
 		{string(OGAAcknowledged), simpleFormFSMOgaApproved}: {string(OGAReviewed), Completed},
 		{string(OGAAcknowledged), simpleFormFSMOgaRejected}: {string(OGAReviewed), Failed},
@@ -223,6 +246,15 @@ func (s *SimpleForm) Execute(ctx context.Context, request *ExecutionRequest) (*E
 	}
 	resp, err := s.dispatch(ctx, action, request.Content)
 	if err != nil {
+		// If the HTTP call to the external system failed, transition to SUBMISSION_FAILED
+		// so the task has a recoverable state rather than being stuck (zombie state).
+		var subFailed submissionFailedErr
+		if errors.As(err, &subFailed) {
+			if transErr := s.api.Transition(simpleFormFSMSubmitFailed); transErr != nil {
+				slog.Error("failed to transition to SUBMISSION_FAILED after HTTP error",
+					"formId", s.config.FormID, "error", transErr)
+			}
+		}
 		return resp, err
 	}
 	if err := s.api.Transition(action); err != nil {
@@ -379,7 +411,7 @@ func (s *SimpleForm) submitHandler(ctx context.Context, content any) (*Execution
 				Success: false,
 				Error:   &ApiError{Code: "FORM_SUBMISSION_FAILED", Message: "Failed to submit form to external system."},
 			},
-		}, err
+		}, submissionFailedErr{err}
 	}
 
 	if err := s.api.WriteToLocalStore("submissionResponse", responseData); err != nil {
@@ -470,7 +502,7 @@ func (s *SimpleForm) resolveFormData(ctx context.Context, state SimpleFormState)
 	switch state {
 	case SimpleFormInitialized:
 		return s.prepopulateFormData(ctx, s.config.FormData)
-	case TraderSavedAsDraft, TraderSubmitted, OGAAcknowledged, OGAReviewed:
+	case TraderSavedAsDraft, TraderSubmitted, OGAAcknowledged, OGAReviewed, SubmissionFailed:
 		return s.api.ReadFromLocalStore("trader:form")
 	default:
 		return s.config.FormData, nil

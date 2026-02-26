@@ -247,6 +247,43 @@ func TestNewSimpleFormFSM(t *testing.T) {
 			wantNextState: string(OGAReviewed),
 			wantTaskState: Failed,
 		},
+		// SUBMISSION_FAILED — entering the state
+		{
+			name:          "submission failed from initialised",
+			currentState:  string(SimpleFormInitialized),
+			action:        simpleFormFSMSubmitFailed,
+			wantNextState: string(SubmissionFailed),
+			wantTaskState: InProgress,
+		},
+		{
+			name:          "submission failed from draft",
+			currentState:  string(TraderSavedAsDraft),
+			action:        simpleFormFSMSubmitFailed,
+			wantNextState: string(SubmissionFailed),
+			wantTaskState: InProgress,
+		},
+		// SUBMISSION_FAILED — recovery paths
+		{
+			name:          "retry draft from submission failed",
+			currentState:  string(SubmissionFailed),
+			action:        SimpleFormActionDraft,
+			wantNextState: string(TraderSavedAsDraft),
+			wantTaskState: InProgress,
+		},
+		{
+			name:          "retry submit complete from submission failed",
+			currentState:  string(SubmissionFailed),
+			action:        simpleFormFSMSubmitComplete,
+			wantNextState: string(TraderSubmitted),
+			wantTaskState: Completed,
+		},
+		{
+			name:          "retry submit await oga from submission failed",
+			currentState:  string(SubmissionFailed),
+			action:        simpleFormFSMSubmitAwaitOGA,
+			wantNextState: string(OGAAcknowledged),
+			wantTaskState: InProgress,
+		},
 		// Invalid transitions
 		{
 			name:         "draft not permitted from submitted",
@@ -264,6 +301,18 @@ func TestNewSimpleFormFSM(t *testing.T) {
 			name:         "start not permitted twice",
 			currentState: string(SimpleFormInitialized),
 			action:       FSMActionStart,
+			wantErr:      true,
+		},
+		{
+			name:         "oga approved not permitted from submission failed",
+			currentState: string(SubmissionFailed),
+			action:       simpleFormFSMOgaApproved,
+			wantErr:      true,
+		},
+		{
+			name:         "submission failed not permitted from oga acknowledged",
+			currentState: string(OGAAcknowledged),
+			action:       simpleFormFSMSubmitFailed,
 			wantErr:      true,
 		},
 	}
