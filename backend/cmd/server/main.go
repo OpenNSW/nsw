@@ -98,7 +98,10 @@ func main() {
 	uploadHandler := uploads.NewHTTPHandler(uploadService)
 
 	// Initialize authentication manager
-	authManager := auth.NewManager(db)
+	authManager, err := auth.NewManager(db, cfg.Auth)
+	if err != nil {
+		log.Fatalf("failed to create auth manager: %v", err)
+	}
 	defer func() {
 		if err := authManager.Close(); err != nil {
 			slog.Error("failed to close auth manager", "error", err)

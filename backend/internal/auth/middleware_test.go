@@ -122,3 +122,62 @@ func TestAuthMiddleware_NoToken(t *testing.T) {
 		t.Errorf("expected status 200, got %d", recorder.Code)
 	}
 }
+
+// TestAuthMiddleware_UninitializedDependencies tests middleware returns 500 when required dependencies are missing
+func TestAuthMiddleware_UninitializedDependencies(t *testing.T) {
+	testHandlerCalled := false
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testHandlerCalled = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	tokenExtractor, err := NewTokenExtractor("https://localhost:8090/oauth2/jwks", "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", "TRADER_PORTAL_APP")
+	if err != nil {
+		t.Fatalf("failed to create token extractor: %v", err)
+	}
+	middleware := Middleware(nil, tokenExtractor)
+	handlerWithMiddleware := middleware(testHandler)
+
+	req := httptest.NewRequest("GET", "http://example.com/test", nil)
+	req.Header.Set("Authorization", "Bearer invalid.jwt.token")
+	recorder := httptest.NewRecorder()
+
+	handlerWithMiddleware.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusInternalServerError {
+		t.Errorf("expected status 500, got %d", recorder.Code)
+	}
+	if testHandlerCalled {
+		t.Error("expected handler not to be called when dependencies are uninitialized")
+	}
+}
+
+// TestAuthMiddleware_InvalidToken tests middleware returns 401 for invalid auth token
+func TestAuthMiddleware_InvalidToken(t *testing.T) {
+	testHandlerCalled := false
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testHandlerCalled = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	tokenExtractor, err := NewTokenExtractor("https://localhost:8090/oauth2/jwks", "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", "TRADER_PORTAL_APP")
+	if err != nil {
+		t.Fatalf("failed to create token extractor: %v", err)
+	}
+	// non-nil service to ensure this test validates token behavior, not DI failure behavior
+	middleware := Middleware(&AuthService{}, tokenExtractor)
+	handlerWithMiddleware := middleware(testHandler)
+
+	req := httptest.NewRequest("GET", "http://example.com/test", nil)
+	req.Header.Set("Authorization", "Bearer invalid.jwt.token")
+	recorder := httptest.NewRecorder()
+
+	handlerWithMiddleware.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusUnauthorized {
+		t.Errorf("expected status 401, got %d", recorder.Code)
+	}
+	if testHandlerCalled {
+		t.Error("expected handler not to be called for invalid token")
+	}
+}
