@@ -1,12 +1,16 @@
 package auth
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"gorm.io/gorm"
+
+	"github.com/OpenNSW/nsw/internal/config"
 )
 
 // Manager handles all authentication-related operations and middleware setup.
@@ -35,14 +39,29 @@ type Manager struct {
 //	handler := middleware.CORS(&cfg.CORS)(authManager.Middleware()(mux))
 //
 // This centralizes all auth setup and makes it easy to extend with JWT configuration later.
-func NewManager(db *gorm.DB) *Manager {
+func NewManager(db *gorm.DB, authConfig config.AuthConfig) (*Manager, error) {
 	slog.Info("initializing auth manager")
 
 	// Initialize auth service
 	service := NewAuthService(db)
+	httpClient := &http.Client{Timeout: 10 * time.Second}
+	if authConfig.InsecureSkipTLSVerify {
+		httpClient.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+	}
 
 	// Initialize token extractor
-	tokenExtractor := NewTokenExtractor()
+	tokenExtractor, err := NewTokenExtractorWithClient(
+		authConfig.JWKSURL,
+		authConfig.Issuer,
+		authConfig.Audience,
+		authConfig.ClientID,
+		httpClient,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize token extractor: %w", err)
+	}
 
 	// Create middleware
 	middleware := Middleware(service, tokenExtractor)
@@ -54,7 +73,7 @@ func NewManager(db *gorm.DB) *Manager {
 	}
 
 	slog.Debug("auth manager initialized successfully")
-	return m
+	return m, nil
 }
 
 // Middleware returns the auth middleware function.

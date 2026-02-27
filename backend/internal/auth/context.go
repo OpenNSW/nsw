@@ -2,7 +2,6 @@ package auth
 
 import (
 	"encoding/json"
-	"fmt"
 )
 
 // TraderContext represents the context of a trader in the database.
@@ -20,13 +19,21 @@ func (t *TraderContext) TableName() string {
 // AuthContext represents the authentication context available in a request.
 // This is a transient context that is injected into the request by the auth middleware.
 // It contains trader information retrieved from the database based on the token.
+// Also includes OUHandle from the token claims for potential authorization decisions.
 //
-// Future: When JWT is implemented, this struct may be extended to include claims like:
-// - TokenIssuedAt (iat)
-// - TokenExpiresAt (exp)
-// - Additional JWT-specific fields
+// Future: We can extend this struct to include more fields from the token or database as needed.
 type AuthContext struct {
 	*TraderContext
+	OUHandle string `json:"ouHandle"`
+}
+
+// GetTraderID is a convenience method to get the trader ID directly from AuthContext.
+// Returns empty string if AuthContext is nil.
+func (a *AuthContext) GetTraderID() string {
+	if a == nil || a.TraderContext == nil {
+		return ""
+	}
+	return a.TraderContext.TraderID
 }
 
 // GetTraderContextMap returns the trader context as a map for convenient access.
@@ -36,10 +43,18 @@ func (ac *AuthContext) GetTraderContextMap() (map[string]any, error) {
 	if ac == nil || ac.TraderContext == nil || len(ac.TraderContext.TraderContext) == 0 {
 		return contextMap, nil
 	}
-
-	if err := json.Unmarshal(ac.TraderContext.TraderContext, &contextMap); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal trader context: %w", err)
+	err := json.Unmarshal(ac.TraderContext.TraderContext, &contextMap)
+	if err != nil {
+		return nil, err
 	}
-
 	return contextMap, nil
+}
+
+// GetOUHandle is a convenience method to get the OUHandle directly from AuthContext.
+// Returns empty string if AuthContext is nil or OUHandle is not set.
+func (a *AuthContext) GetOUHandle() string {
+	if a == nil {
+		return ""
+	}
+	return a.OUHandle
 }
