@@ -4,6 +4,14 @@ SET config = '{
   "formId": "22222222-2222-2222-2222-222222222222",
   "service": "plant-quarantine-phytosanitary",
   "callback": {
+    "transition": {
+      "field": "decision",
+      "mapping": {
+        "APPROVED": "OGA_VERIFICATION_APPROVED",
+        "MANUAL_REVIEW": "OGA_VERIFICATION_APPROVED"
+      },
+      "default": "OGA_VERIFICATION_REJECTED"
+    },
     "response": {
       "display": {
         "formId": "d0c3b860-635b-4124-8081-d3f421e429cb"
