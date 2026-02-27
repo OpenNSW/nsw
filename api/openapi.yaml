@@ -28,6 +28,7 @@ paths:
       operationId: getAllHSCodes
       tags:
         - HS Codes
+      security: []
       parameters:
         - name: hsCodeStartsWith
           in: query
@@ -71,7 +72,7 @@ paths:
       description: >
         Retrieve all consignments for the authenticated trader.
         Returns a paginated list of consignment summaries (excluding full workflow node details).
-        Requires Authorization header with trader identification.
+        Requires Authorization header with Bearer JWT access token.
       operationId: listConsignments
       tags:
         - Consignments
@@ -116,7 +117,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ConsignmentListResult"
         "400":
-          description: Invalid query parameters or missing traderId
+          description: Invalid query parameters
+        "401":
+          description: Missing or invalid authentication token
         "500":
           description: Internal server error
 
@@ -126,7 +129,7 @@ paths:
         Create a new consignment with specified flow type and items.
         The system automatically initializes workflow tasks based on HS code mappings.
         Returns the created consignment with full details including all associated workflow nodes.
-        Requires Authorization header with trader identification.
+        Requires Authorization header with Bearer JWT access token.
       operationId: createConsignment
       tags:
         - Consignments
@@ -153,6 +156,8 @@ paths:
                 $ref: "#/components/schemas/ConsignmentDetailDTO"
         "400":
           description: Invalid request body or validation error
+        "401":
+          description: Missing or invalid authentication token
         "422":
           description: Unprocessable entity - HS code not found or other validation error
         "500":
@@ -164,7 +169,7 @@ paths:
       description: >
         Retrieve detailed information about a specific consignment.
         Includes all items with HS code details and associated workflow nodes.
-        Requires Authorization header with trader identification.
+        Requires Authorization header with Bearer JWT access token.
       operationId: getConsignmentById
       tags:
         - Consignments
@@ -187,6 +192,8 @@ paths:
                 $ref: "#/components/schemas/ConsignmentDetailDTO"
         "400":
           description: Invalid consignment ID or format
+        "401":
+          description: Missing or invalid authentication token
         "404":
           description: Consignment not found
         "500":
@@ -202,6 +209,7 @@ paths:
       operationId: executeTask
       tags:
         - Tasks
+      security: []
       requestBody:
         required: true
         description: Task execution request with workflow and task IDs
@@ -239,6 +247,7 @@ paths:
       operationId: getTask
       tags:
         - Tasks
+      security: []
       parameters:
         - name: id
           in: path
@@ -269,7 +278,7 @@ paths:
       description: >
         Retrieve all pre-consignments for the authenticated trader. Pre-consignments are templates and instances
         for initial workflow steps before full consignment creation.
-        Requires Authorization header with trader identification.
+        Requires Authorization header with Bearer JWT access token.
       operationId: listPreConsignments
       tags:
         - Pre-Consignments
@@ -300,7 +309,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/TraderPreConsignmentsResponseDTO"
         "400":
-          description: Invalid query parameters or missing traderId
+          description: Invalid query parameters
+        "401":
+          description: Missing or invalid authentication token
         "500":
           description: Internal server error
 
@@ -309,7 +320,7 @@ paths:
       description: >
         Create a new pre-consignment instance from a pre-consignment template.
         Pre-consignments facilitate initial workflow steps before actual consignment creation.
-        Requires Authorization header with trader identification.
+        Requires Authorization header with Bearer JWT access token.
       operationId: createPreConsignment
       tags:
         - Pre-Consignments
@@ -333,6 +344,8 @@ paths:
                 $ref: "#/components/schemas/PreConsignmentResponseDTO"
         "400":
           description: Invalid request body or missing required fields
+        "401":
+          description: Missing or invalid authentication token
         "422":
           description: Unprocessable entity - template not found or dependency error
         "500":
@@ -343,7 +356,7 @@ paths:
       summary: Get Pre-Consignment Details
       description: >
         Retrieve detailed information about a specific pre-consignment instance.
-        Requires Authorization header with trader identification.
+        Requires Authorization header with Bearer JWT access token.
       operationId: getPreConsignmentById
       tags:
         - Pre-Consignments
@@ -366,6 +379,8 @@ paths:
                 $ref: "#/components/schemas/PreConsignmentResponseDTO"
         "400":
           description: Invalid pre-consignment ID or format
+        "401":
+          description: Missing or invalid authentication token
         "404":
           description: Pre-consignment not found
         "500":
@@ -882,9 +897,11 @@ components:
 
   securitySchemes:
     traderAuth:
-      type: apiKey
-      in: header
-      name: Authorization
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
       description: >
-        Trader authentication token in the format "TRADER-XXX" (e.g., "TRADER-001").
-        This header identifies the trader making the request and provides access to their context.
+        Bearer JWT access token sent in the Authorization header.
+        Example: "Authorization: Bearer <access_token>".
+        Backend validates token signature via JWKS and validates issuer, audience, and client_id claims.
+        Trader identity is derived from the sub claim.
