@@ -13,7 +13,7 @@ export const ArrayControl = ({
     addItem,
     removeItems,
     rootSchema,
-}: Omit<ArrayControlProps, 'addItem'> & { addItem?: (path: string, value: any) => void; }) => {
+}: ArrayControlProps) => {
     const itemsSchema = schema.items;
 
     if (visible === false) {
@@ -31,7 +31,7 @@ export const ArrayControl = ({
 
     const handleAddItem = () => {
         const newItem = createDefaultValue(validItemsSchema, rootSchema);
-        if (addItem) addItem(path, newItem);
+        if (addItem) addItem(path, newItem)();
     };
 
     const handleRemoveItem = (indexToRemove: number) => {
