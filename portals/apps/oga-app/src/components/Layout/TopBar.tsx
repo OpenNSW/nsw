@@ -1,13 +1,43 @@
-import { BellIcon, MagnifyingGlassIcon, PersonIcon } from '@radix-ui/react-icons'
-import {appConfig} from "../../config.ts";
+import { BellIcon, MagnifyingGlassIcon } from '@radix-ui/react-icons'
+import { SignedIn, SignedOut, SignInButton, UserDropdown, useAsgardeo } from '@asgardeo/react'
 
 export function TopBar() {
+  const { signOut, clearSession } = useAsgardeo()
+
+  const handleSignOut = async () => {
+    let didNavigate = false
+    const handleUnload = () => {
+      didNavigate = true
+    }
+
+    window.addEventListener('beforeunload', handleUnload)
+
+    try {
+      await signOut()
+    } catch {
+      window.removeEventListener('beforeunload', handleUnload)
+      await clearSession()
+      // Ensure UI reflects signed-out state even if SDK state lags.
+      window.location.assign(window.location.origin)
+      return
+    }
+
+    window.setTimeout(async () => {
+      window.removeEventListener('beforeunload', handleUnload)
+      if (didNavigate) {
+        return
+      }
+      await clearSession()
+      // Ensure UI reflects signed-out state even if SDK state lags.
+      window.location.assign(window.location.origin)
+    }, 300)
+  }
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
       {/* Logo */}
       <div className="flex items-center">
-        <span className="text-xl font-bold text-gray-900">{appConfig.branding.appName}</span>
+        <span className="text-xl font-bold text-gray-900">Trader Portal</span>
       </div>
 
       {/* Right Side Actions */}
@@ -30,12 +60,12 @@ export function TopBar() {
 
         {/* User */}
         <div className="flex items-center gap-3 pl-3 border-l border-gray-200">
-          <div className="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center">
-            <PersonIcon className="w-4 h-4 text-white" />
-          </div>
-          <div className="hidden md:block">
-            <p className="text-sm font-medium text-gray-900">OGA Officer</p>
-          </div>
+          <SignedIn>
+            <UserDropdown onSignOut={handleSignOut} />
+          </SignedIn>
+          <SignedOut>
+            <SignInButton />
+          </SignedOut>
         </div>
       </div>
     </header>
