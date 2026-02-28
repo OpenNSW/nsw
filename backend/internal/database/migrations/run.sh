@@ -48,6 +48,7 @@ MIGRATIONS=(
     "012_add_conditional_state_identification.sql"
     "013_add_oga_review_view_form.sql"
     "014_add_outcome_emission.sql"
+    "015_insert_seed_data.sql"
 )
 
 echo "Starting database migrations..."
