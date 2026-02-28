@@ -52,6 +52,14 @@ func (m *MockTemplateProvider) GetWorkflowNodeTemplateByID(ctx context.Context, 
 	return args.Get(0).(*model.WorkflowNodeTemplate), args.Error(1)
 }
 
+func (m *MockTemplateProvider) GetEndNodeTemplate(ctx context.Context) (*model.WorkflowNodeTemplate, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.WorkflowNodeTemplate), args.Error(1)
+}
+
 func TestConsignmentService_InitializeConsignment(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
 	mockTemplateProvider := new(MockTemplateProvider)
@@ -155,6 +163,7 @@ func TestConsignmentService_InitializeConsignment(t *testing.T) {
 
 	mockTemplateProvider.AssertExpectations(t)
 	mockNodeRepo.AssertExpectations(t)
+	assert.NoError(t, sqlMock.ExpectationsWereMet())
 }
 
 func TestConsignmentService_UpdateConsignment(t *testing.T) {
@@ -217,6 +226,7 @@ func TestConsignmentService_UpdateConsignment(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, model.ConsignmentStateFinished, resp.State)
+	assert.NoError(t, sqlMock.ExpectationsWereMet())
 }
 
 func TestConsignmentService_UpdateWorkflowNodeStateAndPropagateChanges(t *testing.T) {
@@ -268,6 +278,7 @@ func TestConsignmentService_UpdateWorkflowNodeStateAndPropagateChanges(t *testin
 	newReadyNodes, _, err := service.UpdateWorkflowNodeStateAndPropagateChanges(ctx, updateReq)
 	assert.NoError(t, err)
 	assert.Empty(t, newReadyNodes) // Transition to InProgress doesn't unlock dependent nodes
+	assert.NoError(t, sqlMock.ExpectationsWereMet())
 }
 
 func TestConsignmentService_GetConsignmentByID(t *testing.T) {
@@ -317,6 +328,7 @@ func TestConsignmentService_GetConsignmentByID(t *testing.T) {
 	assert.NotNil(t, result)
 	assert.Equal(t, consignmentID, result.ID)
 	assert.Len(t, result.WorkflowNodes, 1)
+	assert.NoError(t, sqlMock.ExpectationsWereMet())
 }
 
 func TestConsignmentService_GetConsignmentsByTraderID(t *testing.T) {
@@ -368,6 +380,7 @@ func TestConsignmentService_GetConsignmentsByTraderID(t *testing.T) {
 	assert.Len(t, result.Items, 1)
 	assert.Equal(t, consignmentID, result.Items[0].ID)
 	// Check WorkflowNodes is not asserted as it's not present in SummaryDTO
+	assert.NoError(t, sqlMock.ExpectationsWereMet())
 
 }
 
@@ -409,11 +422,12 @@ func TestConsignmentService_UpdateWorkflowNodeState_Completion(t *testing.T) {
 	})).Return(nil).Once()
 
 	// Get Siblings (Check all nodes completed)
-	siblingNodes := []model.WorkflowNode{*node}
+	completedSibling := *node
+	completedSibling.State = model.WorkflowNodeStateCompleted
+	siblingNodes := []model.WorkflowNode{completedSibling}
 	mockNodeRepo.On("GetWorkflowNodesByConsignmentIDInTx", ctx, mock.Anything, consignmentID).Return(siblingNodes, nil).Once()
 
 	// Mark Consignment As Finished
-	// First(consignment) - Returns IN_PROGRESS
 	sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE id = \$1`).
 		WithArgs(consignmentID, 1).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "state"}).AddRow(consignmentID, "IN_PROGRESS"))
@@ -424,7 +438,7 @@ func TestConsignmentService_UpdateWorkflowNodeState_Completion(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	// Append Global Context
-	// First(consignment) - Returns FINISHED (simulating DB state after previous update)
+	// First(consignment)
 	sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE id = \$1`).
 		WithArgs(consignmentID, 1).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "state", "global_context"}).AddRow(consignmentID, "FINISHED", []byte("{}")))
@@ -439,6 +453,7 @@ func TestConsignmentService_UpdateWorkflowNodeState_Completion(t *testing.T) {
 	newReadyNodes, _, err := service.UpdateWorkflowNodeStateAndPropagateChanges(ctx, updateReq)
 	assert.NoError(t, err)
 	assert.Empty(t, newReadyNodes) // No dependents
+	assert.NoError(t, sqlMock.ExpectationsWereMet())
 }
 
 func TestConsignmentService_InitializeConsignment_Failure(t *testing.T) {
@@ -527,6 +542,7 @@ func TestConsignmentService_UpdateConsignment_Failure(t *testing.T) {
 		resp, err := service.UpdateConsignment(ctx, updateReq)
 		assert.Error(t, err)
 		assert.Nil(t, resp)
+		assert.NoError(t, sqlMock.ExpectationsWereMet())
 	})
 
 	t.Run("Update DB Error", func(t *testing.T) {
@@ -541,6 +557,7 @@ func TestConsignmentService_UpdateConsignment_Failure(t *testing.T) {
 		resp, err := service.UpdateConsignment(ctx, updateReq)
 		assert.Error(t, err)
 		assert.Nil(t, resp)
+		assert.NoError(t, sqlMock.ExpectationsWereMet())
 	})
 }
 
@@ -555,10 +572,6 @@ func TestConsignmentService_GetConsignmentsByTraderID_EdgeCases(t *testing.T) {
 			WithArgs(traderID).
 			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
 
-		sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE trader_id = \$1`).
-			WithArgs(traderID, 10).
-			WillReturnRows(sqlmock.NewRows([]string{"id"}))
-
 		limit := 10
 		offset := 0
 		result, err := service.GetConsignmentsByTraderID(ctx, traderID, &offset, &limit, model.ConsignmentFilter{})
@@ -566,6 +579,7 @@ func TestConsignmentService_GetConsignmentsByTraderID_EdgeCases(t *testing.T) {
 		assert.NotNil(t, result)
 		assert.Equal(t, int64(0), result.TotalCount)
 		assert.Empty(t, result.Items)
+		assert.NoError(t, sqlMock.ExpectationsWereMet())
 	})
 
 	t.Run("Count Error", func(t *testing.T) {
@@ -577,5 +591,6 @@ func TestConsignmentService_GetConsignmentsByTraderID_EdgeCases(t *testing.T) {
 		result, err := service.GetConsignmentsByTraderID(ctx, traderID, &offset, &limit, model.ConsignmentFilter{})
 		assert.Error(t, err)
 		assert.Nil(t, result)
+		assert.NoError(t, sqlMock.ExpectationsWereMet())
 	})
 }

@@ -137,9 +137,9 @@ VALUES
 INSERT INTO workflow_node_templates (id, name, description, type, config, depends_on, unlock_configuration)
 VALUES
     ('e1a00001-0001-4000-b000-000000000006',
-     'End Node Placeholder',
+     'End Node',
      'Placeholder end node template to satisfy end_node_template_id requirement',
-     'SIMPLE_FORM',
+     'END_NODE',
      '{}'::jsonb,
      '[]'::jsonb,
      NULL);

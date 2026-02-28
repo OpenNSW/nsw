@@ -64,3 +64,14 @@ func (s *TemplateService) GetWorkflowNodeTemplateByID(ctx context.Context, id uu
 	}
 	return &template, nil
 }
+
+// GetEndNodeTemplate retrieves the special end node template.
+// Assumes there is only one end node template in the system, identified by its type.
+func (s *TemplateService) GetEndNodeTemplate(ctx context.Context) (*model.WorkflowNodeTemplate, error) {
+	var template model.WorkflowNodeTemplate
+	result := s.db.WithContext(ctx).Where("type = ?", model.WorkFlowNodeTypeEndNode).First(&template)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &template, nil
+}

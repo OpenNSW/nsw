@@ -55,6 +55,14 @@ func (m *MockTemplateProvider) GetWorkflowNodeTemplateByID(ctx context.Context, 
 	return args.Get(0).(*model.WorkflowNodeTemplate), args.Error(1)
 }
 
+func (m *MockTemplateProvider) GetEndNodeTemplate(ctx context.Context) (*model.WorkflowNodeTemplate, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.WorkflowNodeTemplate), args.Error(1)
+}
+
 func setupRouterTestDB(t *testing.T) (*gorm.DB, sqlmock.Sqlmock) {
 	mockDB, sqlMock, err := sqlmock.New()
 	if err != nil {
