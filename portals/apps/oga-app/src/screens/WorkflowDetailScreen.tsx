@@ -22,7 +22,7 @@ export function WorkflowDetailScreen() {
 
   const [formConfig, setFormConfig] = useState<{ schema: JsonSchema; uiSchema: UISchemaElement } | null>(null)
   const [formData, setFormData] = useState<Record<string, unknown>>({})
-  const [formErrors, setFormErrors] = useState<any[]>([])
+  const [formErrors, setFormErrors] = useState<unknown[]>([])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -273,13 +273,15 @@ export function WorkflowDetailScreen() {
               <div className="border-t border-gray-100 my-4"></div>
 
               {formConfig && (
-                <form onSubmit={handleSubmit} noValidate>
+                <form onSubmit={(event) => {
+                  void handleSubmit(event)
+                }} noValidate>
                   <JsonForms
                     schema={formConfig.schema}
                     uischema={formConfig.uiSchema}
                     data={formData}
                     renderers={radixRenderers}
-                    onChange={({ data, errors }) => {
+                    onChange={({ data, errors }: { data: Record<string, unknown>; errors?: unknown[] }) => {
                       setFormData(data);
                       setFormErrors(errors || []);
                     }}

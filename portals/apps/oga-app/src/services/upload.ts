@@ -1,3 +1,5 @@
+import { getAuthHeaders } from '../api'
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string || 'http://localhost:8080/api/v1'
 
 export interface FileMetadata {
@@ -15,6 +17,7 @@ export async function uploadFile(file: File): Promise<FileMetadata> {
 
   const response = await fetch(`${API_BASE_URL}/uploads`, {
     method: 'POST',
+    headers: await getAuthHeaders(),
     body: formData,
   })
 
