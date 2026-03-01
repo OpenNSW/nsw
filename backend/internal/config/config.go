@@ -15,6 +15,7 @@ type Config struct {
 	Server   ServerConfig
 	CORS     CORSConfig
 	Storage  StorageConfig
+	Auth     AuthConfig
 }
 
 // DatabaseConfig holds database connection configuration
@@ -60,6 +61,14 @@ type StorageConfig struct {
 	S3PublicURL    string
 }
 
+type AuthConfig struct {
+	JWKSURL               string
+	Issuer                string
+	Audience              string
+	ClientID              string
+	InsecureSkipTLSVerify bool
+}
+
 // Load reads configuration from environment variables
 func Load() (*Config, error) {
 	dbPort, err := strconv.Atoi(getEnvOrDefault("DB_PORT", "5432"))
@@ -71,6 +80,9 @@ func Load() (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid SERVER_PORT: %w", err)
 	}
+
+	authJWKSURL := getEnvOrDefault("AUTH_JWKS_URL", "https://localhost:8090/oauth2/jwks")
+	defaultInsecureJWKS := getDefaultInsecureJWKS(authJWKSURL)
 
 	cfg := &Config{
 		Database: DatabaseConfig{
@@ -109,6 +121,13 @@ func Load() (*Config, error) {
 			S3UseSSL:       getBoolOrDefault("STORAGE_S3_USE_SSL", true),
 			S3PublicURL:    os.Getenv("STORAGE_S3_PUBLIC_URL"),
 		},
+		Auth: AuthConfig{
+			JWKSURL:               getEnvOrDefault("AUTH_JWKS_URL", "https://localhost:8090/oauth2/jwks"),
+			Issuer:                getEnvOrDefault("AUTH_ISSUER", "https://localhost:8090"),
+			Audience:              getEnvOrDefault("AUTH_AUDIENCE", "TRADER_PORTAL_APP"),
+			ClientID:              getEnvOrDefault("AUTH_CLIENT_ID", "TRADER_PORTAL_APP"),
+			InsecureSkipTLSVerify: getBoolOrDefault("AUTH_JWKS_INSECURE_SKIP_VERIFY", defaultInsecureJWKS),
+		},
 	}
 
 	// Validate required fields
@@ -132,6 +151,18 @@ func (c *Config) Validate() error {
 	}
 	if c.Database.Name == "" {
 		return fmt.Errorf("DB_NAME is required")
+	}
+	if c.Auth.JWKSURL == "" {
+		return fmt.Errorf("AUTH_JWKS_URL is required")
+	}
+	if c.Auth.Issuer == "" {
+		return fmt.Errorf("AUTH_ISSUER is required")
+	}
+	if c.Auth.Audience == "" {
+		return fmt.Errorf("AUTH_AUDIENCE is required")
+	}
+	if c.Auth.ClientID == "" {
+		return fmt.Errorf("AUTH_CLIENT_ID is required")
 	}
 	return nil
 }
@@ -178,6 +209,11 @@ func getBoolOrDefault(key string, defaultValue bool) bool {
 		}
 	}
 	return defaultValue
+}
+
+// getDefaultInsecureJWKS returns true if the JWKS URL is a localhost URL, indicating that TLS verification can be skipped in development
+func getDefaultInsecureJWKS(jwksURL string) bool {
+	return strings.HasPrefix(jwksURL, "https://localhost") || strings.HasPrefix(jwksURL, "https://127.0.0.1")
 }
 
 // parseCommaSeparated splits a comma-separated string into a slice of trimmed strings

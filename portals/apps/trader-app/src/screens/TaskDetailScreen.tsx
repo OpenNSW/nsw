@@ -3,15 +3,16 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Button, Spinner, Text } from '@radix-ui/themes'
 import { ArrowLeftIcon } from '@radix-ui/react-icons'
 import { getTaskInfo } from '../services/task'
+import { useApi } from '../services/ApiContext'
 import PluginRenderer, { type RenderInfo } from '../plugins'
 
 
 export function TaskDetailScreen() {
-  const { consignmentId, taskId } = useParams<{
-    consignmentId: string
+  const { taskId } = useParams<{
     taskId: string
   }>()
   const navigate = useNavigate()
+  const api = useApi()
   const [renderInfo, setRenderInfo] = useState<RenderInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -26,7 +27,7 @@ export function TaskDetailScreen() {
 
       try {
         setLoading(true)
-        const renderInfo = await getTaskInfo(taskId)
+        const renderInfo = await getTaskInfo(taskId, api)
 
         setRenderInfo(renderInfo)
       } catch (err) {
@@ -38,7 +39,7 @@ export function TaskDetailScreen() {
     }
 
     fetchTask()
-  }, [consignmentId, taskId])
+  }, [api, taskId])
 
 
   if (loading) {

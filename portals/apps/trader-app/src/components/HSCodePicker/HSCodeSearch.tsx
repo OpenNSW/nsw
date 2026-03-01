@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Text, Box, Flex, Badge, Spinner, TextField, ScrollArea, IconButton } from '@radix-ui/themes'
 import { MagnifyingGlassIcon, Cross2Icon } from '@radix-ui/react-icons'
 import { getHSCodes } from "../../services/hsCode.ts";
+import { useApi } from '../../services/ApiContext'
 import type { HSCode } from "../../services/types/hsCode.ts";
 
 interface HSCodeSearchProps {
@@ -18,34 +19,48 @@ function getCategoryColor(category: string): 'blue' | 'green' | 'orange' | 'purp
 }
 
 export function HSCodeSearch({ value, onChange }: HSCodeSearchProps) {
+  const api = useApi()
   const [searchQuery, setSearchQuery] = useState('')
   const [hsCodes, setHsCodes] = useState<HSCode[]>([])
   const [loading, setLoading] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
+  const searchRequestIdRef = useRef(0)
 
   useEffect(() => {
     async function fetchHSCodes() {
       if (!searchQuery) {
+        searchRequestIdRef.current += 1
         setHsCodes([])
+        setLoading(false)
         return
       }
+
+      const requestId = ++searchRequestIdRef.current
       setLoading(true)
       try {
         const result = await getHSCodes({
           hsCodeStartsWith: searchQuery,
           limit: 20,
-        })
+        }, api)
+        if (requestId !== searchRequestIdRef.current) {
+          return
+        }
         setHsCodes(result.items)
       } catch (error) {
+        if (requestId !== searchRequestIdRef.current) {
+          return
+        }
         console.error('Failed to fetch HS codes:', error)
       } finally {
-        setLoading(false)
+        if (requestId === searchRequestIdRef.current) {
+          setLoading(false)
+        }
       }
     }
 
     const debounce = setTimeout(fetchHSCodes, 300)
     return () => clearTimeout(debounce)
-  }, [searchQuery])
+  }, [api, searchQuery])
 
   const handleSelect = (hsCode: HSCode) => {
     setSearchQuery(`${hsCode.hsCode} - ${hsCode.description}`)

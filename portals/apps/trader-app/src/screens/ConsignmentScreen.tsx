@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Text, TextField, Spinner, Select, Badge } from '@radix-ui/themes'
 import { MagnifyingGlassIcon, PlusIcon } from '@radix-ui/react-icons'
@@ -6,11 +6,13 @@ import { HSCodePicker } from '../components/HSCodePicker'
 import type { HSCode } from "../services/types/hsCode.ts"
 import type { ConsignmentSummary, TradeFlow, ConsignmentState } from "../services/types/consignment.ts"
 import { createConsignment, getAllConsignments } from "../services/consignment.ts"
+import { useApi } from '../services/ApiContext'
 import { getStateColor, formatState, formatDate } from '../utils/consignmentUtils'
 import { PaginationControl } from '../components/common/PaginationControl'
 
 export function ConsignmentScreen() {
   const navigate = useNavigate()
+  const api = useApi()
   const [consignments, setConsignments] = useState<ConsignmentSummary[]>([])
 
   const [totalCount, setTotalCount] = useState(0)
@@ -26,28 +28,39 @@ export function ConsignmentScreen() {
   // New consignment state
   const [pickerOpen, setPickerOpen] = useState(false)
   const [creating, setCreating] = useState(false)
+  const listRequestIdRef = useRef(0)
 
   useEffect(() => {
     async function fetchConsignments() {
+      const requestId = ++listRequestIdRef.current
       setLoading(true)
       try {
         const data = await getAllConsignments(
           page * limit,
           limit,
           stateFilter as ConsignmentState | 'all',
-          tradeFlowFilter as TradeFlow | 'all'
+          tradeFlowFilter as TradeFlow | 'all',
+          api
         )
+        if (requestId !== listRequestIdRef.current) {
+          return
+        }
         setConsignments(data.items || [])
         setTotalCount(data.totalCount || 0)
       } catch (error) {
+        if (requestId !== listRequestIdRef.current) {
+          return
+        }
         console.error('Failed to fetch consignments:', error)
       } finally {
-        setLoading(false)
+        if (requestId === listRequestIdRef.current) {
+          setLoading(false)
+        }
       }
     }
 
     fetchConsignments()
-  }, [page, stateFilter, tradeFlowFilter])
+  }, [api, page, stateFilter, tradeFlowFilter])
 
   const handleSelect = async (hsCode: HSCode, tradeFlow: TradeFlow) => {
     setCreating(true)
@@ -60,7 +73,7 @@ export function ConsignmentScreen() {
             hsCodeId: hsCode.id,
           },
         ],
-      })
+      }, api)
 
       setPickerOpen(false)
       navigate(`/consignments/${response.id}`)

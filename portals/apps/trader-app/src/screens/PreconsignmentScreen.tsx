@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
     Button,
@@ -24,29 +24,41 @@ import {
     getPreConsignment,
     type TraderPreConsignmentItem,
 } from '../services/preConsignment'
+import { useApi } from '../services/ApiContext'
 import { PaginationControl } from '../components/common/PaginationControl'
 
 export function PreconsignmentScreen() {
     const navigate = useNavigate()
+    const api = useApi()
     const [loading, setLoading] = useState(true)
     const [items, setItems] = useState<TraderPreConsignmentItem[]>([])
     const [totalCount, setTotalCount] = useState(0)
     const [page, setPage] = useState(0)
     const limit = 15
+    const listRequestIdRef = useRef(0)
 
     const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null)
 
     const loadData = async () => {
+        const requestId = ++listRequestIdRef.current
         try {
             setLoading(true)
-            const response = await getTraderPreConsignments(page * limit, limit)
+            const response = await getTraderPreConsignments(page * limit, limit, api)
+            if (requestId !== listRequestIdRef.current) {
+                return
+            }
             setItems(response.items || [])
             setTotalCount(response.totalCount)
         } catch (error) {
+            if (requestId !== listRequestIdRef.current) {
+                return
+            }
             console.error('Failed to load pre-consignments', error)
             setNotification({ type: 'error', message: 'Failed to load pre-consignments list.' })
         } finally {
-            setLoading(false)
+            if (requestId === listRequestIdRef.current) {
+                setLoading(false)
+            }
         }
     }
 
@@ -65,7 +77,7 @@ export function PreconsignmentScreen() {
 
     useEffect(() => {
         loadData()
-    }, [page])
+    }, [api, page])
 
     // Auto-dismiss success notifications
     useEffect(() => {
@@ -79,7 +91,7 @@ export function PreconsignmentScreen() {
         setNotification(null)
         try {
             setLoading(true)
-            const instance = await createPreConsignment(templateId)
+            const instance = await createPreConsignment(templateId, api)
 
             const nodes = instance.workflowNodes || []
             const targetNode = nodes.find(
@@ -104,7 +116,7 @@ export function PreconsignmentScreen() {
         setNotification(null)
         try {
             setLoading(true)
-            const instance = await getPreConsignment(preConsignmentId)
+            const instance = await getPreConsignment(preConsignmentId, api)
             const nodes = instance.workflowNodes || []
 
             // Find the appropriate task

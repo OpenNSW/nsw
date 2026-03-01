@@ -6,20 +6,24 @@ import type {
   ConsignmentState,
   TradeFlow,
 } from './types/consignment'
-import { apiGet, apiPost } from './api'
+import { defaultApiClient, type ApiClient } from './api'
 
 export async function createConsignment(
-  request: CreateConsignmentRequest
+  request: CreateConsignmentRequest,
+  apiClient: ApiClient = defaultApiClient
 ): Promise<CreateConsignmentResponse> {
-  return apiPost<CreateConsignmentRequest, CreateConsignmentResponse>(
+  return apiClient.post<CreateConsignmentRequest, CreateConsignmentResponse>(
     '/consignments',
     request
   )
 }
 
-export async function getConsignment(id: string): Promise<Consignment | null> {
+export async function getConsignment(
+  id: string,
+  apiClient: ApiClient = defaultApiClient
+): Promise<Consignment | null> {
   try {
-    return await apiGet<Consignment>(`/consignments/${id}`)
+    return await apiClient.get<Consignment>(`/consignments/${id}`)
   } catch (error) {
     // Return null for 404s, rethrow other errors
     if (error instanceof Error && error.message.includes('404')) {
@@ -33,13 +37,14 @@ export async function getAllConsignments(
   offset: number = 0,
   limit: number = 50,
   state?: ConsignmentState | 'all',
-  flow?: TradeFlow | 'all'
+  flow?: TradeFlow | 'all',
+  apiClient: ApiClient = defaultApiClient
 ): Promise<ConsignmentListResult> {
   const params: Record<string, string | number> = { offset, limit }
   if (state && state !== 'all') params.state = state
   if (flow && flow !== 'all') params.flow = flow
 
-  const response = await apiGet<ConsignmentListResult>(
+  const response = await apiClient.get<ConsignmentListResult>(
     '/consignments',
     params
   )

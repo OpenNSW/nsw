@@ -1,4 +1,4 @@
-import { apiGet, apiPost, type ApiResponse } from './api'
+import { defaultApiClient, type ApiClient, type ApiResponse } from './api'
 import type { RenderInfo } from "../plugins";
 
 export type TaskAction = 'FETCH_FORM' | 'SUBMIT_FORM' | 'SAVE_AS_DRAFT'
@@ -32,8 +32,11 @@ export interface SendTaskCommandRequest {
 
 const TASKS_API_URL = '/tasks'
 
-export async function getTaskInfo(taskId: string): Promise<RenderInfo> {
-  const response = await apiGet<{ success: boolean; data: RenderInfo }>(`${TASKS_API_URL}/${taskId}`)
+export async function getTaskInfo(
+  taskId: string,
+  apiClient: ApiClient = defaultApiClient
+): Promise<RenderInfo> {
+  const response = await apiClient.get<{ success: boolean; data: RenderInfo }>(`${TASKS_API_URL}/${taskId}`)
   if (!response.data) {
     throw new Error('Failed to fetch task information')
   }
@@ -41,14 +44,15 @@ export async function getTaskInfo(taskId: string): Promise<RenderInfo> {
 }
 
 export async function sendTaskCommand(
-  request: TaskCommandRequest
+  request: TaskCommandRequest,
+  apiClient: ApiClient = defaultApiClient
 ): Promise<TaskCommandResponse> {
   console.log(`Sending ${request.command} command for task: ${request.taskId}`, request)
 
   // Use POST /api/tasks with action type and submission data
   const action: TaskAction = request.command === 'SAVE_AS_DRAFT' ? 'SAVE_AS_DRAFT' : 'SUBMIT_FORM'
 
-  return apiPost<SendTaskCommandRequest, TaskCommandResponse>(TASKS_API_URL, {
+  return apiClient.post<SendTaskCommandRequest, TaskCommandResponse>(TASKS_API_URL, {
     task_id: request.taskId,
     workflow_id: request.workflowId,
     payload: {

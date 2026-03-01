@@ -1,6 +1,7 @@
 import { JsonForms } from '@jsonforms/react';
 import { radixRenderers } from '@opennsw/jsonforms-renderers';
 import { sendTaskCommand } from "../services/task.ts";
+import { useApi } from '../services/ApiContext'
 
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useState, useCallback } from "react";
@@ -31,6 +32,7 @@ function TraderForm(props: { formInfo: TaskFormData, pluginState: string }) {
   }>()
   const location = useLocation()
   const navigate = useNavigate()
+  const api = useApi()
   const [data, setData] = useState<Record<string, unknown>>(props.formInfo.formData || {})
   const [errors, setErrors] = useState<any[]>([])
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -68,7 +70,7 @@ function TraderForm(props: { formInfo: TaskFormData, pluginState: string }) {
         taskId,
         workflowId,
         data,
-      });
+      }, api);
 
       if (response.success) {
         navigate(isPreConsignment ? '/pre-consignments' : `/consignments/${workflowId}`);

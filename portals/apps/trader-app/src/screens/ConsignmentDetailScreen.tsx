@@ -5,11 +5,13 @@ import { ArrowLeftIcon } from '@radix-ui/react-icons'
 import { WorkflowViewer } from '../components/WorkflowViewer'
 import type { ConsignmentDetail } from "../services/types/consignment.ts"
 import { getConsignment } from "../services/consignment.ts"
+import { useApi } from '../services/ApiContext'
 import { getStateColor, formatState, formatDateTime } from '../utils/consignmentUtils'
 
 export function ConsignmentDetailScreen() {
   const { consignmentId } = useParams<{ consignmentId: string }>()
   const navigate = useNavigate()
+  const api = useApi()
   const [consignment, setConsignment] = useState<ConsignmentDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -25,7 +27,7 @@ export function ConsignmentDetailScreen() {
     setLoading(true)
     setError(null)
     try {
-      const result = await getConsignment(consignmentId)
+      const result = await getConsignment(consignmentId, api)
       if (result) {
         setConsignment(result)
       } else {
@@ -38,7 +40,7 @@ export function ConsignmentDetailScreen() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [consignmentId])
+  }, [api, consignmentId])
 
   const handleRefresh = () => {
     setRefreshing(true)
@@ -47,7 +49,7 @@ export function ConsignmentDetailScreen() {
 
   useEffect(() => {
     fetchConsignment()
-  }, [consignmentId])
+  }, [fetchConsignment])
 
   if (loading) {
     const isProcessing = !consignment // If we don't have consignment data yet, we're in initial load

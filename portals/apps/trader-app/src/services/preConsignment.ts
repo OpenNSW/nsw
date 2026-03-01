@@ -1,6 +1,6 @@
 // portals/apps/trader-app/src/services/preConsignment.ts
 
-import { apiGet, apiPost } from './api'
+import { defaultApiClient, type ApiClient } from './api'
 import type { TaskFormData } from './task'
 import { sendTaskCommand, getTaskInfo } from './task'
 
@@ -81,9 +81,10 @@ export interface TaskCommandResponse {
 
 export async function getTraderPreConsignments(
     offset: number = 0,
-    limit: number = 50
+    limit: number = 50,
+    apiClient: ApiClient = defaultApiClient
 ): Promise<TraderPreConsignmentsResponse> {
-    const response = await apiGet<PreConsignmentListApiResponse>('/pre-consignments', { offset, limit })
+    const response = await apiClient.get<PreConsignmentListApiResponse>('/pre-consignments', { offset, limit })
 
     if (Array.isArray(response)) {
         const items: TraderPreConsignmentItem[] = response.map((instance) => ({
@@ -107,18 +108,20 @@ export async function getTraderPreConsignments(
 }
 
 export async function getPreConsignment(
-    id: string
+    id: string,
+    apiClient: ApiClient = defaultApiClient
 ): Promise<PreConsignmentInstance> {
-    return apiGet<PreConsignmentInstance>(`/pre-consignments/${id}`)
+    return apiClient.get<PreConsignmentInstance>(`/pre-consignments/${id}`)
 }
 
 export async function createPreConsignment(
-    templateId: string
+    templateId: string,
+    apiClient: ApiClient = defaultApiClient
 ): Promise<PreConsignmentInstance> {
     const payload: CreatePreConsignmentRequest = {
         preConsignmentTemplateId: templateId,
     }
-    return apiPost<CreatePreConsignmentRequest, PreConsignmentInstance>(
+    return apiClient.post<CreatePreConsignmentRequest, PreConsignmentInstance>(
         '/pre-consignments',
         payload
     )
@@ -126,9 +129,10 @@ export async function createPreConsignment(
 
 // Fetch the form schema (GET endpoint)
 export async function fetchPreConsignmentTaskForm(
-    taskId: string
+    taskId: string,
+    apiClient: ApiClient = defaultApiClient
 ): Promise<TaskFormData> {
-    const renderInfo = await getTaskInfo(taskId)
+    const renderInfo = await getTaskInfo(taskId, apiClient)
     // Extract form data from the render info structure
     // For SIMPLE_FORM type, content has traderFormInfo
     if (renderInfo.type === 'SIMPLE_FORM' && 'traderFormInfo' in renderInfo.content) {
@@ -145,12 +149,13 @@ export async function fetchPreConsignmentTaskForm(
 
 // Submit the form data (Action: SUBMIT_FORM or DRAFT)
 export async function submitPreConsignmentTask(
-    request: TaskCommandRequest
+    request: TaskCommandRequest,
+    apiClient: ApiClient = defaultApiClient
 ): Promise<TaskCommandResponse> {
     return sendTaskCommand({
         command: request.command === 'SAVE_AS_DRAFT' ? 'SAVE_AS_DRAFT' : 'SUBMISSION',
         taskId: request.taskId,
         workflowId: request.workflowId,
         data: request.data || {}
-    })
+    }, apiClient)
 }

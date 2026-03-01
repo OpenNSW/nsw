@@ -52,33 +52,42 @@ func Middleware(authService *AuthService, tokenExtractor *TokenExtractor) func(h
 				return
 			}
 
-			// Extract trader ID from token
-			traderID, err := tokenExtractor.ExtractTraderIDFromHeader(authHeader)
+			if tokenExtractor == nil || authService == nil {
+				slog.Error("auth middleware dependencies are not initialized")
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusInternalServerError)
+				_, _ = w.Write([]byte(`{"error":"internal_server_error","message":"authentication subsystem not initialized"}`))
+				return
+			}
+
+			// Extract claims from token
+			claims, err := tokenExtractor.ExtractClaimsFromHeader(authHeader)
 			if err != nil {
-				slog.Warn("failed to extract trader ID from token",
+				slog.Warn("failed to extract claims from token",
 					"error", err,
-					"auth_header_length", len(authHeader),
 				)
-				next.ServeHTTP(w, r)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				_, _ = w.Write([]byte(`{"error":"unauthorized","message":"invalid authentication token"}`))
 				return
 			}
 
 			// Get trader context from database
-			traderCtx, err := authService.GetTraderContext(traderID)
+			traderCtx, err := authService.GetTraderContext(claims.TraderID)
 			if err != nil {
 				if errors.Is(err, gorm.ErrRecordNotFound) {
 					// Trader doesn't have context yet - create empty context
 					slog.Info("trader context not found, initializing empty context",
-						"trader_id", traderID,
+						"trader_id", claims.TraderID,
 					)
 					traderCtx = &TraderContext{
-						TraderID:      traderID,
+						TraderID:      claims.TraderID,
 						TraderContext: json.RawMessage(`{}`),
 					}
 				} else {
 					// Database error - log and continue without auth context
 					slog.Warn("failed to get trader context from database",
-						"trader_id", traderID,
+						"trader_id", claims.TraderID,
 						"error", err,
 					)
 					next.ServeHTTP(w, r)
@@ -89,6 +98,7 @@ func Middleware(authService *AuthService, tokenExtractor *TokenExtractor) func(h
 			// Wrap the trader context in AuthContext
 			authCtx := &AuthContext{
 				TraderContext: traderCtx,
+				OUHandle:      claims.OUHandle,
 			}
 
 			// Inject auth context into request context
@@ -96,7 +106,8 @@ func Middleware(authService *AuthService, tokenExtractor *TokenExtractor) func(h
 			r = r.WithContext(ctx)
 
 			slog.Debug("auth context injected successfully",
-				"trader_id", traderID,
+				"trader_id", claims.TraderID,
+				"ou_handle", claims.OUHandle,
 			)
 
 			next.ServeHTTP(w, r)
