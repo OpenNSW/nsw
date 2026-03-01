@@ -1,43 +1,31 @@
 import { BellIcon, MagnifyingGlassIcon } from '@radix-ui/react-icons'
 import { SignedIn, SignedOut, SignInButton, UserDropdown, useAsgardeo } from '@asgardeo/react'
+import { appConfig } from '../../config'
 
 export function TopBar() {
-  const { signOut, clearSession } = useAsgardeo()
+  const { signOut } = useAsgardeo()
 
   const handleSignOut = async () => {
-    let didNavigate = false
-    const handleUnload = () => {
-      didNavigate = true
-    }
-
-    window.addEventListener('beforeunload', handleUnload)
-
     try {
-      await signOut()
-    } catch {
-      window.removeEventListener('beforeunload', handleUnload)
-      await clearSession()
-      // Ensure UI reflects signed-out state even if SDK state lags.
-      window.location.assign(window.location.origin)
-      return
-    }
+      const signOutResult = await signOut(undefined, (redirectUrl: string) => {
+        if (redirectUrl) {
+          window.location.assign(redirectUrl)
+        }
+      })
 
-    window.setTimeout(async () => {
-      window.removeEventListener('beforeunload', handleUnload)
-      if (didNavigate) {
-        return
+      if (typeof signOutResult === 'string' && signOutResult) {
+        window.location.assign(signOutResult)
       }
-      await clearSession()
-      // Ensure UI reflects signed-out state even if SDK state lags.
-      window.location.assign(window.location.origin)
-    }, 300)
+    } catch {
+      // Let the SDK configuration drive sign-out redirects.
+    }
   }
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
       {/* Logo */}
       <div className="flex items-center">
-        <span className="text-xl font-bold text-gray-900">Trader Portal</span>
+        <span className="text-xl font-bold text-gray-900">{appConfig.branding.appName}</span>
       </div>
 
       {/* Right Side Actions */}
