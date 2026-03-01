@@ -2,35 +2,22 @@ import { BellIcon, MagnifyingGlassIcon } from '@radix-ui/react-icons'
 import { SignedIn, SignedOut, SignInButton, UserDropdown, useAsgardeo } from '@asgardeo/react'
 
 export function TopBar() {
-  const { signOut, clearSession } = useAsgardeo()
+  const { signOut } = useAsgardeo()
 
   const handleSignOut = async () => {
-    let didNavigate = false
-    const handleUnload = () => {
-      didNavigate = true
-    }
-
-    window.addEventListener('beforeunload', handleUnload)
-
     try {
-      await signOut()
-    } catch {
-      window.removeEventListener('beforeunload', handleUnload)
-      await clearSession()
-      // Ensure UI reflects signed-out state even if SDK state lags.
-      window.location.assign(window.location.origin)
-      return
-    }
+      const signOutResult = await signOut(undefined, (redirectUrl: string) => {
+        if (redirectUrl) {
+          window.location.assign(redirectUrl)
+        }
+      })
 
-    window.setTimeout(async () => {
-      window.removeEventListener('beforeunload', handleUnload)
-      if (didNavigate) {
-        return
+      if (typeof signOutResult === 'string' && signOutResult) {
+        window.location.assign(signOutResult)
       }
-      await clearSession()
-      // Ensure UI reflects signed-out state even if SDK state lags.
-      window.location.assign(window.location.origin)
-    }, 300)
+    } catch {
+      // Let the SDK configuration drive sign-out redirects.
+    }
   }
 
   return (
