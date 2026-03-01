@@ -3,6 +3,41 @@ import type { JsonSchema, UISchemaElement } from '@jsonforms/core';
 
 const API_BASE_URL = (import.meta.env.VITE_OGA_API_BASE_URL as string | undefined) ?? 'http://localhost:8081';
 
+export type AccessTokenProvider = () => Promise<string | null | undefined>
+
+let accessTokenProvider: AccessTokenProvider | null = null
+
+export function setAccessTokenProvider(provider: AccessTokenProvider | null): void {
+  accessTokenProvider = provider
+}
+
+async function getAccessToken(): Promise<string | null> {
+  if (!accessTokenProvider) {
+    return null
+  }
+
+  try {
+    return (await accessTokenProvider()) ?? null
+  } catch {
+    return null
+  }
+}
+
+export async function getAuthHeaders(includeJsonContentType = false): Promise<HeadersInit> {
+  const headers: Record<string, string> = {}
+
+  if (includeJsonContentType) {
+    headers['Content-Type'] = 'application/json'
+  }
+
+  const accessToken = await getAccessToken()
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`
+  }
+
+  return headers
+}
+
 export interface ReviewResponse {
   success: boolean;
   message?: string;
@@ -53,7 +88,10 @@ export async function fetchApplications(
   const query = searchParams.toString();
   const url = `${API_BASE_URL}/api/oga/applications${query ? `?${query}` : ''}`;
 
-  const response = await fetch(url, { signal });
+  const response = await fetch(url, {
+    signal,
+    headers: await getAuthHeaders(),
+  });
   if (!response.ok) {
     throw new Error(`Failed to fetch pending applications: ${response.statusText}`);
   }
@@ -63,7 +101,10 @@ export async function fetchApplications(
 
 // Fetch application detail by taskId from OGA Service
 export async function fetchApplicationDetail(taskId: string, signal?: AbortSignal): Promise<OGAApplication> {
-  const response = await fetch(`${API_BASE_URL}/api/oga/applications/${taskId}`, { signal });
+  const response = await fetch(`${API_BASE_URL}/api/oga/applications/${taskId}`, {
+    signal,
+    headers: await getAuthHeaders(),
+  });
   if (!response.ok) {
     throw new Error(`Failed to fetch application: ${response.statusText}`);
   }
@@ -78,9 +119,7 @@ export async function submitReview(
 ): Promise<ReviewResponse> {
   const response = await fetch(`${API_BASE_URL}/api/oga/applications/${taskId}/review`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: await getAuthHeaders(true),
     body: JSON.stringify(formValues),
     signal,
   });

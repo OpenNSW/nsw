@@ -1,7 +1,25 @@
-import { BellIcon, MagnifyingGlassIcon, PersonIcon } from '@radix-ui/react-icons'
-import {appConfig} from "../../config.ts";
+import { BellIcon, MagnifyingGlassIcon } from '@radix-ui/react-icons'
+import { SignedIn, SignedOut, SignInButton, UserDropdown, useAsgardeo } from '@asgardeo/react'
+import { appConfig } from '../../config'
 
 export function TopBar() {
+  const { signOut } = useAsgardeo()
+
+  const handleSignOut = async () => {
+    try {
+      const signOutResult = await signOut(undefined, (redirectUrl: string) => {
+        if (redirectUrl) {
+          window.location.assign(redirectUrl)
+        }
+      })
+
+      if (typeof signOutResult === 'string' && signOutResult) {
+        window.location.assign(signOutResult)
+      }
+    } catch {
+      // Let the SDK configuration drive sign-out redirects.
+    }
+  }
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
@@ -30,12 +48,12 @@ export function TopBar() {
 
         {/* User */}
         <div className="flex items-center gap-3 pl-3 border-l border-gray-200">
-          <div className="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center">
-            <PersonIcon className="w-4 h-4 text-white" />
-          </div>
-          <div className="hidden md:block">
-            <p className="text-sm font-medium text-gray-900">OGA Officer</p>
-          </div>
+          <SignedIn>
+            <UserDropdown onSignOut={handleSignOut} />
+          </SignedIn>
+          <SignedOut>
+            <SignInButton />
+          </SignedOut>
         </div>
       </div>
     </header>

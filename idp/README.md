@@ -62,6 +62,12 @@ These scripts automatically configure Thunder on first startup:
   - **Traders Organization Unit** - for trader accounts
   - **Trader User Type** - user schema with custom fields (username, email, given_name, family_name)
   - **Trader Portal App** - Single Page React application with OAuth2/OIDC configuration
+  - **NPQS Organization Unit** - for National Plant Quarantine Service officers
+  - **NPQSOfficer User Type** - restricted to NPQS users
+  - **NPQS Portal App** - React SPA with client ID `OGA_PORTAL_APP_NPQS`
+  - **FCAU Organization Unit** - for Food Control Administration Unit officers
+  - **FCAUOfficer User Type** - restricted to FCAU users
+  - **FCAU Portal App** - React SPA with client ID `OGA_PORTAL_APP_FCAU`
 
 ## Current Setup
 
@@ -71,10 +77,32 @@ The following resources have been configured:
 - ✅ Traders organization unit
 - ✅ Trader user type (schema)
 - ✅ Trader Portal application (React SPA with client ID: `TRADER_PORTAL_APP`)
+- ✅ NPQS organization unit + user type + app (`OGA_PORTAL_APP_NPQS`)
+- ✅ FCAU organization unit + user type + app (`OGA_PORTAL_APP_FCAU`)
 - ✅ OAuth2 configuration with PKCE for public clients
 
 ## Notes
 
 - The Trader Portal React app is configured to run on `http://localhost:5173`
+- The OGA NPQS app is configured to run on `http://localhost:5174`
+- The OGA FCAU app is configured to run on `http://localhost:5175`
 - Client ID will be displayed in the logs after successful creation
 - All data is persisted in the `thunder-db` Docker volume
+
+## OGA Sample Credentials and Env Mapping
+
+Sample users created by `02-sample-resources.sh`:
+
+- NPQS user: `npqs_officer` / `1234`
+- FCAU user: `fcau_officer` / `1234`
+
+For `portals/apps/oga-app` local development, use per-instance env values:
+
+- NPQS deployment:
+  - `VITE_INSTANCE_CONFIG=npqs`
+  - `VITE_IDP_CLIENT_ID=OGA_PORTAL_APP_NPQS`
+  - `VITE_APP_URL=http://localhost:5174`
+- FCAU deployment:
+  - `VITE_INSTANCE_CONFIG=fcau`
+  - `VITE_IDP_CLIENT_ID=OGA_PORTAL_APP_FCAU`
+  - `VITE_APP_URL=http://localhost:5175`

@@ -10,6 +10,9 @@ importers:
 
   apps/oga-app:
     dependencies:
+      '@asgardeo/react':
+        specifier: ^0.13.0
+        version: 0.13.0(@types/react@19.2.9)(react@19.2.3)
       '@jsonforms/core':
         specifier: ^3.7.0
         version: 3.7.0
