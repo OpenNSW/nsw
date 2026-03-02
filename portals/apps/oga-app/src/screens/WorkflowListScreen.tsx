@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Badge, Text, TextField, Spinner, Select, IconButton } from '@radix-ui/themes'
 import { MagnifyingGlassIcon, ChevronLeftIcon, ChevronRightIcon } from '@radix-ui/react-icons'
 import { fetchApplications, type OGAApplication } from '../api'
+import { useApi } from '../services/useApi'
 
 const PAGE_SIZE = 20
 
@@ -10,6 +11,7 @@ const PAGE_SIZE = 20
 
 export function WorkflowListScreen() {
   const navigate = useNavigate()
+  const apiClient = useApi()
   const [applications, setApplications] = useState<OGAApplication[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -27,7 +29,7 @@ export function WorkflowListScreen() {
     async function fetchData() {
       try {
         const filterStatus = statusFilter === 'all' ? undefined : statusFilter
-        const result = await fetchApplications({ status: filterStatus, page, pageSize: PAGE_SIZE })
+        const result = await fetchApplications(apiClient, { status: filterStatus, page, pageSize: PAGE_SIZE })
         setApplications(result.items)
         setTotal(result.total)
       } catch (error) {
@@ -42,7 +44,7 @@ export function WorkflowListScreen() {
     // Poll for new applications every 10 seconds
     const interval = setInterval(fetchData, 10000)
     return () => clearInterval(interval)
-  }, [statusFilter, page])
+  }, [apiClient, statusFilter, page])
 
   const filteredApplications = applications.filter((app) => {
     return searchQuery === '' ||

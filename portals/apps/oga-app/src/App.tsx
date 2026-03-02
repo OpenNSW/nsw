@@ -6,21 +6,18 @@ import {appConfig} from "./config.ts";
 import {useEffect} from "react";
 import { SignedOut, useAsgardeo } from '@asgardeo/react'
 import { LoginScreen } from './screens/LoginScreen'
-import { setAccessTokenProvider } from './api'
+import { ApiProvider } from './services/ApiProvider'
 
 function ProtectedLayout() {
-  const { isSignedIn, isLoading, getAccessToken } = useAsgardeo()
-
-  useEffect(() => {
-    setAccessTokenProvider(async () => getAccessToken())
-    return () => {
-      setAccessTokenProvider(null)
-    }
-  }, [getAccessToken])
+  const { isSignedIn, isLoading } = useAsgardeo()
 
   if (isLoading) return null
   if (!isSignedIn) return <Navigate to="/login" replace />
-  return <Layout />
+  return (
+    <ApiProvider>
+      <Layout />
+    </ApiProvider>
+  )
 }
 
 function App() {

@@ -5,38 +5,95 @@ const API_BASE_URL = (import.meta.env.VITE_OGA_API_BASE_URL as string | undefine
 
 export type AccessTokenProvider = () => Promise<string | null | undefined>
 
-let accessTokenProvider: AccessTokenProvider | null = null
+export type QueryParams = Record<string, string | number | undefined>
 
-export function setAccessTokenProvider(provider: AccessTokenProvider | null): void {
-  accessTokenProvider = provider
+export interface ApiClient {
+  get<T>(endpoint: string, params?: QueryParams, signal?: AbortSignal): Promise<T>
+  post<T, R>(endpoint: string, body: T, signal?: AbortSignal): Promise<R>
+  getAuthHeaders(includeJsonContentType?: boolean): Promise<HeadersInit>
 }
 
-async function getAccessToken(): Promise<string | null> {
-  if (!accessTokenProvider) {
-    return null
+function buildQueryString(params: QueryParams): string {
+  const entries = Object.entries(params)
+    .filter(([, value]) => value !== undefined)
+    .sort(([left], [right]) => left.localeCompare(right))
+
+  const searchParams = new URLSearchParams()
+  entries.forEach(([key, value]) => {
+    searchParams.append(key, String(value))
+  })
+
+  return searchParams.toString()
+}
+
+export function createApiClient(getAccessToken?: AccessTokenProvider): ApiClient {
+  async function resolveAccessToken(): Promise<string | null> {
+    if (!getAccessToken) {
+      return null
+    }
+
+    try {
+      return (await getAccessToken()) ?? null
+    } catch {
+      return null
+    }
   }
 
-  try {
-    return (await accessTokenProvider()) ?? null
-  } catch {
-    return null
+  async function getAuthHeaders(includeJsonContentType = false): Promise<HeadersInit> {
+    const headers: Record<string, string> = {}
+
+    if (includeJsonContentType) {
+      headers['Content-Type'] = 'application/json'
+    }
+
+    const accessToken = await resolveAccessToken()
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`
+    }
+
+    return headers
+  }
+
+  return {
+    async get<T>(endpoint: string, params: QueryParams = {}, signal?: AbortSignal): Promise<T> {
+      const queryString = buildQueryString(params)
+      const url = `${API_BASE_URL}${endpoint}${queryString ? `?${queryString}` : ''}`
+
+      const response = await fetch(url, {
+        signal,
+        headers: await getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed request: ${response.statusText}`)
+      }
+
+      return response.json() as Promise<T>
+    },
+
+    async post<T, R>(endpoint: string, body: T, signal?: AbortSignal): Promise<R> {
+      const url = `${API_BASE_URL}${endpoint}`
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: await getAuthHeaders(true),
+        body: JSON.stringify(body),
+        signal,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: response.statusText })) as { error?: string }
+        throw new Error(errorData.error ?? `Failed request: ${response.statusText}`)
+      }
+
+      return response.json() as Promise<R>
+    },
+
+    getAuthHeaders,
   }
 }
 
-export async function getAuthHeaders(includeJsonContentType = false): Promise<HeadersInit> {
-  const headers: Record<string, string> = {}
-
-  if (includeJsonContentType) {
-    headers['Content-Type'] = 'application/json'
-  }
-
-  const accessToken = await getAccessToken()
-  if (accessToken) {
-    headers.Authorization = `Bearer ${accessToken}`
-  }
-
-  return headers
-}
+export const defaultApiClient = createApiClient()
 
 export interface ReviewResponse {
   success: boolean;
@@ -77,57 +134,36 @@ export interface PaginatedResponse<T> {
 }
 
 export async function fetchApplications(
+  apiClient: ApiClient,
   params?: { status?: string; page?: number; pageSize?: number },
   signal?: AbortSignal
 ): Promise<PaginatedResponse<OGAApplication>> {
-  const searchParams = new URLSearchParams();
-  if (params?.status) searchParams.set('status', params.status);
-  if (params?.page) searchParams.set('page', String(params.page));
-  if (params?.pageSize) searchParams.set('pageSize', String(params.pageSize));
-
-  const query = searchParams.toString();
-  const url = `${API_BASE_URL}/api/oga/applications${query ? `?${query}` : ''}`;
-
-  const response = await fetch(url, {
-    signal,
-    headers: await getAuthHeaders(),
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to fetch pending applications: ${response.statusText}`);
-  }
-
-  return response.json() as Promise<PaginatedResponse<OGAApplication>>;
+  return apiClient.get<PaginatedResponse<OGAApplication>>(
+    '/api/oga/applications',
+    {
+      status: params?.status,
+      page: params?.page,
+      pageSize: params?.pageSize,
+    },
+    signal
+  )
 }
 
 // Fetch application detail by taskId from OGA Service
-export async function fetchApplicationDetail(taskId: string, signal?: AbortSignal): Promise<OGAApplication> {
-  const response = await fetch(`${API_BASE_URL}/api/oga/applications/${taskId}`, {
-    signal,
-    headers: await getAuthHeaders(),
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to fetch application: ${response.statusText}`);
-  }
-  return response.json() as Promise<OGAApplication>;
+export async function fetchApplicationDetail(apiClient: ApiClient, taskId: string, signal?: AbortSignal): Promise<OGAApplication> {
+  return apiClient.get<OGAApplication>(`/api/oga/applications/${taskId}`, {}, signal)
 }
 
 // Submit review for a task via OGA Service
 export async function submitReview(
+  apiClient: ApiClient,
   taskId: string,
   formValues: Record<string, unknown>,
   signal?: AbortSignal
 ): Promise<ReviewResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/oga/applications/${taskId}/review`, {
-    method: 'POST',
-    headers: await getAuthHeaders(true),
-    body: JSON.stringify(formValues),
-    signal,
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ error: response.statusText })) as { error?: string };
-    throw new Error(errorData.error ?? `Failed to submit review: ${response.statusText}`);
-  }
-
-  return response.json() as Promise<ReviewResponse>;
+  return apiClient.post<Record<string, unknown>, ReviewResponse>(
+    `/api/oga/applications/${taskId}/review`,
+    formValues,
+    signal
+  )
 }

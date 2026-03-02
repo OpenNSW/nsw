@@ -6,9 +6,11 @@ import { fetchApplicationDetail, submitReview, type OGAApplication } from '../ap
 import { JsonForms } from '@jsonforms/react';
 import { radixRenderers } from '@opennsw/jsonforms-renderers';
 import type { JsonSchema, UISchemaElement } from '@jsonforms/core';
+import { useApi } from '../services/useApi'
 
 export function WorkflowDetailScreen() {
   const navigate = useNavigate()
+  const apiClient = useApi()
 
   // Extract taskId from URL params
   const [searchParams] = useSearchParams()
@@ -40,7 +42,7 @@ export function WorkflowDetailScreen() {
     setError(null)
 
     try {
-      await submitReview(taskId, formData)
+      await submitReview(apiClient, taskId, formData)
       setSuccess(true)
       setTimeout(() => navigate('/workflows'), 2000)
     } catch (err) {
@@ -59,7 +61,7 @@ export function WorkflowDetailScreen() {
       }
 
       try {
-        const data = await fetchApplicationDetail(taskId)
+        const data = await fetchApplicationDetail(apiClient, taskId)
         setApplication(data)
         setFormConfig({ schema: data.form.schema, uiSchema: data.form.uiSchema })
       } catch (err) {
@@ -71,7 +73,7 @@ export function WorkflowDetailScreen() {
     }
 
     void fetchData()
-  }, [taskId])
+  }, [apiClient, taskId])
 
 
   if (loading) {
