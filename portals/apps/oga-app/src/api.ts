@@ -101,6 +101,12 @@ export interface ReviewResponse {
   error?: string;
 }
 
+export interface FeedbackEntry {
+  content: Record<string, unknown>;
+  timestamp: string;
+  round: number;
+}
+
 export interface OGAApplication {
   taskId: string;
   workflowId: string;
@@ -115,6 +121,7 @@ export interface OGAApplication {
     uiSchema: UISchemaElement;
   };
   status: string;
+  feedbackHistory?: FeedbackEntry[];
   reviewerNotes?: string;
   reviewedAt?: string;
   createdAt: string;
@@ -166,4 +173,25 @@ export async function submitReview(
     formValues,
     signal
   )
+}
+
+// Submit feedback (request changes) for a task via OGA Service
+export async function submitFeedback(
+  taskId: string,
+  content: Record<string, unknown>,
+  signal?: AbortSignal
+): Promise<ReviewResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/oga/applications/${taskId}/feedback`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(content),
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: response.statusText })) as { error?: string };
+    throw new Error(errorData.error ?? `Failed to send feedback: ${response.statusText}`);
+  }
+
+  return response.json() as Promise<ReviewResponse>;
 }
