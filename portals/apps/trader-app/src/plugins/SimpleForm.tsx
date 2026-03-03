@@ -17,10 +17,17 @@ export interface TaskFormData {
   formData: Record<string, unknown>
 }
 
+export interface OGAFeedbackEntry {
+  content: Record<string, unknown>
+  timestamp: string
+  round: number
+}
+
 export type SimpleFormConfig = {
   traderFormInfo: TaskFormData
   ogaReviewForm?: TaskFormData
   submissionResponseForm?: TaskFormData
+  ogaFeedback?: OGAFeedbackEntry[]
 }
 
 function TraderForm(props: { formInfo: TaskFormData, pluginState: string }) {
@@ -239,9 +246,58 @@ function OgaReviewForm(props: { formInfo: TaskFormData }) {
   )
 }
 
+// Compact banner shown above the form only when a change is actively requested.
+// Displays the single latest feedback entry — just enough to signal action needed.
+function LatestFeedbackBanner({ entry }: { entry: OGAFeedbackEntry }) {
+  return (
+    <div className="mb-6 bg-amber-50 border border-amber-300 rounded-lg p-4 flex items-start gap-3">
+      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 mt-0.5 shrink-0 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
+        <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
+      </svg>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-4 mb-1">
+          <p className="text-sm font-semibold text-amber-800">Changes Requested</p>
+          <span className="text-xs text-amber-600 shrink-0">{new Date(entry.timestamp).toLocaleString()}</span>
+        </div>
+        <p className="text-sm text-amber-900 whitespace-pre-wrap">{entry.content.feedback as string}</p>
+      </div>
+    </div>
+  )
+}
+
+// Full feedback history shown at the bottom in all states where feedback exists.
+function OGAFeedbackHistory({ entries }: { entries: OGAFeedbackEntry[] }) {
+  return (
+    <div className="mt-6 rounded-lg overflow-hidden shadow-sm border border-gray-200">
+      <div className="bg-gray-50 px-6 py-3 border-b border-gray-200">
+        <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">Review History</p>
+      </div>
+      <div className="divide-y divide-gray-100">
+        {entries.map((entry) => (
+          <div key={entry.round} className="bg-white px-6 py-4">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Round {entry.round}</span>
+              <span className="text-xs text-gray-400">{new Date(entry.timestamp).toLocaleString()}</span>
+            </div>
+            <p className="text-sm text-gray-700 whitespace-pre-wrap">{entry.content.feedback as string}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function SimpleForm(props: { configs: SimpleFormConfig, pluginState: string }) {
+  const feedback = props.configs.ogaFeedback
+  const latestFeedback = feedback && feedback.length > 0 ? feedback[feedback.length - 1] : null
+  const isFeedbackRequested = props.pluginState === 'OGA_FEEDBACK_PROVIDED'
+
   return (
     <div>
+      {isFeedbackRequested && latestFeedback && (
+        <LatestFeedbackBanner entry={latestFeedback} />
+      )}
+
       <TraderForm formInfo={props.configs.traderFormInfo} pluginState={props.pluginState} />
 
       {props.configs.submissionResponseForm && (
@@ -250,6 +306,10 @@ export default function SimpleForm(props: { configs: SimpleFormConfig, pluginSta
 
       {props.configs.ogaReviewForm && (
         <OgaReviewForm formInfo={props.configs.ogaReviewForm} />
+      )}
+
+      {feedback && feedback.length > 0 && (
+        <OGAFeedbackHistory entries={feedback} />
       )}
     </div>
   )
