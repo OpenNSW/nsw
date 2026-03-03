@@ -101,6 +101,15 @@ type CallbackConfig struct {
 	Response   *Response         `json:"response,omitempty"`
 }
 
+// OGAFeedbackEntry is a single round of OGA feedback, stored as an append-only log.
+// Content holds the full request payload as-is, allowing new fields to be introduced
+// by callers without requiring changes to this struct.
+type OGAFeedbackEntry struct {
+	Content   map[string]any `json:"content"`
+	Timestamp time.Time      `json:"timestamp"`
+	Round     int            `json:"round"`
+}
+
 // SimpleFormResult represents the response data for form operations
 type SimpleFormResult struct {
 	FormID   string          `json:"formId,omitempty"`
@@ -221,10 +230,8 @@ func (s *SimpleForm) GetRenderInfo(ctx context.Context) (*ApiResponse, error) {
 	if s.config.Callback != nil {
 		s.attachFormDisplay(ctx, content, "ogaResponse", displayFormID(s.config.Callback.Response), "ogaReviewForm")
 	}
-	if pluginState == OGAFeedbackProvided {
-		if feedbackData, err := s.api.ReadFromLocalStore("ogaFeedback"); err == nil && feedbackData != nil {
-			content["ogaFeedback"] = feedbackData
-		}
+	if feedbackData, err := s.api.ReadFromLocalStore("ogaFeedback"); err == nil && feedbackData != nil {
+		content["ogaFeedback"] = feedbackData
 	}
 
 	return &ApiResponse{
@@ -432,6 +439,10 @@ func (s *SimpleForm) submitHandler(ctx context.Context, content any) (*Execution
 		requestPayload["meta"] = s.config.Submission.Request.Meta
 	}
 
+	if history, err := s.readOGAFeedbackHistory(); err == nil && len(history) > 0 {
+		requestPayload["ogaFeedbackHistory"] = history
+	}
+
 	responseData, err := s.sendFormSubmission(submissionUrl, requestPayload)
 	if err != nil {
 		slog.Error("failed to send form submission",
@@ -514,20 +525,63 @@ func (s *SimpleForm) ogaRejectedHandler(_ context.Context, content any) (*Execut
 	return &ExecutionResponse{Message: "Verification rejected or invalid"}, nil
 }
 
-// ogaFeedbackHandler handles OGA_VERIFICATION_FEEDBACK: persists the OGA's structured
-// feedback to the local store so the trader can review and correct their submission.
+// ogaFeedbackHandler handles OGA_VERIFICATION_FEEDBACK: appends a new OGAFeedbackEntry
+// (with timestamp and round number) to the feedback history in local store.
+//
+// Expected content shape:
+//
+//	{ "feedback": "Please correct the HS code on item 3." }
+//
+// The entire content object is stored atomically, so callers can introduce new
+// fields (e.g. severity, affected fields) without requiring handler changes.
 func (s *SimpleForm) ogaFeedbackHandler(_ context.Context, content any) (*ExecutionResponse, error) {
-	feedbackData, err := s.parseFormData(content)
+	data, err := s.parseFormData(content)
 	if err != nil {
 		return nil, fmt.Errorf("invalid feedback data: %w", err)
 	}
-	if err := s.api.WriteToLocalStore("ogaFeedback", feedbackData); err != nil {
+
+	// TODO: Remove hardcoded validation logic, after introducing generalized schema based validation
+	if feedback, _ := data["feedback"].(string); strings.TrimSpace(feedback) == "" {
+		return nil, fmt.Errorf("feedback field is required and must not be empty")
+	}
+
+	history, err := s.readOGAFeedbackHistory()
+	if err != nil {
+		slog.Warn("failed to read OGA feedback history, starting fresh", "formId", s.config.FormID, "error", err)
+		history = nil
+	}
+
+	history = append(history, OGAFeedbackEntry{
+		Content:   data,
+		Timestamp: time.Now().UTC(),
+		Round:     len(history) + 1,
+	})
+
+	if err := s.api.WriteToLocalStore("ogaFeedback", history); err != nil {
 		return nil, err
 	}
 	return &ExecutionResponse{
 		ApiResponse: &ApiResponse{Success: true},
 		Message:     "OGA feedback provided, awaiting trader correction",
 	}, nil
+}
+
+// readOGAFeedbackHistory reads and deserializes the OGA feedback history from local store.
+// It handles the JSON round-trip that occurs on a cache miss ([]interface{} → []OGAFeedbackEntry).
+func (s *SimpleForm) readOGAFeedbackHistory() ([]OGAFeedbackEntry, error) {
+	raw, err := s.api.ReadFromLocalStore("ogaFeedback")
+	if err != nil || raw == nil {
+		return nil, err
+	}
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal ogaFeedback from store: %w", err)
+	}
+	var history []OGAFeedbackEntry
+	if err := json.Unmarshal(b, &history); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal ogaFeedback history: %w", err)
+	}
+	return history, nil
 }
 
 // parseAndStoreOgaResponse parses the OGA payload and persists it to local store.
