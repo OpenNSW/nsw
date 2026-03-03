@@ -44,6 +44,13 @@ func (m *MockDriver) GenerateURL(ctx context.Context, key string, expires time.D
 	return "/test/" + key, nil
 }
 
+func (m *MockDriver) GetDownloadURL(ctx context.Context, key string, ttl time.Duration) (string, error) {
+	if m.GenerateURLErr != nil {
+		return "", m.GenerateURLErr
+	}
+	return "/test/download/" + key, nil
+}
+
 func TestUploadService(t *testing.T) {
 	mock := &MockDriver{}
 	service := NewUploadService(mock)
