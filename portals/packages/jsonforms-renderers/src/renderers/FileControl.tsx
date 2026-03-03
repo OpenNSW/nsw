@@ -2,7 +2,7 @@ import { withJsonFormsControlProps } from '@jsonforms/react';
 import type { ControlElement, JsonSchema } from '@jsonforms/core';
 import { Card, Flex, Text, Box, IconButton } from '@radix-ui/themes';
 import { UploadIcon, FileTextIcon, Cross2Icon, CheckCircledIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
-import { useState, useRef, type ChangeEvent, type DragEvent } from 'react';
+import { useState, useRef, useEffect, useCallback, type ChangeEvent, type DragEvent } from 'react';
 
 interface FileControlProps {
     data: string | null;
@@ -15,17 +15,81 @@ interface FileControlProps {
     enabled?: boolean;
 }
 
+// Simple in-memory cache for resolved download URLs to avoid redundant API calls
+const downloadUrlCache = new Map<string, { url: string; expiresAt: number }>();
+
+/**
+ * Checks whether the data value is a file key (UUID-like) rather than a data URL
+ */
+function isFileKey(data: string): boolean {
+    return !data.startsWith('data:');
+}
+
+const DEFAULT_API_BASE_URL = 'http://localhost:8080/api/v1';
+// TODO: Remove after implementing proper authentication
+const TRADER_ID = 'TRADER-001';
+
 const FileControl = ({ data, handleChange, path, label, required, uischema, enabled }: FileControlProps) => {
     const [dragActive, setDragActive] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [fileName, setFileName] = useState<string | null>(null);
+    const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+    const [downloadLoading, setDownloadLoading] = useState(false);
+    const [downloadError, setDownloadError] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
     // Get options from UI schema (or default)
     const options = uischema?.options || {};
     const maxSize = (options.maxSize as number) || 5 * 1024 * 1024; // Default 5MB
     const accept = (options.accept as string) || 'image/*,application/pdf';
+    const apiBaseUrl = (options.apiBaseUrl as string) || DEFAULT_API_BASE_URL;
     const isEnabled = enabled !== false;
+
+    // Fetch the presigned download URL when data is a file key (not a data URL)
+    const fetchDownloadUrl = useCallback(async (fileKey: string) => {
+        // Check cache first — use cached URL if not expired (with 60s buffer)
+        const cached = downloadUrlCache.get(fileKey);
+        if (cached && cached.expiresAt > Date.now() / 1000 + 60) {
+            setDownloadUrl(cached.url);
+            return;
+        }
+
+        setDownloadLoading(true);
+        setDownloadError(null);
+
+        try {
+            const response = await fetch(`${apiBaseUrl}/uploads/${fileKey}`, {
+                headers: { 'Authorization': TRADER_ID },
+            });
+
+            if (response.status === 401) {
+                setDownloadError('Unauthorized — please log in to download this file.');
+                return;
+            }
+
+            if (!response.ok) {
+                setDownloadError('Failed to generate download link.');
+                return;
+            }
+
+            const result = await response.json() as { download_url: string; expires_at: number };
+            downloadUrlCache.set(fileKey, { url: result.download_url, expiresAt: result.expires_at });
+            setDownloadUrl(result.download_url);
+        } catch {
+            setDownloadError('Unable to reach the server.');
+        } finally {
+            setDownloadLoading(false);
+        }
+    }, [apiBaseUrl]);
+
+    useEffect(() => {
+        if (data && isFileKey(data) && !isEnabled) {
+            fetchDownloadUrl(data);
+        } else {
+            setDownloadUrl(null);
+            setDownloadError(null);
+        }
+    }, [data, isEnabled, fetchDownloadUrl]);
 
     const getDisplayText = () => {
         if (fileName) return fileName;
@@ -33,6 +97,9 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
         // Try to extract name from data URL if stored there, otherwise generic
         return 'Uploaded File';
     };
+
+    // Resolve the href for the download link: use fetched presigned URL for file keys, or data URL directly
+    const resolvedHref = data && isFileKey(data) ? downloadUrl : data;
 
     const processFile = (file: File) => {
         if (file.size > maxSize) {
@@ -135,14 +202,23 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
                                 {getDisplayText()}
                             </Text>
                             {!isEnabled ? (
-                                <a
-                                    href={data}
-                                    download={fileName || 'document'}
-                                    className="text-xs text-blue-600 hover:underline cursor-pointer"
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    Download
-                                </a>
+                                downloadError ? (
+                                    <Text size="1" color="red">{downloadError}</Text>
+                                ) : downloadLoading ? (
+                                    <Text size="1" color="gray">Generating download link…</Text>
+                                ) : (
+                                    <a
+                                        href={resolvedHref || '#'}
+                                        download={fileName || 'document'}
+                                        className="text-xs text-blue-600 hover:underline cursor-pointer"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (!resolvedHref) e.preventDefault();
+                                        }}
+                                    >
+                                        Download
+                                    </a>
+                                )
                             ) : (
                                 <Text size="1" color="gray">
                                     Ready to submit
