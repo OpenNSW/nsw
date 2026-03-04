@@ -250,24 +250,44 @@ export function WorkflowDetailScreen() {
                   Submitted Information
                 </Text>
 
-                {application.data && Object.keys(application.data).length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {Object.entries(application.data).map(([key, value]) => (
-                      <Box key={key} className="bg-white p-3 rounded border border-gray-100">
-                        <Text size="1" color="gray" as="div" className="capitalize mb-1">
-                          {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
-                        </Text>
-                        <Text size="2" weight="medium">
-                          {typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value)}
-                        </Text>
+                {(() => {
+                  if (application.ogaForm) {
+                    return (
+                      <Box className="bg-white p-4 rounded border border-gray-100">
+                        <JsonForms
+                          schema={application.ogaForm.schema}
+                          uischema={application.ogaForm.uiSchema}
+                          data={application.data}
+                          renderers={radixRenderers}
+                          readonly={true}
+                        />
                       </Box>
-                    ))}
-                  </div>
-                ) : (
-                  <Text size="2" color="gray" className="italic text-center py-2">
-                    No submission data available
-                  </Text>
-                )}
+                    );
+                  }
+
+                  if (application.data && Object.keys(application.data).length > 0) {
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {Object.entries(application.data).map(([key, value]) => (
+                          <Box key={key} className="bg-white p-3 rounded border border-gray-100">
+                            <Text size="1" color="gray" as="div" className="capitalize mb-1">
+                              {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
+                            </Text>
+                            <Text size="2" weight="medium">
+                              {typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value)}
+                            </Text>
+                          </Box>
+                        ))}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <Text size="2" color="gray" className="italic text-center py-2">
+                      No submission data available
+                    </Text>
+                  );
+                })()}
               </div>
 
               <div className="border-t border-gray-100 my-4"></div>
