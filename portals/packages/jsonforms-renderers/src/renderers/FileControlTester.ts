@@ -1,6 +1,6 @@
-import { rankWith, formatIs } from '@jsonforms/core';
+import { rankWith, formatIs, or } from '@jsonforms/core';
 
 export const FileControlTester = rankWith(
     3, // Rank
-    formatIs('data-url')
+    or(formatIs('data-url'), formatIs('file'))
 );

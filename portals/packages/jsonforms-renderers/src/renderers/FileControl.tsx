@@ -1,6 +1,6 @@
 import { withJsonFormsControlProps } from '@jsonforms/react';
 import type { ControlElement, JsonSchema } from '@jsonforms/core';
-import { Card, Flex, Text, Box, IconButton } from '@radix-ui/themes';
+import { Card, Flex, Text, Box, IconButton, Button } from '@radix-ui/themes';
 import { UploadIcon, FileTextIcon, Cross2Icon, CheckCircledIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
 import { useState, useRef, useEffect, useCallback, type ChangeEvent, type DragEvent } from 'react';
 
@@ -83,13 +83,13 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
     }, [apiBaseUrl]);
 
     useEffect(() => {
-        if (data && isFileKey(data) && !isEnabled) {
+        if (data && isFileKey(data)) {
             fetchDownloadUrl(data);
         } else {
             setDownloadUrl(null);
             setDownloadError(null);
         }
-    }, [data, isEnabled, fetchDownloadUrl]);
+    }, [data, fetchDownloadUrl]);
 
     const getDisplayText = () => {
         if (fileName) return fileName;
@@ -98,8 +98,37 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
         return 'Uploaded File';
     };
 
-    // Resolve the href for the download link: use fetched presigned URL for file keys, or data URL directly
-    const resolvedHref = data && isFileKey(data) ? downloadUrl : data;
+    const [blobUrl, setBlobUrl] = useState<string | null>(null);
+
+    // Lifecycle: Convert data URLs to blob URLs to bypass browser restrictions on data: URLs in new tabs
+    useEffect(() => {
+        if (data && !isFileKey(data)) {
+            try {
+                const parts = data.split(',');
+                const mime = parts[0].match(/:(.*?);/)?.[1] || 'application/octet-stream';
+                const b64Data = parts[1];
+                const byteCharacters = atob(b64Data);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: mime });
+                const url = URL.createObjectURL(blob);
+                setBlobUrl(url);
+
+                return () => URL.revokeObjectURL(url);
+            } catch (err) {
+                console.error('Failed to create blob URL:', err);
+                setBlobUrl(null);
+            }
+        } else {
+            setBlobUrl(null);
+        }
+    }, [data]);
+
+    // Resolve the href for the preview: use fetched presigned URL for file keys, or blob URL for data URLs
+    const resolvedHref = data && isFileKey(data) ? downloadUrl : blobUrl;
 
     const processFile = (file: File) => {
         if (file.size > maxSize) {
@@ -201,42 +230,40 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
                             <Text size="2" weight="bold" className="block truncate">
                                 {getDisplayText()}
                             </Text>
-                            {!isEnabled ? (
-                                downloadError ? (
-                                    <Text size="1" color="red">{downloadError}</Text>
-                                ) : downloadLoading ? (
-                                    <Text size="1" color="gray">Generating download link…</Text>
-                                ) : (
+                        </Box>
+                        <Flex align="center" gap="3">
+                            {downloadLoading ? (
+                                <Text size="1" color="gray">Loading...</Text>
+                            ) : downloadError ? (
+                                <Text size="1" color="red">Error</Text>
+                            ) : (
+                                <Button variant="soft" color="blue" size="1" asChild>
                                     <a
                                         href={resolvedHref || '#'}
-                                        download={fileName || 'document'}
-                                        className="text-xs text-blue-600 hover:underline cursor-pointer"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             if (!resolvedHref) e.preventDefault();
                                         }}
                                     >
-                                        Download
+                                        View
                                     </a>
-                                )
-                            ) : (
-                                <Text size="1" color="gray">
-                                    Ready to submit
-                                </Text>
+                                </Button>
                             )}
-                        </Box>
-                        <Flex align="center" gap="2">
-                            <CheckCircledIcon className="text-green-600 w-5 h-5" />
-                            {isEnabled && (
-                                <IconButton
-                                    variant="ghost"
-                                    color="gray"
-                                    onClick={handleRemove}
-                                    className="hover:text-red-600 transition-colors"
-                                >
-                                    <Cross2Icon />
-                                </IconButton>
-                            )}
+                            <Flex align="center" gap="2">
+                                <CheckCircledIcon className="text-green-600 w-5 h-5" />
+                                {isEnabled && (
+                                    <IconButton
+                                        variant="ghost"
+                                        color="gray"
+                                        onClick={handleRemove}
+                                        className="hover:text-red-600 transition-colors"
+                                    >
+                                        <Cross2Icon />
+                                    </IconButton>
+                                )}
+                            </Flex>
                         </Flex>
                     </Flex>
                 </Card>
@@ -260,7 +287,7 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
                     <input
                         ref={inputRef}
                         type="file"
-                        className="hidden"
+                        style={{ display: 'none' }}
                         accept={accept}
                         onChange={handleInputChange}
                         disabled={!isEnabled}
