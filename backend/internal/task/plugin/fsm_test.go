@@ -360,14 +360,28 @@ func TestNewWaitForEventFSM(t *testing.T) {
 		{
 			name:          "complete from notified service",
 			currentState:  string(notifiedService),
-			action:        "complete",
+			action:        waitForEventFSMComplete,
 			wantNextState: string(receivedCallback),
 			wantTaskState: Completed,
 		},
 		{
+			name:          "start failed moves to notify failed",
+			currentState:  "",
+			action:        waitForEventFSMStartFailed,
+			wantNextState: string(notifyFailed),
+			wantTaskState: InProgress,
+		},
+		{
+			name:          "retry from notify failed moves to notified service",
+			currentState:  string(notifyFailed),
+			action:        waitForEventFSMRetry,
+			wantNextState: string(notifiedService),
+			wantTaskState: InProgress,
+		},
+		{
 			name:         "complete not permitted before start",
 			currentState: "",
-			action:       "complete",
+			action:       waitForEventFSMComplete,
 			wantErr:      true,
 		},
 		{

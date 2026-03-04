@@ -1,8 +1,6 @@
 import { defaultApiClient, type ApiClient, type ApiResponse } from './api'
 import type { RenderInfo } from "../plugins";
 
-export type TaskAction = 'FETCH_FORM' | 'SUBMIT_FORM' | 'SAVE_AS_DRAFT'
-
 export type TaskCommand = 'SUBMISSION' | 'SAVE_AS_DRAFT'
 
 export interface TaskFormData {
@@ -25,7 +23,7 @@ export interface SendTaskCommandRequest {
   task_id: string
   workflow_id: string
   payload: {
-    action: TaskAction
+    action: string
     content: Record<string, unknown>
   }
 }
@@ -43,6 +41,18 @@ export async function getTaskInfo(
   return response.data
 }
 
+export async function sendTaskAction(
+  taskId: string,
+  workflowId: string,
+  action: string,
+): Promise<TaskCommandResponse> {
+  return apiPost<SendTaskCommandRequest, TaskCommandResponse>(TASKS_API_URL, {
+    task_id: taskId,
+    workflow_id: workflowId,
+    payload: { action, content: {} },
+  })
+}
+
 export async function sendTaskCommand(
   request: TaskCommandRequest,
   apiClient: ApiClient = defaultApiClient
@@ -50,7 +60,7 @@ export async function sendTaskCommand(
   console.log(`Sending ${request.command} command for task: ${request.taskId}`, request)
 
   // Use POST /api/tasks with action type and submission data
-  const action: TaskAction = request.command === 'SAVE_AS_DRAFT' ? 'SAVE_AS_DRAFT' : 'SUBMIT_FORM'
+  const action: string = request.command === 'SAVE_AS_DRAFT' ? 'SAVE_AS_DRAFT' : 'SUBMIT_FORM'
 
   return apiClient.post<SendTaskCommandRequest, TaskCommandResponse>(TASKS_API_URL, {
     task_id: request.taskId,
