@@ -21,7 +21,7 @@ export default function PluginRenderer({ response }: { response: RenderInfo }) {
     case 'SIMPLE_FORM':
       return <SimpleForm configs={content} pluginState={pluginState}  />;
     case 'WAIT_FOR_EVENT':
-      return <WaitForEvent configs={content} />;
+      return <WaitForEvent configs={content} pluginState={pluginState} />;
     default:
       // Exhaustiveness check - TypeScript will error if you miss a case
       return null;
