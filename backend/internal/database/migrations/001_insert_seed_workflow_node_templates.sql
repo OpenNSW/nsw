@@ -214,9 +214,13 @@ VALUES
         'Final processing step — unlocks when both certificates are completed, or customs was fast-tracked',
         'WAIT_FOR_EVENT',
         '{
-            "event": "WAIT_FOR_EVENT",
-            "externalServiceUrl": "http://localhost:3001/api/process-task"
-        }',
+                    "event": "WAIT_FOR_EVENT",
+                    "externalServiceUrl": "http://localhost:3001/api/process-task",
+                    "display": {
+                        "title": "Waiting for ship to leave from port",
+                        "description": "The task will be completed when the ship leaves the port. This is an external event that we are waiting for."
+                    }
+                }',
         '[
             "c0000003-0003-0003-0003-000000000003",
             "c0000003-0003-0003-0003-000000000004",
@@ -264,3 +268,4 @@ VALUES
         '[]',
         NULL
     );
+
