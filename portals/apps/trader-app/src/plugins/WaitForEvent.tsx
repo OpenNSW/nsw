@@ -176,7 +176,8 @@ export default function WaitForEvent(props: { configs: WaitForEventConfigs; plug
       } else {
         setRetryError(response.error?.message ?? "Retry failed. Please try again.")
       }
-    } catch {
+    } catch (err) {
+      console.error("Error retrying:", err)
       setRetryError("Retry failed. Please try again.")
     } finally {
       setIsRetrying(false)
