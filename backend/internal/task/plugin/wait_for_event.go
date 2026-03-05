@@ -128,7 +128,17 @@ func (t *WaitForEventTask) Execute(ctx context.Context, request *ExecutionReques
 	switch request.Action {
 	case waitForEventFSMRetry:
 		if err := t.notifyExternalService(ctx, t.api.GetTaskID(), t.api.GetWorkflowID()); err != nil {
-			return nil, fmt.Errorf("failed to notify external service: %w", err)
+			// error is nil since the problem is not on system side.
+			return &ExecutionResponse{
+				Message: "Failed to notify external service",
+				ApiResponse: &ApiResponse{
+					Success: false,
+					Error: &ApiError{
+						Code:    "EXTERNAL_SERVICE_NOTIFICATION_FAILED",
+						Message: "Failed to notify external service",
+					},
+				},
+			}, nil
 		}
 		if err := t.api.Transition(waitForEventFSMRetry); err != nil {
 			return nil, err

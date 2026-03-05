@@ -171,7 +171,7 @@ func TestWaitForEventTask_Execute_Retry_Succeeds(t *testing.T) {
 
 func TestWaitForEventTask_Execute_Retry_NotificationFails(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusBadGateway)
+		w.WriteHeader(http.StatusBadRequest) // non-retryable so the test doesn't wait on backoff
 	}))
 	defer srv.Close()
 
@@ -179,15 +179,14 @@ func TestWaitForEventTask_Execute_Retry_NotificationFails(t *testing.T) {
 
 	resp, err := task.Execute(context.Background(), &ExecutionRequest{Action: waitForEventFSMRetry})
 
-	if err == nil {
-		t.Fatal("expected an error, got nil")
-	}
-	if resp != nil {
-		t.Errorf("expected nil response on error, got %+v", resp)
-	}
-	if len(api.transitionCalls) != 0 {
-		t.Errorf("expected no Transition calls (task stays in NOTIFY_FAILED), got %v", api.transitionCalls)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, "Failed to notify external service", resp.Message)
+	require.NotNil(t, resp.ApiResponse)
+	assert.False(t, resp.ApiResponse.Success)
+	require.NotNil(t, resp.ApiResponse.Error)
+	assert.Equal(t, "EXTERNAL_SERVICE_NOTIFICATION_FAILED", resp.ApiResponse.Error.Code)
+	assert.Empty(t, api.transitionCalls, "no transition should occur when notification fails")
 }
 
 func TestWaitForEventTask_Execute_UnsupportedAction(t *testing.T) {
