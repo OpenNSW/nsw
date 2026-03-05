@@ -125,7 +125,8 @@ func (t *WaitForEventTask) Execute(ctx context.Context, request *ExecutionReques
 	if request == nil {
 		return nil, fmt.Errorf("execution request is required")
 	}
-	if request.Action == waitForEventFSMRetry {
+	switch request.Action {
+	case waitForEventFSMRetry:
 		if err := t.notifyExternalService(ctx, t.api.GetTaskID(), t.api.GetWorkflowID()); err != nil {
 			return nil, fmt.Errorf("failed to notify external service: %w", err)
 		}
@@ -138,16 +139,19 @@ func (t *WaitForEventTask) Execute(ctx context.Context, request *ExecutionReques
 				Success: true,
 			},
 		}, nil
+	case waitForEventFSMComplete:
+		if err := t.api.Transition(waitForEventFSMComplete); err != nil {
+			return nil, err
+		}
+		return &ExecutionResponse{
+			Message: "Task completed by external service",
+			ApiResponse: &ApiResponse{
+				Success: true,
+			},
+		}, nil
+	default:
+		return nil, fmt.Errorf("unsupported action %q for WaitForEventTask", request.Action)
 	}
-	if err := t.api.Transition(waitForEventFSMComplete); err != nil {
-		return nil, err
-	}
-	return &ExecutionResponse{
-		Message: "Task completed by external service",
-		ApiResponse: &ApiResponse{
-			Success: true,
-		},
-	}, nil
 }
 
 // notifyExternalService sends task information to the configured external service with retry logic
