@@ -92,7 +92,7 @@ func TestWaitForEventTask_Start_NotifiesAndTransitions(t *testing.T) {
 
 func TestWaitForEventTask_Start_NotificationFails_TransitionsToNotifyFailed(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusBadRequest) // non-retryable so the test doesn't wait on backoff
 	}))
 	defer srv.Close()
 
@@ -101,11 +101,11 @@ func TestWaitForEventTask_Start_NotificationFails_TransitionsToNotifyFailed(t *t
 
 	resp, err := task.Start(context.Background())
 
-	if err == nil {
-		t.Fatal("expected an error, got nil")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
 	}
-	if resp != nil {
-		t.Errorf("expected nil response on error, got %+v", resp)
+	if resp == nil || resp.Message != "Failed to notify external service" {
+		t.Errorf("unexpected response: %+v", resp)
 	}
 	if !api.calledWith(waitForEventFSMStartFailed) {
 		t.Error("expected Transition(START_FAILED) to be called")
@@ -188,6 +188,15 @@ func TestWaitForEventTask_Execute_Retry_NotificationFails(t *testing.T) {
 	if len(api.transitionCalls) != 0 {
 		t.Errorf("expected no Transition calls (task stays in NOTIFY_FAILED), got %v", api.transitionCalls)
 	}
+}
+
+func TestWaitForEventTask_Execute_UnsupportedAction(t *testing.T) {
+	task, _ := newWFETask(t, "http://irrelevant")
+
+	resp, err := task.Execute(context.Background(), &ExecutionRequest{Action: "UNKNOWN"})
+
+	require.ErrorContains(t, err, "unsupported action")
+	assert.Nil(t, resp)
 }
 
 func TestWaitForEventTask_Execute_NilRequest(t *testing.T) {
@@ -330,10 +339,10 @@ func TestWaitForEventTask_Notify_ContextCancelledBeforeSend(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel before the call
 
-	_, err := task.Start(ctx)
+	resp, err := task.Start(ctx)
 
-	require.Error(t, err)
-	assert.ErrorIs(t, err, context.Canceled)
+	require.NoError(t, err)
+	assert.Equal(t, "Failed to notify external service", resp.Message)
 	assert.True(t, api.calledWith(waitForEventFSMStartFailed), "should still transition to NOTIFY_FAILED")
 }
 
@@ -348,11 +357,11 @@ func TestWaitForEventTask_Notify_NonRetryable4xx(t *testing.T) {
 	task, api := newWFETask(t, srv.URL)
 	api.canTransition = func(_ string) bool { return true }
 
-	_, err := task.Start(context.Background())
+	resp, err := task.Start(context.Background())
 
-	require.Error(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 1, callCount, "non-retryable 4xx should not be retried")
-	assert.ErrorContains(t, err, "non-retryable")
+	assert.Equal(t, "Failed to notify external service", resp.Message)
 	assert.True(t, api.calledWith(waitForEventFSMStartFailed))
 }
 
@@ -368,10 +377,10 @@ func TestWaitForEventTask_Start_TransitionToNotifyFailedError(t *testing.T) {
 	api.canTransition = func(_ string) bool { return true }
 	api.transitionErr = errors.New("db unavailable") // START_FAILED transition also fails
 
-	_, err := task.Start(context.Background())
+	resp, err := task.Start(context.Background())
 
-	// Original notification error is still returned
-	require.ErrorContains(t, err, "non-retryable")
+	require.NoError(t, err)
+	assert.Equal(t, "Failed to notify external service", resp.Message)
 	assert.True(t, api.calledWith(waitForEventFSMStartFailed), "START_FAILED transition should be attempted")
 }
 
@@ -387,10 +396,10 @@ func TestWaitForEventTask_Notify_ContextCancelledDuringRetry(t *testing.T) {
 	task, api := newWFETask(t, srv.URL)
 	api.canTransition = func(_ string) bool { return true }
 
-	_, err := task.Start(ctx)
+	resp, err := task.Start(ctx)
 
-	require.Error(t, err)
-	assert.ErrorIs(t, err, context.Canceled)
+	require.NoError(t, err)
+	assert.Equal(t, "Failed to notify external service", resp.Message)
 	assert.True(t, api.calledWith(waitForEventFSMStartFailed))
 }
 
@@ -405,9 +414,10 @@ func TestWaitForEventTask_Notify_TooManyRequests_IsRetried(t *testing.T) {
 	task, api := newWFETask(t, srv.URL)
 	api.canTransition = func(_ string) bool { return true }
 
-	_, err := task.Start(context.Background())
+	resp, err := task.Start(context.Background())
 
-	require.Error(t, err)
+	require.NoError(t, err)
 	assert.Greater(t, callCount, 1, "429 should be retried")
+	assert.Equal(t, "Failed to notify external service", resp.Message)
 	assert.True(t, api.calledWith(waitForEventFSMStartFailed))
 }
