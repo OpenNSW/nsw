@@ -14,8 +14,9 @@ const (
 type ConsignmentState string
 
 const (
-	ConsignmentStateInProgress ConsignmentState = "IN_PROGRESS"
-	ConsignmentStateFinished   ConsignmentState = "FINISHED"
+	ConsignmentStateAwaitingInitiation ConsignmentState = "AWAITING_INITIATION"
+	ConsignmentStateInProgress         ConsignmentState = "IN_PROGRESS"
+	ConsignmentStateFinished           ConsignmentState = "FINISHED"
 )
 
 // Consignment represents a consignment in the system.
@@ -30,8 +31,8 @@ type Consignment struct {
 	CHAID         *uuid.UUID        `gorm:"type:uuid;column:cha_id" json:"chaId,omitempty"`                                 // Pointer for optional/null support
 
 	// Relationships
-	WorkflowNodes []WorkflowNode      `gorm:"foreignKey:ConsignmentID;references:ID" json:"-"` // Associated WorkflowNodes
-	CHA           *ClearingHouseAgent `gorm:"foreignKey:CHAID" json:"cha,omitempty"`
+	WorkflowNodes []WorkflowNode     `gorm:"foreignKey:ConsignmentID;references:ID" json:"-"` // Associated WorkflowNodes
+	CHA           *CustomsHouseAgent `gorm:"foreignKey:CHAID" json:"cha,omitempty"`
 }
 
 func (c *Consignment) TableName() string {
@@ -64,8 +65,13 @@ type CreateConsignmentItemDTO struct {
 // CreateConsignmentDTO represents the data required to create a consignment.
 type CreateConsignmentDTO struct {
 	Flow  ConsignmentFlow            `json:"flow" binding:"required,oneof=IMPORT EXPORT"` // e.g., IMPORT, EXPORT
-	CHAID uuid.UUID                  `json:"chaId" binding:"required"`                    // The CHA ID is mandatory for new consignments
-	Items []CreateConsignmentItemDTO `json:"items" binding:"required,dive,required"`      // Items in the consignment
+	CHAID *uuid.UUID                 `json:"chaId" binding:"required"`                    // CHA ID is now mandatory for Phase 1
+	Items []CreateConsignmentItemDTO `json:"items,omitempty"`                             // Items are optional in Phase 1
+}
+
+// InitializeConsignmentDTO represents the data required for CHA to initialize the workflow.
+type InitializeConsignmentDTO struct {
+	Items []CreateConsignmentItemDTO `json:"items" binding:"required,dive,required"`
 }
 
 // UpdateConsignmentDTO represents the data required to update a consignment.
@@ -85,7 +91,7 @@ type ConsignmentDetailDTO struct {
 	CreatedAt     string                       `json:"createdAt"` // Timestamp of consignment creation
 	UpdatedAt     string                       `json:"updatedAt"` // Timestamp of last consignment update
 	CHAID         *uuid.UUID                   `json:"chaId,omitempty"`
-	CHA           *ClearingHouseAgent          `json:"cha,omitempty"`
+	CHA           *CustomsHouseAgent           `json:"cha,omitempty"`
 	WorkflowNodes []WorkflowNodeResponseDTO    `json:"workflowNodes"` // Associated workflow nodes with template details
 }
 

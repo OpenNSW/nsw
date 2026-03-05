@@ -3,7 +3,8 @@ import {
   DashboardIcon, FileTextIcon,
   ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon,
 } from '@radix-ui/react-icons'
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState, useMemo } from "react"
+import { useRole } from '../../contexts/RoleContext'
 
 interface NavItem {
   name: string
@@ -11,7 +12,7 @@ interface NavItem {
   icon: ReactNode
 }
 
-const navStructure: NavItemOrGroup[] = [
+const fullNavStructure: NavItemOrGroup[] = [
   { name: 'Consignments', path: '/consignments', icon: <DashboardIcon className="w-5 h-5" /> },
   { name: 'Verified Docs', path: '/pre-consignments', icon: <FileTextIcon className="w-5 h-5" /> },
 ]
@@ -34,13 +35,21 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isExpanded, onToggle }: SidebarProps) {
-  const location = useLocation();
-  const [isHovered, setIsHovered] = useState(false);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-  const previousPathRef = useRef<string>(location.pathname);
+  const location = useLocation()
+  const role = useRole()
+  const [isHovered, setIsHovered] = useState(false)
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  const previousPathRef = useRef<string>(location.pathname)
+
+  const navStructure = useMemo(() => {
+    if (role === 'CHA') {
+      return fullNavStructure.filter((item) => !('path' in item && item.path === '/pre-consignments'))
+    }
+    return fullNavStructure
+  }, [role])
 
   // Determine if sidebar should show expanded content
-  const showExpanded = isExpanded || (!isExpanded && isHovered);
+  const showExpanded = isExpanded || (!isExpanded && isHovered)
 
   // Auto-expand groups that contain the active page
   useEffect(() => {

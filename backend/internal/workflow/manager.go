@@ -211,6 +211,11 @@ func (m *Manager) HandleCreateConsignment(w http.ResponseWriter, r *http.Request
 	m.consignmentRouter.HandleCreateConsignment(w, r)
 }
 
+// HandleInitializeConsignment handles PUT /api/v1/consignments/{id}/initialize
+func (m *Manager) HandleInitializeConsignment(w http.ResponseWriter, r *http.Request) {
+	m.consignmentRouter.HandleInitializeConsignment(w, r)
+}
+
 // HandleGetConsignments handles GET /api/v1/consignments
 func (m *Manager) HandleGetConsignments(w http.ResponseWriter, r *http.Request) {
 	m.consignmentRouter.HandleGetConsignments(w, r)

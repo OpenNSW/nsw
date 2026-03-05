@@ -121,6 +121,7 @@ func main() {
 	mux.HandleFunc("GET /api/v1/tasks/{id}", tm.HandleGetTask)
 	mux.HandleFunc("GET /api/v1/hscodes", wm.HandleGetAllHSCodes)
 	mux.HandleFunc("POST /api/v1/consignments", wm.HandleCreateConsignment)
+	mux.HandleFunc("PUT /api/v1/consignments/{id}/initialize", wm.HandleInitializeConsignment)
 	mux.HandleFunc("GET /api/v1/consignments/{id}", wm.HandleGetConsignmentByID)
 	mux.HandleFunc("GET /api/v1/consignments", wm.HandleGetConsignments)
 	mux.HandleFunc("GET /api/v1/chas", wm.HandleListCHAs)

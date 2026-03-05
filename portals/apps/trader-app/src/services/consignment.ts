@@ -5,6 +5,8 @@ import type {
   CreateConsignmentResponse,
   ConsignmentState,
   TradeFlow,
+  CustomsHouseAgent,
+  InitializeConsignmentRequest,
 } from './types/consignment'
 import { defaultApiClient, type ApiClient } from './api'
 
@@ -16,6 +18,23 @@ export async function createConsignment(
     '/consignments',
     request
   )
+}
+
+export async function initializeConsignment(
+  id: string,
+  request: InitializeConsignmentRequest,
+  apiClient: ApiClient = defaultApiClient
+): Promise<Consignment> {
+  return apiClient.put<InitializeConsignmentRequest, Consignment>(
+    `/consignments/${id}/initialize`,
+    request
+  )
+}
+
+export async function listChas(
+  apiClient: ApiClient = defaultApiClient
+): Promise<CustomsHouseAgent[]> {
+  return apiClient.get<CustomsHouseAgent[]>('/chas')
 }
 
 export async function getConsignment(

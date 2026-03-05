@@ -61,7 +61,7 @@ func (m *MockTemplateProvider) GetEndNodeTemplate(ctx context.Context) (*model.W
 	return args.Get(0).(*model.WorkflowNodeTemplate), args.Error(1)
 }
 
-func TestConsignmentService_InitializeConsignment(t *testing.T) {
+func TestConsignmentService_CreateConsignment(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
 	mockTemplateProvider := new(MockTemplateProvider)
 	mockNodeRepo := new(MockWorkflowNodeRepository)
@@ -71,17 +71,65 @@ func TestConsignmentService_InitializeConsignment(t *testing.T) {
 	ctx := context.Background()
 	traderID := "trader1"
 	chaID := uuid.New()
-	hsCodeID := uuid.New()
 	createReq := &model.CreateConsignmentDTO{
 		Flow:  model.ConsignmentFlowImport,
-		CHAID: chaID,
+		CHAID: &chaID,
+	}
+	globalContext := map[string]any{"key": "value"}
+
+	// Mock DB Expectations for CreateConsignment
+	sqlMock.ExpectBegin()
+	sqlMock.ExpectExec(`INSERT INTO "consignments"`).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	sqlMock.ExpectCommit()
+
+	// Select Consignment (Reload)
+	consignmentID := uuid.New()
+	sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE id = \$1 AND "consignments"\."id" = \$2 ORDER BY "consignments"."id" LIMIT \$3`).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), 1).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "flow", "trader_id", "state", "cha_id"}).
+			AddRow(consignmentID, "IMPORT", "trader1", "AWAITING_INITIATION", chaID))
+
+	sqlMock.ExpectQuery(`SELECT \* FROM "customs_house_agents" WHERE "customs_house_agents"."id" = \$1`).
+		WithArgs(chaID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name"}).AddRow(chaID, "Test Agency"))
+
+	// Run Test
+	resp, err := service.CreateConsignment(ctx, createReq, traderID, globalContext)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, model.ConsignmentStateAwaitingInitiation, resp.State)
+
+	assert.NoError(t, sqlMock.ExpectationsWereMet())
+}
+
+func TestConsignmentService_InitializeConsignment(t *testing.T) {
+	db, sqlMock := setupTestDB(t)
+	mockTemplateProvider := new(MockTemplateProvider)
+	mockNodeRepo := new(MockWorkflowNodeRepository)
+
+	service := NewConsignmentService(db, mockTemplateProvider, mockNodeRepo)
+
+	ctx := context.Background()
+	consignmentID := uuid.New()
+	hsCodeID := uuid.New()
+	initReq := &model.InitializeConsignmentDTO{
 		Items: []model.CreateConsignmentItemDTO{
 			{HSCodeID: hsCodeID},
 		},
 	}
-	globalContext := map[string]any{"key": "value"}
 
-	// Mock Template Provider
+	// Mock DB Expectations for InitializeConsignment
+	sqlMock.ExpectBegin()
+	// Lock for update
+	sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE id = \$1 ORDER BY "consignments"\."id" LIMIT \$2`).
+		WithArgs(consignmentID, 1).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "flow", "state"}).
+			AddRow(consignmentID, model.ConsignmentFlowImport, model.ConsignmentStateAwaitingInitiation))
+
+	// Mock Template Provided
 	workflowTemplate := &model.WorkflowTemplate{
 		BaseModel:     model.BaseModel{ID: uuid.New()},
 		Name:          "Test Template",
@@ -102,74 +150,44 @@ func TestConsignmentService_InitializeConsignment(t *testing.T) {
 		{
 			BaseModel:              model.BaseModel{ID: uuid.New()},
 			WorkflowNodeTemplateID: nodeTemplate.ID,
-			State:                  model.WorkflowNodeStateLocked, // Initial state before resolving dependencies
+			State:                  model.WorkflowNodeStateLocked,
 		},
 	}
-	// Note: We need to match the arguments loosely or precisely.
-	// Here we just test the flow, so we expect CreateWorkflowNodesInTx call.
 	mockNodeRepo.On("CreateWorkflowNodesInTx", ctx, mock.Anything, mock.Anything).Return(createdNodes, nil)
-	// UpdateWorkflowNodesInTx will be called to update node states (e.g. to READY)
 	mockNodeRepo.On("UpdateWorkflowNodesInTx", ctx, mock.Anything, mock.Anything).Return(nil)
 
-	// Mock DB Expectations
-	sqlMock.ExpectBegin()
-	// Create Consignment
-	// GORM might use Exec if it doesn't need to return generated values (since we calculate UUID in BeforeCreate)
-	sqlMock.ExpectExec(`INSERT INTO "consignments"`).
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnResult(sqlmock.NewResult(1, 1))
-
-	// Create Workflow Nodes
-	// Since we mock the NodeRepo, we don't expect DB calls for nodes here,
-	// BUT the service calls createWorkflowNodesInTx with 'tx'.
-	// The mockRepo uses the passed 'tx'. If the mockRepo implementation in the test
-	// just returns, it doesn't touch the DB.
-	// However, we passed the *real* Gorm DB (which is mocked underneath) to the service.
-	// The service starts a valid transaction on it.
+	// Update Consignment
+	sqlMock.ExpectExec(`UPDATE "consignments"`).WillReturnResult(sqlmock.NewResult(1, 1))
 
 	sqlMock.ExpectCommit()
 
-	// Select Consignment
-	// Gorm adds "id = <id>" from struct and "id = <id>" from condition, plus LIMIT 1
-	consignmentID := uuid.New()
-	sqlMock.ExpectQuery(`SELECT \* FROM "consignments"`).
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "flow", "trader_id", "state", "created_at", "updated_at", "cha_id", "items"}).
-			AddRow(consignmentID, "IMPORT", "trader1", "IN_PROGRESS", time.Now(), time.Now(), chaID, []byte(`[{"hsCodeId":"`+hsCodeID.String()+`"}]`)))
+	// Reload (Preload)
+	sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE id = \$1 AND "consignments"\."id" = \$2 ORDER BY "consignments"."id" LIMIT \$3`).
+		WithArgs(consignmentID, consignmentID, 1).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "flow", "trader_id", "state", "items"}).
+			AddRow(consignmentID, "IMPORT", "trader1", "IN_PROGRESS", []byte(`[{"hsCodeId":"`+hsCodeID.String()+`"}]`)))
 
-	sqlMock.ExpectQuery(`SELECT \* FROM "clearing_house_agents"`).
-		WithArgs(chaID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name"}).AddRow(chaID, "Test Agency"))
-
-	// Select WorkflowNodes (Preload)
-	// Expectation for Preload WorkflowNodes
-	// It usually selects nodes where consignment_id IN (...)
+	// Preloads
 	sqlMock.ExpectQuery(`SELECT \* FROM "workflow_nodes" WHERE "workflow_nodes"."consignment_id" = \$1`).
-		WithArgs(sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "workflow_node_template_id", "state", "consignment_id"}).
-			AddRow(uuid.New(), nodeTemplate.ID, "READY", consignmentID))
-
-		// Select WorkflowNodeTemplates (Nested Preload)
+		WithArgs(consignmentID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "workflow_node_template_id", "consignment_id"}).AddRow(uuid.New(), nodeTemplate.ID, consignmentID))
 	sqlMock.ExpectQuery(`SELECT \* FROM "workflow_node_templates" WHERE "workflow_node_templates"."id" = \$1`).
-		WithArgs(sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "type"}).
-			AddRow(nodeTemplate.ID, "Test Node Template", "SIMPLE_FORM"))
+		WithArgs(nodeTemplate.ID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name"}).AddRow(nodeTemplate.ID, "Test"))
 
-	// Batch Load HS Codes
+	// HS Code Load
 	sqlMock.ExpectQuery(`SELECT \* FROM "hs_codes" WHERE id IN \(\$1\)`).
 		WithArgs(hsCodeID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "hs_code", "description", "category"}).
-			AddRow(hsCodeID, "1234.56", "Test Description", "Test Category"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "hs_code"}).AddRow(hsCodeID, "1234.56"))
 
 	// Run Test
-	resp, nodes, err := service.InitializeConsignment(ctx, createReq, traderID, globalContext)
+	resp, nodes, err := service.InitializeConsignment(ctx, consignmentID, initReq)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.NotEmpty(t, nodes) // Should return the ready nodes (which might be the createdNodes updated to READY)
+	assert.Equal(t, model.ConsignmentStateInProgress, resp.State)
+	assert.NotEmpty(t, nodes)
 
-	mockTemplateProvider.AssertExpectations(t)
-	mockNodeRepo.AssertExpectations(t)
 	assert.NoError(t, sqlMock.ExpectationsWereMet())
 }
 
@@ -181,6 +199,8 @@ func TestConsignmentService_UpdateConsignment(t *testing.T) {
 	service := NewConsignmentService(db, mockTemplateProvider, mockNodeRepo)
 	ctx := context.Background()
 	consignmentID := uuid.New()
+	traderID := "trader1"
+	ctx = context.WithValue(ctx, auth.AuthContextKey, &auth.AuthContext{TraderContext: &auth.TraderContext{TraderID: traderID}})
 
 	state := model.ConsignmentStateFinished
 	updateReq := &model.UpdateConsignmentDTO{
@@ -190,8 +210,8 @@ func TestConsignmentService_UpdateConsignment(t *testing.T) {
 
 	// First: Retrieve consignment
 	// Gorm adds LIMIT 1
-	sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE id = \$1`).
-		WithArgs(consignmentID, 1).
+	sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE trader_id = \$1 AND id = \$2 ORDER BY "consignments"."id" LIMIT \$3`).
+		WithArgs(traderID, consignmentID, 1).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "state"}).AddRow(consignmentID, "IN_PROGRESS"))
 
 	// Updates
@@ -205,10 +225,15 @@ func TestConsignmentService_UpdateConsignment(t *testing.T) {
 	// Reload (Preload)
 	// Consignment
 	hsCodeID := uuid.New()
-	sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE id = \$1`).
+	chaID := uuid.New()
+	sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE id = \$1 AND "consignments"\."id" = \$2 ORDER BY "consignments"\."id" LIMIT \$3`).
 		WithArgs(consignmentID, consignmentID, 1).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "flow", "trader_id", "state", "created_at", "updated_at", "items"}).
-			AddRow(consignmentID, "IMPORT", "trader1", "FINISHED", time.Now(), time.Now(), []byte(`[{"hsCodeId":"`+hsCodeID.String()+`"}]`)))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "flow", "trader_id", "state", "created_at", "updated_at", "cha_id", "items"}).
+			AddRow(consignmentID, "IMPORT", traderID, "FINISHED", time.Now(), time.Now(), chaID, []byte(`[{"hsCodeId":"`+hsCodeID.String()+`"}]`)))
+
+	sqlMock.ExpectQuery(`SELECT \* FROM "customs_house_agents" WHERE "customs_house_agents"\."id" = \$1`).
+		WithArgs(chaID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "description"}).AddRow(chaID, "Test CHA", "A CHA agent"))
 
 	// WorkflowNodes
 	nodeTemplateID := uuid.New()
@@ -299,15 +324,22 @@ func TestConsignmentService_GetConsignmentByID(t *testing.T) {
 
 	ctx := context.Background()
 	consignmentID := uuid.New()
+	traderID := "trader1"
+	ctx = context.WithValue(ctx, auth.AuthContextKey, &auth.AuthContext{TraderContext: &auth.TraderContext{TraderID: traderID}})
 
 	// Expectation for Find (Consignments with Preload)
 	hsCodeID := uuid.New()
+	chaID := uuid.New()
 	// Select Consignments
 	// Gorm First adds ORDER BY and LIMIT
-	sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE id = \$1 ORDER BY "consignments"."id" LIMIT \$2`).
-		WithArgs(consignmentID, 1).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "flow", "trader_id", "state", "created_at", "updated_at", "items"}).
-			AddRow(consignmentID, "IMPORT", "trader1", "IN_PROGRESS", time.Now(), time.Now(), []byte(`[{"hsCodeId":"`+hsCodeID.String()+`"}]`)))
+	sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE trader_id = \$1 AND id = \$2 ORDER BY "consignments"\."id" LIMIT \$3`).
+		WithArgs(traderID, consignmentID, 1).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "flow", "trader_id", "state", "created_at", "updated_at", "cha_id", "items"}).
+			AddRow(consignmentID, "IMPORT", traderID, "IN_PROGRESS", time.Now(), time.Now(), chaID, []byte(`[{"hsCodeId":"`+hsCodeID.String()+`"}]`)))
+
+	sqlMock.ExpectQuery(`SELECT \* FROM "customs_house_agents" WHERE "customs_house_agents"\."id" = \$1`).
+		WithArgs(chaID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "description"}).AddRow(chaID, "Test CHA", "A CHA agent"))
 
 		// Select WorkflowNodes (Preload)
 	nodeTemplateID := uuid.New()
@@ -466,24 +498,26 @@ func TestConsignmentService_UpdateWorkflowNodeState_Completion(t *testing.T) {
 }
 
 func TestConsignmentService_InitializeConsignment_Failure(t *testing.T) {
-	db, _ := setupTestDB(t)
+	db, sqlMock := setupTestDB(t)
 	mockTemplateProvider := new(MockTemplateProvider)
 	mockNodeRepo := new(MockWorkflowNodeRepository)
 
 	service := NewConsignmentService(db, mockTemplateProvider, mockNodeRepo)
 	ctx := context.Background()
 	hsCodeID := uuid.New()
-	createReq := &model.CreateConsignmentDTO{
-		Flow: model.ConsignmentFlowImport,
-		Items: []model.CreateConsignmentItemDTO{
-			{HSCodeID: hsCodeID},
-		},
-	}
 
 	t.Run("Template Not Found", func(t *testing.T) {
-		mockTemplateProvider.On("GetWorkflowTemplateByHSCodeIDAndFlow", ctx, hsCodeID, model.ConsignmentFlowImport).Return(nil, errors.New("template not found")).Once()
+		consignmentID := uuid.New()
+		sqlMock.ExpectBegin()
+		sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE id = \$1 ORDER BY "consignments"\."id" LIMIT \$2`).
+			WithArgs(consignmentID, 1).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "flow", "state"}).
+				AddRow(consignmentID, model.ConsignmentFlowImport, model.ConsignmentStateAwaitingInitiation))
 
-		resp, nodes, err := service.InitializeConsignment(ctx, createReq, "trader1", nil)
+		mockTemplateProvider.On("GetWorkflowTemplateByHSCodeIDAndFlow", ctx, hsCodeID, model.ConsignmentFlowImport).Return(nil, errors.New("template not found")).Once()
+		sqlMock.ExpectRollback()
+
+		resp, nodes, err := service.InitializeConsignment(ctx, consignmentID, &model.InitializeConsignmentDTO{Items: []model.CreateConsignmentItemDTO{{HSCodeID: hsCodeID}}})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to get workflow template")
 		assert.Nil(t, resp)
@@ -496,32 +530,29 @@ func TestConsignmentService_InitializeConsignment_Failure(t *testing.T) {
 		mockNodeRepo := new(MockWorkflowNodeRepository)
 		service := NewConsignmentService(db, mockTemplateProvider, mockNodeRepo)
 
-		localHSCodeID := uuid.New()
-		localCreateReq := &model.CreateConsignmentDTO{
-			Flow: model.ConsignmentFlowImport,
-			Items: []model.CreateConsignmentItemDTO{
-				{HSCodeID: localHSCodeID},
-			},
-		}
+		consignmentID := uuid.New()
 
+		sqlMock.ExpectBegin()
+		sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE id = \$1 ORDER BY "consignments"\."id" LIMIT \$2`).
+			WithArgs(consignmentID, 1).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "flow", "state"}).
+				AddRow(consignmentID, model.ConsignmentFlowImport, model.ConsignmentStateAwaitingInitiation))
+
+		localHSCodeID := uuid.New()
 		workflowTemplate := &model.WorkflowTemplate{
 			BaseModel:     model.BaseModel{ID: uuid.New()},
 			NodeTemplates: model.UUIDArray{uuid.New()},
 		}
 		mockTemplateProvider.On("GetWorkflowTemplateByHSCodeIDAndFlow", mock.Anything, localHSCodeID, model.ConsignmentFlowImport).Return(workflowTemplate, nil).Once()
 
-		sqlMock.ExpectBegin()
-		sqlMock.ExpectExec(`INSERT INTO "consignments"`).WillReturnResult(sqlmock.NewResult(1, 1))
-
 		mockTemplateProvider.On("GetWorkflowNodeTemplatesByIDs", mock.Anything, mock.MatchedBy(func(ids []uuid.UUID) bool {
 			return len(ids) == 1 && ids[0] == workflowTemplate.NodeTemplates[0]
 		})).Return(nil, errors.New("fetch error")).Once()
 		sqlMock.ExpectRollback()
 
-		resp, nodes, err := service.InitializeConsignment(context.Background(), localCreateReq, "trader1", nil)
+		resp, nodes, err := service.InitializeConsignment(context.Background(), consignmentID, &model.InitializeConsignmentDTO{Items: []model.CreateConsignmentItemDTO{{HSCodeID: localHSCodeID}}})
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "failed to create workflow nodes")
-			assert.Contains(t, err.Error(), "failed to retrieve workflow node templates")
 		}
 		assert.Nil(t, resp)
 		assert.Nil(t, nodes)
@@ -537,6 +568,8 @@ func TestConsignmentService_UpdateConsignment_Failure(t *testing.T) {
 	service := NewConsignmentService(db, mockTemplateProvider, mockNodeRepo)
 	ctx := context.Background()
 	consignmentID := uuid.New()
+	traderID := "trader1"
+	ctx = context.WithValue(ctx, auth.AuthContextKey, &auth.AuthContext{TraderContext: &auth.TraderContext{TraderID: traderID}})
 	state := model.ConsignmentStateFinished
 	updateReq := &model.UpdateConsignmentDTO{
 		ConsignmentID: consignmentID,
@@ -544,8 +577,8 @@ func TestConsignmentService_UpdateConsignment_Failure(t *testing.T) {
 	}
 
 	t.Run("Consignment Not Found", func(t *testing.T) {
-		sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE id = \$1`).
-			WithArgs(consignmentID, 1).
+		sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE trader_id = \$1 AND id = \$2 ORDER BY "consignments"."id" LIMIT \$3`).
+			WithArgs(traderID, consignmentID, 1).
 			WillReturnError(gorm.ErrRecordNotFound)
 
 		resp, err := service.UpdateConsignment(ctx, updateReq)
@@ -555,8 +588,8 @@ func TestConsignmentService_UpdateConsignment_Failure(t *testing.T) {
 	})
 
 	t.Run("Update DB Error", func(t *testing.T) {
-		sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE id = \$1`).
-			WithArgs(consignmentID, 1).
+		sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE trader_id = \$1 AND id = \$2 ORDER BY "consignments"."id" LIMIT \$3`).
+			WithArgs(traderID, consignmentID, 1).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "state"}).AddRow(consignmentID, "IN_PROGRESS"))
 
 		sqlMock.ExpectBegin()
@@ -603,4 +636,129 @@ func TestConsignmentService_GetConsignments_EdgeCases(t *testing.T) {
 		assert.Nil(t, result)
 		assert.NoError(t, sqlMock.ExpectationsWereMet())
 	})
+}
+func TestConsignmentService_InitializeConsignment_NoCHA(t *testing.T) {
+	db, sqlMock := setupTestDB(t)
+	mockTemplateProvider := new(MockTemplateProvider)
+	mockNodeRepo := new(MockWorkflowNodeRepository)
+	service := NewConsignmentService(db, mockTemplateProvider, mockNodeRepo)
+
+	ctx := context.Background()
+	traderID := "trader1"
+	consignmentID := uuid.New()
+	hsCodeID := uuid.New()
+	nodeTemplateID := uuid.New()
+
+	mockTemplateProvider.On("GetWorkflowTemplateByHSCodeIDAndFlow", ctx, hsCodeID, model.ConsignmentFlowImport).Return(&model.WorkflowTemplate{
+		BaseModel:     model.BaseModel{ID: uuid.New()},
+		NodeTemplates: model.UUIDArray{nodeTemplateID},
+	}, nil)
+	mockTemplateProvider.On("GetWorkflowNodeTemplatesByIDs", ctx, []uuid.UUID{nodeTemplateID}).Return([]model.WorkflowNodeTemplate{{BaseModel: model.BaseModel{ID: nodeTemplateID}}}, nil)
+	mockNodeRepo.On("CreateWorkflowNodesInTx", ctx, mock.Anything, mock.Anything).Return([]model.WorkflowNode{{BaseModel: model.BaseModel{ID: uuid.New()}, WorkflowNodeTemplateID: nodeTemplateID}}, nil)
+	mockNodeRepo.On("UpdateWorkflowNodesInTx", ctx, mock.Anything, mock.Anything).Return(nil)
+
+	// Existing consignment in AWAITING_INITIATION with no CHA (cha_id nil)
+	sqlMock.ExpectBegin()
+	sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE id = \$1 ORDER BY "consignments"\."id" LIMIT \$2`).
+		WithArgs(consignmentID, 1).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "flow", "trader_id", "state", "cha_id"}).
+			AddRow(consignmentID, model.ConsignmentFlowImport, traderID, model.ConsignmentStateAwaitingInitiation, nil))
+
+	sqlMock.ExpectExec(`UPDATE "consignments"`).WillReturnResult(sqlmock.NewResult(1, 1))
+	sqlMock.ExpectCommit()
+
+	sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE id = \$1 AND "consignments"\."id" = \$2 ORDER BY "consignments"."id" LIMIT \$3`).
+		WithArgs(consignmentID, consignmentID, 1).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "flow", "trader_id", "state", "cha_id", "items"}).
+			AddRow(consignmentID, "IMPORT", traderID, "IN_PROGRESS", nil, []byte(`[{"hsCodeId":"`+hsCodeID.String()+`"}]`)))
+
+	sqlMock.ExpectQuery(`SELECT \* FROM "workflow_nodes" WHERE "workflow_nodes"."consignment_id" = \$1`).
+		WithArgs(consignmentID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "workflow_node_template_id", "consignment_id"}).AddRow(uuid.New(), nodeTemplateID, consignmentID))
+	sqlMock.ExpectQuery(`SELECT \* FROM "workflow_node_templates" WHERE "workflow_node_templates"."id" = \$1`).
+		WithArgs(nodeTemplateID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name"}).AddRow(nodeTemplateID, "Test"))
+	sqlMock.ExpectQuery(`SELECT \* FROM "hs_codes" WHERE id IN \(\$1\)`).
+		WithArgs(hsCodeID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "hs_code"}).AddRow(hsCodeID, "1234.56"))
+
+	initReq := &model.InitializeConsignmentDTO{Items: []model.CreateConsignmentItemDTO{{HSCodeID: hsCodeID}}}
+	resp, _, err := service.InitializeConsignment(ctx, consignmentID, initReq)
+	assert.NoError(t, err)
+	if assert.NotNil(t, resp) {
+		assert.Nil(t, resp.CHAID)
+	}
+	assert.NoError(t, sqlMock.ExpectationsWereMet())
+}
+
+func TestConsignmentService_CreateConsignment_FKViolation(t *testing.T) {
+	db, sqlMock := setupTestDB(t)
+	mockTemplateProvider := new(MockTemplateProvider)
+	mockNodeRepo := new(MockWorkflowNodeRepository)
+	service := NewConsignmentService(db, mockTemplateProvider, mockNodeRepo)
+
+	ctx := context.Background()
+	traderID := "trader1"
+	nonExistentCHAID := uuid.New()
+	createReq := &model.CreateConsignmentDTO{
+		Flow:  model.ConsignmentFlowImport,
+		CHAID: &nonExistentCHAID,
+	}
+
+	// CreateConsignment may run in a transaction; FK violation on cha_id
+	sqlMock.ExpectBegin()
+	sqlMock.ExpectExec(`INSERT INTO "consignments"`).
+		WillReturnError(errors.New("insert or update on table \"consignments\" violates foreign key constraint \"consignments_cha_id_fkey\""))
+	sqlMock.ExpectRollback()
+
+	resp, err := service.CreateConsignment(ctx, createReq, traderID, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "violates foreign key constraint")
+	assert.Nil(t, resp)
+	assert.NoError(t, sqlMock.ExpectationsWereMet())
+}
+
+func TestConsignmentService_GetConsignments_CHA(t *testing.T) {
+	db, sqlMock := setupTestDB(t)
+	service := NewConsignmentService(db, nil, nil)
+
+	ctx := context.Background()
+	chaID := uuid.New().String()
+	// Mock CHA Auth Context
+	ctx = context.WithValue(ctx, auth.AuthContextKey, &auth.AuthContext{
+		Role:     "CHA",
+		AgencyID: chaID,
+		// TraderContext can be nil since we now have nil check in GetTraderID,
+		// but providing it for completeness if needed.
+	})
+
+	limit := 10
+	offset := 0
+
+	sqlMock.ExpectQuery(`SELECT count\(\*\) FROM "consignments" WHERE cha_id = \$1`).
+		WithArgs(chaID).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+
+	consignmentID := uuid.New()
+	hsCodeID := uuid.New()
+	sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE cha_id = \$1 ORDER BY created_at DESC LIMIT \$2`).
+		WithArgs(chaID, limit).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "trader_id", "cha_id", "items"}).
+			AddRow(consignmentID, "trader1", chaID, []byte(`[{"hsCodeId":"`+hsCodeID.String()+`"}]`)))
+
+	sqlMock.ExpectQuery(`SELECT consignment_id, count\(\*\) as total, count\(case when state = \$1 then 1 end\) as completed FROM "workflow_nodes" WHERE consignment_id IN \(\$2\) GROUP BY "consignment_id"`).
+		WithArgs(model.WorkflowNodeStateCompleted, consignmentID).
+		WillReturnRows(sqlmock.NewRows([]string{"consignment_id", "total", "completed"}).AddRow(consignmentID, 5, 2))
+
+	sqlMock.ExpectQuery(`SELECT \* FROM "hs_codes" WHERE id IN \(\$1\)`).
+		WithArgs(hsCodeID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "hs_code"}).AddRow(hsCodeID, "1234.56"))
+
+	result, err := service.GetConsignments(ctx, &offset, &limit, model.ConsignmentFilter{})
+	assert.NoError(t, err)
+	if assert.NotNil(t, result) {
+		assert.Equal(t, int64(1), result.TotalCount)
+		assert.Equal(t, consignmentID, result.Items[0].ID)
+	}
+	assert.NoError(t, sqlMock.ExpectationsWereMet())
 }

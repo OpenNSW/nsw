@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Button, Badge, Spinner, Text, Progress } from '@radix-ui/themes'
+import { Button, Badge, Spinner, Text, Progress, Card, Flex } from '@radix-ui/themes'
 import { ArrowLeftIcon } from '@radix-ui/react-icons'
 import { WorkflowViewer } from '../components/WorkflowViewer'
+import { HSCodeSearch } from '../components/HSCodePicker/HSCodeSearch'
 import type { ConsignmentDetail } from "../services/types/consignment.ts"
-import { getConsignment } from "../services/consignment.ts"
+import { getConsignment, initializeConsignment } from "../services/consignment.ts"
 import { useApi } from '../services/ApiContext'
+import { useRole } from '../contexts/RoleContext'
 import { getStateColor, formatState, formatDateTime } from '../utils/consignmentUtils'
+import type { HSCode } from '../services/types/hsCode'
 
 export function ConsignmentDetailScreen() {
   const { consignmentId } = useParams<{ consignmentId: string }>()
@@ -16,6 +19,8 @@ export function ConsignmentDetailScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [initializing, setInitializing] = useState(false)
+  const role = useRole()
 
   const fetchConsignment = useCallback(async () => {
     if (!consignmentId) {
@@ -99,7 +104,58 @@ export function ConsignmentDetailScreen() {
     )
   }
 
-  const item = consignment.items[0]
+  const isCHA = role === 'CHA'
+  const needsInitialization = consignment.state === 'AWAITING_INITIATION'
+
+  const handleInitializeWithHSCode = useCallback(async (hsCode: HSCode) => {
+    if (!consignmentId) return
+    setInitializing(true)
+    try {
+      await initializeConsignment(
+        consignmentId,
+        { items: [{ hsCodeId: hsCode.id }] },
+        api
+      )
+      await fetchConsignment()
+    } catch (err) {
+      console.error('Failed to initialize consignment:', err)
+    } finally {
+      setInitializing(false)
+    }
+  }, [api, consignmentId, fetchConsignment])
+
+  if (isCHA && needsInitialization) {
+    return (
+      <div className="p-4 md:p-6">
+        <div className="mb-4 md:mb-6">
+          <Button variant="ghost" color="gray" onClick={() => navigate('/consignments')} aria-label="Back to consignments list">
+            <ArrowLeftIcon />
+            Back
+          </Button>
+        </div>
+        <Card size="3">
+          <Text size="5" weight="bold" className="block mb-2">Initialize Consignment</Text>
+          <Text size="2" color="gray" className="block mb-6">
+            Please select the HS Code to begin the clearance process.
+          </Text>
+          <HSCodeSearch
+            value={null}
+            onChange={async (hsCode) => {
+              if (hsCode) await handleInitializeWithHSCode(hsCode)
+            }}
+          />
+          {initializing && (
+            <Flex align="center" gap="2" mt="4">
+              <Spinner size="2" />
+              <Text size="2" color="gray">Initializing...</Text>
+            </Flex>
+          )}
+        </Card>
+      </div>
+    )
+  }
+
+  const item = consignment.items?.[0]
   const workflowNodes = consignment.workflowNodes || []
   const completedSteps = workflowNodes.filter(n => n.state === 'COMPLETED').length
   const totalSteps = workflowNodes.length

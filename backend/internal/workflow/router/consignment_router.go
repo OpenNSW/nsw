@@ -51,17 +51,65 @@ func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *ht
 		return
 	}
 
-	// Create consignment through service
-	// Task registration happens within the transaction via pre-commit callback
-	consignment, _, err := c.cs.InitializeConsignment(r.Context(), &req, traderId, globalContext)
+	// Create shell consignment through service (Phase 1)
+	consignment, err := c.cs.CreateConsignment(r.Context(), &req, traderId, globalContext)
 	if err != nil {
 		http.Error(w, "failed to create consignment: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Return response - all operations completed successfully within transaction
+	// Return response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(w).Encode(consignment); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
+}
+
+// HandleInitializeConsignment handles PUT /api/v1/consignments/{id}/initialize
+// Request body: InitializeConsignmentDTO
+// Response: ConsignmentDetailDTO
+func (c *ConsignmentRouter) HandleInitializeConsignment(w http.ResponseWriter, r *http.Request) {
+	// Require authentication
+	authCtx := auth.GetAuthContext(r.Context())
+	if authCtx == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Extract consignment ID from path
+	consignmentIDStr := r.PathValue("id")
+	if consignmentIDStr == "" {
+		http.Error(w, "consignment ID is required", http.StatusBadRequest)
+		return
+	}
+
+	// Parse UUID
+	consignmentID, err := uuid.Parse(consignmentIDStr)
+	if err != nil {
+		http.Error(w, "invalid consignment ID format: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var req model.InitializeConsignmentDTO
+
+	// Parse request body
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Initialize consignment workflow through service (Phase 2)
+	consignment, _, err := c.cs.InitializeConsignment(r.Context(), consignmentID, &req)
+	if err != nil {
+		http.Error(w, "failed to initialize consignment: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Return response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(consignment); err != nil {
 		http.Error(w, "failed to encode response", http.StatusInternalServerError)
 		return
@@ -148,8 +196,15 @@ func (c *ConsignmentRouter) HandleGetConsignmentByID(w http.ResponseWriter, r *h
 }
 
 // HandleListCHAs handles GET /api/v1/chas
-// Response: []model.ClearingHouseAgent
+// Response: []model.CustomsHouseAgent
 func (c *ConsignmentRouter) HandleListCHAs(w http.ResponseWriter, r *http.Request) {
+	// Require authentication
+	authCtx := auth.GetAuthContext(r.Context())
+	if authCtx == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	chas, err := c.cs.ListCHAs(r.Context())
 	if err != nil {
 		http.Error(w, "failed to retrieve CHAs: "+err.Error(), http.StatusInternalServerError)

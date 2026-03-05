@@ -38,6 +38,7 @@ MIGRATIONS=(
     "001_insert_seed_workflow_templates.sql"
     "001_insert_seed_workflow_hscode_map.sql"
     "001_insert_seed_pre_consignment_template.sql"
+    "001_add_cha_entity.sql"
 )
 
 echo "Starting database migrations..."

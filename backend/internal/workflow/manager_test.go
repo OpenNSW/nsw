@@ -235,9 +235,11 @@ func TestManager_HandleCreateConsignment(t *testing.T) {
 	hsCodeID := uuid.New()
 	nodeTemplateID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 
+	chaID := uuid.MustParse("00000000-0000-0000-0000-000000000002")
+
 	payload := model.CreateConsignmentDTO{
 		Flow:  model.ConsignmentFlowImport,
-		CHAID: uuid.MustParse("00000000-0000-0000-0000-000000000002"),
+		CHAID: &chaID,
 		Items: []model.CreateConsignmentItemDTO{
 			{HSCodeID: hsCodeID},
 		},
@@ -262,7 +264,7 @@ func TestManager_HandleCreateConsignment(t *testing.T) {
 	}
 
 	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"consignments\"").WillReturnRows(sqlmock.NewRows([]string{"id", "state"}).AddRow(uuid.New(), "READY"))
-	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"clearing_house_agents\"").WillReturnRows(sqlmock.NewRows([]string{"id", "name"}).AddRow(uuid.MustParse("00000000-0000-0000-0000-000000000002"), "Test Agency"))
+	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"customs_house_agents\"").WillReturnRows(sqlmock.NewRows([]string{"id", "name"}).AddRow(uuid.MustParse("00000000-0000-0000-0000-000000000002"), "Test Agency"))
 	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"hs_codes\"").WillReturnRows(sqlmock.NewRows([]string{"id", "hs_code"}).AddRow(hsCodeID, "1234.56"))
 
 	sqlMock.ExpectCommit()
