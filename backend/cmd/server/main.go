@@ -129,13 +129,9 @@ func main() {
 	mux.HandleFunc("GET /api/v1/pre-consignments/{preConsignmentId}", wm.HandleGetPreConsignmentByID)
 	mux.HandleFunc("GET /api/v1/pre-consignments", wm.HandleGetPreConsignmentsByTraderID)
 
-	// Upload routes
-	downloadRateLimiter := middleware.NewIdentityRateLimiter(5, 20)
+	// Upload and download routes
 	mux.HandleFunc("POST /api/v1/uploads", uploadHandler.Upload)
-
-	// Apply rate limiter specifically to the download endpoint
-	mux.Handle("GET /api/v1/uploads/{key}", downloadRateLimiter.Handler()(http.HandlerFunc(uploadHandler.Download)))
-
+	mux.HandleFunc("GET /api/v1/uploads/{key}", uploadHandler.Download)
 	mux.HandleFunc("DELETE /api/v1/uploads/{key}", uploadHandler.Delete)
 
 	// Set up graceful shutdown
