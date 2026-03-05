@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/OpenNSW/nsw/utils"
 )
@@ -74,6 +75,7 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 		TraderID:      traderId,
 		State:         model.ConsignmentStateInProgress,
 		GlobalContext: globalContext,
+		CHAID:         &createReq.CHAID,
 	}
 
 	var items []model.ConsignmentItem
@@ -134,7 +136,7 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 	}
 
 	// Reload consignment with preloaded relationships for response building
-	if err := s.db.WithContext(ctx).Preload("WorkflowNodes.WorkflowNodeTemplate").First(consignment, "id = ?", consignment.ID).Error; err != nil {
+	if err := s.db.WithContext(ctx).Preload("WorkflowNodes.WorkflowNodeTemplate").Preload("CHA").First(consignment, "id = ?", consignment.ID).Error; err != nil {
 		return nil, nil, fmt.Errorf("failed to reload consignment with relationships: %w", err)
 	}
 
@@ -200,7 +202,7 @@ func (s *ConsignmentService) createWorkflowNodesInTx(ctx context.Context, tx *go
 func (s *ConsignmentService) GetConsignmentByID(ctx context.Context, consignmentID uuid.UUID) (*model.ConsignmentDetailDTO, error) {
 	var consignment model.Consignment
 	// Use Preload to fetch WorkflowNodes and their templates in a single query
-	result := s.db.WithContext(ctx).Preload("WorkflowNodes.WorkflowNodeTemplate").First(&consignment, "id = ?", consignmentID)
+	result := s.db.WithContext(ctx).Preload("WorkflowNodes.WorkflowNodeTemplate").Preload("CHA").First(&consignment, "id = ?", consignmentID)
 	if result.Error != nil {
 		return nil, fmt.Errorf("failed to retrieve consignment with ID %s: %w", consignmentID, result.Error)
 	}
@@ -221,13 +223,25 @@ func (s *ConsignmentService) GetConsignmentByID(ctx context.Context, consignment
 	return responseDTO, nil
 }
 
-// GetConsignmentsByTraderID retrieves consignments associated with a specific trader ID with optional filtering.
-func (s *ConsignmentService) GetConsignmentsByTraderID(ctx context.Context, traderID string, offset *int, limit *int, filter model.ConsignmentFilter) (*model.ConsignmentListResult, error) {
+// GetConsignments retrieves consignments associated with a specific trader/CHA with optional filtering based on role.
+func (s *ConsignmentService) GetConsignments(ctx context.Context, offset *int, limit *int, filter model.ConsignmentFilter) (*model.ConsignmentListResult, error) {
 	// Apply pagination with defaults and limits
 	finalOffset, finalLimit := utils.GetPaginationParams(offset, limit)
 
-	// Base query for this trader
-	baseQuery := s.db.WithContext(ctx).Model(&model.Consignment{}).Where("trader_id = ?", traderID)
+	// Base query relying on Auth context
+	userRole := auth.GetRole(ctx)
+	traderIDAuth := auth.GetUserID(ctx)
+	chaID := auth.GetAgencyID(ctx)
+
+	baseQuery := s.db.WithContext(ctx).Model(&model.Consignment{})
+
+	// Apply filtering based on role
+	if userRole == "CHA" {
+		baseQuery = baseQuery.Where("cha_id = ?", chaID)
+	} else {
+		// Default to Trader filtering
+		baseQuery = baseQuery.Where("trader_id = ?", traderIDAuth)
+	}
 
 	// Apply Filters
 	query := baseQuery
@@ -259,6 +273,7 @@ func (s *ConsignmentService) GetConsignmentsByTraderID(ctx context.Context, trad
 	query = query.
 		Offset(finalOffset).
 		Limit(finalLimit).
+		Preload("CHA").
 		Order("created_at DESC")
 
 	if err := query.Find(&consignments).Error; err != nil {
@@ -336,6 +351,7 @@ func (s *ConsignmentService) GetConsignmentsByTraderID(ctx context.Context, trad
 			Items:                      itemResponseDTOs,
 			CreatedAt:                  c.CreatedAt.Format(time.RFC3339),
 			UpdatedAt:                  c.UpdatedAt.Format(time.RFC3339),
+			CHAID:                      c.CHAID,
 			WorkflowNodeCount:          counts.Total,
 			CompletedWorkflowNodeCount: counts.Completed,
 		})
@@ -387,7 +403,7 @@ func (s *ConsignmentService) UpdateConsignment(ctx context.Context, updateReq *m
 	}
 
 	// Reload with preloaded relationships
-	if err := s.db.WithContext(ctx).Preload("WorkflowNodes.WorkflowNodeTemplate").First(&consignment, "id = ?", consignment.ID).Error; err != nil {
+	if err := s.db.WithContext(ctx).Preload("WorkflowNodes.WorkflowNodeTemplate").Preload("CHA").First(&consignment, "id = ?", consignment.ID).Error; err != nil {
 		return nil, fmt.Errorf("failed to reload consignment with relationships: %w", err)
 	}
 
@@ -621,6 +637,8 @@ func (s *ConsignmentService) buildConsignmentDetailDTO(_ context.Context, consig
 		Items:         itemResponseDTOs,
 		CreatedAt:     consignment.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:     consignment.UpdatedAt.Format(time.RFC3339),
+		CHAID:         consignment.CHAID,
+		CHA:           consignment.CHA,
 		WorkflowNodes: nodeResponseDTOs,
 	}
 
@@ -645,4 +663,13 @@ func (s *ConsignmentService) buildConsignmentItemResponseDTOs(items []model.Cons
 		})
 	}
 	return itemResponseDTOs, nil
+}
+
+// ListCHAs retrieves all registered ClearingHouseAgents.
+func (s *ConsignmentService) ListCHAs(ctx context.Context) ([]model.ClearingHouseAgent, error) {
+	var chas []model.ClearingHouseAgent
+	if err := s.db.WithContext(ctx).Find(&chas).Error; err != nil {
+		return nil, fmt.Errorf("failed to retrieve CHAs: %w", err)
+	}
+	return chas, nil
 }

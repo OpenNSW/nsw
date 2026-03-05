@@ -68,20 +68,17 @@ func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *ht
 	}
 }
 
-// HandleGetConsignmentsByTraderID handles GET /api/v1/consignments
-// No query params required for traderId - uses traderId from auth context
+// HandleGetConsignments handles GET /api/v1/consignments
+// Uses AuthContext to filter by Role.
 // Pagination query params: offset (optional), limit (optional)
 // Response: ConsignmentListResult (containing ConsignmentSummaryDTO)
-func (c *ConsignmentRouter) HandleGetConsignmentsByTraderID(w http.ResponseWriter, r *http.Request) {
+func (c *ConsignmentRouter) HandleGetConsignments(w http.ResponseWriter, r *http.Request) {
 	// Require authentication
 	authCtx := auth.GetAuthContext(r.Context())
 	if authCtx == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-
-	// Use traderId from auth context
-	traderID := authCtx.TraderID
 
 	offset, limit, err := utils.ParsePaginationParams(r)
 	if err != nil {
@@ -101,7 +98,7 @@ func (c *ConsignmentRouter) HandleGetConsignmentsByTraderID(w http.ResponseWrite
 	}
 
 	// Get consignments from service
-	consignments, err := c.cs.GetConsignmentsByTraderID(r.Context(), traderID, offset, limit, filter)
+	consignments, err := c.cs.GetConsignments(r.Context(), offset, limit, filter)
 	if err != nil {
 		http.Error(w, "failed to retrieve consignments: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -145,6 +142,23 @@ func (c *ConsignmentRouter) HandleGetConsignmentByID(w http.ResponseWriter, r *h
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(consignment); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
+}
+
+// HandleListCHAs handles GET /api/v1/chas
+// Response: []model.ClearingHouseAgent
+func (c *ConsignmentRouter) HandleListCHAs(w http.ResponseWriter, r *http.Request) {
+	chas, err := c.cs.ListCHAs(r.Context())
+	if err != nil {
+		http.Error(w, "failed to retrieve CHAs: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(chas); err != nil {
 		http.Error(w, "failed to encode response", http.StatusInternalServerError)
 		return
 	}

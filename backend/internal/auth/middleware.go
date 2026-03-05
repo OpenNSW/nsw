@@ -99,6 +99,8 @@ func Middleware(authService *AuthService, tokenExtractor *TokenExtractor) func(h
 			authCtx := &AuthContext{
 				TraderContext: traderCtx,
 				OUHandle:      claims.OUHandle,
+				Role:          claims.Role,
+				AgencyID:      claims.AgencyID,
 			}
 
 			// Inject auth context into request context
