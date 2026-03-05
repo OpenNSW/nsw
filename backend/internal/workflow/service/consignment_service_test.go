@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"gorm.io/gorm"
 
+	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 )
 
@@ -69,9 +70,11 @@ func TestConsignmentService_InitializeConsignment(t *testing.T) {
 
 	ctx := context.Background()
 	traderID := "trader1"
+	chaID := uuid.New()
 	hsCodeID := uuid.New()
 	createReq := &model.CreateConsignmentDTO{
-		Flow: model.ConsignmentFlowImport,
+		Flow:  model.ConsignmentFlowImport,
+		CHAID: chaID,
 		Items: []model.CreateConsignmentItemDTO{
 			{HSCodeID: hsCodeID},
 		},
@@ -113,7 +116,7 @@ func TestConsignmentService_InitializeConsignment(t *testing.T) {
 	// Create Consignment
 	// GORM might use Exec if it doesn't need to return generated values (since we calculate UUID in BeforeCreate)
 	sqlMock.ExpectExec(`INSERT INTO "consignments"`).
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	// Create Workflow Nodes
@@ -131,8 +134,12 @@ func TestConsignmentService_InitializeConsignment(t *testing.T) {
 	consignmentID := uuid.New()
 	sqlMock.ExpectQuery(`SELECT \* FROM "consignments"`).
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "flow", "trader_id", "state", "created_at", "updated_at", "items"}).
-			AddRow(consignmentID, "IMPORT", "trader1", "IN_PROGRESS", time.Now(), time.Now(), []byte(`[{"hsCodeId":"`+hsCodeID.String()+`"}]`)))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "flow", "trader_id", "state", "created_at", "updated_at", "cha_id", "items"}).
+			AddRow(consignmentID, "IMPORT", "trader1", "IN_PROGRESS", time.Now(), time.Now(), chaID, []byte(`[{"hsCodeId":"`+hsCodeID.String()+`"}]`)))
+
+	sqlMock.ExpectQuery(`SELECT \* FROM "clearing_house_agents"`).
+		WithArgs(chaID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name"}).AddRow(chaID, "Test Agency"))
 
 	// Select WorkflowNodes (Preload)
 	// Expectation for Preload WorkflowNodes
@@ -269,8 +276,8 @@ func TestConsignmentService_UpdateWorkflowNodeStateAndPropagateChanges(t *testin
 
 	// Save(consignment)
 	// Save updates all fields
-	sqlMock.ExpectExec(`UPDATE "consignments" SET "created_at"=\$1,"updated_at"=\$2,"flow"=\$3,"trader_id"=\$4,"state"=\$5,"items"=\$6,"global_context"=\$7,"end_node_id"=\$8 WHERE "id" = \$9`).
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), consignmentID).
+	sqlMock.ExpectExec(`UPDATE "consignments" SET "created_at"=\$1,"updated_at"=\$2,"flow"=\$3,"trader_id"=\$4,"state"=\$5,"items"=\$6,"global_context"=\$7,"end_node_id"=\$8,"cha_id"=\$9 WHERE "id" = \$10`).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), consignmentID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	sqlMock.ExpectCommit()
@@ -331,7 +338,7 @@ func TestConsignmentService_GetConsignmentByID(t *testing.T) {
 	assert.NoError(t, sqlMock.ExpectationsWereMet())
 }
 
-func TestConsignmentService_GetConsignmentsByTraderID(t *testing.T) {
+func TestConsignmentService_GetConsignments(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
 	// We don't need these mocks for this test but NewConsignmentService requires them
 	// We can pass nil if we don't trigger methods using them, or pass mocks.
@@ -342,6 +349,8 @@ func TestConsignmentService_GetConsignmentsByTraderID(t *testing.T) {
 
 	ctx := context.Background()
 	traderID := "trader1"
+	ctx = context.WithValue(ctx, auth.AuthContextKey, &auth.AuthContext{TraderContext: &auth.TraderContext{TraderID: traderID}})
+
 	limit := 10
 	offset := 0
 	filter := model.ConsignmentFilter{}
@@ -372,7 +381,7 @@ func TestConsignmentService_GetConsignmentsByTraderID(t *testing.T) {
 			AddRow(hsCodeID, "1234.56", "Test Description", "Test Category"))
 
 	// Run Test
-	result, err := service.GetConsignmentsByTraderID(ctx, traderID, &offset, &limit, filter)
+	result, err := service.GetConsignments(ctx, &offset, &limit, filter)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
@@ -433,8 +442,8 @@ func TestConsignmentService_UpdateWorkflowNodeState_Completion(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "state"}).AddRow(consignmentID, "IN_PROGRESS"))
 
 	// Save(consignment) -> State = FINISHED
-	sqlMock.ExpectExec(`UPDATE "consignments" SET "created_at"=\$1,"updated_at"=\$2,"flow"=\$3,"trader_id"=\$4,"state"=\$5,"items"=\$6,"global_context"=\$7,"end_node_id"=\$8 WHERE "id" = \$9`).
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), "FINISHED", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), consignmentID).
+	sqlMock.ExpectExec(`UPDATE "consignments" SET "created_at"=\$1,"updated_at"=\$2,"flow"=\$3,"trader_id"=\$4,"state"=\$5,"items"=\$6,"global_context"=\$7,"end_node_id"=\$8,"cha_id"=\$9 WHERE "id" = \$10`).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), "FINISHED", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), consignmentID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	// Append Global Context
@@ -444,8 +453,8 @@ func TestConsignmentService_UpdateWorkflowNodeState_Completion(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "state", "global_context"}).AddRow(consignmentID, "FINISHED", []byte("{}")))
 
 	// Save(consignment) - Updates Global Context, State should remain FINISHED
-	sqlMock.ExpectExec(`UPDATE "consignments" SET "created_at"=\$1,"updated_at"=\$2,"flow"=\$3,"trader_id"=\$4,"state"=\$5,"items"=\$6,"global_context"=\$7,"end_node_id"=\$8 WHERE "id" = \$9`).
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), "FINISHED", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), consignmentID).
+	sqlMock.ExpectExec(`UPDATE "consignments" SET "created_at"=\$1,"updated_at"=\$2,"flow"=\$3,"trader_id"=\$4,"state"=\$5,"items"=\$6,"global_context"=\$7,"end_node_id"=\$8,"cha_id"=\$9 WHERE "id" = \$10`).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), "FINISHED", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), consignmentID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	sqlMock.ExpectCommit()
@@ -561,11 +570,12 @@ func TestConsignmentService_UpdateConsignment_Failure(t *testing.T) {
 	})
 }
 
-func TestConsignmentService_GetConsignmentsByTraderID_EdgeCases(t *testing.T) {
+func TestConsignmentService_GetConsignments_EdgeCases(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
 	service := NewConsignmentService(db, nil, nil)
 	ctx := context.Background()
 	traderID := "trader1"
+	ctx = context.WithValue(ctx, auth.AuthContextKey, &auth.AuthContext{TraderContext: &auth.TraderContext{TraderID: traderID}})
 
 	t.Run("Empty Results", func(t *testing.T) {
 		sqlMock.ExpectQuery(`SELECT count\(\*\) FROM "consignments" WHERE trader_id = \$1`).
@@ -574,7 +584,7 @@ func TestConsignmentService_GetConsignmentsByTraderID_EdgeCases(t *testing.T) {
 
 		limit := 10
 		offset := 0
-		result, err := service.GetConsignmentsByTraderID(ctx, traderID, &offset, &limit, model.ConsignmentFilter{})
+		result, err := service.GetConsignments(ctx, &offset, &limit, model.ConsignmentFilter{})
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.Equal(t, int64(0), result.TotalCount)
@@ -588,7 +598,7 @@ func TestConsignmentService_GetConsignmentsByTraderID_EdgeCases(t *testing.T) {
 
 		limit := 10
 		offset := 0
-		result, err := service.GetConsignmentsByTraderID(ctx, traderID, &offset, &limit, model.ConsignmentFilter{})
+		result, err := service.GetConsignments(ctx, &offset, &limit, model.ConsignmentFilter{})
 		assert.Error(t, err)
 		assert.Nil(t, result)
 		assert.NoError(t, sqlMock.ExpectationsWereMet())

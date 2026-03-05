@@ -112,7 +112,7 @@ func TestConsignmentRouter_HandleGetConsignmentByID(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestConsignmentRouter_HandleGetConsignmentsByTraderID(t *testing.T) {
+func TestConsignmentRouter_HandleGetConsignments(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
 	svc := service.NewConsignmentService(db, nil, nil)
 	r := NewConsignmentRouter(svc, nil)
@@ -126,7 +126,7 @@ func TestConsignmentRouter_HandleGetConsignmentsByTraderID(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/api/v1/consignments", nil)
 	req = req.WithContext(withAuthContext(req.Context(), traderID))
 	w := httptest.NewRecorder()
-	r.HandleGetConsignmentsByTraderID(w, req)
+	r.HandleGetConsignments(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
@@ -305,7 +305,7 @@ func TestConsignmentRouter_HandleGetConsignmentByID_InvalidID(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestConsignmentRouter_HandleGetConsignmentsByTraderID_PaginationError(t *testing.T) {
+func TestConsignmentRouter_HandleGetConsignments_PaginationError(t *testing.T) {
 	db, _ := setupRouterTestDB(t)
 	svc := service.NewConsignmentService(db, nil, nil)
 	r := NewConsignmentRouter(svc, nil)
@@ -314,7 +314,7 @@ func TestConsignmentRouter_HandleGetConsignmentsByTraderID_PaginationError(t *te
 	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
 
 	w := httptest.NewRecorder()
-	r.HandleGetConsignmentsByTraderID(w, req)
+	r.HandleGetConsignments(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
@@ -362,7 +362,7 @@ func TestHSCodeRouter_HandleGetAllHSCodes_ServiceError(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-func TestConsignmentRouter_HandleGetConsignmentsByTraderID_ServiceError(t *testing.T) {
+func TestConsignmentRouter_HandleGetConsignments_ServiceError(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
 	svc := service.NewConsignmentService(db, nil, nil)
 	r := NewConsignmentRouter(svc, nil)
@@ -372,7 +372,7 @@ func TestConsignmentRouter_HandleGetConsignmentsByTraderID_ServiceError(t *testi
 	req, _ := http.NewRequest("GET", "/api/v1/consignments", nil)
 	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
 	w := httptest.NewRecorder()
-	r.HandleGetConsignmentsByTraderID(w, req)
+	r.HandleGetConsignments(w, req)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
