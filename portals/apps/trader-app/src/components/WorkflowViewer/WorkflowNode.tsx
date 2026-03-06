@@ -24,6 +24,7 @@ export type WorkflowNodeType = Node<WorkflowNodeData, 'workflowStep'>
 const nodeTypeIcons: Record<string, React.ReactNode> = {
   SIMPLE_FORM: <FileTextIcon className="w-4 h-4" />,
   WAIT_FOR_EVENT: <ClockIcon className="w-4 h-4" />,
+  PAYMENT: <ReaderIcon className="w-4 h-4" />,
   DOCUMENT_UPLOAD: <ReaderIcon className="w-4 h-4" />,
 }
 

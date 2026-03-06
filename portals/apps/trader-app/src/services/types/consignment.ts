@@ -4,7 +4,7 @@ export type ConsignmentState = 'IN_PROGRESS' | 'REQUIRES_REWORK' | 'FINISHED' | 
 
 export type WorkflowNodeState = 'READY' | 'LOCKED' | 'IN_PROGRESS' | 'COMPLETED' | 'REJECTED'
 
-export type StepType = 'SIMPLE_FORM' | 'WAIT_FOR_EVENT'
+export type StepType = 'SIMPLE_FORM' | 'WAIT_FOR_EVENT' | 'PAYMENT'
 
 export interface GlobalContext {
   consigneeAddress: string
