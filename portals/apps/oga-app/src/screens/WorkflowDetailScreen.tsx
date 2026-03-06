@@ -35,7 +35,7 @@ export function WorkflowDetailScreen() {
     setIsSendingFeedback(true)
     setError(null)
     try {
-      await submitFeedback(taskId, { feedback: feedbackText.trim() })
+      await submitFeedback(apiClient, taskId, { feedback: feedbackText.trim() })
       setSuccess(true)
       setTimeout(() => navigate('/workflows'), 2000)
     } catch (err) {

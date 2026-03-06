@@ -177,21 +177,14 @@ export async function submitReview(
 
 // Submit feedback (request changes) for a task via OGA Service
 export async function submitFeedback(
+  apiClient: ApiClient,
   taskId: string,
   content: Record<string, unknown>,
   signal?: AbortSignal
 ): Promise<ReviewResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/oga/applications/${taskId}/feedback`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(content),
-    signal,
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ error: response.statusText })) as { error?: string };
-    throw new Error(errorData.error ?? `Failed to send feedback: ${response.statusText}`);
-  }
-
-  return response.json() as Promise<ReviewResponse>;
+  return apiClient.post<Record<string, unknown>, ReviewResponse>(
+      `/api/oga/applications/${taskId}/feedback`,
+      content,
+      signal
+  )
 }
