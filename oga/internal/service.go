@@ -57,6 +57,7 @@ type Application struct {
 	Data       map[string]any  `json:"data"`
 	Meta       *Meta           `json:"meta,omitempty"`
 	Form       json.RawMessage `json:"form,omitempty"`
+	OgaForm    json.RawMessage `json:"ogaForm,omitempty"`
 	Status     string          `json:"status"`
 	ReviewedAt *time.Time      `json:"reviewedAt,omitempty"`
 	CreatedAt  time.Time       `json:"createdAt"`
@@ -237,6 +238,12 @@ func (s *ogaService) GetApplication(ctx context.Context, taskID uuid.UUID) (*App
 			if form, err := s.formStore.GetDefaultForm(); err == nil {
 				app.Form = form
 			}
+		}
+
+		// Try to load an oga form (view template)
+		ogaFormID := formID + ".view"
+		if ogaForm, err := s.formStore.GetForm(ogaFormID); err == nil {
+			app.OgaForm = ogaForm
 		}
 	} else {
 		if form, err := s.formStore.GetDefaultForm(); err == nil {
