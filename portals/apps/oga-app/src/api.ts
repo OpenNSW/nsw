@@ -101,6 +101,12 @@ export interface ReviewResponse {
   error?: string;
 }
 
+export interface FeedbackEntry {
+  content: Record<string, unknown>;
+  timestamp: string;
+  round: number;
+}
+
 export interface OGAApplication {
   taskId: string;
   workflowId: string;
@@ -115,6 +121,7 @@ export interface OGAApplication {
     uiSchema: UISchemaElement;
   };
   status: string;
+  feedbackHistory?: FeedbackEntry[];
   reviewerNotes?: string;
   reviewedAt?: string;
   createdAt: string;
@@ -165,5 +172,19 @@ export async function submitReview(
     `/api/oga/applications/${taskId}/review`,
     formValues,
     signal
+  )
+}
+
+// Submit feedback (request changes) for a task via OGA Service
+export async function submitFeedback(
+  apiClient: ApiClient,
+  taskId: string,
+  content: Record<string, unknown>,
+  signal?: AbortSignal
+): Promise<ReviewResponse> {
+  return apiClient.post<Record<string, unknown>, ReviewResponse>(
+      `/api/oga/applications/${taskId}/feedback`,
+      content,
+      signal
   )
 }
