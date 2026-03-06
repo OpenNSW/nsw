@@ -361,10 +361,12 @@ func feedbackHistoryFromRaw(raw []map[string]any) []feedback.Entry {
 	for _, m := range raw {
 		b, err := json.Marshal(m)
 		if err != nil {
+			slog.Error("failed to marshal feedback history entry from raw", "error", err)
 			continue
 		}
 		var e feedback.Entry
 		if err := json.Unmarshal(b, &e); err != nil {
+			slog.Error("failed to unmarshal feedback history entry", "error", err)
 			continue
 		}
 		entries = append(entries, e)
