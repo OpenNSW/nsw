@@ -1,4 +1,4 @@
-export type WorkflowStepType = 'SIMPLE_FORM' | 'WAIT_FOR_EVENT'
+export type WorkflowStepType = 'SIMPLE_FORM' | 'WAIT_FOR_EVENT' | 'PAYMENT'
 
 export interface WorkflowStepConfig {
   formId?: string

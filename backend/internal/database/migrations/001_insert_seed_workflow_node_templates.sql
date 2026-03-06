@@ -19,6 +19,29 @@ VALUES
         NULL
     ),
 
+    -- Payment Node
+    (
+        'c0000003-0003-0003-0003-000000000008',
+        'Payment',
+        'Base payment step before customs declaration',
+        'PAYMENT',
+        '{
+            "amount": 100,
+            "currency": "USD",
+            "gateway": "https://example.com/payment",
+            "ttl": 300
+        }',
+        '[
+            "c0000003-0003-0003-0003-000000000001"
+        ]',
+        '{
+            "expression": {
+                "state": "COMPLETED",
+                "nodeTemplateId": "c0000003-0003-0003-0003-000000000001"
+            }
+        }'
+    ),
+
     -- Customs Declaration Node
     (
         'c0000003-0003-0003-0003-000000000002',
@@ -40,12 +63,12 @@ VALUES
             }
         }',
         '[
-            "c0000003-0003-0003-0003-000000000001"
+            "c0000003-0003-0003-0003-000000000008"
         ]',
         '{
             "expression": {
                 "state": "COMPLETED",
-                "nodeTemplateId": "c0000003-0003-0003-0003-000000000001"
+                "nodeTemplateId": "c0000003-0003-0003-0003-000000000008"
             }
         }'
     ),

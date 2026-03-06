@@ -42,6 +42,9 @@ func (f *taskFactory) BuildExecutor(ctx context.Context, taskType Type, config j
 	case TaskTypeWaitForEvent:
 		p, err := NewWaitForEventTask(config)
 		return Executor{Plugin: p, FSM: NewWaitForEventFSM()}, err
+	case TaskTypePayment:
+		p, err := NewPaymentTask(config)
+		return Executor{Plugin: p, FSM: NewPaymentFSM()}, err
 	default:
 		return Executor{}, fmt.Errorf("unknown task type: %s", taskType)
 	}

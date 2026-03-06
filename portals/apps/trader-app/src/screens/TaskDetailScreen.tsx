@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Button, Spinner, Text } from '@radix-ui/themes'
 import { ArrowLeftIcon } from '@radix-ui/react-icons'
@@ -17,29 +17,29 @@ export function TaskDetailScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    async function fetchTask() {
-      if (!taskId) {
-        setError('Task ID is missing.')
-        setLoading(false)
-        return
-      }
-
-      try {
-        setLoading(true)
-        const renderInfo = await getTaskInfo(taskId, api)
-
-        setRenderInfo(renderInfo)
-      } catch (err) {
-        setError('Failed to fetch task details.')
-        console.error(err)
-      } finally {
-        setLoading(false)
-      }
+  const fetchTask = useCallback(async () => {
+    if (!taskId) {
+      setError('Task ID is missing.')
+      setLoading(false)
+      return
     }
 
-    fetchTask()
+    try {
+      setLoading(true)
+      setError(null)
+      const taskRenderInfo = await getTaskInfo(taskId, api)
+      setRenderInfo(taskRenderInfo)
+    } catch (err) {
+      setError('Failed to fetch task details.')
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
   }, [api, taskId])
+
+  useEffect(() => {
+    fetchTask()
+  }, [fetchTask])
 
 
   if (loading) {
@@ -99,7 +99,7 @@ export function TaskDetailScreen() {
           </Button>
         </div>
 
-        <PluginRenderer response={renderInfo} />
+        <PluginRenderer response={renderInfo} onTaskUpdated={fetchTask} />
       </div>
     </div>
   )

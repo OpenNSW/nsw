@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS task_infos
 		PRIMARY KEY,
 	type varchar(50) NOT NULL
 		CONSTRAINT task_infos_type_check
-			CHECK ((type)::text = ANY ((ARRAY['SIMPLE_FORM'::character varying, 'WAIT_FOR_EVENT'::character varying])::text[])),
+			CHECK ((type)::text = ANY ((ARRAY['SIMPLE_FORM'::character varying, 'WAIT_FOR_EVENT'::character varying, 'PAYMENT'::character varying])::text[])),
 	state varchar(50) NOT NULL
 		CONSTRAINT task_infos_state_check
 			CHECK ((state)::text = ANY (ARRAY[('INITIALIZED'::character varying)::text, ('IN_PROGRESS'::character varying)::text, ('COMPLETED'::character varying)::text, ('FAILED'::character varying)::text])),
