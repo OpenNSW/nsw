@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"path/filepath"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -57,6 +58,11 @@ func (s *UploadService) Upload(ctx context.Context, filename string, reader io.R
 // Download retrieves the file content and its MIME type
 func (s *UploadService) Download(ctx context.Context, key string) (io.ReadCloser, string, error) {
 	return s.Driver.Get(ctx, key)
+}
+
+// GetDownloadURL generates a time-limited or presigned URL for the given key
+func (s *UploadService) GetDownloadURL(ctx context.Context, key string, ttl time.Duration) (string, error) {
+	return s.Driver.GetDownloadURL(ctx, key, ttl)
 }
 
 // Delete removes a file from storage

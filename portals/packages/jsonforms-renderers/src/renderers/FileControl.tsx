@@ -1,8 +1,8 @@
 import { withJsonFormsControlProps } from '@jsonforms/react';
 import type { ControlElement, JsonSchema } from '@jsonforms/core';
-import { Card, Flex, Text, Box, IconButton } from '@radix-ui/themes';
+import { Card, Flex, Text, Box, IconButton, Button } from '@radix-ui/themes';
 import { UploadIcon, FileTextIcon, Cross2Icon, CheckCircledIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
-import { useState, useRef, type ChangeEvent, type DragEvent } from 'react';
+import { useState, useRef, useEffect, useCallback, type ChangeEvent, type DragEvent } from 'react';
 
 interface FileControlProps {
     data: string | null;
@@ -15,17 +15,81 @@ interface FileControlProps {
     enabled?: boolean;
 }
 
+// Simple in-memory cache for resolved download URLs to avoid redundant API calls
+const downloadUrlCache = new Map<string, { url: string; expiresAt: number }>();
+
+/**
+ * Checks whether the data value is a file key (UUID-like) rather than a data URL
+ */
+function isFileKey(data: string): boolean {
+    return !data.startsWith('data:');
+}
+
+const DEFAULT_API_BASE_URL = 'http://localhost:8080/api/v1';
+// TODO: Remove after implementing proper authentication
+const TRADER_ID = 'TRADER-001';
+
 const FileControl = ({ data, handleChange, path, label, required, uischema, enabled }: FileControlProps) => {
     const [dragActive, setDragActive] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [fileName, setFileName] = useState<string | null>(null);
+    const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+    const [downloadLoading, setDownloadLoading] = useState(false);
+    const [downloadError, setDownloadError] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
     // Get options from UI schema (or default)
     const options = uischema?.options || {};
     const maxSize = (options.maxSize as number) || 5 * 1024 * 1024; // Default 5MB
     const accept = (options.accept as string) || 'image/*,application/pdf';
+    const apiBaseUrl = (options.apiBaseUrl as string) || DEFAULT_API_BASE_URL;
     const isEnabled = enabled !== false;
+
+    // Fetch the presigned download URL when data is a file key (not a data URL)
+    const fetchDownloadUrl = useCallback(async (fileKey: string) => {
+        // Check cache first — use cached URL if not expired (with 60s buffer)
+        const cached = downloadUrlCache.get(fileKey);
+        if (cached && cached.expiresAt > Date.now() / 1000 + 60) {
+            setDownloadUrl(cached.url);
+            return;
+        }
+
+        setDownloadLoading(true);
+        setDownloadError(null);
+
+        try {
+            const response = await fetch(`${apiBaseUrl}/uploads/${fileKey}`, {
+                headers: { 'Authorization': TRADER_ID },
+            });
+
+            if (response.status === 401) {
+                setDownloadError('Unauthorized — please log in to download this file.');
+                return;
+            }
+
+            if (!response.ok) {
+                setDownloadError('Failed to generate download link.');
+                return;
+            }
+
+            const result = await response.json() as { download_url: string; expires_at: number };
+            downloadUrlCache.set(fileKey, { url: result.download_url, expiresAt: result.expires_at });
+            setDownloadUrl(result.download_url);
+        } catch {
+            setDownloadError('Unable to reach the server.');
+        } finally {
+            setDownloadLoading(false);
+        }
+    }, [apiBaseUrl]);
+
+    useEffect(() => {
+        if (data && isFileKey(data)) {
+            fetchDownloadUrl(data);
+        } else {
+            setDownloadUrl(null);
+            setDownloadError(null);
+        }
+    }, [data, fetchDownloadUrl]);
 
     const getDisplayText = () => {
         if (fileName) return fileName;
@@ -33,6 +97,38 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
         // Try to extract name from data URL if stored there, otherwise generic
         return 'Uploaded File';
     };
+
+    const [blobUrl, setBlobUrl] = useState<string | null>(null);
+
+    // Lifecycle: Convert data URLs to blob URLs to bypass browser restrictions on data: URLs in new tabs
+    useEffect(() => {
+        if (data && !isFileKey(data)) {
+            try {
+                const parts = data.split(',');
+                const mime = parts[0].match(/:(.*?);/)?.[1] || 'application/octet-stream';
+                const b64Data = parts[1];
+                const byteCharacters = atob(b64Data);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: mime });
+                const url = URL.createObjectURL(blob);
+                setBlobUrl(url);
+
+                return () => URL.revokeObjectURL(url);
+            } catch (err) {
+                console.error('Failed to create blob URL:', err);
+                setBlobUrl(null);
+            }
+        } else {
+            setBlobUrl(null);
+        }
+    }, [data]);
+
+    // Resolve the href for the preview: use fetched presigned URL for file keys, or blob URL for data URLs
+    const resolvedHref = data && isFileKey(data) ? downloadUrl : blobUrl;
 
     const processFile = (file: File) => {
         if (file.size > maxSize) {
@@ -134,33 +230,40 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
                             <Text size="2" weight="bold" className="block truncate">
                                 {getDisplayText()}
                             </Text>
-                            {!isEnabled ? (
-                                <a
-                                    href={data}
-                                    download={fileName || 'document'}
-                                    className="text-xs text-blue-600 hover:underline cursor-pointer"
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    Download
-                                </a>
-                            ) : (
-                                <Text size="1" color="gray">
-                                    Ready to submit
-                                </Text>
-                            )}
                         </Box>
-                        <Flex align="center" gap="2">
-                            <CheckCircledIcon className="text-green-600 w-5 h-5" />
-                            {isEnabled && (
-                                <IconButton
-                                    variant="ghost"
-                                    color="gray"
-                                    onClick={handleRemove}
-                                    className="hover:text-red-600 transition-colors"
-                                >
-                                    <Cross2Icon />
-                                </IconButton>
+                        <Flex align="center" gap="3">
+                            {downloadLoading ? (
+                                <Text size="1" color="gray">Loading...</Text>
+                            ) : downloadError ? (
+                                <Text size="1" color="red">Error</Text>
+                            ) : (
+                                <Button variant="soft" color="blue" size="1" asChild>
+                                    <a
+                                        href={resolvedHref || '#'}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (!resolvedHref) e.preventDefault();
+                                        }}
+                                    >
+                                        View
+                                    </a>
+                                </Button>
                             )}
+                            <Flex align="center" gap="2">
+                                <CheckCircledIcon className="text-green-600 w-5 h-5" />
+                                {isEnabled && (
+                                    <IconButton
+                                        variant="ghost"
+                                        color="gray"
+                                        onClick={handleRemove}
+                                        className="hover:text-red-600 transition-colors"
+                                    >
+                                        <Cross2Icon />
+                                    </IconButton>
+                                )}
+                            </Flex>
                         </Flex>
                     </Flex>
                 </Card>
@@ -184,7 +287,7 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
                     <input
                         ref={inputRef}
                         type="file"
-                        className="hidden"
+                        style={{ display: 'none' }}
                         accept={accept}
                         onChange={handleInputChange}
                         disabled={!isEnabled}

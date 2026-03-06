@@ -88,3 +88,19 @@ func (d *S3Driver) GenerateURL(ctx context.Context, key string, expires time.Dur
 	}
 	return presignedReq.URL, nil
 }
+
+func (d *S3Driver) GetDownloadURL(ctx context.Context, key string, ttl time.Duration) (string, error) {
+	if ttl == 0 {
+		ttl = 15 * time.Minute // Default TTL
+	}
+
+	presignedReq, err := d.PresignClient.PresignGetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(d.Bucket),
+		Key:    aws.String(key),
+	}, s3.WithPresignExpires(ttl))
+
+	if err != nil {
+		return "", fmt.Errorf("failed to sign request: %w", err)
+	}
+	return presignedReq.URL, nil
+}

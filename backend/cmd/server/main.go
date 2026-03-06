@@ -129,7 +129,7 @@ func main() {
 	mux.HandleFunc("GET /api/v1/pre-consignments/{preConsignmentId}", wm.HandleGetPreConsignmentByID)
 	mux.HandleFunc("GET /api/v1/pre-consignments", wm.HandleGetPreConsignmentsByTraderID)
 
-	// Upload routes
+	// Upload and download routes
 	mux.HandleFunc("POST /api/v1/uploads", uploadHandler.Upload)
 	mux.HandleFunc("GET /api/v1/uploads/{key}", uploadHandler.Download)
 	mux.HandleFunc("DELETE /api/v1/uploads/{key}", uploadHandler.Delete)

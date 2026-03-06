@@ -98,3 +98,12 @@ func (d *LocalFSDriver) GenerateURL(ctx context.Context, key string, expires tim
 	}
 	return fmt.Sprintf("%s/%s", d.PublicURL, key), nil
 }
+
+func (d *LocalFSDriver) GetDownloadURL(ctx context.Context, key string, ttl time.Duration) (string, error) {
+	// For local development, returning the standard URL is acceptable.
+	// The frontend will treat this the same as an S3 presigned URL.
+	if d.PublicURL == "" {
+		return key, nil
+	}
+	return fmt.Sprintf("%s/%s", d.PublicURL, key), nil
+}

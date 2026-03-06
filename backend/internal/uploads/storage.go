@@ -19,4 +19,7 @@ type StorageDriver interface {
 
 	// GenerateURL returns a public-facing URL
 	GenerateURL(ctx context.Context, key string, expires time.Duration) (string, error)
+
+	// GetDownloadURL returns a presigned or time-limited URL for downloading
+	GetDownloadURL(ctx context.Context, key string, ttl time.Duration) (string, error)
 }
