@@ -126,7 +126,7 @@ export function WorkflowDetailScreen() {
     )
   }
 
-  const isActionable = application.status === 'PENDING' || application.status === 'FEEDBACK_REQUESTED'
+  const isActionable = application.status === 'PENDING'
   const feedbackCount = application.feedbackHistory?.length ?? 0
 
   const statusColor = application.status === 'APPROVED' ? 'green'

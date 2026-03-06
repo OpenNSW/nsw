@@ -151,22 +151,24 @@ func (s *ApplicationStore) UpdateStatus(taskID uuid.UUID, status string, reviewe
 // AppendFeedback appends a feedback entry to the application's history and sets
 // the status to FEEDBACK_REQUESTED.
 func (s *ApplicationStore) AppendFeedback(taskID uuid.UUID, entry map[string]any) error {
-	var app ApplicationRecord
-	if err := s.db.First(&app, "task_id = ?", taskID).Error; err != nil {
-		return err
-	}
-	updated := append(app.OGAFeedbackHistory, entry)
-	updatedJSON, err := json.Marshal(updated)
-	if err != nil {
-		return fmt.Errorf("failed to marshal feedback history: %w", err)
-	}
-	return s.db.Model(&ApplicationRecord{}).
-		Where("task_id = ?", taskID).
-		Updates(map[string]any{
-			"oga_feedback_history": string(updatedJSON),
-			"status":               "FEEDBACK_REQUESTED",
-			"updated_at":           time.Now(),
-		}).Error
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var app ApplicationRecord
+		if err := tx.First(&app, "task_id = ?", taskID).Error; err != nil {
+			return err
+		}
+		updated := append(app.OGAFeedbackHistory, entry)
+		updatedJSON, err := json.Marshal(updated)
+		if err != nil {
+			return fmt.Errorf("failed to marshal feedback history: %w", err)
+		}
+		return tx.Model(&ApplicationRecord{}).
+			Where("task_id = ?", taskID).
+			Updates(map[string]any{
+				"oga_feedback_history": string(updatedJSON),
+				"status":               "FEEDBACK_REQUESTED",
+				"updated_at":           time.Now(),
+			}).Error
+	})
 }
 
 // UpdateDataAndResetStatus updates the submitted data and resets status to PENDING.
