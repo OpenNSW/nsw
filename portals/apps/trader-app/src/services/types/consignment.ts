@@ -1,6 +1,6 @@
 export type TradeFlow = 'IMPORT' | 'EXPORT'
 
-export type ConsignmentState = 'IN_PROGRESS' | 'REQUIRES_REWORK' | 'FINISHED' | 'COMPLETED'
+export type ConsignmentState = 'AWAITING_INITIATION' | 'IN_PROGRESS' | 'FINISHED' | 'COMPLETED' | 'REQUIRES_REWORK'
 
 export type WorkflowNodeState = 'READY' | 'LOCKED' | 'IN_PROGRESS' | 'COMPLETED' | 'REJECTED'
 
@@ -13,6 +13,12 @@ export interface GlobalContext {
   countryOfOrigin: string
   invoiceDate: string
   invoiceNumber: string
+}
+
+export interface CustomsHouseAgent {
+  id: string
+  name: string
+  description: string
 }
 
 export interface HSCodeDetails {
@@ -51,6 +57,7 @@ export interface ConsignmentSummary {
   items: ConsignmentItem[]
   createdAt: string
   updatedAt: string
+  chaId?: string
   workflowNodeCount: number
   completedWorkflowNodeCount: number
 }
@@ -64,7 +71,11 @@ export interface ConsignmentDetail {
   globalContext: GlobalContext
   createdAt: string
   updatedAt: string
+  chaId?: string
+  cha?: CustomsHouseAgent
   workflowNodes: WorkflowNode[]
+  /** Set after CHA initializes with HS Code (stage 2) */
+  hsCodeId?: string
 }
 
 // Deprecated: Use ConsignmentDetail or ConsignmentSummary
@@ -74,8 +85,14 @@ export interface CreateConsignmentItemRequest {
   hsCodeId: string
 }
 
+/** Stage 1 (Trader): create consignment shell with selected CHA */
 export interface CreateConsignmentRequest {
   flow: TradeFlow
+  chaId: string
+}
+
+/** Stage 2 (CHA): initialize consignment with HS Code(s) */
+export interface InitializeConsignmentRequest {
   items: CreateConsignmentItemRequest[]
 }
 

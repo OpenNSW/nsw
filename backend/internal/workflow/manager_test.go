@@ -167,7 +167,7 @@ func TestManager_HandleGetConsignmentByID(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-func TestManager_HandleGetConsignmentsByTraderID(t *testing.T) {
+func TestManager_HandleGetConsignments(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
 	mockTM := new(MockTaskManager)
 	ch := make(chan taskManager.WorkflowManagerNotification, 10)
@@ -175,7 +175,7 @@ func TestManager_HandleGetConsignmentsByTraderID(t *testing.T) {
 	sqlMock.MatchExpectationsInOrder(false)
 
 	req, _ := http.NewRequest("GET", "/api/v1/consignments", nil)
-	w := parseHTTPResponse(t, manager.HandleGetConsignmentsByTraderID, req)
+	w := parseHTTPResponse(t, manager.HandleGetConsignments, req)
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
@@ -235,8 +235,11 @@ func TestManager_HandleCreateConsignment(t *testing.T) {
 	hsCodeID := uuid.New()
 	nodeTemplateID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 
+	chaID := uuid.MustParse("00000000-0000-0000-0000-000000000002")
+
 	payload := model.CreateConsignmentDTO{
-		Flow: model.ConsignmentFlowImport,
+		Flow:  model.ConsignmentFlowImport,
+		CHAID: &chaID,
 		Items: []model.CreateConsignmentItemDTO{
 			{HSCodeID: hsCodeID},
 		},
@@ -261,6 +264,7 @@ func TestManager_HandleCreateConsignment(t *testing.T) {
 	}
 
 	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"consignments\"").WillReturnRows(sqlmock.NewRows([]string{"id", "state"}).AddRow(uuid.New(), "READY"))
+	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"customs_house_agents\"").WillReturnRows(sqlmock.NewRows([]string{"id", "name"}).AddRow(uuid.MustParse("00000000-0000-0000-0000-000000000002"), "Test Agency"))
 	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"hs_codes\"").WillReturnRows(sqlmock.NewRows([]string{"id", "hs_code"}).AddRow(hsCodeID, "1234.56"))
 
 	sqlMock.ExpectCommit()

@@ -14,8 +14,9 @@ const (
 type ConsignmentState string
 
 const (
-	ConsignmentStateInProgress ConsignmentState = "IN_PROGRESS"
-	ConsignmentStateFinished   ConsignmentState = "FINISHED"
+	ConsignmentStateAwaitingInitiation ConsignmentState = "AWAITING_INITIATION"
+	ConsignmentStateInProgress         ConsignmentState = "IN_PROGRESS"
+	ConsignmentStateFinished           ConsignmentState = "FINISHED"
 )
 
 // Consignment represents a consignment in the system.
@@ -27,9 +28,11 @@ type Consignment struct {
 	Items         []ConsignmentItem `gorm:"type:jsonb;column:items;serializer:json;not null" json:"items"`                  // Items in the consignment
 	GlobalContext map[string]any    `gorm:"type:jsonb;column:global_context;serializer:json;not null" json:"globalContext"` // Global context for the consignment
 	EndNodeID     *uuid.UUID        `gorm:"type:uuid;column:end_node_id" json:"endNodeId,omitempty"`                        // Optional reference to the end workflow node, used for quick lookup of completion status
+	CHAID         *uuid.UUID        `gorm:"type:uuid;column:cha_id" json:"chaId,omitempty"`                                 // Pointer for optional/null support
 
 	// Relationships
-	WorkflowNodes []WorkflowNode `gorm:"foreignKey:ConsignmentID;references:ID" json:"-"` // Associated WorkflowNodes
+	WorkflowNodes []WorkflowNode     `gorm:"foreignKey:ConsignmentID;references:ID" json:"-"` // Associated WorkflowNodes
+	CHA           *CustomsHouseAgent `gorm:"foreignKey:CHAID" json:"cha,omitempty"`
 }
 
 func (c *Consignment) TableName() string {
@@ -62,7 +65,13 @@ type CreateConsignmentItemDTO struct {
 // CreateConsignmentDTO represents the data required to create a consignment.
 type CreateConsignmentDTO struct {
 	Flow  ConsignmentFlow            `json:"flow" binding:"required,oneof=IMPORT EXPORT"` // e.g., IMPORT, EXPORT
-	Items []CreateConsignmentItemDTO `json:"items" binding:"required,dive,required"`      // Items in the consignment
+	CHAID *uuid.UUID                 `json:"chaId" binding:"required"`                    // CHA ID is now mandatory for Phase 1
+	Items []CreateConsignmentItemDTO `json:"items,omitempty"`                             // Items are optional in Phase 1
+}
+
+// InitializeConsignmentDTO represents the data required for CHA to initialize the workflow.
+type InitializeConsignmentDTO struct {
+	Items []CreateConsignmentItemDTO `json:"items" binding:"required,dive,required"`
 }
 
 // UpdateConsignmentDTO represents the data required to update a consignment.
@@ -74,25 +83,28 @@ type UpdateConsignmentDTO struct {
 
 // ConsignmentDetailDTO represents the full consignment data returned in detailed responses.
 type ConsignmentDetailDTO struct {
-	ID            uuid.UUID                    `json:"id"`            // Consignment ID
-	Flow          ConsignmentFlow              `json:"flow"`          // e.g., IMPORT, EXPORT
-	TraderID      string                       `json:"traderId"`      // ID of the trader associated with the consignment
-	State         ConsignmentState             `json:"state"`         // State of the consignment
-	Items         []ConsignmentItemResponseDTO `json:"items"`         // Items in the consignment with full HS Code details
-	CreatedAt     string                       `json:"createdAt"`     // Timestamp of consignment creation
-	UpdatedAt     string                       `json:"updatedAt"`     // Timestamp of last consignment update
+	ID            uuid.UUID                    `json:"id"`        // Consignment ID
+	Flow          ConsignmentFlow              `json:"flow"`      // e.g., IMPORT, EXPORT
+	TraderID      string                       `json:"traderId"`  // ID of the trader associated with the consignment
+	State         ConsignmentState             `json:"state"`     // State of the consignment
+	Items         []ConsignmentItemResponseDTO `json:"items"`     // Items in the consignment with full HS Code details
+	CreatedAt     string                       `json:"createdAt"` // Timestamp of consignment creation
+	UpdatedAt     string                       `json:"updatedAt"` // Timestamp of last consignment update
+	CHAID         *uuid.UUID                   `json:"chaId,omitempty"`
+	CHA           *CustomsHouseAgent           `json:"cha,omitempty"`
 	WorkflowNodes []WorkflowNodeResponseDTO    `json:"workflowNodes"` // Associated workflow nodes with template details
 }
 
 // ConsignmentSummaryDTO represents the consignment data returned in list responses.
 type ConsignmentSummaryDTO struct {
-	ID                         uuid.UUID                    `json:"id"`                         // Consignment ID
-	Flow                       ConsignmentFlow              `json:"flow"`                       // e.g., IMPORT, EXPORT
-	TraderID                   string                       `json:"traderId"`                   // ID of the trader associated with the consignment
-	State                      ConsignmentState             `json:"state"`                      // State of the consignment
-	Items                      []ConsignmentItemResponseDTO `json:"items"`                      // Items in the consignment with full HS Code details
-	CreatedAt                  string                       `json:"createdAt"`                  // Timestamp of consignment creation
-	UpdatedAt                  string                       `json:"updatedAt"`                  // Timestamp of last consignment update
+	ID                         uuid.UUID                    `json:"id"`        // Consignment ID
+	Flow                       ConsignmentFlow              `json:"flow"`      // e.g., IMPORT, EXPORT
+	TraderID                   string                       `json:"traderId"`  // ID of the trader associated with the consignment
+	State                      ConsignmentState             `json:"state"`     // State of the consignment
+	Items                      []ConsignmentItemResponseDTO `json:"items"`     // Items in the consignment with full HS Code details
+	CreatedAt                  string                       `json:"createdAt"` // Timestamp of consignment creation
+	UpdatedAt                  string                       `json:"updatedAt"` // Timestamp of last consignment update
+	CHAID                      *uuid.UUID                   `json:"chaId,omitempty"`
 	WorkflowNodeCount          int                          `json:"workflowNodeCount"`          // Total number of workflow nodes
 	CompletedWorkflowNodeCount int                          `json:"completedWorkflowNodeCount"` // Number of completed workflow nodes
 }

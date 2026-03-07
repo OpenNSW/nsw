@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
 )
 
@@ -25,6 +26,8 @@ func (t *TraderContext) TableName() string {
 type AuthContext struct {
 	*TraderContext
 	OUHandle string `json:"ouHandle"`
+	Role     string `json:"role"`
+	AgencyID string `json:"agencyId"`
 }
 
 // GetTraderID is a convenience method to get the trader ID directly from AuthContext.
@@ -57,4 +60,31 @@ func (a *AuthContext) GetOUHandle() string {
 		return ""
 	}
 	return a.OUHandle
+}
+
+// GetRole returns the role from the auth context
+func GetRole(ctx context.Context) string {
+	authCtx := GetAuthContext(ctx)
+	if authCtx == nil {
+		return ""
+	}
+	return authCtx.Role
+}
+
+// GetAgencyID returns the agency ID from the auth context
+func GetAgencyID(ctx context.Context) string {
+	authCtx := GetAuthContext(ctx)
+	if authCtx == nil {
+		return ""
+	}
+	return authCtx.AgencyID
+}
+
+// GetUserID returns the User/Trader ID from the auth context
+func GetUserID(ctx context.Context) string {
+	authCtx := GetAuthContext(ctx)
+	if authCtx == nil {
+		return ""
+	}
+	return authCtx.GetTraderID()
 }

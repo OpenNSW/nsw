@@ -18,11 +18,15 @@ type tokenClaims struct {
 	jwt.RegisteredClaims
 	ClientID string `json:"client_id"`
 	OUHandle string `json:"ouHandle"`
+	Role     string `json:"role"`
+	AgencyID string `json:"agencyId"`
 }
 
 type ExtractedClaims struct {
 	TraderID string `json:"traderID"`
 	OUHandle string `json:"ouHandle"`
+	Role     string `json:"role"`
+	AgencyID string `json:"agencyId"`
 }
 
 type jwksResponse struct {
@@ -164,6 +168,8 @@ func (te *TokenExtractor) ExtractClaimsFromHeader(authHeader string) (*Extracted
 	return &ExtractedClaims{
 		TraderID: traderID,
 		OUHandle: strings.TrimSpace(claims.OUHandle),
+		Role:     strings.TrimSpace(claims.Role),
+		AgencyID: strings.TrimSpace(claims.AgencyID),
 	}, nil
 }
 

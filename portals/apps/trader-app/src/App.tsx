@@ -8,6 +8,7 @@ import {PreconsignmentScreen} from "./screens/PreconsignmentScreen.tsx"
 import {useAsgardeo, SignedOut} from '@asgardeo/react'
 import {LoginScreen} from "./screens/LoginScreen.tsx";
 import {ApiProvider} from './services/ApiContext'
+import { RoleProvider } from './contexts/RoleContext'
 
 function ProtectedLayout() {
   const {isSignedIn, isLoading} = useAsgardeo()
@@ -15,9 +16,11 @@ function ProtectedLayout() {
   if (isLoading) return null
   if (!isSignedIn) return <Navigate to="/login" replace/>
   return (
-    <ApiProvider>
-      <Layout/>
-    </ApiProvider>
+    <RoleProvider>
+      <ApiProvider>
+        <Layout/>
+      </ApiProvider>
+    </RoleProvider>
   )
 }
 

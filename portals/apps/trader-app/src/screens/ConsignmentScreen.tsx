@@ -2,11 +2,11 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Text, TextField, Spinner, Select, Badge } from '@radix-ui/themes'
 import { MagnifyingGlassIcon, PlusIcon } from '@radix-ui/react-icons'
-import { HSCodePicker } from '../components/HSCodePicker'
-import type { HSCode } from "../services/types/hsCode.ts"
+import { CHASelectionModal } from '../components/CHASelectionModal'
 import type { ConsignmentSummary, TradeFlow, ConsignmentState } from "../services/types/consignment.ts"
 import { createConsignment, getAllConsignments } from "../services/consignment.ts"
 import { useApi } from '../services/ApiContext'
+import { useRole } from '../contexts/RoleContext'
 import { getStateColor, formatState, formatDate } from '../utils/consignmentUtils'
 import { PaginationControl } from '../components/common/PaginationControl'
 
@@ -25,10 +25,11 @@ export function ConsignmentScreen() {
   const [stateFilter, setStateFilter] = useState<string>('all')
   const [tradeFlowFilter, setTradeFlowFilter] = useState<string>('all')
 
-  // New consignment state
-  const [pickerOpen, setPickerOpen] = useState(false)
+  // New consignment state (two-stage: Trader selects CHA → CHA selects HS Code)
+  const [chaModalOpen, setChaModalOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const listRequestIdRef = useRef(0)
+  const role = useRole()
 
   useEffect(() => {
     async function fetchConsignments() {
@@ -62,20 +63,14 @@ export function ConsignmentScreen() {
     fetchConsignments()
   }, [api, page, stateFilter, tradeFlowFilter])
 
-  const handleSelect = async (hsCode: HSCode, tradeFlow: TradeFlow) => {
+  const handleCreateWithCha = async (chaId: string, flow: TradeFlow) => {
     setCreating(true)
-
     try {
-      const response = await createConsignment({
-        flow: tradeFlow,
-        items: [
-          {
-            hsCodeId: hsCode.id,
-          },
-        ],
-      }, api)
-
-      setPickerOpen(false)
+      const response = await createConsignment(
+        { flow, chaId },
+        api
+      )
+      setChaModalOpen(false)
       navigate(`/consignments/${response.id}`)
     } catch (error) {
       console.error('Failed to create consignment:', error)
@@ -85,7 +80,7 @@ export function ConsignmentScreen() {
   }
 
   const filteredConsignments = consignments.filter((c) => {
-    const item = c.items[0]
+    const item = c.items?.[0]
     const hsCode = item?.hsCode?.hsCode || ''
     const description = item?.hsCode?.description || ''
     const matchesSearch =
@@ -117,11 +112,12 @@ export function ConsignmentScreen() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold text-gray-900">Consignments</h1>
         <div className="flex gap-2">
-
-          <Button onClick={() => setPickerOpen(true)} disabled={creating}>
-            <PlusIcon />
-            {creating ? 'Creating...' : 'New Consignment'}
-          </Button>
+          {role !== 'CHA' && (
+            <Button onClick={() => setChaModalOpen(true)} disabled={creating}>
+              <PlusIcon />
+              {creating ? 'Creating...' : 'New Consignment'}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -158,6 +154,7 @@ export function ConsignmentScreen() {
                 <Select.Trigger placeholder="State" />
                 <Select.Content>
                   <Select.Item value="all">All States</Select.Item>
+                  <Select.Item value="AWAITING_INITIATION">Awaiting HS Code</Select.Item>
                   <Select.Item value="IN_PROGRESS">In Progress</Select.Item>
                   <Select.Item value="FINISHED">Finished</Select.Item>
                   <Select.Item value="REQUIRES_REWORK">Requires Rework</Select.Item>
@@ -270,10 +267,10 @@ export function ConsignmentScreen() {
         />
       </div>
 
-      <HSCodePicker
-        open={pickerOpen}
-        onOpenChange={setPickerOpen}
-        onSelect={handleSelect}
+      <CHASelectionModal
+        open={chaModalOpen}
+        onOpenChange={setChaModalOpen}
+        onCreate={handleCreateWithCha}
         isCreating={creating}
       />
     </div >
