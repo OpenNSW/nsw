@@ -1,14 +1,13 @@
 #!/bin/bash
 set -euo pipefail
 
-# Load environment variables from backend/.env file
-# This filters out comments and exports each line as a variable
-if [ -f ../../../.env ]; then
+# Load environment variables from backend/.env file when not running in Docker (env already set)
+if [ -z "${DB_HOST:-}" ] && [ -f ../../../.env ]; then
     set -o allexport
     source ../../../.env
     set +o allexport
-else
-    echo "Error: .env file not found."
+elif [ -z "${DB_HOST:-}" ]; then
+    echo "Error: .env file not found and DB_HOST not set."
     exit 1
 fi
 

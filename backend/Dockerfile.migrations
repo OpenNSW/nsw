@@ -1,0 +1,13 @@
+# Migrations image: initializes multiple PostgreSQL databases using run.sh
+FROM postgres:17-alpine
+
+RUN apk add --no-cache bash
+
+WORKDIR /migrations
+
+# Copy migration SQL files and scripts (from repo root: backend/internal/database/migrations/)
+COPY internal/database/migrations/ ./
+
+RUN chmod +x run.sh entrypoint.sh
+
+ENTRYPOINT ["./entrypoint.sh"]

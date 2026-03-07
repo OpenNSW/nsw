@@ -1,0 +1,32 @@
+# Git and IDE
+.git
+.gitignore
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Build artifacts (rebuilt in image)
+bin/
+*.exe
+coverage.out
+*.test
+*.out
+
+# Runtime data (not needed in image)
+bucket/
+
+# Secrets and local config (use compose env)
+.env
+.env.*
+!.env.example
+
+# Docs and tooling (not needed for build)
+README.md
+*.md
+.golangci.yml
+
+# Test and mock files (reduce context; go build ignores _test.go for main)
+**/*_test.go
+mocks/

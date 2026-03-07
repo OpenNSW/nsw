@@ -1,0 +1,150 @@
+# NSW Core: backend (PostgreSQL), migrations, 3 OGA instances (SQLite), portals.
+# Start IDP first: cd idp && docker compose up -d && cd .. && docker compose up -d --build
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-localdev123}
+    volumes:
+      - nsw_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  migrations:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.migrations
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USERNAME: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-localdev123}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USERNAME: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-localdev123}
+      DB_NAME: nsw_db
+      DB_SSLMODE: disable
+      SERVER_PORT: "8080"
+      SERVICE_URL: http://localhost:8080
+      AUTH_JWKS_URL: http://host.docker.internal:8090/oauth2/jwks
+      AUTH_ISSUER: http://localhost:8090
+      AUTH_CLIENT_ID: TRADER_PORTAL_APP
+      AUTH_AUDIENCE: TRADER_PORTAL_APP
+      AUTH_JWKS_INSECURE_SKIP_VERIFY: "true"
+      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:5174,http://localhost:8090
+      STORAGE_TYPE: local
+      STORAGE_LOCAL_BASE_DIR: /app/bucket
+      STORAGE_LOCAL_PUBLIC_URL: /bucket
+    volumes:
+      - backend_bucket:/app/bucket
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    ports:
+      - "8080:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  oga-ird:
+    build:
+      context: ./oga
+      dockerfile: Dockerfile
+    environment:
+      OGA_PORT: "8081"
+      OGA_DB_PATH: /app/data/ird.db
+      OGA_FORMS_PATH: /app/forms
+      OGA_DEFAULT_FORM_ID: default
+      OGA_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:5174
+    volumes:
+      - ./data/oga/ird:/app/data
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+
+  oga-npqs:
+    build:
+      context: ./oga
+      dockerfile: Dockerfile
+    environment:
+      OGA_PORT: "8082"
+      OGA_DB_PATH: /app/data/npqs.db
+      OGA_FORMS_PATH: /app/forms
+      OGA_DEFAULT_FORM_ID: default
+      OGA_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:5174
+    volumes:
+      - ./data/oga/npqs:/app/data
+    ports:
+      - "8082:8082"
+    restart: unless-stopped
+
+  oga-fcau:
+    build:
+      context: ./oga
+      dockerfile: Dockerfile
+    environment:
+      OGA_PORT: "8083"
+      OGA_DB_PATH: /app/data/fcau.db
+      OGA_FORMS_PATH: /app/forms
+      OGA_DEFAULT_FORM_ID: default
+      OGA_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:5174
+    volumes:
+      - ./data/oga/fcau:/app/data
+    ports:
+      - "8083:8083"
+    restart: unless-stopped
+
+  trader-portal:
+    build:
+      context: ./portals
+      dockerfile: Dockerfile
+      args:
+        APP_NAME: trader-app
+        VITE_IDP_BASE_URL: http://localhost:8090
+        VITE_API_BASE_URL: http://localhost:8080/api/v1
+        VITE_APP_URL: http://localhost:5173
+        VITE_IDP_CLIENT_ID: TRADER_PORTAL_APP
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  oga-portal:
+    build:
+      context: ./portals
+      dockerfile: Dockerfile
+      args:
+        APP_NAME: oga-app
+        VITE_IDP_BASE_URL: http://localhost:8090
+        VITE_OGA_API_BASE_URL: http://localhost:8082
+        VITE_INSTANCE_CONFIG: npqs
+        VITE_PORT: "5174"
+    ports:
+      - "5174:80"
+    depends_on:
+      - oga-npqs
+    restart: unless-stopped
+
+volumes:
+  nsw_pgdata:
+    driver: local
+  backend_bucket:
+    driver: local

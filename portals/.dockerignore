@@ -1,0 +1,57 @@
+# Dependencies (reinstalled in image)
+node_modules
+**/node_modules
+.pnpm-store
+**/.pnpm-store
+
+# Build output (rebuilt in image)
+dist
+**/dist
+.next
+**/.next
+out
+**/out
+
+# Git and IDE
+.git
+.gitignore
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Secrets and local env (build args used in Dockerfile)
+.env
+.env.*
+!.env.example
+
+# Docs and tooling
+README.md
+**/README.md
+docs
+**/docs
+*.md
+*.log
+.npmrc
+.nvmrc
+
+# Test and coverage
+coverage
+**/coverage
+.nyc_output
+**/.nyc_output
+*.spec.ts
+*.spec.tsx
+*.test.ts
+*.test.tsx
+__tests__
+**/__tests__
+e2e
+**/e2e
+
+# Misc
+.DS_Store
+*.tgz
+.cache
+**/.cache

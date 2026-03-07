@@ -1,6 +1,6 @@
 server:
   hostname: "0.0.0.0"
-  public_url: "https://localhost:8090"
+  public_url: "http://localhost:8090"
   port: 8090
 
 tls:
