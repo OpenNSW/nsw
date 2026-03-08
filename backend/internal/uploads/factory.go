@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -24,7 +25,7 @@ func NewFactory() *Factory {
 
 // New creates a storage driver from the given config. The driver type is selected by cfg.Type ("local" or "s3").
 func (f *Factory) New(ctx context.Context, cfg config.StorageConfig) (StorageDriver, error) {
-	switch cfg.Type {
+	switch strings.TrimSpace(cfg.Type) {
 	case "local":
 		slog.Info("Initializing local storage", "dir", cfg.LocalBaseDir)
 		return drivers.NewLocalFSDriver(cfg.LocalBaseDir, cfg.LocalPublicURL)

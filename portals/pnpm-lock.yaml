@@ -20,8 +20,8 @@ importers:
         specifier: ^3.7.0
         version: 3.7.0(@jsonforms/core@3.7.0)(react@19.2.3)
       '@opennsw/jsonforms-renderers':
-        specifier: workspace:*
-        version: link:../../packages/jsonforms-renderers
+        specifier: ^0.1.0
+        version: 0.1.0(@jsonforms/core@3.7.0)(@jsonforms/react@3.7.0(@jsonforms/core@3.7.0)(react@19.2.3))(@radix-ui/react-icons@1.3.2(react@19.2.3))(@radix-ui/themes@3.2.1(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@radix-ui/react-icons':
         specifier: ^1.3.2
         version: 1.3.2(react@19.2.3)
@@ -102,8 +102,8 @@ importers:
         specifier: ^3.7.0
         version: 3.7.0(@jsonforms/core@3.7.0)(react@19.2.3)
       '@opennsw/jsonforms-renderers':
-        specifier: ^0.0.2
-        version: 0.0.2(@jsonforms/core@3.7.0)(@jsonforms/react@3.7.0(@jsonforms/core@3.7.0)(react@19.2.3))(@radix-ui/react-icons@1.3.2(react@19.2.3))(@radix-ui/themes@3.2.1(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        specifier: ^0.1.0
+        version: 0.1.0(@jsonforms/core@3.7.0)(@jsonforms/react@3.7.0(@jsonforms/core@3.7.0)(react@19.2.3))(@radix-ui/react-icons@1.3.2(react@19.2.3))(@radix-ui/themes@3.2.1(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@radix-ui/react-icons':
         specifier: ^1.3.2
         version: 1.3.2(react@19.2.3)
@@ -984,8 +984,8 @@ packages:
   '@microsoft/tsdoc@0.16.0':
     resolution: {integrity: sha512-xgAyonlVVS+q7Vc7qLW0UrJU7rSFcETRWsqdXZtjzRU8dF+6CkozTK4V4y1LwOX7j8r/vHphjDeMeGI4tNGeGA==}
 
-  '@opennsw/jsonforms-renderers@0.0.2':
-    resolution: {integrity: sha512-gYC3DIo0swsol7zXBy18TvYE0quIy5BTLVGimJ6FQkzxLZgf3+yDL/oAvshmfV++15NYQZ/jxJK4evaOadhJZA==}
+  '@opennsw/jsonforms-renderers@0.1.0':
+    resolution: {integrity: sha512-H+cKEuiSaHaETXpfkWXzdVAZW8BRG4y2Tf/PFuZ8hR44h0L2a0kc1mntriqbP7hLDqv/osu+OQs+BaWWFmemYw==}
     peerDependencies:
       '@jsonforms/core': ^3.2.1
       '@jsonforms/react': ^3.2.1
@@ -4229,7 +4229,7 @@ snapshots:
 
   '@microsoft/tsdoc@0.16.0': {}
 
-  '@opennsw/jsonforms-renderers@0.0.2(@jsonforms/core@3.7.0)(@jsonforms/react@3.7.0(@jsonforms/core@3.7.0)(react@19.2.3))(@radix-ui/react-icons@1.3.2(react@19.2.3))(@radix-ui/themes@3.2.1(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
+  '@opennsw/jsonforms-renderers@0.1.0(@jsonforms/core@3.7.0)(@jsonforms/react@3.7.0(@jsonforms/core@3.7.0)(react@19.2.3))(@radix-ui/react-icons@1.3.2(react@19.2.3))(@radix-ui/themes@3.2.1(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
       '@jsonforms/core': 3.7.0
       '@jsonforms/react': 3.7.0(@jsonforms/core@3.7.0)(react@19.2.3)

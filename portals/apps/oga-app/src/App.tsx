@@ -9,22 +9,19 @@ import { SignedOut, useAsgardeo } from '@asgardeo/react'
 import { LoginScreen } from './screens/LoginScreen'
 import { ApiProvider } from './services/ApiProvider'
 import { useApi } from './services/useApi'
-import { UploadAuthProvider } from '@opennsw/jsonforms-renderers'
-import { getDownloadUrl, uploadFile } from './services/upload'
+import { UploadProvider } from '@opennsw/jsonforms-renderers'
+import { uploadFile, getDownloadUrl, openFileInNewTab } from './services/upload'
 
-function UploadAuthWrapper({ children }: { children: ReactNode }) {
+function UploadWrapper({ children }: { children: ReactNode }) {
   const api = useApi()
   return (
-    <UploadAuthProvider
-      getAuthHeaders={() => api.getAuthHeaders(false)}
+    <UploadProvider
+      onUpload={(file) => uploadFile(api, file)}
       getDownloadUrl={(key) => getDownloadUrl(api, key)}
-      uploadFile={async (file) => {
-        const m = await uploadFile(api, file)
-        return { key: m.key, name: m.name }
-      }}
+      openFileInNewTab={(key) => openFileInNewTab(api, key)}
     >
       {children}
-    </UploadAuthProvider>
+    </UploadProvider>
   )
 }
 
@@ -35,9 +32,9 @@ function ProtectedLayout() {
   if (!isSignedIn) return <Navigate to="/login" replace />
   return (
     <ApiProvider>
-      <UploadAuthWrapper>
+      <UploadWrapper>
         <Layout />
-      </UploadAuthWrapper>
+      </UploadWrapper>
     </ApiProvider>
   )
 }

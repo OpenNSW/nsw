@@ -1,9 +1,11 @@
 package uploads
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -61,7 +63,7 @@ func TestDownload_Success(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /files/{key}", handler.Download)
 
-	req := httptest.NewRequest(http.MethodGet, "/files/my-file-key", nil)
+	req := httptest.NewRequest(http.MethodGet, "/files/550e8400-e29b-41d4-a716-446655440000.pdf", nil)
 	ctx := withAuthContext(req.Context(), &auth.AuthContext{
 		TraderContext: &auth.TraderContext{TraderID: "trader-1"},
 	})
@@ -87,7 +89,7 @@ func TestDownload_Success(t *testing.T) {
 	}
 
 	url, _ := resp["download_url"].(string)
-	if url != "/test/download/my-file-key" {
+	if url != "/test/download/550e8400-e29b-41d4-a716-446655440000.pdf" {
 		t.Errorf("unexpected download_url: %s", url)
 	}
 }
@@ -101,7 +103,7 @@ func TestDownload_GenerateURLError(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /files/{key}", handler.Download)
 
-	req := httptest.NewRequest(http.MethodGet, "/files/bad-key", nil)
+	req := httptest.NewRequest(http.MethodGet, "/files/550e8400-e29b-41d4-a716-446655440000", nil)
 	ctx := withAuthContext(req.Context(), &auth.AuthContext{
 		TraderContext: &auth.TraderContext{TraderID: "trader-1"},
 	})
@@ -117,5 +119,124 @@ func TestDownload_GenerateURLError(t *testing.T) {
 	body := rec.Body.String()
 	if body == "" {
 		t.Fatal("expected error body, got empty")
+	}
+}
+
+func TestDownload_InvalidKeyFormat(t *testing.T) {
+	handler := NewHTTPHandler(NewUploadService(&MockDriver{}))
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /files/{key}", handler.Download)
+
+	// Key that is not UUID or UUID.ext (validStorageKey rejects it)
+	req := httptest.NewRequest(http.MethodGet, "/files/invalid-key-format", nil)
+	ctx := withAuthContext(req.Context(), &auth.AuthContext{
+		TraderContext: &auth.TraderContext{TraderID: "trader-1"},
+	})
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 for invalid key, got %d", rec.Code)
+	}
+}
+
+func TestUpload_Unauthorized(t *testing.T) {
+	handler := NewHTTPHandler(NewUploadService(&MockDriver{}))
+
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	part, _ := w.CreateFormFile("file", "test.pdf")
+	part.Write([]byte("content"))
+	w.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/uploads", &buf)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	rec := httptest.NewRecorder()
+
+	handler.Upload(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status 401, got %d", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("expected Content-Type application/json, got %q", ct)
+	}
+	var errBody map[string]string
+	if err := json.NewDecoder(rec.Body).Decode(&errBody); err != nil {
+		t.Errorf("expected JSON body: %v", err)
+	}
+	if errBody["error"] == "" {
+		t.Error("expected error message in body")
+	}
+}
+
+func TestDelete_Unauthorized(t *testing.T) {
+	handler := NewHTTPHandler(NewUploadService(&MockDriver{}))
+
+	req := httptest.NewRequest(http.MethodDelete, "/uploads/550e8400-e29b-41d4-a716-446655440000.pdf", nil)
+	req.SetPathValue("key", "550e8400-e29b-41d4-a716-446655440000.pdf")
+	rec := httptest.NewRecorder()
+
+	handler.Delete(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status 401, got %d", rec.Code)
+	}
+}
+
+func TestDownloadContent_Unauthorized(t *testing.T) {
+	handler := NewHTTPHandler(NewUploadService(&MockDriver{}))
+
+	req := httptest.NewRequest(http.MethodGet, "/uploads/550e8400-e29b-41d4-a716-446655440000.pdf/content", nil)
+	req.SetPathValue("key", "550e8400-e29b-41d4-a716-446655440000.pdf")
+	rec := httptest.NewRecorder()
+
+	handler.DownloadContent(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status 401, got %d", rec.Code)
+	}
+}
+
+func TestDownloadContent_InvalidKeyFormat(t *testing.T) {
+	handler := NewHTTPHandler(NewUploadService(&MockDriver{}))
+
+	req := httptest.NewRequest(http.MethodGet, "/uploads/../../../etc/passwd/content", nil)
+	req.SetPathValue("key", "../../../etc/passwd")
+	ctx := withAuthContext(req.Context(), &auth.AuthContext{
+		TraderContext: &auth.TraderContext{TraderID: "trader-1"},
+	})
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	handler.DownloadContent(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 for invalid key, got %d", rec.Code)
+	}
+}
+
+func TestDownloadContent_Success(t *testing.T) {
+	mock := &MockDriver{SavedBody: []byte("file body")}
+	handler := NewHTTPHandler(NewUploadService(mock))
+
+	req := httptest.NewRequest(http.MethodGet, "/uploads/550e8400-e29b-41d4-a716-446655440000.pdf/content", nil)
+	req.SetPathValue("key", "550e8400-e29b-41d4-a716-446655440000.pdf")
+	ctx := withAuthContext(req.Context(), &auth.AuthContext{
+		TraderContext: &auth.TraderContext{TraderID: "trader-1"},
+	})
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	handler.DownloadContent(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rec.Code)
+	}
+	if body := rec.Body.String(); body != "file body" {
+		t.Errorf("unexpected body: %q", body)
 	}
 }

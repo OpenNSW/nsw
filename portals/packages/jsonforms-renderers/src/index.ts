@@ -1,4 +1,4 @@
 import './index.css';
 
-export * from './UploadAuthContext';
+export * from './contexts/UploadContext';
 export * from './renderers';

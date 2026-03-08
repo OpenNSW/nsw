@@ -3,7 +3,7 @@ import type { ControlElement, JsonSchema } from '@jsonforms/core';
 import { Card, Flex, Text, Box, IconButton, Button } from '@radix-ui/themes';
 import { UploadIcon, FileTextIcon, Cross2Icon, CheckCircledIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
 import { useState, useRef, useEffect, useCallback, type ChangeEvent, type DragEvent } from 'react';
-import { useUploadAuth } from '../UploadAuthContext';
+import { useUpload } from '../contexts/UploadContext';
 
 interface FileControlProps {
     data: string | null;
@@ -43,13 +43,14 @@ function isFileKey(data: string): boolean {
 }
 
 const FileControl = ({ data, handleChange, path, label, required, uischema, enabled }: FileControlProps) => {
-    const auth = useUploadAuth();
+    const uploadContext = useUpload();
     const [dragActive, setDragActive] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [fileName, setFileName] = useState<string | null>(null);
     const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
     const [downloadLoading, setDownloadLoading] = useState(false);
     const [downloadError, setDownloadError] = useState<string | null>(null);
+    const [viewOpening, setViewOpening] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
 
     const options = uischema?.options || {};
@@ -57,7 +58,7 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
     const accept = (options.accept as string) || 'image/*,application/pdf';
     const isEnabled = enabled !== false;
 
-    // Option (A): use only the host's getDownloadUrl callback — no fetch in the renderer.
+    // Use only the host's getDownloadUrl callback — no fetch in the renderer.
     const fetchDownloadUrl = useCallback(async (fileKey: string, signal?: AbortSignal) => {
         evictExpiredCache();
         const cached = downloadUrlCache.get(fileKey);
@@ -66,11 +67,11 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
             return;
         }
 
-        if (!auth?.getDownloadUrl) {
+        if (!uploadContext?.getDownloadUrl) {
             if (import.meta.env.DEV) {
-                console.warn('[FileControl] UploadAuthProvider must provide getDownloadUrl so the host app handles download URL resolution.');
+                console.warn('[FileControl] UploadProvider should provide getDownloadUrl so the host app can resolve download URLs.');
             }
-            setDownloadError('Authentication required to download.');
+            setDownloadError('Download not configured for this application.');
             return;
         }
 
@@ -78,7 +79,7 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
         setDownloadError(null);
 
         try {
-            const url = await auth.getDownloadUrl(fileKey);
+            const url = await uploadContext.getDownloadUrl(fileKey);
             if (signal?.aborted) return;
             setDownloadUrl(url);
             setCachedDownloadUrl(fileKey, url, Math.floor(Date.now() / 1000) + 15 * 60);
@@ -88,7 +89,7 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
         } finally {
             if (!signal?.aborted) setDownloadLoading(false);
         }
-    }, [auth]);
+    }, [uploadContext]);
 
     useEffect(() => {
         if (data && isFileKey(data)) {
@@ -109,7 +110,7 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
 
     const [blobUrl, setBlobUrl] = useState<string | null>(null);
 
-    // Lifecycle: Convert data URLs to blob URLs to bypass browser restrictions on data: URLs in new tabs
+    // Convert data URLs to blob URLs to bypass browser restrictions on data: URLs in new tabs
     useEffect(() => {
         if (data && !isFileKey(data)) {
             try {
@@ -157,27 +158,22 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
             return;
         }
 
-        if (auth?.uploadFile) {
+        if (uploadContext?.onUpload) {
             try {
-                const { key, name } = await auth.uploadFile(file);
-                handleChange(path, key);
-                setFileName(name);
+                const result = await uploadContext.onUpload(file);
+                handleChange(path, result.key);
+                setFileName(result.name ?? file.name);
                 setError(null);
             } catch {
-                setError('Failed to upload file');
+                setError('Upload failed.');
             }
             return;
         }
-
-        const reader = new FileReader();
-        reader.onload = () => {
-            handleChange(path, reader.result as string);
-            setFileName(file.name);
-            setError(null);
-        };
-        reader.onerror = () => setError('Failed to read file');
-        reader.readAsDataURL(file);
-    }, [accept, auth, maxSize, path, handleChange]);
+        if (import.meta.env.DEV) {
+            console.warn('[FileControl] UploadProvider did not supply onUpload; upload service not configured for this application.');
+        }
+        setError('Upload service not configured for this application.');
+    }, [accept, uploadContext, maxSize, path, handleChange]);
 
     const handleDrag = (e: DragEvent<HTMLDivElement>) => {
         e.preventDefault();
@@ -248,6 +244,23 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
                                 <Text size="1" color="gray">Loading...</Text>
                             ) : downloadError ? (
                                 <Text size="1" color="red">Error</Text>
+                            ) : viewOpening ? (
+                                <Text size="1" color="gray">Opening…</Text>
+                            ) : uploadContext?.openFileInNewTab && data && isFileKey(data) ? (
+                                <Button
+                                    variant="soft"
+                                    color="blue"
+                                    size="1"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const open = uploadContext.openFileInNewTab;
+                                        if (!open) return;
+                                        setViewOpening(true);
+                                        open(data).finally(() => setViewOpening(false));
+                                    }}
+                                >
+                                    View
+                                </Button>
                             ) : (
                                 <Button variant="soft" color="blue" size="1" asChild>
                                     <a

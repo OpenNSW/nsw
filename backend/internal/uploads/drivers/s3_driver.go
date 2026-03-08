@@ -7,13 +7,16 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-// S3Driver implements StorageDriver for S3-compatible storage
+// S3Driver implements StorageDriver for S3-compatible storage.
+// Save uses s3manager.Uploader to stream large uploads (multipart) without buffering the entire body in memory.
 type S3Driver struct {
 	Client        *s3.Client
 	PresignClient *s3.PresignClient
+	Uploader      *manager.Uploader
 	Bucket        string
 	PublicURL     string // Optional: Base URL if files are public
 }
@@ -22,13 +25,14 @@ func NewS3Driver(client *s3.Client, bucket string, publicURL string) *S3Driver {
 	return &S3Driver{
 		Client:        client,
 		PresignClient: s3.NewPresignClient(client),
+		Uploader:      manager.NewUploader(client),
 		Bucket:        bucket,
 		PublicURL:     publicURL,
 	}
 }
 
 func (d *S3Driver) Save(ctx context.Context, key string, content io.Reader, contentType string) error {
-	_, err := d.Client.PutObject(ctx, &s3.PutObjectInput{
+	_, err := d.Uploader.Upload(ctx, &s3.PutObjectInput{
 		Bucket:      aws.String(d.Bucket),
 		Key:         aws.String(key),
 		Body:        content,
@@ -68,39 +72,31 @@ func (d *S3Driver) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
-func (d *S3Driver) GenerateURL(ctx context.Context, key string, expires time.Duration) (string, error) {
-	if d.PublicURL != "" {
-		return fmt.Sprintf("%s/%s", d.PublicURL, key), nil
+// presignGet returns a presigned GET URL for the key; used by both GenerateURL and GetDownloadURL.
+func (d *S3Driver) presignGet(ctx context.Context, key string, ttl time.Duration) (string, error) {
+	if ttl == 0 {
+		ttl = time.Hour
 	}
-
-	// Fallback to presigned URL
-	if expires == 0 {
-		expires = time.Hour
-	}
-
 	presignedReq, err := d.PresignClient.PresignGetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(d.Bucket),
 		Key:    aws.String(key),
-	}, s3.WithPresignExpires(expires))
-
+	}, s3.WithPresignExpires(ttl))
 	if err != nil {
 		return "", fmt.Errorf("failed to presign URL: %w", err)
 	}
 	return presignedReq.URL, nil
 }
 
+func (d *S3Driver) GenerateURL(ctx context.Context, key string, expires time.Duration) (string, error) {
+	if d.PublicURL != "" {
+		return fmt.Sprintf("%s/%s", d.PublicURL, key), nil
+	}
+	return d.presignGet(ctx, key, expires)
+}
+
 func (d *S3Driver) GetDownloadURL(ctx context.Context, key string, ttl time.Duration) (string, error) {
 	if ttl == 0 {
-		ttl = 15 * time.Minute // Default TTL
+		ttl = 15 * time.Minute
 	}
-
-	presignedReq, err := d.PresignClient.PresignGetObject(ctx, &s3.GetObjectInput{
-		Bucket: aws.String(d.Bucket),
-		Key:    aws.String(key),
-	}, s3.WithPresignExpires(ttl))
-
-	if err != nil {
-		return "", fmt.Errorf("failed to sign request: %w", err)
-	}
-	return presignedReq.URL, nil
+	return d.presignGet(ctx, key, ttl)
 }

@@ -11,6 +11,10 @@ import (
 	"time"
 )
 
+// ErrInvalidPath is returned when a key or resolved path is invalid (e.g. path traversal).
+// Callers can use errors.Is(err, drivers.ErrInvalidPath) to detect validation failures.
+var ErrInvalidPath = errors.New("invalid path: traversal or invalid key not allowed")
+
 var (
 	errInvalidKey  = errors.New("invalid key: path traversal not allowed")
 	errPathOutside = errors.New("path outside base directory")
@@ -41,26 +45,31 @@ func (d *LocalFSDriver) getHashedPath(key string) string {
 }
 
 // resolveAndValidate returns the absolute path for key and ensures it is under BaseDir.
-// Protects against path traversal and TOCTOU (e.g. symlinks); call before any file system use.
+// Uses EvalSymlinks on the base so symlinks cannot be used to escape the root.
 func (d *LocalFSDriver) resolveAndValidate(key string) (fullAbs string, err error) {
 	if strings.Contains(key, "..") || strings.Contains(key, "/") || strings.Contains(key, "\\") {
-		return "", fmt.Errorf("invalid key: %w", errInvalidKey)
+		return "", fmt.Errorf("invalid key: %w", errors.Join(ErrInvalidPath, errInvalidKey))
 	}
-	fullPath := filepath.Join(d.BaseDir, d.getHashedPath(key))
 	baseAbs, err := filepath.Abs(d.BaseDir)
 	if err != nil {
 		return "", fmt.Errorf("base directory resolution: %w", err)
 	}
+	baseResolved := baseAbs
+	if resolved, evalErr := filepath.EvalSymlinks(baseAbs); evalErr == nil {
+		baseResolved = resolved
+	}
+	hashed := d.getHashedPath(key)
+	fullPath := filepath.Join(baseResolved, hashed)
 	fullAbs, err = filepath.Abs(fullPath)
 	if err != nil {
 		return "", fmt.Errorf("path resolution: %w", err)
 	}
-	rel, err := filepath.Rel(baseAbs, fullAbs)
+	rel, err := filepath.Rel(baseResolved, fullAbs)
 	if err != nil {
 		return "", fmt.Errorf("path resolution: %w", err)
 	}
 	if strings.HasPrefix(rel, "..") {
-		return "", fmt.Errorf("path outside base: %w", errPathOutside)
+		return "", fmt.Errorf("path outside base: %w", errors.Join(ErrInvalidPath, errPathOutside))
 	}
 	return fullAbs, nil
 }
@@ -70,7 +79,6 @@ func (d *LocalFSDriver) Save(ctx context.Context, key string, body io.Reader, co
 	if err != nil {
 		return err
 	}
-	// MkdirAll is idempotent and safe for concurrent use; no existence check needed.
 	if err := os.MkdirAll(filepath.Dir(fullAbs), 0755); err != nil {
 		return fmt.Errorf("failed to create hashed directory: %w", err)
 	}

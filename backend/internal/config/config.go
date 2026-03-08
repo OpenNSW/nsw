@@ -110,7 +110,7 @@ func Load() (*Config, error) {
 			MaxAge:           getIntOrDefault("CORS_MAX_AGE", 3600),
 		},
 		Storage: StorageConfig{
-			Type:           getEnvOrDefault("STORAGE_TYPE", "local"),
+			Type:           strings.TrimSpace(getEnvOrDefault("STORAGE_TYPE", "local")),
 			LocalBaseDir:   getEnvOrDefault("STORAGE_LOCAL_BASE_DIR", "./bucket"),
 			LocalPublicURL: getEnvOrDefault("STORAGE_LOCAL_PUBLIC_URL", "/bucket"),
 			S3Endpoint:     os.Getenv("STORAGE_S3_ENDPOINT"),

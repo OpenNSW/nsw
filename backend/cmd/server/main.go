@@ -131,6 +131,7 @@ func main() {
 
 	// Upload and download routes
 	mux.HandleFunc("POST /api/v1/uploads", uploadHandler.Upload)
+	mux.HandleFunc("GET /api/v1/uploads/{key}/content", uploadHandler.DownloadContent)
 	mux.HandleFunc("GET /api/v1/uploads/{key}", uploadHandler.Download)
 	mux.HandleFunc("DELETE /api/v1/uploads/{key}", uploadHandler.Delete)
 
