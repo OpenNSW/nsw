@@ -16,20 +16,34 @@ interface FileControlProps {
     enabled?: boolean;
 }
 
-// Simple in-memory cache for resolved download URLs to avoid redundant API calls
+const MAX_CACHE_SIZE = 50;
+const CACHE_TTL_BUFFER_SEC = 60;
+
+/** Bounded cache for download URLs: evict expired on read, cap size when writing. */
 const downloadUrlCache = new Map<string, { url: string; expiresAt: number }>();
 
-/**
- * Checks whether the data value is a file key (UUID-like) rather than a data URL
- */
+function evictExpiredCache(): void {
+    const now = Date.now() / 1000;
+    for (const [k, v] of downloadUrlCache.entries()) {
+        if (v.expiresAt <= now + CACHE_TTL_BUFFER_SEC) downloadUrlCache.delete(k);
+    }
+}
+
+function setCachedDownloadUrl(key: string, url: string, expiresAt: number): void {
+    evictExpiredCache();
+    if (downloadUrlCache.size >= MAX_CACHE_SIZE) {
+        const first = downloadUrlCache.keys().next().value;
+        if (first != null) downloadUrlCache.delete(first);
+    }
+    downloadUrlCache.set(key, { url, expiresAt });
+}
+
 function isFileKey(data: string): boolean {
     return !data.startsWith('data:');
 }
 
-const DEFAULT_API_BASE_URL = 'http://localhost:8080/api/v1';
-
 const FileControl = ({ data, handleChange, path, label, required, uischema, enabled }: FileControlProps) => {
-    const getAuthHeaders = useUploadAuth();
+    const auth = useUploadAuth();
     const [dragActive, setDragActive] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [fileName, setFileName] = useState<string | null>(null);
@@ -38,19 +52,25 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
     const [downloadError, setDownloadError] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    // Get options from UI schema (or default)
     const options = uischema?.options || {};
     const maxSize = (options.maxSize as number) || 5 * 1024 * 1024; // Default 5MB
     const accept = (options.accept as string) || 'image/*,application/pdf';
-    const apiBaseUrl = (options.apiBaseUrl as string) || DEFAULT_API_BASE_URL;
     const isEnabled = enabled !== false;
 
-    // Fetch the presigned download URL when data is a file key (not a data URL)
-    const fetchDownloadUrl = useCallback(async (fileKey: string) => {
-        // Check cache first — use cached URL if not expired (with 60s buffer)
+    // Option (A): use only the host's getDownloadUrl callback — no fetch in the renderer.
+    const fetchDownloadUrl = useCallback(async (fileKey: string, signal?: AbortSignal) => {
+        evictExpiredCache();
         const cached = downloadUrlCache.get(fileKey);
-        if (cached && cached.expiresAt > Date.now() / 1000 + 60) {
+        if (cached && cached.expiresAt > Date.now() / 1000 + CACHE_TTL_BUFFER_SEC) {
             setDownloadUrl(cached.url);
+            return;
+        }
+
+        if (!auth?.getDownloadUrl) {
+            if (import.meta.env.DEV) {
+                console.warn('[FileControl] UploadAuthProvider must provide getDownloadUrl so the host app handles download URL resolution.');
+            }
+            setDownloadError('Authentication required to download.');
             return;
         }
 
@@ -58,38 +78,26 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
         setDownloadError(null);
 
         try {
-            const headers: HeadersInit = getAuthHeaders ? await getAuthHeaders() : {};
-            const response = await fetch(`${apiBaseUrl}/uploads/${fileKey}`, {
-                headers,
-            });
-
-            if (response.status === 401) {
-                setDownloadError('Unauthorized — please log in to download this file.');
-                return;
-            }
-
-            if (!response.ok) {
-                setDownloadError('Failed to generate download link.');
-                return;
-            }
-
-            const result = await response.json() as { download_url: string; expires_at: number };
-            downloadUrlCache.set(fileKey, { url: result.download_url, expiresAt: result.expires_at });
-            setDownloadUrl(result.download_url);
-        } catch {
+            const url = await auth.getDownloadUrl(fileKey);
+            if (signal?.aborted) return;
+            setDownloadUrl(url);
+            setCachedDownloadUrl(fileKey, url, Math.floor(Date.now() / 1000) + 15 * 60);
+        } catch (e) {
+            if (signal?.aborted) return;
             setDownloadError('Unable to reach the server.');
         } finally {
-            setDownloadLoading(false);
+            if (!signal?.aborted) setDownloadLoading(false);
         }
-    }, [apiBaseUrl, getAuthHeaders]);
+    }, [auth]);
 
     useEffect(() => {
         if (data && isFileKey(data)) {
-            fetchDownloadUrl(data);
-        } else {
-            setDownloadUrl(null);
-            setDownloadError(null);
+            const ac = new AbortController();
+            fetchDownloadUrl(data, ac.signal);
+            return () => ac.abort();
         }
+        setDownloadUrl(null);
+        setDownloadError(null);
     }, [data, fetchDownloadUrl]);
 
     const getDisplayText = () => {
@@ -131,7 +139,7 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
     // Resolve the href for the preview: use fetched presigned URL for file keys, or blob URL for data URLs
     const resolvedHref = data && isFileKey(data) ? downloadUrl : blobUrl;
 
-    const processFile = (file: File) => {
+    const processFile = useCallback(async (file: File) => {
         if (file.size > maxSize) {
             const sizeMB = (maxSize / (1024 * 1024)).toFixed(0);
             setError(`File size exceeds ${sizeMB}MB limit.`);
@@ -140,33 +148,36 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
 
         const acceptedTypes = accept.split(',').map((t: string) => t.trim());
         const isFileTypeAccepted = acceptedTypes.some((type: string) => {
-            if (type.endsWith('/*')) {
-                return file.type.startsWith(type.slice(0, -1));
-            }
-            if (type.startsWith('.')) {
-                return file.name.toLowerCase().endsWith(type.toLowerCase());
-            }
+            if (type.endsWith('/*')) return file.type.startsWith(type.slice(0, -1));
+            if (type.startsWith('.')) return file.name.toLowerCase().endsWith(type.toLowerCase());
             return file.type === type;
         });
-
-        // Basic MIME type check (client-side only)
         if (accept !== '*' && !isFileTypeAccepted && !accept.includes('*/*')) {
             setError(`Invalid file type. Accepted types: ${accept}`);
             return;
         }
 
+        if (auth?.uploadFile) {
+            try {
+                const { key, name } = await auth.uploadFile(file);
+                handleChange(path, key);
+                setFileName(name);
+                setError(null);
+            } catch {
+                setError('Failed to upload file');
+            }
+            return;
+        }
+
         const reader = new FileReader();
         reader.onload = () => {
-            const result = reader.result as string;
-            handleChange(path, result);
+            handleChange(path, reader.result as string);
             setFileName(file.name);
             setError(null);
         };
-        reader.onerror = () => {
-            setError('Failed to read file');
-        };
+        reader.onerror = () => setError('Failed to read file');
         reader.readAsDataURL(file);
-    };
+    }, [accept, auth, maxSize, path, handleChange]);
 
     const handleDrag = (e: DragEvent<HTMLDivElement>) => {
         e.preventDefault();

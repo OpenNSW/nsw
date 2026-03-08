@@ -10,11 +10,19 @@ import { LoginScreen } from './screens/LoginScreen'
 import { ApiProvider } from './services/ApiProvider'
 import { useApi } from './services/useApi'
 import { UploadAuthProvider } from '@opennsw/jsonforms-renderers'
+import { getDownloadUrl, uploadFile } from './services/upload'
 
 function UploadAuthWrapper({ children }: { children: ReactNode }) {
   const api = useApi()
   return (
-    <UploadAuthProvider getAuthHeaders={() => api.getAuthHeaders(false)}>
+    <UploadAuthProvider
+      getAuthHeaders={() => api.getAuthHeaders(false)}
+      getDownloadUrl={(key) => getDownloadUrl(api, key)}
+      uploadFile={async (file) => {
+        const m = await uploadFile(api, file)
+        return { key: m.key, name: m.name }
+      }}
+    >
       {children}
     </UploadAuthProvider>
   )

@@ -10,11 +10,19 @@ import {useAsgardeo, SignedOut} from '@asgardeo/react'
 import {LoginScreen} from "./screens/LoginScreen.tsx";
 import {ApiProvider, useApi} from './services/ApiContext'
 import { UploadAuthProvider } from '@opennsw/jsonforms-renderers'
+import { getDownloadUrl, uploadFile } from './services/upload'
 
 function UploadAuthWrapper({ children }: { children: ReactNode }) {
   const api = useApi()
   return (
-    <UploadAuthProvider getAuthHeaders={() => api.getAuthHeaders(false)}>
+    <UploadAuthProvider
+      getAuthHeaders={() => api.getAuthHeaders(false)}
+      getDownloadUrl={(key) => getDownloadUrl(api, key)}
+      uploadFile={async (file) => {
+        const m = await uploadFile(api, file)
+        return { key: m.key, name: m.name }
+      }}
+    >
       {children}
     </UploadAuthProvider>
   )
