@@ -90,7 +90,7 @@ func main() {
 	wm := workflow.NewManager(tm, ch, db)
 
 	// Initialize storage driver and upload service
-	storageDriver, err := uploads.NewStorageFromConfig(context.Background(), cfg.Storage)
+	storageDriver, err := uploads.NewFactory().New(context.Background(), cfg.Storage)
 	if err != nil {
 		log.Fatalf("failed to initialize storage: %v", err)
 	}

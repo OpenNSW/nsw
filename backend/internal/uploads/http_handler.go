@@ -18,6 +18,11 @@ func NewHTTPHandler(service *UploadService) *HTTPHandler {
 }
 
 func (h *HTTPHandler) Upload(w http.ResponseWriter, r *http.Request) {
+	if auth.GetAuthContext(r.Context()) == nil {
+		slog.WarnContext(r.Context(), "authentication required but not provided for upload")
+		http.Error(w, `{"error": "Unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
 	// Enforce 32MB max request body size to prevent infinite streaming or memory exhaustion
 	r.Body = http.MaxBytesReader(w, r.Body, 32<<20)
 
@@ -81,6 +86,11 @@ func (h *HTTPHandler) Download(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	if auth.GetAuthContext(r.Context()) == nil {
+		slog.WarnContext(r.Context(), "authentication required but not provided for delete")
+		http.Error(w, `{"error": "Unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
 	key := r.PathValue("key")
 	if key == "" {
 		http.Error(w, `{"error": "key is required"}`, http.StatusBadRequest)
