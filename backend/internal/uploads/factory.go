@@ -15,16 +15,8 @@ import (
 	"github.com/OpenNSW/nsw/internal/uploads/drivers"
 )
 
-// Factory creates StorageDriver instances from config. Use at application setup instead of package-level registration.
-type Factory struct{}
-
-// NewFactory returns a factory for creating storage drivers.
-func NewFactory() *Factory {
-	return &Factory{}
-}
-
-// New creates a storage driver from the given config. The driver type is selected by cfg.Type ("local" or "s3").
-func (f *Factory) New(ctx context.Context, cfg config.StorageConfig) (StorageDriver, error) {
+// NewStorageFromConfig creates a storage instance based on the provided configuration.
+func NewStorageFromConfig(ctx context.Context, cfg config.StorageConfig) (StorageDriver, error) {
 	switch strings.TrimSpace(cfg.Type) {
 	case "local":
 		slog.Info("Initializing local storage", "dir", cfg.LocalBaseDir)

@@ -7,16 +7,14 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
 // S3Driver implements StorageDriver for S3-compatible storage.
-// Save uses s3manager.Uploader to stream large uploads (multipart) without buffering the entire body in memory.
+// Save streams via PutObject (request body is capped at 32MB by the HTTP handler).
 type S3Driver struct {
 	Client        *s3.Client
 	PresignClient *s3.PresignClient
-	Uploader      *manager.Uploader
 	Bucket        string
 	PublicURL     string // Optional: Base URL if files are public
 }
@@ -25,14 +23,13 @@ func NewS3Driver(client *s3.Client, bucket string, publicURL string) *S3Driver {
 	return &S3Driver{
 		Client:        client,
 		PresignClient: s3.NewPresignClient(client),
-		Uploader:      manager.NewUploader(client),
 		Bucket:        bucket,
 		PublicURL:     publicURL,
 	}
 }
 
 func (d *S3Driver) Save(ctx context.Context, key string, content io.Reader, contentType string) error {
-	_, err := d.Uploader.Upload(ctx, &s3.PutObjectInput{
+	_, err := d.Client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket:      aws.String(d.Bucket),
 		Key:         aws.String(key),
 		Body:        content,

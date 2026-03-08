@@ -90,7 +90,7 @@ func main() {
 	wm := workflow.NewManager(tm, ch, db)
 
 	// Initialize storage driver and upload service
-	storageDriver, err := uploads.NewFactory().New(context.Background(), cfg.Storage)
+	storageDriver, err := uploads.NewStorageFromConfig(context.Background(), cfg.Storage)
 	if err != nil {
 		log.Fatalf("failed to initialize storage: %v", err)
 	}
@@ -129,7 +129,7 @@ func main() {
 	mux.HandleFunc("GET /api/v1/pre-consignments/{preConsignmentId}", wm.HandleGetPreConsignmentByID)
 	mux.HandleFunc("GET /api/v1/pre-consignments", wm.HandleGetPreConsignmentsByTraderID)
 
-	// Upload and download routes
+	// Upload routes
 	mux.HandleFunc("POST /api/v1/uploads", uploadHandler.Upload)
 	mux.HandleFunc("GET /api/v1/uploads/{key}/content", uploadHandler.DownloadContent)
 	mux.HandleFunc("GET /api/v1/uploads/{key}", uploadHandler.Download)
