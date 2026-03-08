@@ -8,6 +8,7 @@ export type AccessTokenProvider = () => Promise<string | null | undefined>
 export interface ApiClient {
   get<T>(endpoint: string, params?: QueryParams): Promise<T>
   post<T, R>(endpoint: string, body: T): Promise<R>
+  getAuthHeaders(includeJsonContentType?: boolean): Promise<HeadersInit>
 }
 
 
@@ -57,9 +58,11 @@ function buildRequestKey(endpoint: string, params: QueryParams = {}, token: stri
   return `GET:${tokenFingerprint}:${endpoint}?${queryString}`
 }
 
-async function buildHeaders(token?: string | null): Promise<HeadersInit> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+async function buildHeaders(token?: string | null, includeJsonContentType = true): Promise<HeadersInit> {
+  const headers: Record<string, string> = {}
+
+  if (includeJsonContentType) {
+    headers['Content-Type'] = 'application/json'
   }
 
   if (token) {
@@ -146,6 +149,10 @@ export function createApiClient(getAccessToken?: AccessTokenProvider): ApiClient
     async post<T, R>(endpoint: string, body: T): Promise<R> {
       const token = getAccessToken ? await getAccessToken() : null
       return apiPost<T, R>(endpoint, body, token)
+    },
+    async getAuthHeaders(includeJsonContentType = true): Promise<HeadersInit> {
+      const token = getAccessToken ? (await getAccessToken()) ?? null : null
+      return buildHeaders(token, includeJsonContentType)
     },
   }
 }

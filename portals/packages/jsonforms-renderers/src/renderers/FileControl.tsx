@@ -3,6 +3,7 @@ import type { ControlElement, JsonSchema } from '@jsonforms/core';
 import { Card, Flex, Text, Box, IconButton, Button } from '@radix-ui/themes';
 import { UploadIcon, FileTextIcon, Cross2Icon, CheckCircledIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
 import { useState, useRef, useEffect, useCallback, type ChangeEvent, type DragEvent } from 'react';
+import { useUploadAuth } from '../UploadAuthContext';
 
 interface FileControlProps {
     data: string | null;
@@ -26,10 +27,9 @@ function isFileKey(data: string): boolean {
 }
 
 const DEFAULT_API_BASE_URL = 'http://localhost:8080/api/v1';
-// TODO: Remove after implementing proper authentication
-const TRADER_ID = 'TRADER-001';
 
 const FileControl = ({ data, handleChange, path, label, required, uischema, enabled }: FileControlProps) => {
+    const getAuthHeaders = useUploadAuth();
     const [dragActive, setDragActive] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [fileName, setFileName] = useState<string | null>(null);
@@ -58,8 +58,9 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
         setDownloadError(null);
 
         try {
+            const headers: HeadersInit = getAuthHeaders ? await getAuthHeaders() : {};
             const response = await fetch(`${apiBaseUrl}/uploads/${fileKey}`, {
-                headers: { 'Authorization': TRADER_ID },
+                headers,
             });
 
             if (response.status === 401) {
@@ -80,7 +81,7 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
         } finally {
             setDownloadLoading(false);
         }
-    }, [apiBaseUrl]);
+    }, [apiBaseUrl, getAuthHeaders]);
 
     useEffect(() => {
         if (data && isFileKey(data)) {

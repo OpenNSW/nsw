@@ -1,3 +1,4 @@
+import { type ReactNode } from 'react'
 import {Routes, Route, Navigate} from 'react-router-dom'
 import './App.css'
 import {Layout} from './components/Layout'
@@ -7,7 +8,17 @@ import {TaskDetailScreen} from "./screens/TaskDetailScreen.tsx";
 import {PreconsignmentScreen} from "./screens/PreconsignmentScreen.tsx"
 import {useAsgardeo, SignedOut} from '@asgardeo/react'
 import {LoginScreen} from "./screens/LoginScreen.tsx";
-import {ApiProvider} from './services/ApiContext'
+import {ApiProvider, useApi} from './services/ApiContext'
+import { UploadAuthProvider } from '@opennsw/jsonforms-renderers'
+
+function UploadAuthWrapper({ children }: { children: ReactNode }) {
+  const api = useApi()
+  return (
+    <UploadAuthProvider getAuthHeaders={() => api.getAuthHeaders(false)}>
+      {children}
+    </UploadAuthProvider>
+  )
+}
 
 function ProtectedLayout() {
   const {isSignedIn, isLoading} = useAsgardeo()
@@ -16,7 +27,9 @@ function ProtectedLayout() {
   if (!isSignedIn) return <Navigate to="/login" replace/>
   return (
     <ApiProvider>
-      <Layout/>
+      <UploadAuthWrapper>
+        <Layout/>
+      </UploadAuthWrapper>
     </ApiProvider>
   )
 }
