@@ -211,9 +211,14 @@ func (m *Manager) HandleCreateConsignment(w http.ResponseWriter, r *http.Request
 	m.consignmentRouter.HandleCreateConsignment(w, r)
 }
 
-// HandleGetConsignmentsByTraderID handles GET /api/v1/consignments?traderId={traderId}
-func (m *Manager) HandleGetConsignmentsByTraderID(w http.ResponseWriter, r *http.Request) {
-	m.consignmentRouter.HandleGetConsignmentsByTraderID(w, r)
+// HandleGetConsignments handles GET /api/v1/consignments?role=trader|cha (cha requires cha_id)
+func (m *Manager) HandleGetConsignments(w http.ResponseWriter, r *http.Request) {
+	m.consignmentRouter.HandleGetConsignments(w, r)
+}
+
+// HandleInitializeConsignment handles PUT /api/v1/consignments/{id}/initialize (Stage 2)
+func (m *Manager) HandleInitializeConsignment(w http.ResponseWriter, r *http.Request) {
+	m.consignmentRouter.HandleInitializeConsignment(w, r)
 }
 
 // HandleGetConsignmentByID handles GET /api/v1/consignments/{id}

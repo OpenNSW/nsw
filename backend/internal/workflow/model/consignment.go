@@ -14,8 +14,9 @@ const (
 type ConsignmentState string
 
 const (
-	ConsignmentStateInProgress ConsignmentState = "IN_PROGRESS"
-	ConsignmentStateFinished   ConsignmentState = "FINISHED"
+	ConsignmentStateAwaitingInitiation ConsignmentState = "AWAITING_INITIATION"
+	ConsignmentStateInProgress         ConsignmentState = "IN_PROGRESS"
+	ConsignmentStateFinished           ConsignmentState = "FINISHED"
 )
 
 // Consignment represents a consignment in the system.
@@ -27,6 +28,10 @@ type Consignment struct {
 	Items         []ConsignmentItem `gorm:"type:jsonb;column:items;serializer:json;not null" json:"items"`                  // Items in the consignment
 	GlobalContext map[string]any    `gorm:"type:jsonb;column:global_context;serializer:json;not null" json:"globalContext"` // Global context for the consignment
 	EndNodeID     *uuid.UUID        `gorm:"type:uuid;column:end_node_id" json:"endNodeId,omitempty"`                        // Optional reference to the end workflow node, used for quick lookup of completion status
+
+	// CHA (Customs House Agent) – set at Stage 1 by Trader; CHA completes Stage 2 by selecting HS Code
+	CHAID *uuid.UUID `gorm:"type:uuid;column:cha_id" json:"chaId,omitempty"`
+	CHA   *CHA       `gorm:"foreignKey:CHAID" json:"cha,omitempty"`
 
 	// Relationships
 	WorkflowNodes []WorkflowNode `gorm:"foreignKey:ConsignmentID;references:ID" json:"-"` // Associated WorkflowNodes
@@ -54,15 +59,23 @@ type HSCodeResponseDTO struct {
 	Category    string    `json:"category"`    // Category of the HS Code
 }
 
+// InitializeConsignmentDTO is the request body for PUT /consignments/{id}/initialize (Stage 2 – CHA selects HS Code).
+type InitializeConsignmentDTO struct {
+	HSCodeID uuid.UUID `json:"hsCodeId" binding:"required"` // HS Code ID to start the workflow
+}
+
 // CreateConsignmentItemDTO represents the data required to create a consignment item.
 type CreateConsignmentItemDTO struct {
 	HSCodeID uuid.UUID `json:"hsCodeId" binding:"required"` // HS Code ID
 }
 
 // CreateConsignmentDTO represents the data required to create a consignment.
+// Stage 1 (two-stage flow): provide flow + chaId only → creates shell with state AWAITING_INITIATION.
+// Legacy / single-stage: provide flow + items → creates consignment and initializes workflow.
 type CreateConsignmentDTO struct {
 	Flow  ConsignmentFlow            `json:"flow" binding:"required,oneof=IMPORT EXPORT"` // e.g., IMPORT, EXPORT
-	Items []CreateConsignmentItemDTO `json:"items" binding:"required,dive,required"`      // Items in the consignment
+	ChaID *uuid.UUID                 `json:"chaId,omitempty"`                             // Stage 1: assign CHA (shell only)
+	Items []CreateConsignmentItemDTO `json:"items,omitempty"`                             // Legacy: HS code items; when ChaID is set, items are ignored
 }
 
 // UpdateConsignmentDTO represents the data required to update a consignment.
@@ -74,14 +87,15 @@ type UpdateConsignmentDTO struct {
 
 // ConsignmentDetailDTO represents the full consignment data returned in detailed responses.
 type ConsignmentDetailDTO struct {
-	ID            uuid.UUID                    `json:"id"`            // Consignment ID
-	Flow          ConsignmentFlow              `json:"flow"`          // e.g., IMPORT, EXPORT
-	TraderID      string                       `json:"traderId"`      // ID of the trader associated with the consignment
-	State         ConsignmentState             `json:"state"`         // State of the consignment
-	Items         []ConsignmentItemResponseDTO `json:"items"`         // Items in the consignment with full HS Code details
-	CreatedAt     string                       `json:"createdAt"`     // Timestamp of consignment creation
-	UpdatedAt     string                       `json:"updatedAt"`     // Timestamp of last consignment update
-	WorkflowNodes []WorkflowNodeResponseDTO    `json:"workflowNodes"` // Associated workflow nodes with template details
+	ID            uuid.UUID                    `json:"id"`              // Consignment ID
+	Flow          ConsignmentFlow              `json:"flow"`            // e.g., IMPORT, EXPORT
+	TraderID      string                       `json:"traderId"`        // ID of the trader associated with the consignment
+	ChaID         *uuid.UUID                   `json:"chaId,omitempty"` // Assigned CHA (Stage 1)
+	State         ConsignmentState             `json:"state"`           // State of the consignment
+	Items         []ConsignmentItemResponseDTO `json:"items"`           // Items in the consignment with full HS Code details
+	CreatedAt     string                       `json:"createdAt"`       // Timestamp of consignment creation
+	UpdatedAt     string                       `json:"updatedAt"`       // Timestamp of last consignment update
+	WorkflowNodes []WorkflowNodeResponseDTO    `json:"workflowNodes"`   // Associated workflow nodes with template details
 }
 
 // ConsignmentSummaryDTO represents the consignment data returned in list responses.
@@ -89,6 +103,7 @@ type ConsignmentSummaryDTO struct {
 	ID                         uuid.UUID                    `json:"id"`                         // Consignment ID
 	Flow                       ConsignmentFlow              `json:"flow"`                       // e.g., IMPORT, EXPORT
 	TraderID                   string                       `json:"traderId"`                   // ID of the trader associated with the consignment
+	ChaID                      *uuid.UUID                   `json:"chaId,omitempty"`            // Assigned CHA (Stage 1)
 	State                      ConsignmentState             `json:"state"`                      // State of the consignment
 	Items                      []ConsignmentItemResponseDTO `json:"items"`                      // Items in the consignment with full HS Code details
 	CreatedAt                  string                       `json:"createdAt"`                  // Timestamp of consignment creation
@@ -105,9 +120,11 @@ type ConsignmentListResult struct {
 	Limit      int                     `json:"limit"`
 }
 
-// ConsignmentFilter will be used when querying consignments as batch
+// ConsignmentFilter will be used when querying consignments as batch.
+// For GET /consignments?role=trader use TraderID; for role=cha use ChaID (e.g. from query param cha_id).
 type ConsignmentFilter struct {
 	TraderID *string           `json:"traderId,omitempty"`
+	ChaID    *uuid.UUID        `json:"chaId,omitempty"`
 	Flow     *ConsignmentFlow  `json:"flow,omitempty"`
 	State    *ConsignmentState `json:"state,omitempty"`
 	Offset   *int              `json:"offset,omitempty"`

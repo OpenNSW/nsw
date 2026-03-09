@@ -122,7 +122,8 @@ func main() {
 	mux.HandleFunc("GET /api/v1/hscodes", wm.HandleGetAllHSCodes)
 	mux.HandleFunc("POST /api/v1/consignments", wm.HandleCreateConsignment)
 	mux.HandleFunc("GET /api/v1/consignments/{id}", wm.HandleGetConsignmentByID)
-	mux.HandleFunc("GET /api/v1/consignments", wm.HandleGetConsignmentsByTraderID)
+	mux.HandleFunc("PUT /api/v1/consignments/{id}/initialize", wm.HandleInitializeConsignment)
+	mux.HandleFunc("GET /api/v1/consignments", wm.HandleGetConsignments)
 
 	// Pre-consignment routes
 	mux.HandleFunc("POST /api/v1/pre-consignments", wm.HandleCreatePreConsignment)
