@@ -16,6 +16,17 @@ type UploadService struct {
 	Driver StorageDriver
 }
 
+type countingReader struct {
+	r io.Reader
+	n int64
+}
+
+func (c *countingReader) Read(p []byte) (int, error) {
+	n, err := c.r.Read(p)
+	c.n += int64(n)
+	return n, err
+}
+
 func NewUploadService(driver StorageDriver) *UploadService {
 	return &UploadService{Driver: driver}
 }
@@ -29,25 +40,23 @@ func (s *UploadService) Upload(ctx context.Context, filename string, reader io.R
 	ext := filepath.Ext(filename)
 	key := fmt.Sprintf("%s%s", id.String(), ext)
 
-	err := s.Driver.Save(ctx, key, reader, mime)
+	// Wrap the reader so we can determine the actual number of bytes written,
+	// rather than trusting any client-supplied size hints.
+	cr := &countingReader{r: reader}
+
+	err := s.Driver.Save(ctx, key, cr, mime)
 	if err != nil {
 		return nil, fmt.Errorf("storage driver failed: %w", err)
-	}
-
-	url, err := s.Driver.GenerateURL(ctx, key, 0)
-	if err != nil {
-		if delErr := s.Driver.Delete(ctx, key); delErr != nil {
-			slog.WarnContext(ctx, "failed to cleanup orphaned file", "key", key, "error", delErr)
-		}
-		return nil, fmt.Errorf("failed to generate URL: %w", err)
 	}
 
 	metadata := &FileMetadata{
 		ID:       id,
 		Name:     filename,
 		Key:      key,
-		URL:      url,
-		Size:     size,
+		// URL is not populated by default; clients should call GetDownloadURL
+		// when they need a time-limited or presigned URL for download.
+		URL:      "",
+		Size:     cr.n,
 		MimeType: mime,
 	}
 

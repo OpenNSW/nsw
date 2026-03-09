@@ -53,10 +53,10 @@ func TestLocalFSDriver_DirectoryHashing(t *testing.T) {
 		t.Errorf("expected content type application/pdf, got %s", contentType)
 	}
 
-	// Verify URL
-	url, err := driver.GenerateURL(ctx, key, 0)
+	// Verify GetDownloadURL
+	url, err := driver.GetDownloadURL(ctx, key, 0)
 	if err != nil {
-		t.Errorf("GenerateURL failed: %v", err)
+		t.Errorf("GetDownloadURL failed: %v", err)
 	}
 	if !strings.HasSuffix(url, key) || !strings.Contains(url, "/uploads") {
 		t.Errorf("unexpected URL: %s", url)

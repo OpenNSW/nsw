@@ -187,7 +187,8 @@ func TestDelete_Unauthorized(t *testing.T) {
 	}
 }
 
-func TestDownloadContent_Unauthorized(t *testing.T) {
+func TestDownloadContent_NonLocalDriver_NotFound(t *testing.T) {
+	// For non-local drivers, DownloadContent should be disabled and return 404
 	handler := NewHTTPHandler(NewUploadService(&MockDriver{}))
 
 	req := httptest.NewRequest(http.MethodGet, "/uploads/550e8400-e29b-41d4-a716-446655440000.pdf/content", nil)
@@ -196,47 +197,7 @@ func TestDownloadContent_Unauthorized(t *testing.T) {
 
 	handler.DownloadContent(rec, req)
 
-	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("expected status 401, got %d", rec.Code)
-	}
-}
-
-func TestDownloadContent_InvalidKeyFormat(t *testing.T) {
-	handler := NewHTTPHandler(NewUploadService(&MockDriver{}))
-
-	req := httptest.NewRequest(http.MethodGet, "/uploads/../../../etc/passwd/content", nil)
-	req.SetPathValue("key", "../../../etc/passwd")
-	ctx := withAuthContext(req.Context(), &auth.AuthContext{
-		TraderContext: &auth.TraderContext{TraderID: "trader-1"},
-	})
-	req = req.WithContext(ctx)
-	rec := httptest.NewRecorder()
-
-	handler.DownloadContent(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected status 400 for invalid key, got %d", rec.Code)
-	}
-}
-
-func TestDownloadContent_Success(t *testing.T) {
-	mock := &MockDriver{SavedBody: []byte("file body")}
-	handler := NewHTTPHandler(NewUploadService(mock))
-
-	req := httptest.NewRequest(http.MethodGet, "/uploads/550e8400-e29b-41d4-a716-446655440000.pdf/content", nil)
-	req.SetPathValue("key", "550e8400-e29b-41d4-a716-446655440000.pdf")
-	ctx := withAuthContext(req.Context(), &auth.AuthContext{
-		TraderContext: &auth.TraderContext{TraderID: "trader-1"},
-	})
-	req = req.WithContext(ctx)
-	rec := httptest.NewRecorder()
-
-	handler.DownloadContent(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d", rec.Code)
-	}
-	if body := rec.Body.String(); body != "file body" {
-		t.Errorf("unexpected body: %q", body)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected status 404, got %d", rec.Code)
 	}
 }

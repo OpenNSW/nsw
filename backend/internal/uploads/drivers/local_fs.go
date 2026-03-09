@@ -135,15 +135,6 @@ func (d *LocalFSDriver) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
-func (d *LocalFSDriver) GenerateURL(ctx context.Context, key string, expires time.Duration) (string, error) {
-	// For local storage, we return a URL relative to our API or a file path if configured.
-	// We assume the router will handle /uploads/{key} logic.
-	if d.PublicURL == "" {
-		return key, nil
-	}
-	return fmt.Sprintf("%s/%s", d.PublicURL, key), nil
-}
-
 func (d *LocalFSDriver) GetDownloadURL(ctx context.Context, key string, ttl time.Duration) (string, error) {
 	// For local development, returning the standard URL is acceptable.
 	// The frontend will treat this the same as an S3 presigned URL.

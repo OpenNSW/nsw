@@ -3,6 +3,7 @@ package uploads
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ type MockDriver struct {
 	GenerateURLErr error
 	DeleteCalled   bool
 	DeleteKey      string
+	LastTTL        time.Duration
 }
 
 func (m *MockDriver) Save(ctx context.Context, key string, body io.Reader, contentType string) error {
@@ -37,14 +39,8 @@ func (m *MockDriver) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
-func (m *MockDriver) GenerateURL(ctx context.Context, key string, expires time.Duration) (string, error) {
-	if m.GenerateURLErr != nil {
-		return "", m.GenerateURLErr
-	}
-	return "/test/" + key, nil
-}
-
 func (m *MockDriver) GetDownloadURL(ctx context.Context, key string, ttl time.Duration) (string, error) {
+	m.LastTTL = ttl
 	if m.GenerateURLErr != nil {
 		return "", m.GenerateURLErr
 	}
@@ -72,32 +68,8 @@ func TestUploadService(t *testing.T) {
 		t.Error("saved body does not match input")
 	}
 
-	if metadata.URL != "/test/"+mock.SavedKey {
-		t.Errorf("unexpected URL: %s", metadata.URL)
-	}
-}
-
-func TestUploadService_GenerateURLFailure(t *testing.T) {
-	mock := &MockDriver{
-		GenerateURLErr: io.ErrUnexpectedEOF, // Just an example error
-	}
-	service := NewUploadService(mock)
-
-	ctx := context.Background()
-	filename := "test_fail.jpg"
-	content := []byte("image data")
-
-	_, err := service.Upload(ctx, filename, bytes.NewReader(content), int64(len(content)), "image/jpeg")
-	if err == nil {
-		t.Fatal("expected Upload to fail when GenerateURL fails")
-	}
-
-	if !mock.DeleteCalled {
-		t.Error("expected Delete to be called to cleanup orphaned file")
-	}
-
-	if mock.DeleteKey != mock.SavedKey {
-		t.Errorf("expected Delete to be called with key %s, got %s", mock.SavedKey, mock.DeleteKey)
+	if metadata.URL != "" {
+		t.Errorf("expected URL to be empty, got %s", metadata.URL)
 	}
 }
 
@@ -121,5 +93,40 @@ func TestUploadService_Download(t *testing.T) {
 	content, _ := io.ReadAll(reader)
 	if !bytes.Equal(content, mock.SavedBody) {
 		t.Error("downloaded content does not match saved body")
+	}
+}
+
+func TestUploadService_GetDownloadURL_Success(t *testing.T) {
+	mock := &MockDriver{}
+	service := NewUploadService(mock)
+
+	ctx := context.Background()
+	const key = "test-key"
+
+	ttl := 10 * time.Minute
+	url, err := service.GetDownloadURL(ctx, key, ttl)
+	if err != nil {
+		t.Fatalf("GetDownloadURL failed: %v", err)
+	}
+
+	if url != "/test/download/"+key {
+		t.Errorf("unexpected URL: %s", url)
+	}
+	if mock.LastTTL != ttl {
+		t.Errorf("expected TTL %v, got %v", ttl, mock.LastTTL)
+	}
+}
+
+func TestUploadService_GetDownloadURL_Error(t *testing.T) {
+	expectedErr := io.ErrUnexpectedEOF
+	mock := &MockDriver{GenerateURLErr: expectedErr}
+	service := NewUploadService(mock)
+
+	_, err := service.GetDownloadURL(context.Background(), "test-key", 0)
+	if err == nil {
+		t.Fatal("expected error from GetDownloadURL, got nil")
+	}
+	if !errors.Is(err, expectedErr) {
+		t.Errorf("expected error %v, got %v", expectedErr, err)
 	}
 }

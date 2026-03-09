@@ -84,13 +84,6 @@ func (d *S3Driver) presignGet(ctx context.Context, key string, ttl time.Duration
 	return presignedReq.URL, nil
 }
 
-func (d *S3Driver) GenerateURL(ctx context.Context, key string, expires time.Duration) (string, error) {
-	if d.PublicURL != "" {
-		return fmt.Sprintf("%s/%s", d.PublicURL, key), nil
-	}
-	return d.presignGet(ctx, key, expires)
-}
-
 func (d *S3Driver) GetDownloadURL(ctx context.Context, key string, ttl time.Duration) (string, error) {
 	if ttl == 0 {
 		ttl = 15 * time.Minute
