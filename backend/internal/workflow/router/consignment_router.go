@@ -2,6 +2,7 @@ package router
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -54,7 +55,9 @@ func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *ht
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		_ = json.NewEncoder(w).Encode(consignment)
+		if err := json.NewEncoder(w).Encode(consignment); err != nil {
+			slog.Error("failed to encode response for consignment", "error", err)
+		}
 		return
 	}
 
@@ -70,7 +73,7 @@ func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *ht
 }
 
 // HandleGetConsignments handles GET /api/v1/consignments
-// Query params: role=trader | role=cha (required). When role=cha, cha_id (UUID) is required
+// // Query params: role=trader | role=cha (defaults to trader). When role=cha, cha_id (UUID) is required
 // Pagination: offset, limit. Optional filters: state, flow
 // Response: ConsignmentListResult (containing ConsignmentSummaryDTO)
 func (c *ConsignmentRouter) HandleGetConsignments(w http.ResponseWriter, r *http.Request) {
@@ -138,6 +141,12 @@ func (c *ConsignmentRouter) HandleGetConsignments(w http.ResponseWriter, r *http
 // HandleInitializeConsignment handles PUT /api/v1/consignments/{id}/initialize (Stage 2: CHA selects HS Code).
 // Body: InitializeConsignmentDTO { hsCodeId }. Response: ConsignmentDetailDTO.
 func (c *ConsignmentRouter) HandleInitializeConsignment(w http.ResponseWriter, r *http.Request) {
+	authCtx := auth.GetAuthContext(r.Context())
+	if authCtx == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	consignmentIDStr := r.PathValue("id")
 	if consignmentIDStr == "" {
 		http.Error(w, "consignment ID is required", http.StatusBadRequest)
