@@ -50,9 +50,9 @@ func (s *UploadService) Upload(ctx context.Context, filename string, reader io.R
 	}
 
 	metadata := &FileMetadata{
-		ID:       id,
-		Name:     filename,
-		Key:      key,
+		ID:   id,
+		Name: filename,
+		Key:  key,
 		// URL is not populated by default; clients should call GetDownloadURL
 		// when they need a time-limited or presigned URL for download.
 		URL:      "",
