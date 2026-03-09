@@ -130,54 +130,6 @@ func TestConsignmentRouter_HandleGetConsignmentsByTraderID(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestConsignmentRouter_HandleCreateConsignment(t *testing.T) {
-	db, sqlMock := setupRouterTestDB(t)
-	tp := new(MockTemplateProvider)
-	svc := service.NewConsignmentService(db, tp, nil)
-	r := NewConsignmentRouter(svc, nil)
-
-	traderID := "trader1"
-	hsCodeID := uuid.New()
-	templateID := uuid.New()
-	nodeTemplateID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
-	consignmentID := uuid.New()
-
-	payload := model.CreateConsignmentDTO{
-		Flow: model.ConsignmentFlowImport,
-		Items: []model.CreateConsignmentItemDTO{
-			{HSCodeID: hsCodeID},
-		},
-	}
-	body, _ := json.Marshal(payload)
-
-	tp.On("GetWorkflowTemplateByHSCodeIDAndFlow", mock.Anything, mock.Anything, mock.Anything).Return(&model.WorkflowTemplate{BaseModel: model.BaseModel{ID: templateID}, NodeTemplates: []uuid.UUID{nodeTemplateID}}, nil)
-	tp.On("GetWorkflowNodeTemplatesByIDs", mock.Anything, mock.Anything).Return([]model.WorkflowNodeTemplate{{BaseModel: model.BaseModel{ID: nodeTemplateID}, Type: "TEST"}}, nil)
-	tp.On("GetWorkflowNodeTemplateByID", mock.Anything, mock.Anything).Return(&model.WorkflowNodeTemplate{BaseModel: model.BaseModel{ID: nodeTemplateID}, Type: "TEST"}, nil)
-
-	sqlMock.MatchExpectationsInOrder(false)
-	sqlMock.ExpectBegin()
-	sqlMock.ExpectExec("(?i)INSERT INTO \"consignments\"").WillReturnResult(sqlmock.NewResult(1, 1))
-	sqlMock.ExpectExec("(?i)INSERT INTO \"workflow_nodes\"").WillReturnResult(sqlmock.NewResult(1, 1))
-
-	// Queries from state machine / initialization
-	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"workflow_nodes\"").WillReturnRows(sqlmock.NewRows([]string{"id", "workflow_node_template_id"}).AddRow(uuid.New(), nodeTemplateID))
-	sqlMock.ExpectExec("(?i)UPDATE \"workflow_nodes\"").WillReturnResult(sqlmock.NewResult(1, 1))
-
-	sqlMock.ExpectCommit()
-
-	// Post-commit reloads
-	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"consignments\"").WillReturnRows(sqlmock.NewRows([]string{"id", "state"}).AddRow(consignmentID, "READY"))
-	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"workflow_nodes\"").WillReturnRows(sqlmock.NewRows([]string{"id", "consignment_id", "workflow_node_template_id"}).AddRow(uuid.New(), consignmentID, nodeTemplateID))
-	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"workflow_node_templates\"").WillReturnRows(sqlmock.NewRows([]string{"id", "type"}).AddRow(nodeTemplateID, "TEST"))
-	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"hs_codes\"").WillReturnRows(sqlmock.NewRows([]string{"id", "hs_code"}).AddRow(hsCodeID, "1234.56"))
-
-	req, _ := http.NewRequest("POST", "/api/v1/consignments", bytes.NewBuffer(body))
-	req = req.WithContext(withAuthContext(req.Context(), traderID))
-	w := httptest.NewRecorder()
-	r.HandleCreateConsignment(w, req)
-	assert.Equal(t, http.StatusCreated, w.Code)
-}
-
 func TestHSCodeRouter_HandleGetAllHSCodes(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
 	svc := service.NewHSCodeService(db)

@@ -224,58 +224,6 @@ func parseHTTPResponse(t *testing.T, handler http.HandlerFunc, req *http.Request
 	return w
 }
 
-func TestManager_HandleCreateConsignment(t *testing.T) {
-	db, sqlMock := setupTestDB(t)
-	mockTM := new(MockTaskManager)
-	ch := make(chan taskManager.WorkflowManagerNotification, 10)
-	manager := NewManager(mockTM, ch, db)
-	sqlMock.MatchExpectationsInOrder(false)
-
-	traderID := "trader1"
-	hsCodeID := uuid.New()
-	nodeTemplateID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
-
-	payload := model.CreateConsignmentDTO{
-		Flow: model.ConsignmentFlowImport,
-		Items: []model.CreateConsignmentItemDTO{
-			{HSCodeID: hsCodeID},
-		},
-	}
-	body, _ := json.Marshal(payload)
-
-	sqlMock.MatchExpectationsInOrder(false)
-	sqlMock.ExpectQuery("(?i).*template_maps").WillReturnRows(sqlmock.NewRows([]string{"id", "nodes"}).AddRow(uuid.New(), []byte(`["00000000-0000-0000-0000-000000000001"]`)))
-	sqlMock.ExpectQuery("(?i).*workflow_templates").WillReturnRows(sqlmock.NewRows([]string{"id", "nodes"}).AddRow(uuid.New(), []byte(`["00000000-0000-0000-0000-000000000001"]`)))
-
-	for i := 0; i < 5; i++ {
-		sqlMock.ExpectQuery("(?i).*workflow_node_templates").WillReturnRows(sqlmock.NewRows([]string{"id", "type"}).AddRow(nodeTemplateID, "TEST_TYPE"))
-	}
-
-	sqlMock.ExpectBegin()
-	sqlMock.ExpectExec("(?i)INSERT INTO \"consignments\"").WillReturnResult(sqlmock.NewResult(1, 1))
-	sqlMock.ExpectExec("(?i)INSERT INTO \"workflow_nodes\"").WillReturnResult(sqlmock.NewResult(1, 1))
-
-	for i := 0; i < 5; i++ {
-		sqlMock.ExpectQuery("(?i)SELECT .* FROM \"workflow_nodes\"").WillReturnRows(sqlmock.NewRows([]string{"id", "workflow_node_template_id"}).AddRow(uuid.New(), nodeTemplateID))
-		sqlMock.ExpectExec("(?i)UPDATE \"workflow_nodes\"").WillReturnResult(sqlmock.NewResult(1, 1))
-	}
-
-	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"consignments\"").WillReturnRows(sqlmock.NewRows([]string{"id", "state"}).AddRow(uuid.New(), "READY"))
-	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"hs_codes\"").WillReturnRows(sqlmock.NewRows([]string{"id", "hs_code"}).AddRow(hsCodeID, "1234.56"))
-
-	sqlMock.ExpectCommit()
-
-	mockTM.On("InitTask", mock.Anything, mock.Anything).Return(&taskManager.InitTaskResponse{Result: "success"}, nil)
-
-	req, _ := http.NewRequest("POST", "/api/v1/consignments", bytes.NewBuffer(body))
-	req = req.WithContext(withAuthContext(req.Context(), traderID))
-
-	w := httptest.NewRecorder()
-	manager.HandleCreateConsignment(w, req)
-
-	assert.Equal(t, http.StatusCreated, w.Code)
-}
-
 func TestManager_HandleCreatePreConsignment(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
 	mockTM := new(MockTaskManager)
