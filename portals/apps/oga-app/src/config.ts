@@ -1,4 +1,5 @@
 import type {UIConfig} from "./configs/types.ts";
+import { getEnv } from './runtimeConfig';
 
 
 const configModules = import.meta.glob<{ config: UIConfig }>(
@@ -7,11 +8,11 @@ const configModules = import.meta.glob<{ config: UIConfig }>(
 );
 
 function loadConfig(): UIConfig {
-  const instance = import.meta.env.VITE_INSTANCE_CONFIG as string;
+  const instance = getEnv('VITE_INSTANCE_CONFIG');
 
   if (!instance) {
     throw new Error(
-      'VITE_INSTANCE environment variable is not set. ' +
+      'VITE_INSTANCE_CONFIG environment variable is not set. ' +
       'Please specify which instance to build (e.g., client-a, client-b)'
     );
   }

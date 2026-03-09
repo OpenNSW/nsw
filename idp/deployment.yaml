@@ -52,6 +52,8 @@ cors:
     - "http://localhost:5174"
     - "https://localhost:5175"
     - "http://localhost:5175"
+    - "https://localhost:5176"
+    - "http://localhost:5176"
 
 passkey:
   allowed_origins:

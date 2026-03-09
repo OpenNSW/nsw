@@ -6,6 +6,8 @@ This app uses Asgardeo/Thunder OIDC for sign-in.
 
 Required environment variables:
 
+- `VITE_INSTANCE_CONFIG`: OGA config id to load (`npqs`, `fcau`, ...)
+- `VITE_API_BASE_URL`: OGA backend API base URL (for example `http://localhost:8081`)
 - `VITE_IDP_BASE_URL`: IdP base URL (for example `https://localhost:8090`)
 - `VITE_IDP_CLIENT_ID`: OGA-specific IdP application client id
 - `VITE_APP_URL`: public URL of this OGA deployment

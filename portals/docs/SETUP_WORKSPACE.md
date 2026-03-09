@@ -98,7 +98,8 @@ pnpm install
 # - Root workspace
 # - apps/oga-app
 # - apps/trader-app
-# - ui package
+# - packages/ui
+# - packages/jsonforms-renderers
 ```
 
 **You may see a build scripts warning:**
@@ -129,7 +130,7 @@ This creates `.pnpm-build-scripts.json` (already in git) and allows these packag
 make build-ui
 
 # Or use pnpm directly
-pnpm --filter @lsf/ui build
+pnpm --filter @opennsw/ui build
 ```
 
 ### Step 7: Start Development
@@ -195,7 +196,7 @@ cd portals
 # Remove ALL node_modules (including nested)
 rm -rf node_modules
 rm -rf apps/*/node_modules
-rm -rf ui/node_modules
+rm -rf packages/*/node_modules
 
 # Remove old npm artifacts (if migrating from npm)
 rm -f package-lock.json
@@ -247,7 +248,7 @@ pnpm approve-builds
 make build-ui
 
 # Or manually
-pnpm --filter @lsf/ui build
+pnpm --filter @opennsw/ui build
 ```
 
 #### 7. Verify Lockfile Stability
@@ -343,7 +344,7 @@ pnpm --version
 # If wrong: npm install -g pnpm@10.28.1 OR corepack enable
 
 # 3. Clean install
-rm -rf node_modules apps/*/node_modules ui/node_modules
+rm -rf node_modules apps/*/node_modules packages/*/node_modules
 pnpm install
 
 # 4. Test stability
@@ -354,10 +355,10 @@ git diff pnpm-lock.yaml
 
 ---
 
-### Problem: `Cannot find module '@lsf/ui'`
+### Problem: `Cannot find module '@opennsw/ui'`
 
 **Symptoms:**
-- TypeScript or runtime errors about missing `@lsf/ui` module
+- TypeScript or runtime errors about missing `@opennsw/ui` module
 - Import statements fail
 
 **Solution:**
@@ -366,7 +367,7 @@ git diff pnpm-lock.yaml
 make build-ui
 
 # Or manually
-pnpm --filter @lsf/ui build
+pnpm --filter @opennsw/ui build
 ```
 
 ---
@@ -429,7 +430,7 @@ git diff pnpm-lock.yaml
 
 # 7. Verify workspace packages
 pnpm list --depth=0
-# ✅ Should list: oga-app, trader-app, @lsf/ui
+# ✅ Should list: oga-app, trader-app, @opennsw/ui
 
 # 8. Test build
 make build-ui
@@ -454,7 +455,7 @@ make dev-oga        # Start OGA app
 make dev-trader     # Start Trader app
 make build          # Build all packages
 make lint           # Run linter
-make lint-fix       # Auto-fix linting issues
+make format         # Auto-fix linting issues
 ```
 
 ---
@@ -480,7 +481,7 @@ Nuclear option if nothing else works:
 ```bash
 # 1. Remove everything
 cd portals
-rm -rf node_modules apps/*/node_modules ui/node_modules
+rm -rf node_modules apps/*/node_modules packages/*/node_modules
 rm -rf .pnpm-store pnpm-lock.yaml
 
 # 2. Reinstall Node/pnpm (start from scratch)
@@ -584,7 +585,7 @@ corepack enable
 npm install -g pnpm@10.28.2
 
 # Clean install
-rm -rf node_modules apps/*/node_modules ui/node_modules
+rm -rf node_modules apps/*/node_modules packages/*/node_modules
 pnpm install
 
 # Run tests
@@ -650,7 +651,7 @@ npm install -g pnpm@10.28.1
 git checkout main -- pnpm-lock.yaml
 
 # 5. Clean reinstall
-rm -rf node_modules apps/*/node_modules ui/node_modules
+rm -rf node_modules apps/*/node_modules packages/*/node_modules
 pnpm install
 ```
 

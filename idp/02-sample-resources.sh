@@ -634,7 +634,7 @@ fi
 echo ""
 
 # ============================================================================
-# Create NPQS and FCAU resources
+# Create NPQS, FCAU, and IRD resources
 # ============================================================================
 
 create_oga_resources \
@@ -665,6 +665,20 @@ create_oga_resources \
     "FCAU" \
     "Officer"
 
+create_oga_resources \
+    "IRD" \
+    "ird" \
+    "Inland Revenue Department" \
+    "IRDOfficer" \
+    "IRDPortalApp" \
+    "OGA_PORTAL_APP_IRD" \
+    "5176" \
+    "ird_officer" \
+    "1234" \
+    "ird_officer@oga.dev" \
+    "IRD" \
+    "Officer"
+
 # ============================================================================
 # Summary
 # ============================================================================
@@ -673,4 +687,5 @@ log_success "Sample resources setup completed successfully!"
 log_info "Trader app client ID: TRADER_PORTAL_APP"
 log_info "NPQS app client ID: OGA_PORTAL_APP_NPQS"
 log_info "FCAU app client ID: OGA_PORTAL_APP_FCAU"
+log_info "IRD app client ID: OGA_PORTAL_APP_IRD"
 echo ""

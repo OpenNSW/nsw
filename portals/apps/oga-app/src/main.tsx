@@ -6,22 +6,23 @@ import { AsgardeoProvider } from '@asgardeo/react'
 import "@radix-ui/themes/styles.css"
 import './index.css'
 import App from './App.tsx'
+import { getEnv, getRequiredEnv } from './runtimeConfig'
 
-const getRequiredEnv = (name: keyof ImportMetaEnv): string => {
-  const value = import.meta.env[name]
-  if (!value || value.trim() === '') {
-    throw new Error(`Missing required environment variable: ${name}`)
+const normalizeIdpPlatform = (value: string): 'AsgardeoV2' | 'Asgardeo' | 'IdentityServer' | 'Unknown' => {
+  if (value === 'AsgardeoV2' || value === 'Asgardeo' || value === 'IdentityServer' || value === 'Unknown') {
+    return value
   }
 
-  return value
+  return 'AsgardeoV2'
 }
 
-const APP_URL = import.meta.env.VITE_APP_URL || window.location.origin
+const APP_URL = getEnv('VITE_APP_URL', window.location.origin)!
 const CLIENT_ID = getRequiredEnv('VITE_IDP_CLIENT_ID')
 const IDP_BASE_URL = getRequiredEnv('VITE_IDP_BASE_URL')
-const IDP_PLATFORM = import.meta.env.VITE_IDP_PLATFORM || 'AsgardeoV2'
-const IDP_SCOPES = import.meta.env.VITE_IDP_SCOPES
-  ? import.meta.env.VITE_IDP_SCOPES.split(',').map((scope: string) => scope.trim())
+const IDP_PLATFORM = normalizeIdpPlatform(getEnv('VITE_IDP_PLATFORM', 'AsgardeoV2')!)
+const rawScopes = getEnv('VITE_IDP_SCOPES')
+const IDP_SCOPES = rawScopes
+  ? rawScopes.split(',').map((scope: string) => scope.trim())
   : ['openid', 'profile', 'email']
 
 createRoot(document.getElementById('root')!).render(

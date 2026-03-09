@@ -40,9 +40,11 @@ portals/
 ├── pnpm-lock.yaml         # Single lock file for entire monorepo
 ├── package.json           # Root workspace configuration
 ├── tsconfig.json          # Shared TypeScript configuration
-├── ui/                    # Shared UI component library (@lsf/ui)
-│   └── src/
-│       └── components/    # Reusable components built on Radix UI
+├── packages/
+│   ├── ui/                # Shared UI component library (@opennsw/ui)
+│   │   └── src/
+│   │       └── components/ # Reusable components built on Radix UI
+│   └── jsonforms-renderers/ # Shared JSON Forms renderers
 └── apps/                  # Consumer applications
     ├── oga-app/           # OGA portal application
     └── trader-app/        # Trading application
@@ -50,7 +52,7 @@ portals/
 
 ## Overview
 
-### UI Library (`@lsf/ui`)
+### UI Library (`@opennsw/ui`)
 
 The `ui` package is a shared component library built from the ground up using [Radix UI](https://www.radix-ui.com/) primitives. It provides accessible, unstyled, and customizable components that can be consumed by any application in the monorepo.
 
@@ -66,7 +68,7 @@ The `ui` package is a shared component library built from the ground up using [R
 
 ### Apps
 
-The `apps/` directory contains applications that consume the shared UI library. Each app is a standalone project that imports components from `@lsf/ui`.
+The `apps/` directory contains applications that consume the shared UI library. Each app is a standalone project that imports components from `@opennsw/ui`.
 
 **Current apps:**
 - `oga-app` - OGA portal application
@@ -90,7 +92,7 @@ make build-ui       # Build UI library only
 
 # Code quality
 make lint           # Run linter
-make lint-fix       # Auto-fix linting issues
+make format         # Auto-fix linting issues
 ```
 
 ### Adding Dependencies
@@ -100,7 +102,7 @@ make lint-fix       # Auto-fix linting issues
 pnpm --filter oga-app add axios
 
 # To UI library
-pnpm --filter @lsf/ui add lodash
+pnpm --filter @opennsw/ui add lodash
 
 # To workspace root (dev dependencies)
 pnpm add -w prettier -D
@@ -110,10 +112,10 @@ pnpm add -w prettier -D
 
 ## Using the UI Library
 
-Import components from `@lsf/ui` in any app:
+Import components from `@opennsw/ui` in any app:
 
 ```tsx
-import { Button, Card } from '@lsf/ui'
+import { Button, Card } from '@opennsw/ui'
 
 function MyComponent() {
   return (
@@ -126,19 +128,19 @@ function MyComponent() {
 
 ## Adding New Components
 
-1. Create a new component in `ui/src/components/`
-2. Export it from `ui/src/index.ts`
+1. Create a new component in `packages/ui/src/components/`
+2. Export it from `packages/ui/src/index.ts`
 3. Rebuild the UI library
 
 ## Adding New Apps
 
 1. Create a new directory in `apps/`
 2. Initialize the app with your preferred framework
-3. Add `@lsf/ui` as a dependency in the app's `package.json`:
+3. Add `@opennsw/ui` as a dependency in the app's `package.json`:
    ```json
    {
      "dependencies": {
-       "@lsf/ui": "workspace:*"
+      "@opennsw/ui": "workspace:*"
      }
    }
    ```

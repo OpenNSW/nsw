@@ -1,4 +1,4 @@
-.PHONY: help setup install clean dev-oga dev-trader dev-all build build-oga build-trader build-ui lint format type-check test preview-oga preview-trader
+.PHONY: help setup install clean dev-oga dev-trader dev-all build build-oga build-trader build-ui lint format type-check preview-oga preview-trader
 
 # Default target
 help:
@@ -47,8 +47,8 @@ clean:
 	@echo "🧹 Cleaning workspace..."
 	@rm -rf node_modules
 	@rm -rf apps/*/node_modules
-	@rm -rf ui/node_modules
-	@rm -rf ui/dist apps/*/dist
+	@rm -rf packages/*/node_modules
+	@rm -rf packages/*/dist apps/*/dist
 	@rm -rf apps/*/.turbo
 	@echo "✅ Cleaned!"
 
@@ -80,7 +80,7 @@ build-trader:
 
 build-ui:
 	@echo "🏗️  Building UI library..."
-	@pnpm --filter @lsf/ui build
+	@pnpm --filter @opennsw/ui build
 
 # Linting and Formatting
 lint:
