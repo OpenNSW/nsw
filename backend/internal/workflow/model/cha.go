@@ -10,4 +10,3 @@ type CHA struct {
 func (c *CHA) TableName() string {
 	return "customs_house_agents"
 }
-

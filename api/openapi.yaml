@@ -124,11 +124,11 @@ paths:
           description: Internal server error
 
     post:
-      summary: Create Consignment
+      summary: Create Consignment (Stage 1)
       description: >
-        Create a new consignment with specified flow type and items.
-        The system automatically initializes workflow tasks based on HS code mappings.
-        Returns the created consignment with full details including all associated workflow nodes.
+        Create a new consignment by assigning a Customs House Agent (CHA).
+        This is Stage 1 of consignment creation, where only the CHA is provided.
+        Flow and HS code items are provided later during initialization (Stage 2).
         Requires Authorization header with Bearer JWT access token.
       operationId: createConsignment
       tags:
@@ -137,16 +137,13 @@ paths:
         - traderAuth: []
       requestBody:
         required: true
-        description: Consignment creation request
+        description: Consignment creation request (Stage 1 - CHA assignment only)
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/CreateConsignmentDTO"
             example:
-              flow: "IMPORT"
-              items:
-                - hsCodeId: "550e8400-e29b-41d4-a716-446655440000"
-                - hsCodeId: "550e8400-e29b-41d4-a716-446655440001"
+              chaId: "550e8400-e29b-41d4-a716-446655440000"
       responses:
         "201":
           description: Consignment created successfully
@@ -158,8 +155,6 @@ paths:
           description: Invalid request body or validation error
         "401":
           description: Missing or invalid authentication token
-        "422":
-          description: Unprocessable entity - HS code not found or other validation error
         "500":
           description: Internal server error
 
@@ -192,6 +187,54 @@ paths:
                 $ref: "#/components/schemas/ConsignmentDetailDTO"
         "400":
           description: Invalid consignment ID or format
+        "401":
+          description: Missing or invalid authentication token
+        "404":
+          description: Consignment not found
+        "500":
+          description: Internal server error
+
+  /consignments/{id}/initialize:
+    put:
+      summary: Initialize Consignment (Stage 2)
+      description: >
+        Initialize an existing consignment by setting its flow and HS code items.
+        This is Stage 2 of consignment creation. Workflow tasks are initialized based on HS code mappings.
+        Requires Authorization header with Bearer JWT access token.
+      operationId: initializeConsignment
+      tags:
+        - Consignments
+      security:
+        - traderAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: Consignment ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        description: Consignment initialization request (Stage 2 - flow and items)
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InitializeConsignmentDTO"
+            example:
+              flow: "IMPORT"
+              items:
+                - hsCodeId: "550e8400-e29b-41d4-a716-446655440000"
+                - hsCodeId: "550e8400-e29b-41d4-a716-446655440001"
+      responses:
+        "200":
+          description: Consignment initialized successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsignmentDetailDTO"
+        "400":
+          description: Invalid request body or validation error
         "401":
           description: Missing or invalid authentication token
         "404":
@@ -472,6 +515,16 @@ components:
           description: ID of the HS code for this item
 
     CreateConsignmentDTO:
+      type: object
+      required:
+        - chaId
+      properties:
+        chaId:
+          type: string
+          format: uuid
+          description: ID of the Customs House Agent (CHA) assigned to this consignment
+
+    InitializeConsignmentDTO:
       type: object
       required:
         - flow
