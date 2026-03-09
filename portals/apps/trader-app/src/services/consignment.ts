@@ -18,6 +18,17 @@ export async function createConsignment(
   )
 }
 
+export async function initializeConsignment(
+  consignmentId: string,
+  hsCodeId: string,
+  apiClient: ApiClient = defaultApiClient
+): Promise<CreateConsignmentResponse> {
+  return apiClient.put<{ hsCodeId: string }, CreateConsignmentResponse>(
+    `/consignments/${consignmentId}/initialize`,
+    { hsCodeId }
+  )
+}
+
 export async function getConsignment(
   id: string,
   apiClient: ApiClient = defaultApiClient
@@ -38,11 +49,15 @@ export async function getAllConsignments(
   limit: number = 50,
   state?: ConsignmentState | 'all',
   flow?: TradeFlow | 'all',
+  role: 'trader' | 'cha' = 'trader',
+  chaId?: string,
   apiClient: ApiClient = defaultApiClient
 ): Promise<ConsignmentListResult> {
   const params: Record<string, string | number> = { offset, limit }
   if (state && state !== 'all') params.state = state
   if (flow && flow !== 'all') params.flow = flow
+  params.role = role
+  if (role === 'cha' && chaId) params.cha_id = chaId
 
   const response = await apiClient.get<ConsignmentListResult>(
     '/consignments',

@@ -8,6 +8,7 @@ export type AccessTokenProvider = () => Promise<string | null | undefined>
 export interface ApiClient {
   get<T>(endpoint: string, params?: QueryParams): Promise<T>
   post<T, R>(endpoint: string, body: T): Promise<R>
+  put<T, R>(endpoint: string, body: T): Promise<R>
   getAuthHeaders(includeJsonContentType?: boolean): Promise<HeadersInit>
 }
 
@@ -121,6 +122,38 @@ export async function apiPost<T, R>(
   }
 }
 
+export async function apiPut<T, R>(
+  endpoint: string,
+  body: T,
+  token?: string | null
+): Promise<R> {
+  const url = `${API_BASE_URL}${endpoint}`
+
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: await buildHeaders(token),
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error(`API error ${response.status}: ${errorText}`)
+    throw new Error(`API error: ${response.status} ${response.statusText} - ${errorText}`)
+  }
+
+  const text = await response.text()
+  if (!text) {
+    throw new Error('API returned empty response')
+  }
+
+  try {
+    return JSON.parse(text) as R
+  } catch (e) {
+    console.error('Failed to parse API response', text)
+    throw new Error(`Failed to parse API response: ${e instanceof Error ? e.message : String(e)}`)
+  }
+}
+
 export function createApiClient(getAccessToken?: AccessTokenProvider): ApiClient {
   const inFlightGetRequests = new Map<string, Promise<unknown>>()
 
@@ -149,6 +182,10 @@ export function createApiClient(getAccessToken?: AccessTokenProvider): ApiClient
     async post<T, R>(endpoint: string, body: T): Promise<R> {
       const token = getAccessToken ? await getAccessToken() : null
       return apiPost<T, R>(endpoint, body, token)
+    },
+    async put<T, R>(endpoint: string, body: T): Promise<R> {
+      const token = getAccessToken ? await getAccessToken() : null
+      return apiPut<T, R>(endpoint, body, token)
     },
     async getAuthHeaders(includeJsonContentType = true): Promise<HeadersInit> {
       const token = getAccessToken ? (await getAccessToken()) ?? null : null

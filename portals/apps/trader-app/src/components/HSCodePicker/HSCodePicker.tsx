@@ -17,6 +17,8 @@ interface HSCodePickerProps {
   confirmText?: string
   /** Cancel button text */
   cancelText?: string
+  /** If provided, skips trade-flow step and uses this trade flow */
+  fixedTradeFlow?: TradeFlow
 }
 
 export function HSCodePicker({
@@ -27,9 +29,10 @@ export function HSCodePicker({
   title = 'New Consignment',
   confirmText = 'Start Consignment',
   cancelText = 'Cancel',
+  fixedTradeFlow,
 }: HSCodePickerProps) {
-  const [step, setStep] = useState<'trade-flow' | 'hs-code'>('trade-flow')
-  const [tradeFlow, setTradeFlow] = useState<TradeFlow | null>(null)
+  const [step, setStep] = useState<'trade-flow' | 'hs-code'>(fixedTradeFlow ? 'hs-code' : 'trade-flow')
+  const [tradeFlow, setTradeFlow] = useState<TradeFlow | null>(fixedTradeFlow ?? null)
   const [selectedHSCode, setSelectedHSCode] = useState<HSCode | null>(null)
 
   const handleConfirm = () => {
@@ -47,14 +50,16 @@ export function HSCodePicker({
 
   const handleBack = () => {
     if (step === 'hs-code') {
-      setStep('trade-flow')
-      setSelectedHSCode(null)
+      if (!fixedTradeFlow) {
+        setStep('trade-flow')
+        setSelectedHSCode(null)
+      }
     }
   }
 
   const resetState = () => {
-    setStep('trade-flow')
-    setTradeFlow(null)
+    setStep(fixedTradeFlow ? 'hs-code' : 'trade-flow')
+    setTradeFlow(fixedTradeFlow ?? null)
     setSelectedHSCode(null)
   }
 
@@ -173,7 +178,7 @@ export function HSCodePicker({
         </Box>
 
         <Flex gap="3" justify="end" mt="4">
-          {step === 'hs-code' && (
+          {step === 'hs-code' && !fixedTradeFlow && (
             <Button variant="soft" color="gray" onClick={handleBack} disabled={isCreating}>
               Back
             </Button>

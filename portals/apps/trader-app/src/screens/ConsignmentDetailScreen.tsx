@@ -1,21 +1,26 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useLocation, useParams, useNavigate } from 'react-router-dom'
 import { Button, Badge, Spinner, Text, Progress } from '@radix-ui/themes'
 import { ArrowLeftIcon } from '@radix-ui/react-icons'
 import { WorkflowViewer } from '../components/WorkflowViewer'
 import type { ConsignmentDetail } from "../services/types/consignment.ts"
-import { getConsignment } from "../services/consignment.ts"
+import { getConsignment, initializeConsignment } from "../services/consignment.ts"
 import { useApi } from '../services/ApiContext'
 import { getStateColor, formatState, formatDateTime } from '../utils/consignmentUtils'
+import { HSCodePicker } from '../components/HSCodePicker'
+import type { HSCode } from '../services/types/hsCode'
 
 export function ConsignmentDetailScreen() {
   const { consignmentId } = useParams<{ consignmentId: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const api = useApi()
   const [consignment, setConsignment] = useState<ConsignmentDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [hsPickerOpen, setHsPickerOpen] = useState(false)
+  const [initializing, setInitializing] = useState(false)
 
   const fetchConsignment = useCallback(async () => {
     if (!consignmentId) {
@@ -99,11 +104,30 @@ export function ConsignmentDetailScreen() {
     )
   }
 
-  const item = consignment.items[0]
+  const item = consignment.items?.[0]
   const workflowNodes = consignment.workflowNodes || []
   const completedSteps = workflowNodes.filter(n => n.state === 'COMPLETED').length
   const totalSteps = workflowNodes.length
   const progressPercentage = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0
+  const searchParams = new URLSearchParams(location.search)
+  const isChaView = searchParams.get('view') === 'cha'
+  const canSelectHsCode = isChaView && consignment.state === 'AWAITING_INITIATION'
+
+  const handleSelectHSCode = async (hsCode: HSCode) => {
+    if (!consignmentId) return
+    setInitializing(true)
+    try {
+      await initializeConsignment(consignmentId, hsCode.id, api)
+      setHsPickerOpen(false)
+      await fetchConsignment()
+    } catch (e) {
+      console.error('Failed to initialize consignment:', e)
+      // keep it minimal: reuse existing error area
+      setError('Failed to initialize consignment')
+    } finally {
+      setInitializing(false)
+    }
+  }
 
   return (
     <div className="p-4 md:p-6 h-[calc(100vh-64px)] flex flex-col">
@@ -145,6 +169,13 @@ export function ConsignmentDetailScreen() {
               </Badge>
             </div>
           </div>
+          {canSelectHsCode ? (
+            <div className="mt-3 flex justify-end">
+              <Button onClick={() => setHsPickerOpen(true)} disabled={initializing}>
+                {initializing ? 'Initializing...' : 'Select HSCode'}
+              </Button>
+            </div>
+          ) : null}
         </div>
 
         <div className="px-4 py-3 border-b border-gray-200">
@@ -218,6 +249,18 @@ export function ConsignmentDetailScreen() {
           )}
         </div>
       </div>
+
+      {/* Reuse existing HS code modal, but skip trade-flow step (flow is already known) */}
+      <HSCodePicker
+        open={hsPickerOpen}
+        onOpenChange={setHsPickerOpen}
+        fixedTradeFlow={consignment.flow}
+        title="Select HS Code"
+        confirmText="Start Workflow"
+        cancelText="Cancel"
+        isCreating={initializing}
+        onSelect={(hsCode) => handleSelectHSCode(hsCode)}
+      />
     </div>
   )
 }
