@@ -76,7 +76,9 @@ func (s *ConsignmentService) CreateConsignmentShell(ctx context.Context, flow mo
 	}
 	hsLoader := newHSCodeBatchLoader(s.db)
 	hsLoader.collectFromItems(consignment.Items)
-	_ = hsLoader.load(ctx)
+	if err := hsLoader.load(ctx); err != nil {
+		return nil, fmt.Errorf("failed to load HS codes: %w", err)
+	}
 	responseDTO, err := s.buildConsignmentDetailDTO(ctx, consignment, hsLoader)
 	if err != nil {
 		return nil, err
