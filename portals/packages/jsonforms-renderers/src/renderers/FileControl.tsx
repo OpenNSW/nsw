@@ -50,7 +50,6 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
     const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
     const [downloadLoading, setDownloadLoading] = useState(false);
     const [downloadError, setDownloadError] = useState<string | null>(null);
-    const [viewOpening, setViewOpening] = useState(false);
     const [localBlobUrl, setLocalBlobUrl] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -258,23 +257,6 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
                                 <Text size="1" color="gray">Loading...</Text>
                             ) : downloadError ? (
                                 <Text size="1" color="red">Error</Text>
-                            ) : viewOpening ? (
-                                <Text size="1" color="gray">Opening…</Text>
-                            ) : !localBlobUrl && uploadContext?.openFileInNewTab && data && isFileKey(data) ? (
-                                <Button
-                                    variant="soft"
-                                    color="blue"
-                                    size="1"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        const open = uploadContext.openFileInNewTab;
-                                        if (!open) return;
-                                        setViewOpening(true);
-                                        open(data).finally(() => setViewOpening(false));
-                                    }}
-                                >
-                                    View
-                                </Button>
                             ) : (
                                 <Button variant="soft" color="blue" size="1" asChild>
                                     <a

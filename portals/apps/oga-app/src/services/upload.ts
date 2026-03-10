@@ -41,24 +41,8 @@ export async function getDownloadUrl(apiClient: ApiClient, key: string): Promise
   }
 
   const data = (await response.json()) as { download_url: string; expires_at: number }
-  return { url: data.download_url, expiresAt: data.expires_at }
-}
-
-/** Fetch file content with auth and open in a new tab (for View button). Avoids relative download_url opening on frontend origin. */
-export async function openFileInNewTab(apiClient: ApiClient, key: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/uploads/${key}/content`, {
-    headers: await apiClient.getAuthHeaders(false),
-  })
-  if (!response.ok) {
-    throw new Error(`Failed to open file: ${response.status}`)
-  }
-  const blob = await response.blob()
-  const url = URL.createObjectURL(blob)
-  const w = window.open(url, '_blank', 'noopener,noreferrer')
-  if (w) {
-    setTimeout(() => URL.revokeObjectURL(url), 60_000)
-  } else {
-    URL.revokeObjectURL(url)
-    throw new Error('Popup blocked')
-  }
+  const url = data.download_url.startsWith('/')
+    ? `${new URL(API_BASE_URL).origin}${data.download_url}`
+    : data.download_url
+  return { url, expiresAt: data.expires_at }
 }

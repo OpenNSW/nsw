@@ -10,7 +10,7 @@ import {useAsgardeo, SignedOut} from '@asgardeo/react'
 import {LoginScreen} from "./screens/LoginScreen.tsx";
 import {ApiProvider, useApi} from './services/ApiContext'
 import { UploadProvider } from '@opennsw/jsonforms-renderers'
-import { uploadFile, getDownloadUrl, openFileInNewTab } from './services/upload'
+import { uploadFile, getDownloadUrl } from './services/upload'
 
 function UploadWrapper({ children }: { children: ReactNode }) {
   const api = useApi()
@@ -18,7 +18,6 @@ function UploadWrapper({ children }: { children: ReactNode }) {
     <UploadProvider
       onUpload={(file) => uploadFile(api, file)}
       getDownloadUrl={(key) => getDownloadUrl(api, key)}
-      openFileInNewTab={(key) => openFileInNewTab(api, key)}
     >
       {children}
     </UploadProvider>

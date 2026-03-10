@@ -16,12 +16,10 @@ export interface DownloadUrlResult {
 }
 
 export type GetDownloadUrl = (key: string) => Promise<DownloadUrlResult>;
-export type OpenFileInNewTab = (key: string) => Promise<void>;
 
 export interface UploadContextValue {
   onUpload?: UploadHandler;
   getDownloadUrl?: GetDownloadUrl;
-  openFileInNewTab?: OpenFileInNewTab;
 }
 
 const UploadContext = createContext<UploadContextValue | null>(null);
@@ -30,14 +28,12 @@ export function UploadProvider({
   children,
   onUpload,
   getDownloadUrl,
-  openFileInNewTab,
 }: {
   children: ReactNode;
   onUpload?: UploadHandler;
   getDownloadUrl?: GetDownloadUrl;
-  openFileInNewTab?: OpenFileInNewTab;
 }) {
-  const value: UploadContextValue = { onUpload, getDownloadUrl, openFileInNewTab };
+  const value: UploadContextValue = { onUpload, getDownloadUrl };
   return (
     <UploadContext.Provider value={value}>
       {children}

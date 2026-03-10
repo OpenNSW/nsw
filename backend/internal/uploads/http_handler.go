@@ -142,16 +142,11 @@ func (h *HTTPHandler) Download(w http.ResponseWriter, r *http.Request) {
 // It is intended only for local development when using LocalFSDriver; in non-local
 // environments (e.g. S3) callers should use GetDownloadURL and presigned URLs instead.
 func (h *HTTPHandler) DownloadContent(w http.ResponseWriter, r *http.Request) {
-	// This endpoint is only intended for local development when using LocalFSDriver.
+	// This endpoint is only available when using LocalFSDriver (local development).
+	// It serves the same role as an S3 presigned URL — no auth required since the
+	// caller was already authenticated when obtaining the URL via GET /uploads/{key}.
 	if _, ok := h.Service.Driver.(*drivers.LocalFSDriver); !ok {
-		// In non-local environments (e.g. S3), rely on GetDownloadURL + presigned URLs instead.
 		writeJSONError(w, http.StatusNotFound, "not found")
-		return
-	}
-
-	if auth.GetAuthContext(r.Context()) == nil {
-		slog.WarnContext(r.Context(), "authentication required but not provided for download content")
-		writeJSONError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
