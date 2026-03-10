@@ -28,7 +28,7 @@ func (h *HTTPHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error": "file is required"}`, http.StatusBadRequest)
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	metadata, err := h.Service.Upload(r.Context(), header.Filename, file, header.Size, header.Header.Get("Content-Type"))
 	if err != nil {
@@ -55,7 +55,7 @@ func (h *HTTPHandler) Download(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error": "file not found"}`, http.StatusNotFound)
 		return
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	w.Header().Set("Content-Type", contentType)
 	if _, err := io.Copy(w, reader); err != nil {

@@ -44,11 +44,11 @@ func (d *LocalFSDriver) Save(ctx context.Context, key string, body io.Reader, co
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	if _, err := io.Copy(file, body); err != nil {
-		file.Close()
-		os.Remove(fullPath)
+		_ = file.Close()
+		_ = os.Remove(fullPath)
 		return fmt.Errorf("failed to save file content: %w", err)
 	}
 
@@ -56,7 +56,7 @@ func (d *LocalFSDriver) Save(ctx context.Context, key string, body io.Reader, co
 	metaPath := fullPath + ".meta"
 	if err := os.WriteFile(metaPath, []byte(contentType), 0644); err != nil {
 		// Try to cleanup content file if metadata save fails
-		os.Remove(fullPath)
+		_ = os.Remove(fullPath)
 		return fmt.Errorf("failed to save metadata: %w", err)
 	}
 
@@ -82,7 +82,7 @@ func (d *LocalFSDriver) Get(ctx context.Context, key string) (io.ReadCloser, str
 
 func (d *LocalFSDriver) Delete(ctx context.Context, key string) error {
 	fullPath := filepath.Join(d.BaseDir, d.getHashedPath(key))
-	os.Remove(fullPath + ".meta") // Ignore error if meta doesn't exist
+	_ = os.Remove(fullPath + ".meta") // Ignore error if meta doesn't exist
 	err := os.Remove(fullPath)
 	if os.IsNotExist(err) {
 		return nil
