@@ -171,7 +171,7 @@ func (h *HTTPHandler) DownloadContent(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusInternalServerError, "failed to get file")
 		return
 	}
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 
 	w.Header().Set("Content-Type", contentType)
 	// Check if the body can report its size (standard for files/drivers)

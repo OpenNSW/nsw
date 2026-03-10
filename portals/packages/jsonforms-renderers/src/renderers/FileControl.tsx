@@ -51,7 +51,14 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
     const [downloadLoading, setDownloadLoading] = useState(false);
     const [downloadError, setDownloadError] = useState<string | null>(null);
     const [viewOpening, setViewOpening] = useState(false);
+    const [localBlobUrl, setLocalBlobUrl] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        return () => {
+            if (localBlobUrl) URL.revokeObjectURL(localBlobUrl);
+        };
+    }, [localBlobUrl]);
 
     const options = uischema?.options || {};
     const maxSize = (options.maxSize as number) || 5 * 1024 * 1024; // Default 5MB
@@ -79,10 +86,10 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
         setDownloadError(null);
 
         try {
-            const url = await uploadContext.getDownloadUrl(fileKey);
+            const result = await uploadContext.getDownloadUrl(fileKey);
             if (signal?.aborted) return;
-            setDownloadUrl(url);
-            setCachedDownloadUrl(fileKey, url, Math.floor(Date.now() / 1000) + 15 * 60);
+            setDownloadUrl(result.url);
+            setCachedDownloadUrl(fileKey, result.url, result.expiresAt);
         } catch (e) {
             if (signal?.aborted) return;
             setDownloadError('Unable to reach the server.');
@@ -92,14 +99,16 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
     }, [uploadContext]);
 
     useEffect(() => {
-        if (data && isFileKey(data)) {
+        if (data && isFileKey(data) && !localBlobUrl) {
             const ac = new AbortController();
             fetchDownloadUrl(data, ac.signal);
             return () => ac.abort();
         }
-        setDownloadUrl(null);
-        setDownloadError(null);
-    }, [data, fetchDownloadUrl]);
+        if (!localBlobUrl) {
+            setDownloadUrl(null);
+            setDownloadError(null);
+        }
+    }, [data, fetchDownloadUrl, localBlobUrl]);
 
     const getDisplayText = () => {
         if (fileName) return fileName;
@@ -137,8 +146,7 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
         }
     }, [data]);
 
-    // Resolve the href for the preview: use fetched presigned URL for file keys, or blob URL for data URLs
-    const resolvedHref = data && isFileKey(data) ? downloadUrl : blobUrl;
+    const resolvedHref = localBlobUrl ?? (data && isFileKey(data) ? downloadUrl : blobUrl);
 
     const processFile = useCallback(async (file: File) => {
         if (file.size > maxSize) {
@@ -161,11 +169,13 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
         if (uploadContext?.onUpload) {
             try {
                 const result = await uploadContext.onUpload(file);
+                setLocalBlobUrl(URL.createObjectURL(file));
                 handleChange(path, result.key);
                 setFileName(result.name ?? file.name);
                 setError(null);
             } catch {
                 setError('Upload failed.');
+                if (inputRef.current) inputRef.current.value = '';
             }
             return;
         }
@@ -207,6 +217,10 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
     const handleRemove = () => {
         if (!isEnabled) return;
 
+        if (localBlobUrl) {
+            URL.revokeObjectURL(localBlobUrl);
+            setLocalBlobUrl(null);
+        }
         handleChange(path, null);
         setFileName(null);
         setError(null);
@@ -246,7 +260,7 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
                                 <Text size="1" color="red">Error</Text>
                             ) : viewOpening ? (
                                 <Text size="1" color="gray">Opening…</Text>
-                            ) : uploadContext?.openFileInNewTab && data && isFileKey(data) ? (
+                            ) : !localBlobUrl && uploadContext?.openFileInNewTab && data && isFileKey(data) ? (
                                 <Button
                                     variant="soft"
                                     color="blue"

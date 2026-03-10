@@ -10,7 +10,12 @@ export interface UploadResponse {
 }
 
 export type UploadHandler = (file: File) => Promise<UploadResponse>;
-export type GetDownloadUrl = (key: string) => Promise<string>;
+export interface DownloadUrlResult {
+  url: string;
+  expiresAt: number;
+}
+
+export type GetDownloadUrl = (key: string) => Promise<DownloadUrlResult>;
 export type OpenFileInNewTab = (key: string) => Promise<void>;
 
 export interface UploadContextValue {

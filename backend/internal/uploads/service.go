@@ -27,6 +27,22 @@ func (c *countingReader) Read(p []byte) (int, error) {
 	return n, err
 }
 
+// countingReadSeeker extends countingReader with seeking support.
+// Constructed only when the underlying reader is an io.Seeker, so callers
+// (e.g. the S3 SDK) that type-assert to io.ReadSeeker get a truthful answer.
+type countingReadSeeker struct {
+	*countingReader
+	s io.Seeker
+}
+
+func (c *countingReadSeeker) Seek(offset int64, whence int) (int64, error) {
+	pos, err := c.s.Seek(offset, whence)
+	if err == nil && pos == 0 {
+		c.n = 0
+	}
+	return pos, err
+}
+
 func NewUploadService(driver StorageDriver) *UploadService {
 	return &UploadService{Driver: driver}
 }
@@ -42,9 +58,15 @@ func (s *UploadService) Upload(ctx context.Context, filename string, reader io.R
 
 	// Wrap the reader so we can determine the actual number of bytes written,
 	// rather than trusting any client-supplied size hints.
+	// If the reader supports seeking (e.g. multipart.File), expose it so the
+	// S3 SDK can type-assert to io.ReadSeeker for retries and content-length.
 	cr := &countingReader{r: reader}
+	var body io.Reader = cr
+	if s, ok := reader.(io.Seeker); ok {
+		body = &countingReadSeeker{countingReader: cr, s: s}
+	}
 
-	err := s.Driver.Save(ctx, key, cr, mime)
+	err := s.Driver.Save(ctx, key, body, mime)
 	if err != nil {
 		return nil, fmt.Errorf("storage driver failed: %w", err)
 	}

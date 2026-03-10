@@ -31,7 +31,7 @@ export async function uploadFile(apiClient: ApiClient, file: File): Promise<Uplo
   return { key: meta.key, name: meta.name }
 }
 
-export async function getDownloadUrl(apiClient: ApiClient, key: string): Promise<string> {
+export async function getDownloadUrl(apiClient: ApiClient, key: string): Promise<{ url: string; expiresAt: number }> {
   const response = await fetch(`${API_BASE_URL}/uploads/${key}`, {
     headers: await apiClient.getAuthHeaders(false),
   })
@@ -40,8 +40,8 @@ export async function getDownloadUrl(apiClient: ApiClient, key: string): Promise
     throw new Error(`Failed to get download URL: ${response.status} ${response.statusText}`)
   }
 
-  const data = (await response.json()) as { download_url: string }
-  return data.download_url
+  const data = (await response.json()) as { download_url: string; expires_at: number }
+  return { url: data.download_url, expiresAt: data.expires_at }
 }
 
 /** Fetch file content with auth and open in a new tab (for View button). Avoids relative download_url opening on frontend origin. */
