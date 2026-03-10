@@ -85,6 +85,7 @@ All configuration is via environment variables:
 | `OGA_DB_PATH`         | Path to SQLite database file            | `./oga_applications.db` |
 | `OGA_FORMS_PATH`      | Directory containing form JSON files    | `./data/forms`          |
 | `OGA_DEFAULT_FORM_ID` | Fallback form ID when no metadata match | `default`               |
+| `OGA_ALLOWED_ORIGINS` | Comma-separated CORS origins (`*` to allow all) | `*`               |
 
 See [`.env.example`](.env.example) for a template.
 

@@ -25,11 +25,14 @@ func LoadConfig() Config {
 	}
 }
 
-// parseOrigins splits a space-separated list of origins.
+// parseOrigins splits a comma-separated list of origins.
 func parseOrigins(s string) []string {
 	var origins []string
-	for _, o := range strings.Fields(s) {
-		origins = append(origins, o)
+	for _, o := range strings.Split(s, ",") {
+		o = strings.TrimSpace(o)
+		if o != "" {
+			origins = append(origins, o)
+		}
 	}
 	return origins
 }
