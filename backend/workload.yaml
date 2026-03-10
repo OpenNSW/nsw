@@ -1,0 +1,40 @@
+apiVersion: openchoreo.dev/v1alpha1
+
+metadata:
+  name: nsw-backend
+
+endpoints:
+  - name: api
+    port: 8080
+    type: REST
+    basePath: /api/v1
+    visibility:
+      - external
+
+configurations:
+  env:
+    - name: DB_HOST
+      valueFrom:
+        secretKeyRef:
+          name: nsw-db-secrets
+          key: host
+    - name: DB_PORT
+      valueFrom:
+        secretKeyRef:
+          name: nsw-db-secrets
+          key: port
+    - name: DB_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: nsw-db-secrets
+          key: username
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: nsw-db-secrets
+          key: password
+    - name: DB_NAME
+      valueFrom:
+        secretKeyRef:
+          name: nsw-db-secrets
+          key: database

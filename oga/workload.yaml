@@ -1,0 +1,12 @@
+apiVersion: openchoreo.dev/v1alpha1
+
+metadata:
+  name: nsw-oga
+
+endpoints:
+  - name: api
+    port: 8081
+    type: REST
+    basePath: /
+    visibility:
+      - external

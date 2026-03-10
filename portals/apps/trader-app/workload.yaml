@@ -1,0 +1,12 @@
+apiVersion: openchoreo.dev/v1alpha1
+
+metadata:
+  name: nsw-trader-portal
+
+endpoints:
+  - name: web
+    port: 80
+    type: HTTP
+    basePath: /
+    visibility:
+      - external
