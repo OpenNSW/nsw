@@ -56,7 +56,7 @@ VALUES
         'Phytosanitary Certificate',
         'Phytosanitary certificate for plant products export',
         'SIMPLE_FORM',
-        '{
+        ('{
             "agency": "NPQS",
             "formId": "22222222-2222-2222-2222-222222222222",
             "service": "plant-quarantine-phytosanitary",
@@ -115,7 +115,7 @@ VALUES
                 ]
             },
             "submission": {
-                "url": "http://localhost:8081/api/oga/inject",
+                "url": ' || to_jsonb((:'NPQS_OGA_SUBMISSION_URL')::text)::text || ',
                 "request": {
                     "meta": {
                         "type": "consignment",
@@ -123,7 +123,7 @@ VALUES
                     }
                 }
             }
-        }',
+        }')::jsonb,
         '[
             "c0000003-0003-0003-0003-000000000002"
         ]',
@@ -141,7 +141,7 @@ VALUES
         'Health Certificate',
         'Health and safety certificate for food products',
         'SIMPLE_FORM',
-        '{
+        ('{
             "agency": "EDB",
             "formId": "33333333-3333-3333-3333-333333333333",
             "service": "food-control-administration-unit",
@@ -153,9 +153,9 @@ VALUES
                 }
             },
             "submission": {
-                "url": "http://localhost:8082/api/oga/inject"
+                "url": ' || to_jsonb((:'FCAU_OGA_SUBMISSION_URL')::text)::text || '
             }
-        }',
+        }')::jsonb,
         '[
             "c0000003-0003-0003-0003-000000000002"
         ]',
@@ -173,7 +173,7 @@ VALUES
         'Manual Inspection',
         'Manual inspection task for high-risk phytosanitary cases',
         'SIMPLE_FORM',
-        '{
+        ('{
             "agency": "NPQS",
             "formId": "f1a00001-0001-4000-c000-000000000001",
             "service": "plant-quarantine-phytosanitary",
@@ -185,9 +185,9 @@ VALUES
                 }
             },
             "submission": {
-                "url": "http://localhost:8081/api/oga/inject"
+                "url": ' || to_jsonb((:'NPQS_OGA_SUBMISSION_URL')::text)::text || '
             }
-        }',
+        }')::jsonb,
         '[
             "c0000003-0003-0003-0003-000000000003"
         ]',

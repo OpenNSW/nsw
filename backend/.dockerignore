@@ -1,0 +1,11 @@
+.git
+.gitignore
+.env
+.env.local
+bin/
+coverage.out
+tmp/
+*.log
+*.db
+*.sqlite
+*.sqlite3

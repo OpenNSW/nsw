@@ -12,6 +12,7 @@
   •   <a href="#why-nsw">Why NSW?</a> •
   <a href="#key-features">Key Features</a> •
   <a href="#getting-started">Getting Started</a> •
+  <a href="#deployment">Deployment</a> •
   <a href="#project-structure">Project Structure</a> •
   <a href="#system-architecture">System Architecture</a> •
   <a href="#delivery-milestones">Delivery Milestones</a> •
@@ -111,6 +112,21 @@ The NSW system is built on a distributed microservices architecture to maintain 
 5. **Decision:** OGA Officer approves or denies the request within their portal.
 6. **Callback:** The SM sends a success/fail callback to the CWE to advance the state machine.
 7. **Finalization:** Once all OGA states are complete, the CWE initiates the Customs (ASYCUDA) interface.
+
+## Deployment
+
+For deployment architecture, setup, and operations, see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+Supported deployment modes:
+
+- **Docker Compose (recommended):** fastest end-to-end startup for local/system testing
+- **Individual Docker images:** manual orchestration with custom networking/volumes
+- **Kubernetes:** production-style orchestration guidance and required components
+
+Related docs:
+
+- Image-level run commands: [docs/CONTAINER_IMAGES.md](docs/CONTAINER_IMAGES.md)
+- Full deployment guide: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 
 ## Contributing
 

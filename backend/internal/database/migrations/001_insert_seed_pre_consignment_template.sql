@@ -281,13 +281,13 @@ VALUES
         'General Trader Verification Form',
         'Submit general trader verification details',
         'SIMPLE_FORM',
-        '{
+        ('{
             "agency": "IRD",
             "formId": "f0000002-0001-0001-0001-000000000005",
             "service": "inland-revenue",
-            "submissionUrl": "http://localhost:8083/api/oga/inject",
+            "submissionUrl": ' || to_jsonb((:'PRECONSIGNMENT_OGA_SUBMISSION_URL')::text)::text || ',
             "requiresOgaVerification": true
-        }'::jsonb,
+        }')::jsonb,
         '[]'::jsonb
     );
 
