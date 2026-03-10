@@ -1,0 +1,52 @@
+apiVersion: openchoreo.dev/v1alpha1
+metadata:
+  name: nsw-backend
+endpoints:
+  - name: api
+    port: 8080
+    type: REST
+    visibility:
+      - external
+configurations:
+  env:
+    - name: SERVER_PORT
+      value: "8080"
+    - name: SERVER_LOG_LEVEL
+      value: info
+    - name: DB_HOST
+      valueFrom:
+        secretKeyRef:
+          name: nsw-db-secrets
+          key: host
+    - name: DB_PORT
+      valueFrom:
+        secretKeyRef:
+          name: nsw-db-secrets
+          key: port
+    - name: DB_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: nsw-db-secrets
+          key: username
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: nsw-db-secrets
+          key: password
+    - name: DB_NAME
+      valueFrom:
+        secretKeyRef:
+          name: nsw-db-secrets
+          key: database
+    - name: DB_SSLMODE
+      value: disable
+    - name: STORAGE_TYPE
+      value: local
+    - name: STORAGE_LOCAL_BASE_DIR
+      value: /app/bucket
+    - name: AUTH_JWKS_URL
+      value: http://thunder-service.thunder.svc.cluster.local:8090/.well-known/jwks.json
+    - name: AUTH_JWKS_INSECURE_SKIP_VERIFY
+      value: "true"
+    - name: CORS_ALLOWED_ORIGINS
+      value: "*"

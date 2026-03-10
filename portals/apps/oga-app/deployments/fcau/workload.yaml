@@ -1,0 +1,26 @@
+apiVersion: openchoreo.dev/v1alpha1
+metadata:
+  name: nsw-oga-fcau-portal
+endpoints:
+  - name: web
+    port: 80
+    type: HTTP
+    visibility:
+      - external
+connections:
+  - component: nsw-oga-fcau
+    endpoint: api
+    visibility: project
+    envBindings:
+      - from: address
+        to: OGA_FCAU_URL
+configurations:
+  env:
+    - name: VITE_API_BASE_URL
+      value: ""
+    - name: VITE_IDP_BASE_URL
+      value: http://thunder-service.thunder.svc.cluster.local:8090
+    - name: VITE_IDP_CLIENT_ID
+      value: OGA_PORTAL_APP_FCAU
+    - name: VITE_APP_URL
+      value: ""

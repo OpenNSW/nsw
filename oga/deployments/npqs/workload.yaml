@@ -1,0 +1,17 @@
+apiVersion: openchoreo.dev/v1alpha1
+metadata:
+  name: nsw-oga-npqs
+endpoints:
+  - name: api
+    port: 8081
+    type: REST
+configurations:
+  env:
+    - name: OGA_PORT
+      value: "8081"
+    - name: OGA_DB_PATH
+      value: /data/npqs.db
+    - name: OGA_FORMS_PATH
+      value: /app/data/forms
+    - name: OGA_ALLOWED_ORIGINS
+      value: "*"

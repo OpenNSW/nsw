@@ -1,0 +1,32 @@
+apiVersion: openchoreo.dev/v1alpha1
+metadata:
+  name: nsw-trader-portal
+endpoints:
+  - name: web
+    port: 80
+    type: HTTP
+    visibility:
+      - external
+connections:
+  - component: nsw-backend
+    endpoint: api
+    visibility: project
+    envBindings:
+      - from: address
+        to: NSW_BACKEND_URL
+configurations:
+  env:
+    - name: VITE_API_BASE_URL
+      value: ""
+    - name: VITE_IDP_BASE_URL
+      value: http://thunder-service.thunder.svc.cluster.local:8090
+    - name: VITE_IDP_CLIENT_ID
+      value: TRADER_PORTAL_APP
+    - name: VITE_APP_URL
+      value: ""
+    - name: VITE_IDP_SCOPES
+      value: "openid,profile,email"
+    - name: VITE_IDP_PLATFORM
+      value: AsgardeoV2
+    - name: VITE_SHOW_AUTOFILL_BUTTON
+      value: "true"
