@@ -14,7 +14,8 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-RUN pnpm --filter oga-app build
+# Build oga-app and any workspace dependencies it relies on (e.g. local packages/*).
+RUN pnpm --filter oga-app... build
 
 FROM nginx:1.27-alpine
 
