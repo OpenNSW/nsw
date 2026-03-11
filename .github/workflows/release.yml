@@ -125,7 +125,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image_name }}
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image_name }}
           tags: |
             # semver tags for tag-push releases: 1.2.3, 1.2, 1
             type=semver,pattern={{version}},enable=${{ github.event_name == 'push' }}
