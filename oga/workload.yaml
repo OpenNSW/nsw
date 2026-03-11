@@ -10,3 +10,15 @@ endpoints:
     basePath: /
     visibility:
       - external
+
+configurations:
+  env:
+    - name: OGA_PORT
+      value: "8081"
+    - name: OGA_DB_PATH
+      value: /data/oga_applications.db
+    - name: OGA_ALLOWED_ORIGINS
+      valueFrom:
+        secretKeyRef:
+          name: nsw-oga-secrets
+          key: allowed-origins

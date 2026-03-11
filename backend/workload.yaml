@@ -13,6 +13,7 @@ endpoints:
 
 configurations:
   env:
+    # Database
     - name: DB_HOST
       valueFrom:
         secretKeyRef:
@@ -38,3 +39,39 @@ configurations:
         secretKeyRef:
           name: nsw-db-secrets
           key: database
+    - name: DB_SSLMODE
+      value: require
+    # Auth
+    - name: AUTH_JWKS_URL
+      valueFrom:
+        secretKeyRef:
+          name: nsw-auth-secrets
+          key: jwks-url
+    - name: AUTH_ISSUER
+      valueFrom:
+        secretKeyRef:
+          name: nsw-auth-secrets
+          key: issuer
+    - name: AUTH_CLIENT_ID
+      valueFrom:
+        secretKeyRef:
+          name: nsw-auth-secrets
+          key: client-id
+    - name: AUTH_AUDIENCE
+      valueFrom:
+        secretKeyRef:
+          name: nsw-auth-secrets
+          key: audience
+    # CORS
+    - name: CORS_ALLOWED_ORIGINS
+      valueFrom:
+        secretKeyRef:
+          name: nsw-backend-secrets
+          key: cors-allowed-origins
+    # Storage
+    - name: STORAGE_TYPE
+      value: local
+    - name: STORAGE_LOCAL_BASE_DIR
+      value: /data/uploads
+    - name: STORAGE_LOCAL_PUBLIC_URL
+      value: /bucket
