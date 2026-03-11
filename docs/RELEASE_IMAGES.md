@@ -31,7 +31,7 @@ For each image, tags are generated as follows:
 - SHA tag:
   - `sha-<full-commit-sha>`
 - `latest`:
-  - published only in release mode
+  - published only for SemVer tag pushes and manual dispatches from `main`
 - Manual dispatch:
   - uses the provided `version` input as a raw tag
 
@@ -47,6 +47,7 @@ The workflow has two modes:
 2. Dry run mode
 - Builds images only
 - Does not push images
+- Active for manual dispatches from branches other than `main`
 
 ## How to Run a Release
 

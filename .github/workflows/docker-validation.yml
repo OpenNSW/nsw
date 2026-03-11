@@ -1,8 +1,13 @@
 name: Docker Validation CI
+# Validates that all deployable Docker images build successfully on PRs to main.
+# This workflow never pushes images — it is purely a build correctness check.
+# Image publishing is handled by release.yml.
 
 on:
   pull_request:
     branches: [main]
+    # Only run when files that affect a Docker build context change,
+    # or when this workflow file itself changes.
     paths:
       - 'backend/**'
       - 'oga/**'
@@ -10,6 +15,9 @@ on:
       - '.github/workflows/docker-validation.yml'
 
 jobs:
+  # STAGE 1: Detect which build contexts were actually changed in this PR.
+  # This prevents all four images from rebuilding when only one context changed.
+  # Outputs are boolean strings ('true'/'false') consumed by docker-validate.
   detect-changes:
     name: Detect Changed Build Contexts
     runs-on: ubuntu-latest
@@ -32,9 +40,17 @@ jobs:
               - 'oga/**'
             portals:
               - 'portals/**'
+            # Treat a change to this workflow file as touching all contexts
+            # so every image is validated when CI config itself changes.
             workflow:
               - '.github/workflows/docker-validation.yml'
 
+  # STAGE 2: Build all relevant Docker images in parallel.
+  # fail-fast: false ensures one failing build does not cancel the others,
+  # so you get a full picture of what broke in a single run.
+  #
+  # Both oga-portal and trader-portal use './portals' as context because
+  # they share workspace-level pnpm dependencies (packages/, pnpm-lock.yaml).
   docker-validate:
     name: Validate ${{ matrix.name }} image
     needs: detect-changes
@@ -47,23 +63,26 @@ jobs:
             context: ./backend
             dockerfile: ./backend/Dockerfile
             tag: nsw-backend:validate
-            trigger: backend
+            trigger: backend  # matches a detect-changes output key
           - name: oga-backend
             context: ./oga
             dockerfile: ./oga/Dockerfile
             tag: nsw-oga-backend:validate
             trigger: oga
           - name: trader-portal
-            context: ./portals
+            context: ./portals  # full portals/ workspace needed for shared packages
             dockerfile: ./portals/apps/trader-app/Dockerfile
             tag: nsw-trader-portal:validate
             trigger: portals
           - name: oga-portal
-            context: ./portals
+            context: ./portals  # full portals/ workspace needed for shared packages
             dockerfile: ./portals/apps/oga-app/Dockerfile
             tag: nsw-oga-portal:validate
             trigger: portals
     steps:
+      # Each step carries the same condition: skip this matrix entry entirely
+      # if neither its specific context nor the workflow file changed.
+      # This keeps unaffected builds out of the run without needing matrix excludes.
       - uses: actions/checkout@v4
         if: |
           needs.detect-changes.outputs.workflow == 'true' ||
@@ -71,6 +90,7 @@ jobs:
           (matrix.trigger == 'oga' && needs.detect-changes.outputs.oga == 'true') ||
           (matrix.trigger == 'portals' && needs.detect-changes.outputs.portals == 'true')
 
+      # BuildKit is required for cache-from/cache-to and multi-stage build optimisations.
       - uses: docker/setup-buildx-action@v3
         if: |
           needs.detect-changes.outputs.workflow == 'true' ||
@@ -88,7 +108,8 @@ jobs:
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
-          push: false
+          push: false  # validation only — never push in this workflow
           tags: ${{ matrix.tag }}
+          # GHA cache backend reuses layers across runs, keyed by image name.
           cache-from: type=gha
           cache-to: type=gha,mode=max

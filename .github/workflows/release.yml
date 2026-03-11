@@ -1,9 +1,19 @@
 name: Release - Build and Publish All Images
+# Builds and publishes all deployable NSW Docker images to GHCR.
+#
+# Triggers:
+#   - Automatic: pushing a SemVer tag (e.g. v1.2.0) triggers a full release.
+#   - Manual:    workflow_dispatch with a version input for hotfixes or re-releases.
+#
+# Release mode vs Dry Run:
+#   Images are only pushed when triggered by a tag push OR a manual dispatch
+#   from the main branch. Any other trigger (e.g. branch push) runs in dry-run
+#   mode: images are built but not pushed and no GitHub Release is created.
 
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v*.*.*'  # matches semantic version tags: v1.0.0, v1.2.3-rc.1, etc.
   workflow_dispatch:
     inputs:
       version:
@@ -15,13 +25,15 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
+  # STAGE 1: Build, tag, and publish all images in parallel.
+  # fail-fast: false means one failing image does not cancel the others.
   build-and-publish:
     name: Build and Publish - ${{ matrix.service_name }}
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      packages: write
-      security-events: write
+      packages: write          # push images to GHCR
+      security-events: write   # upload Trivy SARIF results to GitHub Security
+      id-token: write          # required for SLSA provenance attestation signing
     strategy:
       fail-fast: false
       matrix:
@@ -54,15 +66,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # full history needed for accurate git metadata
 
       - name: Set build time
         id: build-time
         run: |
-          TIMESTAMP="${{ github.event.head_commit.timestamp }}"
-          if [ -z "$TIMESTAMP" ]; then
-            TIMESTAMP="${{ github.event.repository.pushed_at }}"
-          fi
+          # repository.pushed_at is reliably populated on both push and workflow_dispatch.
+          # github.event.head_commit.timestamp is NOT available on workflow_dispatch
+          # so we skip it and fall back to the current time if pushed_at is also empty.
+          TIMESTAMP="${{ github.event.repository.pushed_at }}"
           if [ -z "$TIMESTAMP" ]; then
             TIMESTAMP=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
           fi
@@ -72,6 +84,9 @@ jobs:
       - name: Determine release mode
         id: release-mode
         run: |
+          # Release mode: tag push OR manual dispatch from main.
+          # All other cases (e.g. accidental branch push) become a dry run —
+          # images are built but not pushed and no GitHub Release is created.
           if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == refs/tags/* ]] || \
              [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.ref }}" == "refs/heads/main" ]]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
@@ -95,6 +110,8 @@ jobs:
       - name: Extract version
         id: version
         run: |
+          # Resolve the version string from whichever trigger fired.
+          # Strip the leading 'v' so downstream steps always get a bare semver (e.g. 1.2.0).
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             VERSION="${{ github.event.inputs.version }}"
           else
@@ -110,11 +127,19 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image_name }}
           tags: |
+            # semver tags for tag-push releases: 1.2.3, 1.2, 1
             type=semver,pattern={{version}},enable=${{ github.event_name == 'push' }}
             type=semver,pattern={{major}}.{{minor}},enable=${{ github.event_name == 'push' }}
             type=semver,pattern={{major}},enable=${{ github.event_name == 'push' }}
+            # For manual dispatch, raw tag covers the exact version supplied;
+            # semver patterns also run so major/minor aliases are written.
             type=raw,value=${{ steps.version.outputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
+            type=semver,pattern={{version}},enable=${{ github.event_name == 'workflow_dispatch' }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ github.event_name == 'workflow_dispatch' }}
+            type=semver,pattern={{major}},enable=${{ github.event_name == 'workflow_dispatch' }}
+            # 'latest' is only written in release mode (never on dry runs)
             type=raw,value=latest,enable=${{ steps.release-mode.outputs.enabled == 'true' }}
+            # Always write a full-length SHA tag for traceability
             type=sha,format=long
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
@@ -133,10 +158,21 @@ jobs:
           push: ${{ steps.release-mode.outputs.enabled == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # provenance and sbom attach SLSA build attestations to the image in GHCR,
+          # making the build verifiable and traceable back to this workflow run.
+          provenance: mode=max
+          sbom: true
+          # GHA cache is keyed per image name; the two portals sharing the same
+          # context (./portals) use different image names so caches don't collide.
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Trivy scans the pushed image for CRITICAL/HIGH CVEs.
+      # continue-on-error keeps the release moving if Trivy itself fails,
+      # but the SARIF upload is only attempted when the scan actually succeeded
+      # (outcome == 'success'), preventing the 'path does not exist' error.
       - name: Run Trivy vulnerability scanner
+        id: trivy-scan
         if: steps.release-mode.outputs.enabled == 'true'
         uses: aquasecurity/trivy-action@0.28.0
         continue-on-error: true
@@ -148,11 +184,13 @@ jobs:
           ignore-unfixed: false
 
       - name: Upload Trivy results
-        if: steps.release-mode.outputs.enabled == 'true' && always()
-        uses: github/codeql-action/upload-sarif@v3
+        if: always() && steps.trivy-scan.outcome == 'success'
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-${{ matrix.image_name }}.sarif
 
+      # Always runs (even on failure) to give a per-service build summary.
+      # Digest is only available when the image was actually pushed.
       - name: Generate service summary
         if: always()
         run: |
@@ -163,26 +201,45 @@ jobs:
           echo "- Dockerfile: ${{ matrix.dockerfile }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Context: ${{ matrix.context }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Image: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image_name }}" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "${{ steps.build.outputs.digest }}" ]; then
+            echo "- Digest: ${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
+  # STAGE 2: Create the GitHub Release entry after all images are published.
+  # Runs after build-and-publish completes (needs: build-and-publish).
+  # Skipped on dry runs — only fires on tag push or manual dispatch.
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
     needs: build-and-publish
     permissions:
-      contents: write
-    if: github.event_name == 'push'
+      contents: write  # required to create a GitHub Release
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     steps:
       - name: Determine version
         id: version
         run: |
-          VERSION="${GITHUB_REF#refs/tags/}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/}"
+          fi
           VERSION="${VERSION#v}"
           echo "tag=${VERSION}" >> "$GITHUB_OUTPUT"
+          # Mark as prerelease if the version contains a hyphen: v1.0.0-rc.1, v2.0.0-beta, etc.
+          # Stable releases (v1.2.3) have no hyphen and are published as non-prerelease.
+          if [[ "${VERSION}" == *-* ]]; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref }}
+          # For tag push, github.ref is the tag ref (refs/tags/v1.2.0).
+          # For workflow_dispatch, there is no tag ref, so we construct one from the version input.
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', steps.version.outputs.tag) || github.ref }}
           name: Release ${{ steps.version.outputs.tag }}
           body: |
             ## Release ${{ steps.version.outputs.tag }}
@@ -203,4 +260,4 @@ jobs:
             docker pull ${{ env.REGISTRY }}/${{ github.repository }}/nsw-oga-portal:${{ steps.version.outputs.tag }}
             ```
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.version.outputs.is_prerelease == 'true' }}
