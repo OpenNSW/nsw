@@ -127,7 +127,7 @@ func (t *PaymentTask) Start(_ context.Context) (*ExecutionResponse, error) {
 	}
 
 	session := t.newSession()
-	if err := t.api.WriteToLocalStore(paymentStoreSession, session); err != nil {
+	if err := t.api.WriteToLocalStore(paymentStoreSession, &session); err != nil {
 		return nil, fmt.Errorf("payment: failed to persist initial session: %w", err)
 	}
 
@@ -182,7 +182,8 @@ func (t *PaymentTask) GetRenderInfo(ctx context.Context) (*ApiResponse, error) {
 
 	// Rotate session if TTL has elapsed (applies to both IDLE and refreshed-from-timeout).
 	if time.Now().After(session.GeneratedAt.Add(t.ttlDuration())) {
-		session = t.newSession()
+		newSess := t.newSession()
+		session = &newSess
 		if err := t.api.WriteToLocalStore(paymentStoreSession, session); err != nil {
 			return nil, fmt.Errorf("payment: failed to persist rotated session: %w", err)
 		}
@@ -325,7 +326,7 @@ func (t *PaymentTask) failedHandler(ctx context.Context) (*ExecutionResponse, er
 
 	// Generate a fresh session for the next attempt.
 	newSess := t.newSession()
-	if err := t.api.WriteToLocalStore(paymentStoreSession, newSess); err != nil {
+	if err := t.api.WriteToLocalStore(paymentStoreSession, &newSess); err != nil {
 		return nil, fmt.Errorf("payment: failed to persist new session after failure: %w", err)
 	}
 
@@ -359,30 +360,30 @@ func (t *PaymentTask) ttlDuration() time.Duration {
 
 // readSession reads and deserialises the current PaymentSession from local store.
 // It handles the JSON round-trip that occurs on a cache miss (map[string]any → PaymentSession).
-func (t *PaymentTask) readSession(_ context.Context) (PaymentSession, error) {
+func (t *PaymentTask) readSession(_ context.Context) (*PaymentSession, error) {
 	raw, err := t.api.ReadFromLocalStore(paymentStoreSession)
 	if err != nil {
-		return PaymentSession{}, err
+		return nil, err
 	}
 	if raw == nil {
-		return PaymentSession{}, fmt.Errorf("no active payment session")
+		return nil, fmt.Errorf("no active payment session")
 	}
 
 	// Fast path: already the correct type (in-memory cache hit).
 	if s, ok := raw.(PaymentSession); ok {
-		return s, nil
+		return &s, nil
 	}
 
 	// Slow path: JSON round-trip after cache miss / persistence reload.
 	b, err := json.Marshal(raw)
 	if err != nil {
-		return PaymentSession{}, fmt.Errorf("payment: failed to marshal stored session: %w", err)
+		return nil, fmt.Errorf("payment: failed to marshal stored session: %w", err)
 	}
 	var s PaymentSession
 	if err := json.Unmarshal(b, &s); err != nil {
-		return PaymentSession{}, fmt.Errorf("payment: failed to unmarshal stored session: %w", err)
+		return nil, fmt.Errorf("payment: failed to unmarshal stored session: %w", err)
 	}
-	return s, nil
+	return &s, nil
 }
 
 // readTransactionHistory reads and deserialises the payment transaction history from local store.
