@@ -9,7 +9,7 @@
 -- ============================================================================
 -- Drop runtime and workflow instance tables
 -- ============================================================================
-DROP TABLE IF EXISTS trader_contexts;
+DROP TABLE IF EXISTS user_contexts;
 DROP TABLE IF EXISTS workflow_nodes;
 DROP TABLE IF EXISTS pre_consignments;
 DROP TABLE IF EXISTS consignments;

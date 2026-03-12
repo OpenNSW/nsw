@@ -6,14 +6,13 @@ import (
 )
 
 // UserContext represents a user's stored context in the database.
-// Maps to the trader_contexts table (kept for backward compatibility).
 type UserContext struct {
-	UserID      string          `gorm:"type:varchar(100);column:trader_id;primaryKey;not null" json:"trader_id"`
-	UserContext json.RawMessage `gorm:"type:jsonb;column:trader_context;serializer:json;not null" json:"trader_context"`
+	UserID      string          `gorm:"type:varchar(100);column:user_id;primaryKey;not null" json:"userId"`
+	UserContext json.RawMessage `gorm:"type:jsonb;column:user_context;serializer:json;not null" json:"userContext"`
 }
 
 func (t *UserContext) TableName() string {
-	return "trader_contexts"
+	return "user_contexts"
 }
 
 // AuthContext is the transient authentication context injected into each request

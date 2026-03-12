@@ -38,7 +38,7 @@ func (as *AuthService) GetUserContext(userID string) (*UserContext, error) {
 	}
 
 	var uc UserContext
-	result := as.db.Where("trader_id = ?", userID).First(&uc)
+	result := as.db.Where("user_id = ?", userID).First(&uc)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			slog.Debug("user context not found", "user_id", userID)
@@ -81,8 +81,8 @@ func (as *AuthService) UpdateUserContext(userID string, ctx json.RawMessage) err
 	}
 
 	result := as.db.Model(&UserContext{}).
-		Where("trader_id = ?", userID).
-		Update("trader_context", ctx)
+		Where("user_id = ?", userID).
+		Update("user_context", ctx)
 	if result.Error != nil {
 		return fmt.Errorf("failed to update user context: %w", result.Error)
 	}

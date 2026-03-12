@@ -258,7 +258,7 @@ func TestUserContextModel(t *testing.T) {
 				"company": "Acme Inc",
 				"role":    "exporter",
 			},
-			wantTable: "trader_contexts",
+			wantTable: "user_contexts",
 		},
 	}
 

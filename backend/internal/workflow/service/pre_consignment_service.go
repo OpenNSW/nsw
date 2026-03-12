@@ -418,7 +418,7 @@ func (s *PreConsignmentService) syncTraderContextToAuth(ctx context.Context, tx 
 	var uc auth.UserContext
 	result := tx.WithContext(ctx).
 		Clauses(clause.Locking{Strength: "UPDATE"}).
-		Where("trader_id = ?", preConsignment.TraderID).
+		Where("user_id = ?", preConsignment.TraderID).
 		First(&uc)
 
 	if result.Error != nil {

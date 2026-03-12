@@ -293,15 +293,15 @@ func TestPreConsignmentService_UpdateWorkflowNodeStateAndPropagateChanges(t *tes
 			WillReturnResult(sqlmock.NewResult(1, 1))
 
 		// Sync Context to Auth (Service Logic)
-		// First(auth.TraderContext) - Assume not found or found. Let's say found.
+		// First(auth.UserContext) - Assume not found or found. Let's say found.
 		// GORM adds FOR UPDATE due to Locking clause
-		sqlMock.ExpectQuery(`SELECT \* FROM "trader_contexts" WHERE trader_id = \$1 ORDER BY "trader_contexts"."trader_id" LIMIT \$2 FOR UPDATE`).
+		sqlMock.ExpectQuery(`SELECT \* FROM "user_contexts" WHERE user_id = \$1 ORDER BY "user_contexts"."user_id" LIMIT \$2 FOR UPDATE`).
 			WithArgs("trader1", 1).
-			WillReturnRows(sqlmock.NewRows([]string{"id", "trader_id", "trader_context"}).
-				AddRow(uuid.New(), "trader1", []byte(`{}`)))
+			WillReturnRows(sqlmock.NewRows([]string{"user_id", "user_context"}).
+				AddRow("trader1", []byte(`{}`)))
 
-		// Save(auth.TraderContext)
-		sqlMock.ExpectExec(`UPDATE "trader_contexts"`).
+		// Save(auth.UserContext)
+		sqlMock.ExpectExec(`UPDATE "user_contexts"`).
 			WillReturnResult(sqlmock.NewResult(1, 1))
 
 		sqlMock.ExpectCommit()
@@ -416,15 +416,15 @@ func TestPreConsignmentService_SyncTraderContext(t *testing.T) {
 	sqlMock.ExpectExec(`UPDATE "pre_consignments"`).WillReturnResult(sqlmock.NewResult(1, 1))
 
 	// Sync Trader Context (The part we really want to test)
-	// Query TraderContext FOR UPDATE
-	sqlMock.ExpectQuery(`SELECT \* FROM "trader_contexts" WHERE trader_id = \$1 ORDER BY "trader_contexts"."trader_id" LIMIT \$2 FOR UPDATE`).
+	// Query UserContext FOR UPDATE
+	sqlMock.ExpectQuery(`SELECT \* FROM "user_contexts" WHERE user_id = \$1 ORDER BY "user_contexts"."user_id" LIMIT \$2 FOR UPDATE`).
 		WithArgs(traderID, 1).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "trader_id", "trader_context"}).
-			AddRow(uuid.New(), traderID, []byte(`{"existing": "data"}`)))
+		WillReturnRows(sqlmock.NewRows([]string{"user_id", "user_context"}).
+			AddRow(traderID, []byte(`{"existing": "data"}`)))
 
-	// Update TraderContext
+	// Update UserContext
 	// Should merge {"initial": "val", "newKey": "newValue"} into {"existing": "data"}
-	sqlMock.ExpectExec(`UPDATE "trader_contexts"`).WillReturnResult(sqlmock.NewResult(1, 1))
+	sqlMock.ExpectExec(`UPDATE "user_contexts"`).WillReturnResult(sqlmock.NewResult(1, 1))
 
 	sqlMock.ExpectCommit()
 

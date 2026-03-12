@@ -404,20 +404,20 @@ CREATE INDEX IF NOT EXISTS idx_pre_consignments_trader_id_state
 	ON pre_consignments (trader_id, state);
 
 -- ============================================================================
--- Trader context registry
+-- User context registry
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS trader_contexts
+CREATE TABLE IF NOT EXISTS user_contexts
 (
-	trader_id varchar(100) NOT NULL
+	user_id varchar(100) NOT NULL
 		PRIMARY KEY,
-	trader_context jsonb NOT NULL,
+	user_context jsonb NOT NULL,
 	created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
 	updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
 
-COMMENT ON TABLE trader_contexts IS 'Stores trader context information including metadata in JSON format. This table is used for trader identification and authorization.';
+COMMENT ON TABLE user_contexts IS 'Stores user context information including metadata in JSON format. This table is used for user identification and authorization.';
 
-COMMENT ON COLUMN trader_contexts.trader_id IS 'Unique trader identifier (e.g., TRADER-001)';
+COMMENT ON COLUMN user_contexts.user_id IS 'Unique user identifier (e.g., TRADER-001)';
 
-COMMENT ON COLUMN trader_contexts.trader_context IS 'JSONB field containing trader metadata and context information';
+COMMENT ON COLUMN user_contexts.user_context IS 'JSONB field containing user metadata and context information';
 

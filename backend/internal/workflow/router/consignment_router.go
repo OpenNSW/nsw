@@ -112,7 +112,12 @@ func (c *ConsignmentRouter) HandleGetConsignments(w http.ResponseWriter, r *http
 		filter.Flow = &flow
 	}
 
-	if role == "cha" {
+	userID := authCtx.UserID
+
+	if role != "cha" {
+		filter.TraderID = &userID
+	} else {
+		// Handle CHA role: URL param takes priority
 		if chaIDStr := r.URL.Query().Get("cha_id"); chaIDStr != "" {
 			chaID, err := uuid.Parse(chaIDStr)
 			if err != nil {
@@ -121,16 +126,14 @@ func (c *ConsignmentRouter) HandleGetConsignments(w http.ResponseWriter, r *http
 			}
 			filter.ChaID = &chaID
 		} else {
-			cha, err := c.cha.GetCHAByEmail(r.Context(), authCtx.UserID)
+			// Fallback: Resolve the specific CHA Entity from the DB
+			cha, err := c.cha.GetCHAByEmail(r.Context(), userID)
 			if err != nil {
-				http.Error(w, "failed to resolve CHA for authenticated user: "+err.Error(), http.StatusForbidden)
+				http.Error(w, "failed to resolve CHA", http.StatusForbidden)
 				return
 			}
 			filter.ChaID = &cha.ID
 		}
-	} else {
-		userID := authCtx.UserID
-		filter.TraderID = &userID
 	}
 
 	consignments, err := c.cs.ListConsignments(r.Context(), filter)
@@ -147,7 +150,7 @@ func (c *ConsignmentRouter) HandleGetConsignments(w http.ResponseWriter, r *http
 	}
 }
 
-// HandleInitializeConsignment handles PUT /api/v1/consignments/{id}/initialize (Stage 2: CHA selects HS Codes).
+// HandleInitializeConsignment handles PUT /api/v1/consignments/{id} (Stage 2: CHA selects HS Codes).
 // Body: InitializeConsignmentDTO { hsCodeIds: []uuid }. Response: ConsignmentDetailDTO.
 func (c *ConsignmentRouter) HandleInitializeConsignment(w http.ResponseWriter, r *http.Request) {
 	authCtx := auth.GetAuthContext(r.Context())
@@ -166,7 +169,8 @@ func (c *ConsignmentRouter) HandleInitializeConsignment(w http.ResponseWriter, r
 		http.Error(w, "invalid consignment ID format", http.StatusBadRequest)
 		return
 	}
-
+	// TODO: Need to Call GetConsignmentByID and check whether the Consignment.ChaID and authContext.UserID are equal
+	// Otherwise Forbidden
 	var req model.InitializeConsignmentDTO
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body: "+err.Error(), http.StatusBadRequest)

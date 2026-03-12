@@ -74,7 +74,7 @@ func NewManager(db *gorm.DB, authConfig config.AuthConfig) (*Manager, error) {
 // The middleware:
 // 1. Extracts Authorization header
 // 2. Parses token to get trader ID
-// 3. Looks up trader context from database
+// 3. Looks up user context from database
 // 4. Injects context into request
 //
 // Gracefully degrades if auth is missing or fails.
@@ -83,14 +83,14 @@ func (m *Manager) Middleware() func(http.Handler) http.Handler { return m.middle
 // Service returns the auth service for direct use if needed.
 // Most applications won't need this - use the middleware instead.
 // Useful for:
-// - Direct trader context lookups
-// - Updating trader information
+// - Direct user context lookups
+// - Updating user information
 // - Admin operations
 //
 // Example:
 //
 //	authService := authManager.Service()
-//	context, err := authService.GetTraderContext("TRADER-001")
+//	context, err := authService.GetUserContext("USER-001")
 func (m *Manager) Service() *AuthService { return m.service }
 
 // RequireAuthMiddleware returns a middleware that requires authentication.
@@ -127,7 +127,7 @@ func (m *Manager) OptionalAuthMiddleware() func(http.Handler) http.Handler { ret
 // Example:
 //
 //	authManager := auth.NewManager(db)
-//	ctx, err := authManager.GetUserContext("TRADER-001")
+//	ctx, err := authManager.GetUserContext("USER-001")
 //
 // For request-based operations, use auth.GetAuthContext(r.Context()) in handlers instead.
 func (m *Manager) GetUserContext(userID string) (*UserContext, error) {
@@ -141,7 +141,7 @@ func (m *Manager) GetUserContext(userID string) (*UserContext, error) {
 //
 //	authManager := auth.NewManager(db)
 //	newContext := json.RawMessage(`{"status": "verified"}`)
-//	err := authManager.UpdateUserContext("TRADER-001", newContext)
+//	err := authManager.UpdateUserContext("USER-001", newContext)
 //
 // For request-based operations, use a handler with auth context instead.
 func (m *Manager) UpdateUserContext(userID string, ctx interface{}) error {
@@ -162,7 +162,7 @@ func (m *Manager) UpdateUserContext(userID string, ctx interface{}) error {
 // Health checks if the auth system is functioning properly.
 // Performs a sample database query to verify:
 // 1. Database connection is alive
-// 2. trader_contexts table exists
+// 2. user_contexts table exists
 // 3. Auth service can perform lookups
 //
 // Usage in server startup:
