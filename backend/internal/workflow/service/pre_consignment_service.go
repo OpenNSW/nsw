@@ -231,7 +231,7 @@ func (s *PreConsignmentService) initializePreConsignmentInTx(
 	}
 
 	// Register workflow with the manager (creates Workflow entity + nodes + registers with TM)
-	if err := s.workflowManager.RegisterWorkflow(ctx, tx, preConsignment.ID, []model.WorkflowTemplate{*workflowTemplate}, initialTraderContext, s); err != nil {
+	if err := s.workflowManager.StartWorkflowInstance(ctx, tx, preConsignment.ID, []model.WorkflowTemplate{*workflowTemplate}, initialTraderContext, s); err != nil {
 		tx.Rollback()
 		return nil, fmt.Errorf("failed to register workflow: %w", err)
 	}
@@ -250,7 +250,7 @@ func (s *PreConsignmentService) initializePreConsignmentInTx(
 	}
 
 	// Get workflow details for response
-	wf, err := s.workflowManager.GetWorkflowDetails(ctx, preConsignment.ID)
+	wf, err := s.workflowManager.GetWorkflowInstance(ctx, preConsignment.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workflow details: %w", err)
 	}
@@ -277,7 +277,7 @@ func (s *PreConsignmentService) GetPreConsignmentsByTraderID(ctx context.Context
 	responseDTOs := make([]model.PreConsignmentResponseDTO, 0, len(preConsignments))
 	for i := range preConsignments {
 		// Get workflow details for each pre-consignment
-		wf, err := s.workflowManager.GetWorkflowDetails(ctx, preConsignments[i].ID)
+		wf, err := s.workflowManager.GetWorkflowInstance(ctx, preConsignments[i].ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get workflow details for pre-consignment %s: %w", preConsignments[i].ID, err)
 		}
@@ -298,7 +298,7 @@ func (s *PreConsignmentService) GetPreConsignmentByID(ctx context.Context, preCo
 		return nil, fmt.Errorf("failed to retrieve pre-consignment with ID %s: %w", preConsignmentID, result.Error)
 	}
 
-	wf, err := s.workflowManager.GetWorkflowDetails(ctx, preConsignment.ID)
+	wf, err := s.workflowManager.GetWorkflowInstance(ctx, preConsignment.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workflow details: %w", err)
 	}

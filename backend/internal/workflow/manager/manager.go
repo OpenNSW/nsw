@@ -38,15 +38,15 @@ type WorkflowEventHandler interface {
 	OnWorkflowStatusChanged(ctx context.Context, tx *gorm.DB, workflowID uuid.UUID, fromStatus model.WorkflowStatus, toStatus model.WorkflowStatus, workflow *model.Workflow) error
 }
 
-// InitTaskCallback registers READY workflow nodes with the task manager.
-type InitTaskCallback func(ctx context.Context, request taskManager.InitTaskRequest) (*taskManager.InitTaskResponse, error)
+// TaskInitHandler registers READY workflow nodes with the task manager.
+type TaskInitHandler func(ctx context.Context, request taskManager.InitTaskRequest) (*taskManager.InitTaskResponse, error)
 
 // Manager defines the public contract for the generic workflow engine.
 type Manager interface {
-	RegisterWorkflow(ctx context.Context, tx *gorm.DB, workflowID uuid.UUID, workflowTemplates []model.WorkflowTemplate, globalContext map[string]any, handler WorkflowEventHandler) error
-	RegisterTaskToTaskManager(callback InitTaskCallback) error
-	HandleTaskNotification(ctx context.Context, update taskManager.WorkflowManagerNotification) error
-	GetWorkflowDetails(ctx context.Context, workflowID uuid.UUID) (*model.Workflow, error)
+	StartWorkflowInstance(ctx context.Context, tx *gorm.DB, workflowID uuid.UUID, workflowTemplates []model.WorkflowTemplate, globalContext map[string]any, handler WorkflowEventHandler) error
+	RegisterTaskHandler(callback TaskInitHandler) error
+	HandleTaskUpdate(ctx context.Context, update taskManager.WorkflowManagerNotification) error
+	GetWorkflowInstance(ctx context.Context, workflowID uuid.UUID) (*model.Workflow, error)
 }
 
 // workflowManager is the generic workflow engine implementation.
@@ -56,7 +56,7 @@ type workflowManager struct {
 	nodeRepo             WorkflowNodeRepository
 	nodeTemplateProvider NodeTemplateProvider
 	handlerMap           map[uuid.UUID]WorkflowEventHandler
-	initTaskCallback     InitTaskCallback
+	initTaskCallback     TaskInitHandler
 	mu                   sync.RWMutex
 	db                   *gorm.DB
 }
@@ -79,8 +79,8 @@ func NewManager(
 	return m
 }
 
-// RegisterTaskToTaskManager registers the callback used to initialize tasks for READY workflow nodes.
-func (m *workflowManager) RegisterTaskToTaskManager(callback InitTaskCallback) error {
+// RegisterTaskHandler registers the callback used to initialize tasks for READY workflow nodes.
+func (m *workflowManager) RegisterTaskHandler(callback TaskInitHandler) error {
 	if callback == nil {
 		return fmt.Errorf("init task callback cannot be nil")
 	}
@@ -91,9 +91,9 @@ func (m *workflowManager) RegisterTaskToTaskManager(callback InitTaskCallback) e
 	return nil
 }
 
-// RegisterWorkflow creates a new Workflow entity and its nodes from the given templates,
+// StartWorkflowInstance creates a new Workflow entity and its nodes from the given templates,
 // then registers READY nodes with the TaskManager. The workflowID is set by the caller.
-func (m *workflowManager) RegisterWorkflow(
+func (m *workflowManager) StartWorkflowInstance(
 	ctx context.Context,
 	tx *gorm.DB,
 	workflowID uuid.UUID,
@@ -177,8 +177,8 @@ func (m *workflowManager) RegisterWorkflow(
 	return nil
 }
 
-// GetWorkflowDetails returns the Workflow with preloaded WorkflowNodes and their templates.
-func (m *workflowManager) GetWorkflowDetails(ctx context.Context, workflowID uuid.UUID) (*model.Workflow, error) {
+// GetWorkflowInstance returns the Workflow with preloaded WorkflowNodes and their templates.
+func (m *workflowManager) GetWorkflowInstance(ctx context.Context, workflowID uuid.UUID) (*model.Workflow, error) {
 	var wf model.Workflow
 	if err := m.db.WithContext(ctx).
 		Preload("WorkflowNodes.WorkflowNodeTemplate").
@@ -188,8 +188,8 @@ func (m *workflowManager) GetWorkflowDetails(ctx context.Context, workflowID uui
 	return &wf, nil
 }
 
-// HandleTaskNotification processes a single task notification sent by the task manager callback.
-func (m *workflowManager) HandleTaskNotification(ctx context.Context, update taskManager.WorkflowManagerNotification) error {
+// HandleTaskUpdate processes a single task notification sent by the task manager callback.
+func (m *workflowManager) HandleTaskUpdate(ctx context.Context, update taskManager.WorkflowManagerNotification) error {
 	if update.UpdatedState == nil {
 		return fmt.Errorf("received nil state in workflow node update for task %s", update.TaskID)
 	}

@@ -495,10 +495,10 @@ func TestHandleGetTask(t *testing.T) {
 func TestNotifyWorkflowManager(t *testing.T) {
 	t.Run("Callback Nil", func(t *testing.T) {
 		tm := &taskManager{
-			workflowManagerCallback: nil,
+			workflowUpdateHandler: nil,
 		}
 		// Should not panic
-		tm.notifyWorkflowManager(context.Background(), uuid.New(), nil, nil, nil, nil)
+		tm.notifyWorkflowUpdateHandler(context.Background(), uuid.New(), nil, nil, nil, nil)
 	})
 
 	t.Run("Callback Invoked", func(t *testing.T) {
@@ -507,7 +507,7 @@ func TestNotifyWorkflowManager(t *testing.T) {
 		var gotState *plugin.State
 
 		tm := &taskManager{
-			workflowManagerCallback: func(_ context.Context, taskID uuid.UUID, state *plugin.State, _ *string, _ map[string]any, _ *string) {
+			workflowUpdateHandler: func(_ context.Context, taskID uuid.UUID, state *plugin.State, _ *string, _ map[string]any, _ *string) {
 				invoked = true
 				gotTaskID = taskID
 				gotState = state
@@ -515,7 +515,7 @@ func TestNotifyWorkflowManager(t *testing.T) {
 		}
 		taskID := uuid.New()
 		state := plugin.Completed
-		tm.notifyWorkflowManager(context.Background(), taskID, &state, nil, nil, nil)
+		tm.notifyWorkflowUpdateHandler(context.Background(), taskID, &state, nil, nil, nil)
 
 		assert.True(t, invoked)
 		assert.Equal(t, taskID, gotTaskID)

@@ -67,12 +67,12 @@ type MockWorkflowManager struct {
 	mock.Mock
 }
 
-func (m *MockWorkflowManager) RegisterWorkflow(ctx context.Context, tx *gorm.DB, workflowID uuid.UUID, workflowTemplates []model.WorkflowTemplate, globalContext map[string]any, handler workflowmanager.WorkflowEventHandler) error {
+func (m *MockWorkflowManager) StartWorkflowInstance(ctx context.Context, tx *gorm.DB, workflowID uuid.UUID, workflowTemplates []model.WorkflowTemplate, globalContext map[string]any, handler workflowmanager.WorkflowEventHandler) error {
 	args := m.Called(ctx, tx, workflowID, workflowTemplates, globalContext, handler)
 	return args.Error(0)
 }
 
-func (m *MockWorkflowManager) GetWorkflowDetails(ctx context.Context, workflowID uuid.UUID) (*model.Workflow, error) {
+func (m *MockWorkflowManager) GetWorkflowInstance(ctx context.Context, workflowID uuid.UUID) (*model.Workflow, error) {
 	args := m.Called(ctx, workflowID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -80,11 +80,11 @@ func (m *MockWorkflowManager) GetWorkflowDetails(ctx context.Context, workflowID
 	return args.Get(0).(*model.Workflow), args.Error(1)
 }
 
-func (m *MockWorkflowManager) RegisterTaskToTaskManager(_ workflowmanager.InitTaskCallback) error {
+func (m *MockWorkflowManager) RegisterTaskHandler(_ workflowmanager.TaskInitHandler) error {
 	return nil
 }
 
-func (m *MockWorkflowManager) HandleTaskNotification(_ context.Context, _ taskManager.WorkflowManagerNotification) error {
+func (m *MockWorkflowManager) HandleTaskUpdate(_ context.Context, _ taskManager.WorkflowManagerNotification) error {
 	return nil
 }
 
@@ -116,11 +116,11 @@ func TestConsignmentService_InitializeConsignment(t *testing.T) {
 	sqlMock.ExpectExec(`INSERT INTO "consignments"`).
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
-	mockWM.On("RegisterWorkflow", ctx, mock.Anything, mock.AnythingOfType("uuid.UUID"), mock.Anything, globalContext, mock.Anything).Return(nil)
+	mockWM.On("StartWorkflowInstance", ctx, mock.Anything, mock.AnythingOfType("uuid.UUID"), mock.Anything, globalContext, mock.Anything).Return(nil)
 	sqlMock.ExpectCommit()
 
 	nodeTemplateID := workflowTemplate.NodeTemplates[0]
-	mockWM.On("GetWorkflowDetails", ctx, mock.AnythingOfType("uuid.UUID")).Return(&model.Workflow{
+	mockWM.On("GetWorkflowInstance", ctx, mock.AnythingOfType("uuid.UUID")).Return(&model.Workflow{
 		BaseModel: model.BaseModel{ID: uuid.New()},
 		Status:    model.WorkflowStatusInProgress,
 		WorkflowNodes: []model.WorkflowNode{
@@ -192,7 +192,7 @@ func TestConsignmentService_GetConsignmentByID(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "flow", "trader_id", "state", "created_at", "updated_at", "items"}).
 			AddRow(consignmentID, "IMPORT", "trader1", "IN_PROGRESS", time.Now(), time.Now(), []byte(`[{"hsCodeId":"`+hsCodeID.String()+`"}]`)))
 
-	mockWM.On("GetWorkflowDetails", ctx, consignmentID).Return(&model.Workflow{
+	mockWM.On("GetWorkflowInstance", ctx, consignmentID).Return(&model.Workflow{
 		BaseModel: model.BaseModel{ID: consignmentID},
 		Status:    model.WorkflowStatusInProgress,
 		WorkflowNodes: []model.WorkflowNode{
@@ -253,7 +253,7 @@ func TestConsignmentService_UpdateConsignment(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "flow", "trader_id", "state", "created_at", "updated_at", "items"}).
 			AddRow(consignmentID, "IMPORT", "trader1", "FINISHED", time.Now(), time.Now(), []byte(`[{"hsCodeId":"`+hsCodeID.String()+`"}]`)))
 
-	mockWM.On("GetWorkflowDetails", ctx, consignmentID).Return(&model.Workflow{
+	mockWM.On("GetWorkflowInstance", ctx, consignmentID).Return(&model.Workflow{
 		BaseModel: model.BaseModel{ID: consignmentID},
 		Status:    model.WorkflowStatusInProgress,
 		WorkflowNodes: []model.WorkflowNode{

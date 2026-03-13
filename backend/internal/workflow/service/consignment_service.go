@@ -115,7 +115,7 @@ func (s *ConsignmentService) InitializeConsignmentByID(ctx context.Context, cons
 		return nil, fmt.Errorf("failed to update consignment: %w", err)
 	}
 
-	if err := s.workflowManager.RegisterWorkflow(ctx, tx, consignment.ID, workflowTemplates, globalContext, s); err != nil {
+	if err := s.workflowManager.StartWorkflowInstance(ctx, tx, consignment.ID, workflowTemplates, globalContext, s); err != nil {
 		tx.Rollback()
 		return nil, fmt.Errorf("failed to register workflow: %w", err)
 	}
@@ -130,7 +130,7 @@ func (s *ConsignmentService) InitializeConsignmentByID(ctx context.Context, cons
 		return nil, fmt.Errorf("failed to reload consignment: %w", err)
 	}
 
-	wf, err := s.workflowManager.GetWorkflowDetails(ctx, consignment.ID)
+	wf, err := s.workflowManager.GetWorkflowInstance(ctx, consignment.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workflow details: %w", err)
 	}
@@ -200,7 +200,7 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 		return nil, fmt.Errorf("failed to create consignment: %w", err)
 	}
 
-	if err := s.workflowManager.RegisterWorkflow(ctx, tx, consignment.ID, workflowTemplates, globalContext, s); err != nil {
+	if err := s.workflowManager.StartWorkflowInstance(ctx, tx, consignment.ID, workflowTemplates, globalContext, s); err != nil {
 		tx.Rollback()
 		return nil, fmt.Errorf("failed to register workflow: %w", err)
 	}
@@ -215,7 +215,7 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 		return nil, fmt.Errorf("failed to reload consignment: %w", err)
 	}
 
-	wf, err := s.workflowManager.GetWorkflowDetails(ctx, consignment.ID)
+	wf, err := s.workflowManager.GetWorkflowInstance(ctx, consignment.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workflow details: %w", err)
 	}
@@ -246,7 +246,7 @@ func (s *ConsignmentService) GetConsignmentByID(ctx context.Context, consignment
 	var wf *model.Workflow
 	if consignment.State != model.ConsignmentStateInitialized {
 		var err error
-		wf, err = s.workflowManager.GetWorkflowDetails(ctx, consignment.ID)
+		wf, err = s.workflowManager.GetWorkflowInstance(ctx, consignment.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get workflow details: %w", err)
 		}
@@ -488,7 +488,7 @@ func (s *ConsignmentService) UpdateConsignment(ctx context.Context, updateReq *m
 	var wf *model.Workflow
 	if consignment.State != model.ConsignmentStateInitialized {
 		var err error
-		wf, err = s.workflowManager.GetWorkflowDetails(ctx, consignment.ID)
+		wf, err = s.workflowManager.GetWorkflowInstance(ctx, consignment.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get workflow details: %w", err)
 		}

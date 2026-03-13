@@ -54,7 +54,7 @@ func (m *MockTaskManager) HandleGetTask(w http.ResponseWriter, r *http.Request) 
 	m.Called(w, r)
 }
 
-func (m *MockTaskManager) NotifyWorkflowManager(_ taskManager.WorkflowManagerCallback) {}
+func (m *MockTaskManager) RegisterUpstreamCallback(_ taskManager.WorkflowUpdateHandler) {}
 
 func TestPluginStateToWorkflowNodeState(t *testing.T) {
 	tests := []struct {
@@ -182,7 +182,7 @@ func TestManager_HandleTaskNotification(t *testing.T) {
 
 		mockNodeRepo.On("GetWorkflowNodeByIDInTx", mock.Anything, mock.Anything, taskID).Return(nil, gorm.ErrRecordNotFound).Once()
 
-		err := manager.HandleTaskNotification(context.Background(), notification)
+		err := manager.HandleTaskUpdate(context.Background(), notification)
 		assert.Error(t, err)
 		mockNodeRepo.AssertCalled(t, "GetWorkflowNodeByIDInTx", mock.Anything, mock.Anything, taskID)
 	})

@@ -21,11 +21,11 @@ func WireManagers(wm workflowmanager.Manager, tm taskManager.TaskManager) error 
 		return fmt.Errorf("task manager cannot be nil")
 	}
 
-	if err := wm.RegisterTaskToTaskManager(tm.InitTask); err != nil {
+	if err := wm.RegisterTaskHandler(tm.InitTask); err != nil {
 		return fmt.Errorf("failed to register task init callback: %w", err)
 	}
 
-	tm.NotifyWorkflowManager(func(ctx context.Context, taskID uuid.UUID, state *plugin.State, extendedState *string, appendGlobalContext map[string]any, outcome *string) {
+	tm.RegisterUpstreamCallback(func(ctx context.Context, taskID uuid.UUID, state *plugin.State, extendedState *string, appendGlobalContext map[string]any, outcome *string) {
 		notification := taskManager.WorkflowManagerNotification{
 			TaskID:              taskID,
 			UpdatedState:        state,
@@ -34,7 +34,7 @@ func WireManagers(wm workflowmanager.Manager, tm taskManager.TaskManager) error 
 			Outcome:             outcome,
 		}
 
-		if err := wm.HandleTaskNotification(ctx, notification); err != nil {
+		if err := wm.HandleTaskUpdate(ctx, notification); err != nil {
 			slog.ErrorContext(ctx, "workflow manager notification handling failed",
 				"taskID", taskID,
 				"error", err,

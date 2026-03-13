@@ -70,12 +70,12 @@ type MockWorkflowManager struct {
 	mock.Mock
 }
 
-func (m *MockWorkflowManager) RegisterWorkflow(ctx context.Context, tx *gorm.DB, workflowID uuid.UUID, workflowTemplates []model.WorkflowTemplate, globalContext map[string]any, handler workflowmanager.WorkflowEventHandler) error {
+func (m *MockWorkflowManager) StartWorkflowInstance(ctx context.Context, tx *gorm.DB, workflowID uuid.UUID, workflowTemplates []model.WorkflowTemplate, globalContext map[string]any, handler workflowmanager.WorkflowEventHandler) error {
 	args := m.Called(ctx, tx, workflowID, workflowTemplates, globalContext, handler)
 	return args.Error(0)
 }
 
-func (m *MockWorkflowManager) GetWorkflowDetails(ctx context.Context, workflowID uuid.UUID) (*model.Workflow, error) {
+func (m *MockWorkflowManager) GetWorkflowInstance(ctx context.Context, workflowID uuid.UUID) (*model.Workflow, error) {
 	args := m.Called(ctx, workflowID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -83,11 +83,11 @@ func (m *MockWorkflowManager) GetWorkflowDetails(ctx context.Context, workflowID
 	return args.Get(0).(*model.Workflow), args.Error(1)
 }
 
-func (m *MockWorkflowManager) RegisterTaskToTaskManager(_ workflowmanager.InitTaskCallback) error {
+func (m *MockWorkflowManager) RegisterTaskHandler(_ workflowmanager.TaskInitHandler) error {
 	return nil
 }
 
-func (m *MockWorkflowManager) HandleTaskNotification(_ context.Context, _ taskManager.WorkflowManagerNotification) error {
+func (m *MockWorkflowManager) HandleTaskUpdate(_ context.Context, _ taskManager.WorkflowManagerNotification) error {
 	return nil
 }
 
@@ -133,7 +133,7 @@ func TestConsignmentRouter_HandleGetConsignmentByID(t *testing.T) {
 	sqlMock.MatchExpectationsInOrder(false)
 	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"consignments\"").WillReturnRows(sqlmock.NewRows([]string{"id", "state"}).AddRow(consignmentID, "IN_PROGRESS"))
 
-	mockWM.On("GetWorkflowDetails", mock.Anything, consignmentID).Return(&model.Workflow{
+	mockWM.On("GetWorkflowInstance", mock.Anything, consignmentID).Return(&model.Workflow{
 		BaseModel:     model.BaseModel{ID: consignmentID},
 		Status:        model.WorkflowStatusInProgress,
 		WorkflowNodes: []model.WorkflowNode{},
@@ -195,14 +195,14 @@ func TestConsignmentRouter_HandleCreateConsignment(t *testing.T) {
 	sqlMock.ExpectBegin()
 	sqlMock.ExpectExec("(?i)INSERT INTO \"consignments\"").WillReturnResult(sqlmock.NewResult(1, 1))
 
-	mockWM.On("RegisterWorkflow", mock.Anything, mock.Anything, mock.AnythingOfType("uuid.UUID"), mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	mockWM.On("StartWorkflowInstance", mock.Anything, mock.Anything, mock.AnythingOfType("uuid.UUID"), mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	sqlMock.ExpectCommit()
 
 	// Post-commit reloads
 	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"consignments\"").WillReturnRows(sqlmock.NewRows([]string{"id", "state"}).AddRow(consignmentID, "IN_PROGRESS"))
 
-	mockWM.On("GetWorkflowDetails", mock.Anything, mock.AnythingOfType("uuid.UUID")).Return(&model.Workflow{
+	mockWM.On("GetWorkflowInstance", mock.Anything, mock.AnythingOfType("uuid.UUID")).Return(&model.Workflow{
 		BaseModel: model.BaseModel{ID: consignmentID},
 		Status:    model.WorkflowStatusInProgress,
 		WorkflowNodes: []model.WorkflowNode{
@@ -255,7 +255,7 @@ func TestPreConsignmentRouter_HandleGetPreConsignmentByID(t *testing.T) {
 	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"pre_consignments\"").WillReturnRows(sqlmock.NewRows([]string{"id", "pre_consignment_template_id"}).AddRow(id, templateID))
 	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"pre_consignment_templates\"").WillReturnRows(sqlmock.NewRows([]string{"id", "name"}).AddRow(templateID, "Template"))
 
-	mockWM.On("GetWorkflowDetails", mock.Anything, id).Return(&model.Workflow{
+	mockWM.On("GetWorkflowInstance", mock.Anything, id).Return(&model.Workflow{
 		BaseModel: model.BaseModel{ID: id},
 		Status:    model.WorkflowStatusInProgress,
 		WorkflowNodes: []model.WorkflowNode{
@@ -322,7 +322,7 @@ func TestPreConsignmentRouter_HandleCreatePreConsignment(t *testing.T) {
 	sqlMock.ExpectBegin()
 	sqlMock.ExpectExec("(?i)INSERT INTO \"pre_consignments\"").WillReturnResult(sqlmock.NewResult(1, 1))
 
-	mockWM.On("RegisterWorkflow", mock.Anything, mock.Anything, mock.AnythingOfType("uuid.UUID"), mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	mockWM.On("StartWorkflowInstance", mock.Anything, mock.Anything, mock.AnythingOfType("uuid.UUID"), mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	sqlMock.ExpectCommit()
 
@@ -330,7 +330,7 @@ func TestPreConsignmentRouter_HandleCreatePreConsignment(t *testing.T) {
 	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"pre_consignments\"").WillReturnRows(sqlmock.NewRows([]string{"id", "pre_consignment_template_id"}).AddRow(preConsignmentID, templateID))
 	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"pre_consignment_templates\"").WillReturnRows(sqlmock.NewRows([]string{"id", "name"}).AddRow(templateID, "Template"))
 
-	mockWM.On("GetWorkflowDetails", mock.Anything, mock.AnythingOfType("uuid.UUID")).Return(&model.Workflow{
+	mockWM.On("GetWorkflowInstance", mock.Anything, mock.AnythingOfType("uuid.UUID")).Return(&model.Workflow{
 		BaseModel: model.BaseModel{ID: preConsignmentID},
 		Status:    model.WorkflowStatusInProgress,
 		WorkflowNodes: []model.WorkflowNode{

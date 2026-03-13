@@ -39,14 +39,14 @@ type ExecuteTaskResponse struct {
 	Error   string      `json:"error,omitempty"`
 }
 
-// WorkflowManagerCallback handles task completion notifications for the workflow manager.
-type WorkflowManagerCallback func(ctx context.Context, taskID uuid.UUID, state *plugin.State, extendedState *string, appendGlobalContext map[string]any, outcome *string)
+// WorkflowUpdateHandler handles task completion notifications for the workflow manager.
+type WorkflowUpdateHandler func(ctx context.Context, taskID uuid.UUID, state *plugin.State, extendedState *string, appendGlobalContext map[string]any, outcome *string)
 
 // TaskManager handles task execution and status management
 // Architecture: Trader Portal → Workflow Engine → Task Manager
 // - Workflow Manager triggers Task Manager to get task info (e.g., form schema)
 // - ExecutionUnit Manager executes tasks and determines the next tasks to activate
-// - ExecutionUnit Manager notifies Workflow Engine on task completion via Go channel
+// - ExecutionUnit Manager notifies Workflow Engine on task completion via registered update handler
 type TaskManager interface {
 	// InitTask initializes and executes a task using the provided TaskContext.
 	InitTask(ctx context.Context, request InitTaskRequest) (*InitTaskResponse, error)
@@ -57,8 +57,8 @@ type TaskManager interface {
 	// HandleGetTask is an HTTP handler for retrieving a task via GET request
 	HandleGetTask(w http.ResponseWriter, r *http.Request)
 
-	// NotifyWorkflowManager registers the callback used when task state changes.
-	NotifyWorkflowManager(callback WorkflowManagerCallback)
+	// RegisterUpstreamCallback registers the callback used when task state changes.
+	RegisterUpstreamCallback(callback WorkflowUpdateHandler)
 }
 
 // ExecuteTaskRequest represents the request body for task execution
@@ -69,12 +69,12 @@ type ExecuteTaskRequest struct {
 }
 
 type taskManager struct {
-	factory                 plugin.TaskFactory
-	store                   persistence.TaskStoreInterface // Storage for task executions
-	workflowManagerCallback WorkflowManagerCallback        // Callback used to notify Workflow Manager of task completions
-	config                  *config.Config                 // Application configuration
-	containerCache          *containerCache                // LRU cache for active containers
-	containerBuildMu        sync.Mutex                     // Protects container creation to prevent duplicates
+	factory               plugin.TaskFactory
+	store                 persistence.TaskStoreInterface // Storage for task executions
+	workflowUpdateHandler WorkflowUpdateHandler          // Handler used to notify Workflow Manager of task completions
+	config                *config.Config                 // Application configuration
+	containerCache        *containerCache                // LRU cache for active containers
+	containerBuildMu      sync.Mutex                     // Protects container creation to prevent duplicates
 }
 
 // NewTaskManager creates a new TaskManager instance with persistence data store.
@@ -97,9 +97,9 @@ func NewTaskManager(db *gorm.DB, cfg *config.Config, formService form.FormServic
 	}, nil
 }
 
-// NotifyWorkflowManager registers the callback used for task completion notifications.
-func (tm *taskManager) NotifyWorkflowManager(callback WorkflowManagerCallback) {
-	tm.workflowManagerCallback = callback
+// RegisterUpstreamCallback registers the callback used for task completion notifications.
+func (tm *taskManager) RegisterUpstreamCallback(callback WorkflowUpdateHandler) {
+	tm.workflowUpdateHandler = callback
 }
 
 // HandleGetTask is an HTTP handler for fetching task information via GET request
@@ -277,7 +277,7 @@ func (tm *taskManager) start(ctx context.Context, activeTask *container.Containe
 
 	// Notify the workflow manager of the initial state after starting the task (e.g., InProgress). This ensures that
 	//the workflow manager is aware of the task's state change immediately after initialization.
-	tm.notifyWorkflowManager(ctx, activeTask.TaskID, result.NewState, result.ExtendedState, result.AppendGlobalContext, result.EmittedOutcome)
+	tm.notifyWorkflowUpdateHandler(ctx, activeTask.TaskID, result.NewState, result.ExtendedState, result.AppendGlobalContext, result.EmittedOutcome)
 
 	return &InitTaskResponse{Success: true}, nil
 }
@@ -291,7 +291,7 @@ func (tm *taskManager) execute(ctx context.Context, activeTask *container.Contai
 	}
 
 	if result.NewState != nil {
-		tm.notifyWorkflowManager(ctx, activeTask.TaskID, result.NewState, result.ExtendedState, result.AppendGlobalContext, result.EmittedOutcome)
+		tm.notifyWorkflowUpdateHandler(ctx, activeTask.TaskID, result.NewState, result.ExtendedState, result.AppendGlobalContext, result.EmittedOutcome)
 	}
 
 	return result, nil
@@ -375,9 +375,9 @@ func (tm *taskManager) getTask(ctx context.Context, taskID uuid.UUID) (*containe
 	return activeContainer, nil
 }
 
-// notifyWorkflowManager sends notification to Workflow Manager via Go channel
-func (tm *taskManager) notifyWorkflowManager(ctx context.Context, taskID uuid.UUID, state *plugin.State, extendedState *string, appendGlobalContext map[string]any, outcome *string) {
-	if tm.workflowManagerCallback == nil {
+// notifyWorkflowUpdateHandler sends state updates to Workflow Manager via the registered handler.
+func (tm *taskManager) notifyWorkflowUpdateHandler(ctx context.Context, taskID uuid.UUID, state *plugin.State, extendedState *string, appendGlobalContext map[string]any, outcome *string) {
+	if tm.workflowUpdateHandler == nil {
 		slog.WarnContext(ctx, "workflow manager callback not configured, skipping notification",
 			"taskID", taskID,
 			"state", state,
@@ -387,7 +387,7 @@ func (tm *taskManager) notifyWorkflowManager(ctx context.Context, taskID uuid.UU
 		return
 	}
 
-	tm.workflowManagerCallback(ctx, taskID, state, extendedState, appendGlobalContext, outcome)
+	tm.workflowUpdateHandler(ctx, taskID, state, extendedState, appendGlobalContext, outcome)
 	slog.DebugContext(ctx, "task completion notification sent via callback",
 		"taskID", taskID,
 		"state", state,

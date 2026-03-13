@@ -49,7 +49,7 @@ func TestPreConsignmentService_InitializePreConsignment(t *testing.T) {
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
-	mockWM.On("RegisterWorkflow", ctx, mock.Anything, mock.AnythingOfType("uuid.UUID"), mock.Anything, initialContext, mock.Anything).Return(nil)
+	mockWM.On("StartWorkflowInstance", ctx, mock.Anything, mock.AnythingOfType("uuid.UUID"), mock.Anything, initialContext, mock.Anything).Return(nil)
 	sqlMock.ExpectCommit()
 
 	// Reload pre-consignment with template
@@ -63,9 +63,9 @@ func TestPreConsignmentService_InitializePreConsignment(t *testing.T) {
 		WithArgs(templateID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "name"}).AddRow(templateID, "Test PC Template"))
 
-	// GetWorkflowDetails for building response DTO
+	// GetWorkflowInstance for building response DTO
 	nodeTemplateID := uuid.New()
-	mockWM.On("GetWorkflowDetails", ctx, mock.AnythingOfType("uuid.UUID")).Return(&model.Workflow{
+	mockWM.On("GetWorkflowInstance", ctx, mock.AnythingOfType("uuid.UUID")).Return(&model.Workflow{
 		BaseModel:     model.BaseModel{ID: pcID},
 		Status:        model.WorkflowStatusInProgress,
 		GlobalContext: map[string]any{"key": "value"},
@@ -158,7 +158,7 @@ func TestPreConsignmentService_GetPreConsignmentByID(t *testing.T) {
 			WithArgs(templateID).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "name"}).AddRow(templateID, "Template"))
 
-		mockWM.On("GetWorkflowDetails", ctx, pcID).Return(&model.Workflow{
+		mockWM.On("GetWorkflowInstance", ctx, pcID).Return(&model.Workflow{
 			BaseModel: model.BaseModel{ID: pcID},
 			Status:    model.WorkflowStatusInProgress,
 			WorkflowNodes: []model.WorkflowNode{
@@ -216,7 +216,7 @@ func TestPreConsignmentService_GetPreConsignmentsByTraderID(t *testing.T) {
 			WithArgs(templateID).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "name"}).AddRow(templateID, "Test PC Template"))
 
-		mockWM.On("GetWorkflowDetails", ctx, pcID).Return(&model.Workflow{
+		mockWM.On("GetWorkflowInstance", ctx, pcID).Return(&model.Workflow{
 			BaseModel: model.BaseModel{ID: pcID},
 			Status:    model.WorkflowStatusInProgress,
 			WorkflowNodes: []model.WorkflowNode{
