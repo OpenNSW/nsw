@@ -8,7 +8,7 @@ We selected [Thunder](https://github.com/asgardeo/thunder) as the Identity Provi
 
 ### Quick Start (with defaults)
 
-Start the IdP server with default credentials (admin/admin):
+Start the IdP server with default credentials (admin/1234):
 
 ```bash
 docker compose up
@@ -39,9 +39,9 @@ docker compose up
 
 ### Developer Console Access
 
-Once the services are running, access the Thunder developer console at `http://localhost:8090/develop`:
+Once the services are running, access the Thunder developer console at `https://localhost:8090/develop`:
 
-- **Default credentials**: admin/admin
+- **Default credentials**: admin/1234
 - **Custom credentials**: Use the values from your `.env` file
 
 > ⚠️ **Security Warning**: The default password should be changed immediately for non-development environments. Always use strong, unique passwords in production or shared environments.
@@ -59,50 +59,41 @@ These scripts automatically configure Thunder on first startup:
 
 - **`01-default-resources.sh`**: Creates the default organization unit, user schema (Person), admin user, system resource server, admin role, and default authentication/registration flows
 - **`02-sample-resources.sh`**: Sets up sample resources including:
-  - **Traders Organization Unit** - for trader accounts
-  - **Trader User Type** - user schema with custom fields (username, email, given_name, family_name)
-  - **Trader Portal App** - Single Page React application with OAuth2/OIDC configuration
-  - **NPQS Organization Unit** - for National Plant Quarantine Service officers
-  - **NPQSOfficer User Type** - restricted to NPQS users
-  - **NPQS Portal App** - React SPA with client ID `OGA_PORTAL_APP_NPQS`
-  - **FCAU Organization Unit** - for Food Control Administration Unit officers
-  - **FCAUOfficer User Type** - restricted to FCAU users
-  - **FCAU Portal App** - React SPA with client ID `OGA_PORTAL_APP_FCAU`
+  - **Private Sector Organization Unit** - root OU for private-sector entities
+  - **ABCD Traders Organization Unit** - child OU under Private Sector
+  - **Private_User Type** - user schema for ABCD Traders users
+  - **Government Organization Unit** - root OU for government entities
+  - **NPQS / FCAU / IRD Organization Units** - child OUs under Government Organization
+  - **Government_User Type** - shared user schema for government users
+  - **Groups** - `Traders` and `CHA`
+  - **Roles** - `Trader` and `CHA` (assigned to matching groups)
+  - **Sample Users** - three private users in ABCD Traders and one user per government child OU
+  - **SPA Applications** - `TraderApp`, `NPQSPortalApp`, `FCAUPortalApp`, `IRDPortalApp`
 
 ## Current Setup
 
-The following resources have been configured:
+The following resources are configured by bootstrap:
 
-- ✅ Default organization unit
-- ✅ Traders organization unit
-- ✅ Trader user type (schema)
-- ✅ Trader Portal application (React SPA with client ID: `TRADER_PORTAL_APP`)
-- ✅ NPQS organization unit + user type + app (`OGA_PORTAL_APP_NPQS`)
-- ✅ FCAU organization unit + user type + app (`OGA_PORTAL_APP_FCAU`)
-- ✅ OAuth2 configuration with PKCE for public clients
+- ✅ Default organization unit and default system resources
+- ✅ Private Sector organization unit
+- ✅ ABCD Traders child organization unit
+- ✅ Government Organization root unit with NPQS, FCAU, and IRD child units
+- ✅ Private_User and Government_User user types (schemas)
+- ✅ Traders and CHA groups
+- ✅ Trader and CHA roles assigned to corresponding groups
+- ✅ Three sample private users in ABCD Traders OU with group-based role inheritance
+- ✅ One government user in each of NPQS, FCAU, and IRD OUs
+- ✅ Four SPA apps with client IDs: `TRADER_PORTAL_APP`, `OGA_PORTAL_APP_NPQS`, `OGA_PORTAL_APP_FCAU`, `OGA_PORTAL_APP_IRD`
 
 ## Notes
 
-- The Trader Portal React app is configured to run on `http://localhost:5173`
-- The OGA NPQS app is configured to run on `http://localhost:5174`
-- The OGA FCAU app is configured to run on `http://localhost:5175`
-- Client ID will be displayed in the logs after successful creation
+- Role assignment is **group-based** in sample setup:
+  - `Traders` group receives `Trader` role
+  - `CHA` group receives `CHA` role
+  - Users inherit effective roles from group membership
+- Port and app mapping in sample setup:
+  - `TraderApp` -> `http://localhost:5173` (`TRADER_PORTAL_APP`)
+  - `NPQSPortalApp` -> `http://localhost:5174` (`OGA_PORTAL_APP_NPQS`)
+  - `FCAUPortalApp` -> `http://localhost:5175` (`OGA_PORTAL_APP_FCAU`)
+  - `IRDPortalApp` -> `http://localhost:5176` (`OGA_PORTAL_APP_IRD`)
 - All data is persisted in the `thunder-db` Docker volume
-
-## OGA Sample Credentials and Env Mapping
-
-Sample users created by `02-sample-resources.sh`:
-
-- NPQS user: `npqs_officer` / `1234`
-- FCAU user: `fcau_officer` / `1234`
-
-For `portals/apps/oga-app` local development, use per-instance env values:
-
-- NPQS deployment:
-  - `VITE_INSTANCE_CONFIG=npqs`
-  - `VITE_IDP_CLIENT_ID=OGA_PORTAL_APP_NPQS`
-  - `VITE_APP_URL=http://localhost:5174`
-- FCAU deployment:
-  - `VITE_INSTANCE_CONFIG=fcau`
-  - `VITE_IDP_CLIENT_ID=OGA_PORTAL_APP_FCAU`
-  - `VITE_APP_URL=http://localhost:5175`
