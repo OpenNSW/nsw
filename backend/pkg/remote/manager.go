@@ -119,10 +119,12 @@ func (m *Manager) GetClientByURL(rawURL string) (*Client, string, error) {
 			if strings.HasPrefix(parsedReq.Path, parsedBase.Path) {
 				m.mu.RUnlock()
 				client, err := m.GetClient(id)
-				if err == nil {
-					return client, id, nil
+				if err != nil {
+					// If a service matches but fails to initialize, it's a configuration error.
+					// We should return this error instead of continuing the search.
+					return nil, "", fmt.Errorf("remote: failed to create client for matched service %q: %w", id, err)
 				}
-				m.mu.RLock() // Re-acquire if error
+				return client, id, nil
 			}
 		}
 	}

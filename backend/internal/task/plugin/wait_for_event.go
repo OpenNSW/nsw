@@ -182,17 +182,12 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID str
 
 	// 1. Try to use the Manager if it's available.
 	// This will handle serviceID lookups and URL-based identification with auth.
-	if t.remoteManager != nil {
-		// We pass "" as serviceID and the full URL as Path.
-		// Manager.Call will attempt to resolve the service ID from the Path.
-		if err := t.remoteManager.Call(ctx, t.config.ServiceID, req, nil); err == nil {
-			return nil
-		}
-	}
-
 	if t.remoteManager == nil {
 		return fmt.Errorf("remote manager not initialized and target %q is not a valid URL", target)
 	}
-
-	return fmt.Errorf("failed to notify external service %q", target)
+	// Manager.Call will attempt to resolve the service ID from the Path if serviceID is empty.
+	if err := t.remoteManager.Call(ctx, t.config.ServiceID, req, nil); err != nil {
+		return fmt.Errorf("failed to notify external service %q: %w", target, err)
+	}
+	return nil
 }
