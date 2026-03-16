@@ -4,14 +4,12 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/google/uuid"
-
 	"github.com/OpenNSW/nsw/internal/task/container"
 )
 
 // cacheNode represents a node in the LRU cache doubly linked list
 type cacheNode struct {
-	taskID    uuid.UUID
+	taskID    string
 	container *container.Container
 	prev      *cacheNode
 	next      *cacheNode
@@ -20,7 +18,7 @@ type cacheNode struct {
 // containerCache is a fixed-length LRU cache for storing active containers
 type containerCache struct {
 	capacity int
-	cache    map[uuid.UUID]*cacheNode
+	cache    map[string]*cacheNode
 	head     *cacheNode // Most recently used
 	tail     *cacheNode // Least recently used
 	mu       sync.RWMutex
@@ -33,12 +31,12 @@ func newContainerCache(capacity int) *containerCache {
 	}
 	return &containerCache{
 		capacity: capacity,
-		cache:    make(map[uuid.UUID]*cacheNode),
+		cache:    make(map[string]*cacheNode),
 	}
 }
 
 // Get retrieves a container from cache and marks it as recently used
-func (c *containerCache) Get(taskID uuid.UUID) (*container.Container, bool) {
+func (c *containerCache) Get(taskID string) (*container.Container, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -53,7 +51,7 @@ func (c *containerCache) Get(taskID uuid.UUID) (*container.Container, bool) {
 }
 
 // Set adds or updates a container in the cache
-func (c *containerCache) Set(taskID uuid.UUID, cont *container.Container) {
+func (c *containerCache) Set(taskID string, cont *container.Container) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -81,7 +79,7 @@ func (c *containerCache) Set(taskID uuid.UUID, cont *container.Container) {
 }
 
 // Delete removes a container from the cache
-func (c *containerCache) Delete(taskID uuid.UUID) {
+func (c *containerCache) Delete(taskID string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -99,7 +97,7 @@ func (c *containerCache) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.cache = make(map[uuid.UUID]*cacheNode)
+	c.cache = make(map[string]*cacheNode)
 	c.head = nil
 	c.tail = nil
 }

@@ -63,7 +63,7 @@ func (t *WaitForEventTask) Init(api API) {
 // ExternalServiceRequest represents the payload sent to the external service
 type ExternalServiceRequest struct {
 	WorkflowID uuid.UUID `json:"workflowId"`
-	TaskID     uuid.UUID `json:"taskId"`
+	TaskID     string    `json:"taskId"`
 }
 
 // NewWaitForEventFSM returns the state graph for WaitForEventTask.
@@ -165,7 +165,7 @@ func (t *WaitForEventTask) Execute(ctx context.Context, request *ExecutionReques
 }
 
 // notifyExternalService sends task information to the configured external service with retry logic
-func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID uuid.UUID, workflowID uuid.UUID) error {
+func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID string, workflowID uuid.UUID) error {
 	const (
 		maxRetries     = 3
 		initialBackoff = 1 * time.Second

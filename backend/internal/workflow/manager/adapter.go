@@ -74,16 +74,13 @@ func (a *newWorkflowAdapter) StartWorkflowInstance(
 
 func (a *newWorkflowAdapter) RegisterTaskHandler(callback TaskInitHandler) error {
 	a.manager.RegisterTaskHandler(func(ctx context.Context, payload workflow.TaskPayload) error {
-		nodeID := payload.NodeID()
-		taskUUID, _ := uuid.Parse(nodeID)
-
 		// Note: taskManager should not be aware about workflows, and should not need a
 		// WorkflowID. This should be changed to a generic execution ID, that is used in the
 		// completion callback.
 		// For now, we'll pass uuid.Nil or try to find it if possible.
 
 		req := taskManager.InitTaskRequest{
-			TaskID:      taskUUID,
+			TaskID:      payload.TaskID,
 			WorkflowID:  uuid.Nil, // Placeholder if not in payload
 			GlobalState: payload.Inputs,
 		}
@@ -95,11 +92,7 @@ func (a *newWorkflowAdapter) RegisterTaskHandler(callback TaskInitHandler) error
 }
 
 func (a *newWorkflowAdapter) HandleTaskUpdate(ctx context.Context, update taskManager.WorkflowManagerNotification) error {
-	// Map task completion back to go-workflow using ExecutionID
-	// We need to store/retrieve the executionID. For this bridge, we'll assume update.TaskID
-	// is the executionID string if it was passed that way, but locally it's uuid.UUID.
-	// This shows a mismatch that might need more plumbing.
-	return a.manager.TaskDone(ctx, update.TaskID.String(), update.AppendGlobalContext)
+	return a.manager.TaskDone(ctx, update.TaskID, update.AppendGlobalContext)
 }
 
 func (a *newWorkflowAdapter) GetWorkflowInstance(ctx context.Context, workflowID uuid.UUID) (*model.Workflow, error) {

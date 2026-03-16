@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -18,12 +17,12 @@ type Manager interface {
 // It persists state to the TaskStore's local_state column
 type LocalStateManager struct {
 	taskStore TaskStoreInterface
-	taskID    uuid.UUID
+	taskID    string
 	cache     map[string]any // In-memory cache for performance
 }
 
 // NewLocalStateManager creates a new LocalStateManager for a specific task
-func NewLocalStateManager(taskStore TaskStoreInterface, taskID uuid.UUID) (*LocalStateManager, error) {
+func NewLocalStateManager(taskStore TaskStoreInterface, taskID string) (*LocalStateManager, error) {
 	manager := &LocalStateManager{
 		taskStore: taskStore,
 		taskID:    taskID,
@@ -38,7 +37,7 @@ func NewLocalStateManager(taskStore TaskStoreInterface, taskID uuid.UUID) (*Loca
 	return manager, nil
 }
 
-func NewLocalStateManagerWithCache(taskStore TaskStoreInterface, taskID uuid.UUID, cache json.RawMessage) (*LocalStateManager, error) {
+func NewLocalStateManagerWithCache(taskStore TaskStoreInterface, taskID string, cache json.RawMessage) (*LocalStateManager, error) {
 	cacheMap := make(map[string]any)
 
 	if len(cache) > 0 && string(cache) != "null" {

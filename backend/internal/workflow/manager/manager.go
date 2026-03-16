@@ -203,15 +203,20 @@ func (m *workflowManager) HandleTaskUpdate(ctx context.Context, update taskManag
 		return fmt.Errorf("invalid state in workflow node update for task %s: %w", update.TaskID, err)
 	}
 
+	taskUUID, err := uuid.Parse(update.TaskID)
+	if err != nil {
+		return fmt.Errorf("invalid task ID format for workflow manager: %w", err)
+	}
+
 	updateReq := model.UpdateWorkflowNodeDTO{
-		WorkflowNodeID:      update.TaskID,
+		WorkflowNodeID:      taskUUID,
 		State:               workflowState,
 		AppendGlobalContext: update.AppendGlobalContext,
 		ExtendedState:       update.ExtendedState,
 		Outcome:             update.Outcome,
 	}
 
-	node, err := m.nodeRepo.GetWorkflowNodeByIDInTx(ctx, m.db, update.TaskID)
+	node, err := m.nodeRepo.GetWorkflowNodeByIDInTx(ctx, m.db, taskUUID)
 	if err != nil {
 		return fmt.Errorf("failed to look up workflow node for task %s: %w", update.TaskID, err)
 	}
@@ -352,7 +357,7 @@ func (m *workflowManager) registerNodesWithTaskManager(ctx context.Context, work
 			return fmt.Errorf("failed to get workflow node template %s: %w", node.WorkflowNodeTemplateID, err)
 		}
 		initTaskRequest := taskManager.InitTaskRequest{
-			TaskID:                 node.ID,
+			TaskID:                 node.ID.String(),
 			WorkflowID:             node.WorkflowID,
 			WorkflowNodeTemplateID: node.WorkflowNodeTemplateID,
 			Type:                   nodeTemplate.Type,

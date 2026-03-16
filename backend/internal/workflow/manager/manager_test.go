@@ -176,7 +176,7 @@ func TestManager_HandleTaskNotification(t *testing.T) {
 		pluginState := plugin.Completed
 
 		notification := taskManager.WorkflowManagerNotification{
-			TaskID:       taskID,
+			TaskID:       taskID.String(),
 			UpdatedState: &pluginState,
 		}
 

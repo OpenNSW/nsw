@@ -23,7 +23,7 @@ type wfeAPI struct {
 	transitionErr   error
 }
 
-func (a *wfeAPI) GetTaskID() uuid.UUID                     { return a.taskID }
+func (a *wfeAPI) GetTaskID() string                        { return a.taskID.String() }
 func (a *wfeAPI) GetWorkflowID() uuid.UUID                 { return a.workflowID }
 func (a *wfeAPI) GetTaskState() State                      { return InProgress }
 func (a *wfeAPI) GetPluginState() string                   { return a.pluginState }

@@ -11,7 +11,7 @@ import (
 )
 
 type Container struct {
-	TaskID                 uuid.UUID
+	TaskID                 string
 	WorkflowID             uuid.UUID
 	WorkflowNodeTemplateID uuid.UUID
 	State                  plugin.State
@@ -109,7 +109,7 @@ func (c *Container) Execute(ctx context.Context, request *plugin.ExecutionReques
 	return resp, nil
 }
 
-func (c *Container) GetTaskID() uuid.UUID {
+func (c *Container) GetTaskID() string {
 	return c.TaskID
 }
 
@@ -145,7 +145,7 @@ func (c *Container) GetPluginState() string {
 // NewContainer creates a new container for a task with a given Executable plugin and FSM.
 // initialState is the task-level state to restore (InProgress for new tasks, or the
 // persisted state when rebuilding from the store after a cache miss).
-func NewContainer(taskId uuid.UUID, workflowId uuid.UUID, workflowNodeTemplateId uuid.UUID, initialState plugin.State, globalStore map[string]any, localStore persistence.Manager, taskStore persistence.TaskStoreInterface, executable plugin.Plugin, fsm *plugin.PluginFSM) *Container {
+func NewContainer(taskId string, workflowId uuid.UUID, workflowNodeTemplateId uuid.UUID, initialState plugin.State, globalStore map[string]any, localStore persistence.Manager, taskStore persistence.TaskStoreInterface, executable plugin.Plugin, fsm *plugin.PluginFSM) *Container {
 	c := &Container{
 		TaskID:                 taskId,
 		WorkflowID:             workflowId,

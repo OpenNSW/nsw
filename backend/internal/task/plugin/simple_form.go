@@ -432,7 +432,7 @@ func (s *SimpleForm) submitHandler(ctx context.Context, content any) (*Execution
 
 	requestPayload := map[string]any{
 		"data":       formData,
-		"taskId":     s.api.GetTaskID().String(),
+		"taskId":     s.api.GetTaskID(),
 		"workflowId": s.api.GetWorkflowID().String(),
 		"serviceUrl": strings.TrimRight(s.cfg.Server.ServiceURL, "/") + TasksAPIPath,
 	}

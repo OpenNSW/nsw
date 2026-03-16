@@ -9,14 +9,14 @@ import (
 type TaskInfo struct {
 	Type       Type
 	State      State
-	TaskID     uuid.UUID
+	TaskID     string
 	WorkflowID uuid.UUID
 }
 
 // API will be implemented by the TaskContainer, which provides controlled access to
 // generic resources and owns all state transitions via the container-level FSM.
 type API interface {
-	GetTaskID() uuid.UUID
+	GetTaskID() string
 	GetWorkflowID() uuid.UUID
 	GetTaskState() State
 	ReadFromGlobalStore(key string) (any, bool)

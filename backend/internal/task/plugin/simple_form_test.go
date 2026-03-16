@@ -11,59 +11,59 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// MockAPI is a mock implementation of the API interface for testing plugins
-type MockAPI struct {
+// MockFormAPI is a mock implementation of the API interface for testing plugins
+type MockFormAPI struct {
 	mock.Mock
 }
 
-func (m *MockAPI) GetTaskID() uuid.UUID {
-	args := m.Called()
-	return args.Get(0).(uuid.UUID)
-}
-
-func (m *MockAPI) GetWorkflowID() uuid.UUID {
-	args := m.Called()
-	return args.Get(0).(uuid.UUID)
-}
-
-func (m *MockAPI) GetTaskState() State {
-	args := m.Called()
-	return args.Get(0).(State)
-}
-
-func (m *MockAPI) ReadFromGlobalStore(key string) (any, bool) {
-	args := m.Called(key)
-	return args.Get(0), args.Bool(1)
-}
-
-func (m *MockAPI) WriteToLocalStore(key string, value any) error {
-	args := m.Called(key, value)
-	return args.Error(0)
-}
-
-func (m *MockAPI) ReadFromLocalStore(key string) (any, error) {
-	args := m.Called(key)
-	return args.Get(0), args.Error(1)
-}
-
-func (m *MockAPI) GetPluginState() string {
+func (m *MockFormAPI) GetTaskID() string {
 	args := m.Called()
 	return args.String(0)
 }
 
-func (m *MockAPI) CanTransition(action string) bool {
+func (m *MockFormAPI) GetWorkflowID() uuid.UUID {
+	args := m.Called()
+	return args.Get(0).(uuid.UUID)
+}
+
+func (m *MockFormAPI) GetTaskState() State {
+	args := m.Called()
+	return args.Get(0).(State)
+}
+
+func (m *MockFormAPI) ReadFromGlobalStore(key string) (any, bool) {
+	args := m.Called(key)
+	return args.Get(0), args.Bool(1)
+}
+
+func (m *MockFormAPI) WriteToLocalStore(key string, value any) error {
+	args := m.Called(key, value)
+	return args.Error(0)
+}
+
+func (m *MockFormAPI) ReadFromLocalStore(key string) (any, error) {
+	args := m.Called(key)
+	return args.Get(0), args.Error(1)
+}
+
+func (m *MockFormAPI) GetPluginState() string {
+	args := m.Called()
+	return args.String(0)
+}
+
+func (m *MockFormAPI) CanTransition(action string) bool {
 	args := m.Called(action)
 	return args.Bool(0)
 }
 
-func (m *MockAPI) Transition(action string) error {
+func (m *MockFormAPI) Transition(action string) error {
 	args := m.Called(action)
 	return args.Error(0)
 }
 
 func TestSimpleForm_Execute_SaveAsDraft(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		mockAPI := new(MockAPI)
+		mockAPI := new(MockFormAPI)
 
 		// Create SimpleForm with empty config for testing
 		sf, err := NewSimpleForm(json.RawMessage(`{}`), nil, nil)
@@ -92,7 +92,7 @@ func TestSimpleForm_Execute_SaveAsDraft(t *testing.T) {
 	})
 
 	t.Run("WriteToLocalStore Failure", func(t *testing.T) {
-		mockAPI := new(MockAPI)
+		mockAPI := new(MockFormAPI)
 
 		sf, err := NewSimpleForm(json.RawMessage(`{}`), nil, nil)
 		assert.NoError(t, err)
@@ -124,7 +124,7 @@ func TestSimpleForm_Execute_SaveAsDraft(t *testing.T) {
 	})
 
 	t.Run("Invalid Transition", func(t *testing.T) {
-		mockAPI := new(MockAPI)
+		mockAPI := new(MockFormAPI)
 
 		sf, err := NewSimpleForm(json.RawMessage(`{}`), nil, nil)
 		assert.NoError(t, err)

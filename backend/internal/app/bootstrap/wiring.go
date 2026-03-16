@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/google/uuid"
-
 	taskManager "github.com/OpenNSW/nsw/internal/task/manager"
 	"github.com/OpenNSW/nsw/internal/task/plugin"
 	workflowmanager "github.com/OpenNSW/nsw/internal/workflow/manager"
@@ -25,7 +23,7 @@ func WireManagers(wm workflowmanager.Manager, tm taskManager.TaskManager) error 
 		return fmt.Errorf("failed to register task init callback: %w", err)
 	}
 
-	tm.RegisterUpstreamCallback(func(ctx context.Context, taskID uuid.UUID, state *plugin.State, extendedState *string, appendGlobalContext map[string]any, outcome *string) {
+	tm.RegisterUpstreamCallback(func(ctx context.Context, taskID string, state *plugin.State, extendedState *string, appendGlobalContext map[string]any, outcome *string) {
 		notification := taskManager.WorkflowManagerNotification{
 			TaskID:              taskID,
 			UpdatedState:        state,
