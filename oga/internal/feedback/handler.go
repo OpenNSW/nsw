@@ -37,7 +37,7 @@ func (h *Handler) HandleFeedback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    feedback, ok := body["feedback"].(string)
+	feedback, ok := body["feedback"].(string)
 
 	if !ok || strings.TrimSpace(feedback) == "" {
 		writeJSONError(w, http.StatusBadRequest, "feedback field is required and must be a non-empty string")

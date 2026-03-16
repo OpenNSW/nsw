@@ -1,24 +1,34 @@
 package internal
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
 
 // OGAHandler handles HTTP requests for OGA portal operations
 type OGAHandler struct {
-	service OGAService
+	service    OGAService
+	backendURL string
+	httpClient *http.Client
 }
 
-// NewOGAHandler creates a new OGA handler instance
-func NewOGAHandler(service OGAService) *OGAHandler {
+func NewOGAHandler(service OGAService, backendURL string) *OGAHandler {
 	return &OGAHandler{
-		service: service,
+		service:    service,
+		backendURL: backendURL,
+		httpClient: &http.Client{
+			Timeout: 10 * time.Second, // It's also good practice to set a timeout.
+		},
 	}
 }
 
@@ -187,4 +197,75 @@ func (h *OGAHandler) HandleReviewApplication(w http.ResponseWriter, r *http.Requ
 		"success": true,
 		"message": "Application reviewed successfully",
 	})
+}
+
+// HandleGetUploadURL forwards the secure file download request to the NSW Backend.
+// It retrieves the short-lived presigned URL, avoiding exposing the unauthenticated `/content` route.
+func (h *OGAHandler) HandleGetUploadURL(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		WriteJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	key := r.PathValue("key")
+	if key == "" {
+		WriteJSONError(w, http.StatusBadRequest, "key is required")
+		return
+	}
+
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		WriteJSONError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	ctx := r.Context()
+
+	// Extract Officer ID from JWT without validating signature (NSW Backend will validate)
+	officerID := "unknown"
+	if parts := strings.Split(authHeader, " "); len(parts) == 2 {
+		tokenParts := strings.Split(parts[1], ".")
+		if len(tokenParts) >= 2 {
+			if payload, err := base64.RawURLEncoding.DecodeString(tokenParts[1]); err == nil {
+				var claims struct {
+					Sub string `json:"sub"`
+				}
+				if json.Unmarshal(payload, &claims) == nil && claims.Sub != "" {
+					officerID = claims.Sub
+				}
+			}
+		}
+	}
+
+	slog.InfoContext(ctx, "Audit Log: File Access",
+		"action", "FILE_DOWNLOAD",
+		"officer_id", officerID,
+		"key", key,
+	)
+
+	// Request a secure download path from the NSW Backend
+	backendURL := fmt.Sprintf("%s/api/v1/uploads/%s", h.backendURL, key)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, backendURL, nil)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to create backend request", "error", err)
+		WriteJSONError(w, http.StatusInternalServerError, "Failed to create request")
+		return
+	}
+
+	// Forward the WSO2 token
+	req.Header.Set("Authorization", authHeader)
+
+	resp, err := h.httpClient.Do(req)
+	if err != nil {
+		slog.ErrorContext(ctx, "backend request failed", "error", err)
+		WriteJSONError(w, http.StatusBadGateway, "Backend service unavailable")
+		return
+	}
+	defer resp.Body.Close()
+	// Propagate response from backend
+	if contentType := resp.Header.Get("Content-Type"); contentType != "" {
+		w.Header().Set("Content-Type", contentType)
+	}
+	w.WriteHeader(resp.StatusCode)
+	_, _ = io.Copy(w, resp.Body)
 }

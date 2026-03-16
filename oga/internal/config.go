@@ -11,6 +11,7 @@ type Config struct {
 	FormsPath      string
 	DefaultFormID  string
 	AllowedOrigins []string
+	BackendURL     string
 }
 
 func LoadConfig() Config {
@@ -22,6 +23,7 @@ func LoadConfig() Config {
 		DefaultFormID: envOrDefault("OGA_DEFAULT_FORM_ID", "default"),
 		// TODO: when productionization, need to remove the '*' (Allowing All Origins)
 		AllowedOrigins: parseOrigins(envOrDefault("OGA_ALLOWED_ORIGINS", "*")),
+		BackendURL:     envOrDefault("NSW_BACKEND_URL", "http://localhost:8080"),
 	}
 }
 
