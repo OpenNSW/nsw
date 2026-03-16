@@ -89,9 +89,11 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("auth system health check failed: %w", err)
 	}
 
+	tmHandler := taskManager.NewHTTPHandler(tm)
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /api/v1/tasks", tm.HandleExecuteTask)
-	mux.HandleFunc("GET /api/v1/tasks/{id}", tm.HandleGetTask)
+	mux.HandleFunc("POST /api/v1/tasks", tmHandler.HandleExecuteTask)
+	mux.HandleFunc("GET /api/v1/tasks/{id}", tmHandler.HandleGetTask)
 	mux.HandleFunc("GET /api/v1/hscodes", hsCodeRouter.HandleGetAllHSCodes)
 	mux.HandleFunc("GET /api/v1/chas", chaRouter.HandleGetCHAs)
 	mux.HandleFunc("POST /api/v1/consignments", consignmentRouter.HandleCreateConsignment)

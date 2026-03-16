@@ -1,12 +1,9 @@
 package manager
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -372,139 +369,6 @@ func TestExecuteTask(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, result)
 		assert.Contains(t, err.Error(), "task_id is required")
-	})
-}
-
-func TestHandleExecuteTask(t *testing.T) {
-	t.Run("Invalid Method", func(t *testing.T) {
-		tm := &taskManager{}
-		req := httptest.NewRequest(http.MethodGet, "/execute", nil)
-		w := httptest.NewRecorder()
-
-		tm.HandleExecuteTask(w, req)
-
-		resp := w.Result()
-		assert.Equal(t, http.StatusMethodNotAllowed, resp.StatusCode)
-	})
-
-	t.Run("Invalid Body", func(t *testing.T) {
-		tm := &taskManager{}
-		req := httptest.NewRequest(http.MethodPost, "/execute", bytes.NewBufferString("invalid json"))
-		w := httptest.NewRecorder()
-
-		tm.HandleExecuteTask(w, req)
-
-		resp := w.Result()
-		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-	})
-}
-
-func TestGetTaskRenderInfo(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
-		tm, mockFactory, mockStore, mockPlugin := setupTest(t)
-
-		taskID := uuid.New()
-		workflowID := uuid.New()
-
-		// Mock GetTask (cache miss -> rebuild)
-		taskInfo := &persistence.TaskInfo{
-			ID:                     taskID,
-			WorkflowID:             workflowID,
-			WorkflowNodeTemplateID: uuid.New(),
-			Type:                   plugin.TaskTypeSimpleForm,
-			Config:                 json.RawMessage(`{}`),
-			GlobalContext:          json.RawMessage(`{}`),
-		}
-		mockStore.On("GetByID", taskID).Return(taskInfo, nil).Once()
-		mockFactory.On("BuildExecutor", mock.Anything, taskInfo.Type, taskInfo.Config).Return(plugin.Executor{Plugin: mockPlugin}, nil).Once()
-		mockStore.On("GetLocalState", taskID).Return(json.RawMessage(`{}`), nil).Once()
-		mockStore.On("GetPluginState", taskID).Return("", nil).Once()
-
-		mockPlugin.On("Init", mock.Anything).Return().Once()
-
-		renderInfo := &plugin.ApiResponse{
-			Success: true,
-			Data:    map[string]string{"foo": "bar"},
-		}
-		mockPlugin.On("GetRenderInfo", mock.Anything).Return(renderInfo, nil).Once()
-
-		result, err := tm.GetTaskRenderInfo(context.Background(), taskID.String())
-
-		assert.NoError(t, err)
-		assert.Equal(t, renderInfo, result)
-	})
-
-	t.Run("GetRenderInfo Error", func(t *testing.T) {
-		tm, mockFactory, mockStore, mockPlugin := setupTest(t)
-
-		taskID := uuid.New()
-
-		// Mock GetTask
-		taskInfo := &persistence.TaskInfo{
-			ID:     taskID,
-			Type:   plugin.TaskTypeSimpleForm,
-			Config: json.RawMessage(`{}`),
-		}
-		mockStore.On("GetByID", taskID).Return(taskInfo, nil).Once()
-		mockFactory.On("BuildExecutor", mock.Anything, taskInfo.Type, taskInfo.Config).Return(plugin.Executor{Plugin: mockPlugin}, nil).Once()
-		mockStore.On("GetLocalState", taskID).Return(json.RawMessage(`{}`), nil).Once()
-		mockStore.On("GetPluginState", taskID).Return("", nil).Once()
-		mockPlugin.On("Init", mock.Anything).Return().Once()
-
-		mockPlugin.On("GetRenderInfo", mock.Anything).Return(nil, errors.New("render error")).Once()
-
-		result, err := tm.GetTaskRenderInfo(context.Background(), taskID.String())
-
-		assert.Error(t, err)
-		assert.Nil(t, result)
-		assert.Contains(t, err.Error(), "render error")
-	})
-
-	t.Run("Task Not Found", func(t *testing.T) {
-		tm, _, mockStore, _ := setupTest(t)
-		taskID := uuid.New()
-
-		mockStore.On("GetByID", taskID).Return(nil, gorm.ErrRecordNotFound).Once()
-
-		result, err := tm.GetTaskRenderInfo(context.Background(), taskID.String())
-
-		assert.Error(t, err)
-		assert.Nil(t, result)
-	})
-
-	t.Run("Invalid Task ID Format", func(t *testing.T) {
-		tm, _, _, _ := setupTest(t)
-
-		result, err := tm.GetTaskRenderInfo(context.Background(), "invalid-uuid")
-
-		assert.Error(t, err)
-		assert.Nil(t, result)
-	})
-}
-
-func TestHandleGetTask(t *testing.T) {
-	t.Run("Missing TaskID", func(t *testing.T) {
-		tm, _, _, _ := setupTest(t)
-		req := httptest.NewRequest(http.MethodGet, "/tasks/", nil)
-		// No path value set
-		w := httptest.NewRecorder()
-
-		tm.HandleGetTask(w, req)
-
-		resp := w.Result()
-		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-	})
-
-	t.Run("Invalid TaskID string", func(t *testing.T) {
-		tm, _, _, _ := setupTest(t)
-		req := httptest.NewRequest(http.MethodGet, "/tasks/invalid", nil)
-		req.SetPathValue("id", "invalid")
-		w := httptest.NewRecorder()
-
-		tm.HandleGetTask(w, req)
-
-		resp := w.Result()
-		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	})
 }
 

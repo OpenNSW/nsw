@@ -2,7 +2,6 @@ package manager
 
 import (
 	"context"
-	"net/http"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -44,14 +43,6 @@ type MockTaskManager struct {
 func (m *MockTaskManager) InitTask(ctx context.Context, req taskManager.InitTaskRequest) (*taskManager.InitTaskResponse, error) {
 	args := m.Called(ctx, req)
 	return args.Get(0).(*taskManager.InitTaskResponse), args.Error(1)
-}
-
-func (m *MockTaskManager) HandleExecuteTask(w http.ResponseWriter, r *http.Request) {
-	m.Called(w, r)
-}
-
-func (m *MockTaskManager) HandleGetTask(w http.ResponseWriter, r *http.Request) {
-	m.Called(w, r)
 }
 
 func (m *MockTaskManager) RegisterUpstreamCallback(_ taskManager.WorkflowUpdateHandler) {}

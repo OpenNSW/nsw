@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"net/http"
-	"strings"
 	"sync"
 
 	"github.com/google/uuid"
@@ -55,11 +53,6 @@ type TaskManager interface {
 	// Core Domain Methods
 	ExecuteTask(ctx context.Context, req ExecuteTaskRequest) (*plugin.ExecutionResponse, error)
 	GetTaskRenderInfo(ctx context.Context, taskID string) (*plugin.ApiResponse, error)
-	HandleEvent(ctx context.Context, taskID string, event string, payload map[string]any) error
-
-	// HTTP Transport Wrappers
-	HandleExecuteTask(w http.ResponseWriter, r *http.Request)
-	HandleGetTask(w http.ResponseWriter, r *http.Request)
 
 	// RegisterUpstreamCallback registers the callback used when task state changes.
 	RegisterUpstreamCallback(callback WorkflowUpdateHandler)
@@ -126,30 +119,6 @@ func (tm *taskManager) GetTaskRenderInfo(ctx context.Context, taskID string) (*p
 	return result, nil
 }
 
-// HandleGetTask is an HTTP handler for fetching task information via GET request
-func (tm *taskManager) HandleGetTask(w http.ResponseWriter, r *http.Request) {
-	taskId := r.PathValue("id")
-	if taskId == "" {
-		writeJSONError(w, http.StatusBadRequest, "taskId is required")
-		return
-	}
-
-	result, err := tm.GetTaskRenderInfo(r.Context(), taskId)
-	if err != nil {
-		// Differentiate between invalid ID/NotFound and internal errors, if necessary.
-		status := http.StatusInternalServerError
-		if strings.HasPrefix(err.Error(), "taskID is invalid") {
-			status = http.StatusBadRequest
-		} else if strings.HasPrefix(err.Error(), "task ") {
-			status = http.StatusNotFound
-		}
-		writeJSONError(w, status, err.Error())
-		return
-	}
-
-	writeJSONResponse(w, http.StatusOK, result)
-}
-
 // ExecuteTask is the core logic for executing a task
 func (tm *taskManager) ExecuteTask(ctx context.Context, req ExecuteTaskRequest) (*plugin.ExecutionResponse, error) {
 	if req.TaskID == uuid.Nil {
@@ -170,56 +139,6 @@ func (tm *taskManager) ExecuteTask(ctx context.Context, req ExecuteTaskRequest) 
 		return nil, fmt.Errorf("failed to execute task: %w", err)
 	}
 	return result, nil
-}
-
-// HandleEvent is a placeholder for handling events directed to tasks
-func (tm *taskManager) HandleEvent(ctx context.Context, taskID string, event string, payload map[string]any) error {
-	// TODO: Implement event handling logic
-	return fmt.Errorf("HandleEvent not implemented")
-}
-
-// HandleExecuteTask is an HTTP handler for executing a task via POST request
-func (tm *taskManager) HandleExecuteTask(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req ExecuteTaskRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSONError(w, http.StatusBadRequest, "Invalid request body: "+err.Error())
-		return
-	}
-
-	result, err := tm.ExecuteTask(r.Context(), req)
-	if err != nil {
-		status := http.StatusInternalServerError
-		if err.Error() == "task_id is required" {
-			status = http.StatusBadRequest
-		} else if string(err.Error()[:5]) == "task " {
-			status = http.StatusNotFound
-		}
-		writeJSONError(w, status, err.Error())
-		return
-	}
-
-	// Return success response
-	writeJSONResponse(w, http.StatusOK, result.ApiResponse)
-}
-
-func writeJSONResponse(w http.ResponseWriter, status int, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		slog.Error("failed to encode JSON response", "error", err)
-	}
-}
-
-func writeJSONError(w http.ResponseWriter, status int, message string) {
-	writeJSONResponse(w, status, ExecuteTaskResponse{
-		Success: false,
-		Error:   message,
-	})
 }
 
 // InitTask initializes a new task container, creates its execution record,
