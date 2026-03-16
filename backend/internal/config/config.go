@@ -33,10 +33,11 @@ type DatabaseConfig struct {
 
 // ServerConfig holds server configuration
 type ServerConfig struct {
-	Port       int
-	ServiceURL string
-	Debug      bool
-	LogLevel   slog.Level
+	Port               int
+	ServiceURL         string
+	ServicesConfigPath string
+	Debug              bool
+	LogLevel           slog.Level
 }
 
 // CORSConfig holds CORS configuration
@@ -97,10 +98,11 @@ func Load() (*Config, error) {
 			MaxConnLifetimeSeconds: getIntOrDefault("DB_MAX_CONN_LIFETIME_SECONDS", 3600),
 		},
 		Server: ServerConfig{
-			Port:       serverPort,
-			ServiceURL: getEnvOrDefault("SERVICE_URL", fmt.Sprintf("http://localhost:%d", serverPort)),
-			Debug:      getBoolOrDefault("SERVER_DEBUG", true),
-			LogLevel:   parseLogLevel(getEnvOrDefault("SERVER_LOG_LEVEL", "info")),
+			Port:               serverPort,
+			ServiceURL:         getEnvOrDefault("SERVICE_URL", fmt.Sprintf("http://localhost:%d", serverPort)),
+			ServicesConfigPath: getEnvOrDefault("SERVICES_CONFIG_PATH", "configs/services.json"),
+			Debug:              getBoolOrDefault("SERVER_DEBUG", true),
+			LogLevel:           parseLogLevel(getEnvOrDefault("SERVER_LOG_LEVEL", "info")),
 		},
 		CORS: CORSConfig{
 			AllowedOrigins:   parseCommaSeparated(getEnvOrDefault("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173")),

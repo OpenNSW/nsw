@@ -56,7 +56,7 @@ func newWFETask(t *testing.T, serverURL string) (*WaitForEventTask, *wfeAPI) {
 	if err != nil {
 		t.Fatalf("marshal config: %v", err)
 	}
-	task, err := NewWaitForEventTask(raw)
+	task, err := NewWaitForEventTask(raw, nil)
 	if err != nil {
 		t.Fatalf("NewWaitForEventTask: %v", err)
 	}
@@ -214,7 +214,7 @@ func TestWaitForEventTask_Execute_NilRequest(t *testing.T) {
 // ── NewWaitForEventTask ───────────────────────────────────────────────────────
 
 func TestNewWaitForEventTask_InvalidJSON(t *testing.T) {
-	_, err := NewWaitForEventTask(json.RawMessage(`{invalid}`))
+	_, err := NewWaitForEventTask(json.RawMessage(`{invalid}`), nil)
 	require.Error(t, err)
 }
 
@@ -250,7 +250,7 @@ func TestWaitForEventTask_GetRenderInfo_WithDisplay(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	task, taskErr := NewWaitForEventTask(raw)
+	task, taskErr := NewWaitForEventTask(raw, nil)
 	require.NoError(t, taskErr)
 	api := &wfeAPI{taskID: uuid.NewString(), workflowID: uuid.NewString(), pluginState: string(notifiedService)}
 	task.Init(api)
@@ -271,7 +271,7 @@ func TestWaitForEventTask_GetRenderInfo_WithDisplay(t *testing.T) {
 
 func TestWaitForEventTask_Start_EmptyURL(t *testing.T) {
 	raw, _ := json.Marshal(WaitForEventConfig{ExternalServiceURL: ""})
-	task, taskErr := NewWaitForEventTask(raw)
+	task, taskErr := NewWaitForEventTask(raw, nil)
 	require.NoError(t, taskErr)
 	api := &wfeAPI{taskID: uuid.NewString(), workflowID: uuid.NewString()}
 	task.Init(api)

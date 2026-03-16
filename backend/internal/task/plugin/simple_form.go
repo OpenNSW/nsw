@@ -1,20 +1,18 @@
 package plugin
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
-	"net/http"
 	"strings"
 	"time"
 
 	"github.com/OpenNSW/nsw/internal/config"
 	"github.com/OpenNSW/nsw/internal/form"
 	"github.com/OpenNSW/nsw/pkg/jsonform"
+	"github.com/OpenNSW/nsw/pkg/remote"
 )
 
 // SimpleFormAction represents the action to perform on the form
@@ -90,9 +88,10 @@ type Display struct {
 }
 
 type SubmissionConfig struct {
-	Url      string    `json:"url"` // URL to submit form data to
-	Request  *Request  `json:"request,omitempty"`
-	Response *Response `json:"response,omitempty"` // Expected response mapping after submission
+	ServiceID string    `json:"serviceId"`
+	Url       string    `json:"url"` // URL to submit form data to
+	Request   *Request  `json:"request,omitempty"`
+	Response  *Response `json:"response,omitempty"` // Expected response mapping after submission
 }
 
 type CallbackConfig struct {
@@ -119,10 +118,11 @@ type SimpleFormResult struct {
 }
 
 type SimpleForm struct {
-	api         API
-	config      Config
-	cfg         *config.Config
-	formService form.FormService
+	api           API
+	config        Config
+	cfg           *config.Config
+	formService   form.FormService
+	remoteManager *remote.Manager
 }
 
 // NewSimpleFormFSM returns the state graph for SimpleForm.
@@ -178,15 +178,16 @@ func NewSimpleFormFSM() *PluginFSM {
 	})
 }
 
-func NewSimpleForm(configJSON json.RawMessage, cfg *config.Config, formService form.FormService) (*SimpleForm, error) {
+func NewSimpleForm(configJSON json.RawMessage, cfg *config.Config, formService form.FormService, remoteManager *remote.Manager) (*SimpleForm, error) {
 	var formConfig Config
 	if err := json.Unmarshal(configJSON, &formConfig); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 	return &SimpleForm{
-		config:      formConfig,
-		cfg:         cfg,
-		formService: formService,
+		config:        formConfig,
+		cfg:           cfg,
+		formService:   formService,
+		remoteManager: remoteManager,
 	}, nil
 }
 
@@ -442,7 +443,12 @@ func (s *SimpleForm) submitHandler(ctx context.Context, content any) (*Execution
 		requestPayload["ogaFeedbackHistory"] = history
 	}
 
-	responseData, err := s.sendFormSubmission(submissionUrl, requestPayload)
+	var serviceID string
+	if s.config.Submission != nil {
+		serviceID = s.config.Submission.ServiceID
+	}
+
+	responseData, err := s.sendFormSubmission(ctx, serviceID, submissionUrl, requestPayload)
 	if err != nil {
 		slog.Error("failed to send form submission",
 			"formId", s.config.FormID, "submissionUrl", submissionUrl, "error", err)
@@ -837,40 +843,26 @@ func (s *SimpleForm) mergeFormData(prepopulated, existing map[string]interface{}
 	return result
 }
 
-// sendFormSubmission sends the form data to the specified URL via HTTP POST
-func (s *SimpleForm) sendFormSubmission(url string, formData map[string]interface{}) (map[string]interface{}, error) {
-	jsonData, err := json.Marshal(formData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal form data: %w", err)
-	}
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Post(url, "application/json", bytes.NewBuffer(jsonData))
-	if err != nil {
-		return nil, fmt.Errorf("failed to send POST request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	// Read response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+// sendFormSubmission sends the form data to the specified service or URL.
+// It uses the remote Manager to identify the service (by ID or URL) and apply its configuration.
+func (s *SimpleForm) sendFormSubmission(ctx context.Context, serviceID, path string, formData map[string]interface{}) (map[string]interface{}, error) {
+	req := remote.Request{
+		Method: "POST",
+		Path:   path,
+		Body:   formData,
+		Retry:  &remote.DefaultRetryConfig,
 	}
 
-	// Check response status
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("submission failed with status %d: %s", resp.StatusCode, string(body))
-	}
-
-	// Parse response JSON
 	var responseData map[string]interface{}
-	if len(body) > 0 {
-		if err := json.Unmarshal(body, &responseData); err != nil {
-			slog.Warn("failed to parse response as JSON, storing as raw string", "url", url, "error", err)
-			responseData = map[string]interface{}{"raw_response": string(body)}
-		}
+
+	// Attempt to use the Manager.
+	// If serviceID is provided, it uses it directly.
+	// If serviceID is empty but path is absolute, it will try to find a matching registered service.
+	err := s.remoteManager.Call(ctx, serviceID, req, &responseData)
+	if err == nil {
+		return responseData, nil
 	}
-	slog.Info("form submitted successfully", "url", url, "status", resp.StatusCode, "response", responseData)
-	return responseData, nil
+	return nil, err
 }
 
 // submissionUrl returns the submission URL, preferring Submission.Url over the deprecated SubmissionURL.
