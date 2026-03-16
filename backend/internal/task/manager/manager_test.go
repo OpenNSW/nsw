@@ -287,7 +287,7 @@ func TestInitTask(t *testing.T) {
 	})
 }
 
-func TestHandleExecuteTask(t *testing.T) {
+func TestExecuteTask(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		tm, mockFactory, mockStore, mockPlugin := setupTest(t)
 
@@ -299,9 +299,6 @@ func TestHandleExecuteTask(t *testing.T) {
 			TaskID:     taskID,
 			Payload:    &plugin.ExecutionRequest{Action: "submit"},
 		}
-		body, _ := json.Marshal(reqBody)
-		req := httptest.NewRequest(http.MethodPost, "/execute", bytes.NewBuffer(body))
-		w := httptest.NewRecorder()
 
 		// Mock GetTask
 		taskInfo := &persistence.TaskInfo{
@@ -327,10 +324,10 @@ func TestHandleExecuteTask(t *testing.T) {
 		mockPlugin.On("Execute", mock.Anything, reqBody.Payload).Return(execResp, nil).Once()
 		mockStore.On("UpdateStatus", taskID, &newState).Return(nil).Once()
 
-		tm.HandleExecuteTask(w, req)
+		result, err := tm.ExecuteTask(context.Background(), reqBody)
 
-		resp := w.Result()
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.NoError(t, err)
+		assert.Equal(t, execResp, result)
 	})
 
 	t.Run("Execute Error", func(t *testing.T) {
@@ -344,9 +341,6 @@ func TestHandleExecuteTask(t *testing.T) {
 			TaskID:     taskID,
 			Payload:    &plugin.ExecutionRequest{Action: "submit"},
 		}
-		body, _ := json.Marshal(reqBody)
-		req := httptest.NewRequest(http.MethodPost, "/execute", bytes.NewBuffer(body))
-		w := httptest.NewRecorder()
 
 		// Mock GetTask
 		taskInfo := &persistence.TaskInfo{
@@ -363,12 +357,25 @@ func TestHandleExecuteTask(t *testing.T) {
 		// Mock Execute Error
 		mockPlugin.On("Execute", mock.Anything, reqBody.Payload).Return(nil, errors.New("exec error")).Once()
 
-		tm.HandleExecuteTask(w, req)
+		result, err := tm.ExecuteTask(context.Background(), reqBody)
 
-		resp := w.Result()
-		assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+		assert.Error(t, err)
+		assert.Nil(t, result)
 	})
 
+	t.Run("Missing TaskID", func(t *testing.T) {
+		tm := &taskManager{}
+		reqBody := ExecuteTaskRequest{}
+
+		result, err := tm.ExecuteTask(context.Background(), reqBody)
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "task_id is required")
+	})
+}
+
+func TestHandleExecuteTask(t *testing.T) {
 	t.Run("Invalid Method", func(t *testing.T) {
 		tm := &taskManager{}
 		req := httptest.NewRequest(http.MethodGet, "/execute", nil)
@@ -392,16 +399,12 @@ func TestHandleExecuteTask(t *testing.T) {
 	})
 }
 
-func TestHandleGetTask(t *testing.T) {
+func TestGetTaskRenderInfo(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		tm, mockFactory, mockStore, mockPlugin := setupTest(t)
 
 		taskID := uuid.New()
 		workflowID := uuid.New()
-
-		req := httptest.NewRequest(http.MethodGet, "/tasks/"+taskID.String(), nil)
-		req.SetPathValue("id", taskID.String())
-		w := httptest.NewRecorder()
 
 		// Mock GetTask (cache miss -> rebuild)
 		taskInfo := &persistence.TaskInfo{
@@ -425,23 +428,16 @@ func TestHandleGetTask(t *testing.T) {
 		}
 		mockPlugin.On("GetRenderInfo", mock.Anything).Return(renderInfo, nil).Once()
 
-		tm.HandleGetTask(w, req)
+		result, err := tm.GetTaskRenderInfo(context.Background(), taskID.String())
 
-		resp := w.Result()
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-		var result plugin.ApiResponse
-		json.NewDecoder(resp.Body).Decode(&result)
-		assert.True(t, result.Success)
+		assert.NoError(t, err)
+		assert.Equal(t, renderInfo, result)
 	})
 
 	t.Run("GetRenderInfo Error", func(t *testing.T) {
 		tm, mockFactory, mockStore, mockPlugin := setupTest(t)
 
 		taskID := uuid.New()
-		req := httptest.NewRequest(http.MethodGet, "/tasks/"+taskID.String(), nil)
-		req.SetPathValue("id", taskID.String())
-		w := httptest.NewRecorder()
 
 		// Mock GetTask
 		taskInfo := &persistence.TaskInfo{
@@ -457,29 +453,49 @@ func TestHandleGetTask(t *testing.T) {
 
 		mockPlugin.On("GetRenderInfo", mock.Anything).Return(nil, errors.New("render error")).Once()
 
-		tm.HandleGetTask(w, req)
+		result, err := tm.GetTaskRenderInfo(context.Background(), taskID.String())
 
-		resp := w.Result()
-		assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "render error")
 	})
 
 	t.Run("Task Not Found", func(t *testing.T) {
 		tm, _, mockStore, _ := setupTest(t)
 		taskID := uuid.New()
 
-		req := httptest.NewRequest(http.MethodGet, "/tasks/"+taskID.String(), nil)
-		req.SetPathValue("id", taskID.String())
-		w := httptest.NewRecorder()
-
 		mockStore.On("GetByID", taskID).Return(nil, gorm.ErrRecordNotFound).Once()
+
+		result, err := tm.GetTaskRenderInfo(context.Background(), taskID.String())
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+	})
+
+	t.Run("Invalid Task ID Format", func(t *testing.T) {
+		tm, _, _, _ := setupTest(t)
+
+		result, err := tm.GetTaskRenderInfo(context.Background(), "invalid-uuid")
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+	})
+}
+
+func TestHandleGetTask(t *testing.T) {
+	t.Run("Missing TaskID", func(t *testing.T) {
+		tm, _, _, _ := setupTest(t)
+		req := httptest.NewRequest(http.MethodGet, "/tasks/", nil)
+		// No path value set
+		w := httptest.NewRecorder()
 
 		tm.HandleGetTask(w, req)
 
 		resp := w.Result()
-		assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	})
 
-	t.Run("Invalid Task ID", func(t *testing.T) {
+	t.Run("Invalid TaskID string", func(t *testing.T) {
 		tm, _, _, _ := setupTest(t)
 		req := httptest.NewRequest(http.MethodGet, "/tasks/invalid", nil)
 		req.SetPathValue("id", "invalid")

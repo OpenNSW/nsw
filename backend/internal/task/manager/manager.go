@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/google/uuid"
@@ -51,10 +52,13 @@ type TaskManager interface {
 	// InitTask initializes and executes a task using the provided TaskContext.
 	InitTask(ctx context.Context, request InitTaskRequest) (*InitTaskResponse, error)
 
-	// HandleExecuteTask is an HTTP handler for executing a task via POST request
-	HandleExecuteTask(w http.ResponseWriter, r *http.Request)
+	// Core Domain Methods
+	ExecuteTask(ctx context.Context, req ExecuteTaskRequest) (*plugin.ExecutionResponse, error)
+	GetTaskRenderInfo(ctx context.Context, taskID string) (*plugin.ApiResponse, error)
+	HandleEvent(ctx context.Context, taskID string, event string, payload map[string]any) error
 
-	// HandleGetTask is an HTTP handler for retrieving a task via GET request
+	// HTTP Transport Wrappers
+	HandleExecuteTask(w http.ResponseWriter, r *http.Request)
 	HandleGetTask(w http.ResponseWriter, r *http.Request)
 
 	// RegisterUpstreamCallback registers the callback used when task state changes.
@@ -102,38 +106,76 @@ func (tm *taskManager) RegisterUpstreamCallback(callback WorkflowUpdateHandler) 
 	tm.workflowUpdateHandler = callback
 }
 
+// GetTaskRenderInfo retrieves task rendering info (core logic)
+func (tm *taskManager) GetTaskRenderInfo(ctx context.Context, taskID string) (*plugin.ApiResponse, error) {
+	taskUUID, err := uuid.Parse(taskID)
+	if err != nil || taskUUID == uuid.Nil {
+		return nil, fmt.Errorf("taskID is invalid: %w", err)
+	}
+
+	activeTask, err := tm.getTask(ctx, taskUUID)
+	if err != nil {
+		return nil, fmt.Errorf("task %s not found: %w", taskID, err)
+	}
+
+	result, err := activeTask.GetRenderInfo(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get render info for task %s: %w", taskID, err)
+	}
+
+	return result, nil
+}
+
 // HandleGetTask is an HTTP handler for fetching task information via GET request
 func (tm *taskManager) HandleGetTask(w http.ResponseWriter, r *http.Request) {
-
 	taskId := r.PathValue("id")
-
 	if taskId == "" {
 		writeJSONError(w, http.StatusBadRequest, "taskId is required")
 		return
 	}
 
-	ctx := r.Context()
-
-	taskUUID, err := uuid.Parse(taskId)
-
-	if err != nil || taskUUID == uuid.Nil {
-		writeJSONError(w, http.StatusBadRequest, "taskId is invalid")
-		return
-	}
-
-	activeTask, err := tm.getTask(ctx, taskUUID)
+	result, err := tm.GetTaskRenderInfo(r.Context(), taskId)
 	if err != nil {
-		writeJSONError(w, http.StatusNotFound, fmt.Sprintf("task %s not found: %v", taskId, err))
+		// Differentiate between invalid ID/NotFound and internal errors, if necessary.
+		status := http.StatusInternalServerError
+		if strings.HasPrefix(err.Error(), "taskID is invalid") {
+			status = http.StatusBadRequest
+		} else if strings.HasPrefix(err.Error(), "task ") {
+			status = http.StatusNotFound
+		}
+		writeJSONError(w, status, err.Error())
 		return
-	}
-
-	result, err := activeTask.GetRenderInfo(ctx)
-
-	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get render info for task %s: %v", taskId, err))
 	}
 
 	writeJSONResponse(w, http.StatusOK, result)
+}
+
+// ExecuteTask is the core logic for executing a task
+func (tm *taskManager) ExecuteTask(ctx context.Context, req ExecuteTaskRequest) (*plugin.ExecutionResponse, error) {
+	if req.TaskID == uuid.Nil {
+		return nil, fmt.Errorf("task_id is required")
+	}
+
+	activeTask, err := tm.getTask(ctx, req.TaskID)
+	if err != nil {
+		return nil, fmt.Errorf("task %s not found: %w", req.TaskID, err)
+	}
+
+	result, err := tm.execute(ctx, activeTask, req.Payload)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to execute task",
+			"taskID", req.TaskID,
+			"workflowID", req.WorkflowID,
+			"error", err)
+		return nil, fmt.Errorf("failed to execute task: %w", err)
+	}
+	return result, nil
+}
+
+// HandleEvent is a placeholder for handling events directed to tasks
+func (tm *taskManager) HandleEvent(ctx context.Context, taskID string, event string, payload map[string]any) error {
+	// TODO: Implement event handling logic
+	return fmt.Errorf("HandleEvent not implemented")
 }
 
 // HandleExecuteTask is an HTTP handler for executing a task via POST request
@@ -149,28 +191,15 @@ func (tm *taskManager) HandleExecuteTask(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Validate required fields
-	if req.TaskID == uuid.Nil {
-		writeJSONError(w, http.StatusBadRequest, "task_id is required")
-		return
-	}
-
-	// Get task from the store
-	ctx := r.Context()
-	activeTask, err := tm.getTask(ctx, req.TaskID)
+	result, err := tm.ExecuteTask(r.Context(), req)
 	if err != nil {
-		writeJSONError(w, http.StatusNotFound, fmt.Sprintf("task %s not found: %v", req.TaskID, err))
-		return
-	}
-
-	// Execute task
-	result, err := tm.execute(ctx, activeTask, req.Payload)
-	if err != nil {
-		slog.ErrorContext(ctx, "failed to execute task",
-			"taskID", req.TaskID,
-			"workflowID", req.WorkflowID,
-			"error", err)
-		writeJSONError(w, http.StatusInternalServerError, "Failed to execute task: "+err.Error())
+		status := http.StatusInternalServerError
+		if err.Error() == "task_id is required" {
+			status = http.StatusBadRequest
+		} else if string(err.Error()[:5]) == "task " {
+			status = http.StatusNotFound
+		}
+		writeJSONError(w, status, err.Error())
 		return
 	}
 
