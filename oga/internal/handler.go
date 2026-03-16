@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
@@ -224,16 +224,16 @@ func (h *OGAHandler) HandleGetUploadURL(w http.ResponseWriter, r *http.Request) 
 	// Extract Officer ID from JWT without validating signature (NSW Backend will validate)
 	officerID := "unknown"
 	if parts := strings.Split(authHeader, " "); len(parts) == 2 {
-		tokenParts := strings.Split(parts[1], ".")
-		if len(tokenParts) >= 2 {
-			if payload, err := base64.RawURLEncoding.DecodeString(tokenParts[1]); err == nil {
-				var claims struct {
-					Sub string `json:"sub"`
-				}
-				if json.Unmarshal(payload, &claims) == nil && claims.Sub != "" {
-					officerID = claims.Sub
-				}
-			}
+		tokenString := parts[1]
+		claims := &jwt.RegisteredClaims{}
+
+		// Use ParseUnverified to safely parse the token without signature validation.
+		// This is safer and more robust than manually splitting and decoding the token.
+		if _, _, err := new(jwt.Parser).ParseUnverified(tokenString, claims); err == nil && claims.Subject != "" {
+			officerID = claims.Subject
+		} else if err != nil {
+			// It's useful to log when token parsing fails, even if only for an audit log entry.
+			slog.WarnContext(ctx, "Failed to parse token for audit logging", "error", err)
 		}
 	}
 
