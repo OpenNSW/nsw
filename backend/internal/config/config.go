@@ -16,6 +16,7 @@ type Config struct {
 	CORS     CORSConfig
 	Storage  StorageConfig
 	Auth     AuthConfig
+	UseNewWorkflow bool
 }
 
 // DatabaseConfig holds database connection configuration
@@ -128,6 +129,7 @@ func Load() (*Config, error) {
 			ClientID:              getEnvOrDefault("AUTH_CLIENT_ID", "TRADER_PORTAL_APP"),
 			InsecureSkipTLSVerify: getBoolOrDefault("AUTH_JWKS_INSECURE_SKIP_VERIFY", defaultInsecureJWKS),
 		},
+		UseNewWorkflow: getBoolOrDefault("USE_NEW_WORKFLOW", false),
 	}
 
 	// Validate required fields

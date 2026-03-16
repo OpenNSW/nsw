@@ -52,7 +52,13 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	nodeService := service.NewWorkflowNodeService(db)
 	templateService := service.NewTemplateService(db)
-	wm := workflowmanager.NewManager(db, nodeService, templateService)
+
+	var wm workflowmanager.Manager
+	if cfg.UseNewWorkflow {
+		wm = workflowmanager.NewWorkflowAdapter(db)
+	} else {
+		wm = workflowmanager.NewManager(db, nodeService, templateService)
+	}
 
 	chaService := service.NewCHAService(db)
 	hsCodeService := service.NewHSCodeService(db)
