@@ -111,6 +111,7 @@ func (t *WaitForEventTask) Start(ctx context.Context) (*ExecutionResponse, error
 				"taskId", t.api.GetTaskID(),
 				"workflowId", t.api.GetWorkflowID(),
 				"error", transErr)
+			return nil, fmt.Errorf("failed to notify external service and transition to NOTIFY_FAILED: %w", transErr)
 		}
 		return &ExecutionResponse{Message: "Failed to notify external service"}, nil
 	}

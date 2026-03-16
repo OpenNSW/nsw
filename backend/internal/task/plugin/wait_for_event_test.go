@@ -6,11 +6,14 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/OpenNSW/nsw/pkg/remote"
 )
 
 // wfeAPI is a minimal API stub for WaitForEventTask tests.
@@ -52,11 +55,36 @@ func (a *wfeAPI) calledWith(action string) bool {
 
 func newWFETask(t *testing.T, serverURL string) (*WaitForEventTask, *wfeAPI) {
 	t.Helper()
+
+	mgr := remote.NewManager()
+	if serverURL != "" && serverURL != "http://irrelevant" {
+		cfg := remote.Registry{
+			Version: "1.0",
+			Services: []remote.ServiceConfig{
+				{
+					ID:  "test-service",
+					URL: serverURL,
+				},
+			},
+		}
+		data, err := json.Marshal(cfg)
+		if err != nil {
+			t.Fatalf("marshal registry: %v", err)
+		}
+		tmp := t.TempDir() + "/services.json"
+		if err := os.WriteFile(tmp, data, 0644); err != nil {
+			t.Fatalf("write services file: %v", err)
+		}
+		if err := mgr.LoadServices(tmp); err != nil {
+			t.Fatalf("load services: %v", err)
+		}
+	}
+
 	raw, err := json.Marshal(WaitForEventConfig{ExternalServiceURL: serverURL})
 	if err != nil {
 		t.Fatalf("marshal config: %v", err)
 	}
-	task, err := NewWaitForEventTask(raw, nil)
+	task, err := NewWaitForEventTask(raw, mgr)
 	if err != nil {
 		t.Fatalf("NewWaitForEventTask: %v", err)
 	}
@@ -378,8 +406,9 @@ func TestWaitForEventTask_Start_TransitionToNotifyFailedError(t *testing.T) {
 
 	resp, err := task.Start(context.Background())
 
-	require.NoError(t, err)
-	assert.Equal(t, "Failed to notify external service", resp.Message)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "db unavailable")
+	assert.Nil(t, resp)
 	assert.True(t, api.calledWith(waitForEventFSMStartFailed), "START_FAILED transition should be attempted")
 }
 
