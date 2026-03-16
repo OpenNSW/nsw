@@ -52,7 +52,7 @@ services:
   # ============================================================================
 
   thunder-db-init:
-    image: ghcr.io/asgardeo/thunder:0.23.0
+    image: ghcr.io/asgardeo/thunder:0.27.0
     command: sh -c "cp -r /opt/thunder/repository/database/* /data/"
     volumes:
       - thunder-db:/data
@@ -63,13 +63,18 @@ services:
       - idp
 
   thunder-setup:
-    image: ghcr.io/asgardeo/thunder:0.23.0
+    image: ghcr.io/asgardeo/thunder:0.27.0
     command: ./setup.sh
     environment:
       THUNDER_ADMIN_USERNAME: ${THUNDER_ADMIN_USERNAME:-admin}
       THUNDER_ADMIN_PASSWORD: ${THUNDER_ADMIN_PASSWORD:-1234}
-      THUNDER_API_BASE: http://thunder:8090
-      THUNDER_PUBLIC_URL: ${IDP_PUBLIC_URL:-https://localhost:8090}
+      THUNDER_SAMPLE_USER_PASSWORD: ${THUNDER_SAMPLE_USER_PASSWORD:-1234}
+      THUNDER_M2M_CLIENT_SECRET: ${THUNDER_M2M_CLIENT_SECRET:-1234}
+      THUNDER_M2M_NPQS_SECRET: ${THUNDER_M2M_NPQS_SECRET:-${THUNDER_M2M_CLIENT_SECRET:-1234}}
+      THUNDER_M2M_FCAU_SECRET: ${THUNDER_M2M_FCAU_SECRET:-${THUNDER_M2M_CLIENT_SECRET:-1234}}
+      THUNDER_M2M_IRD_SECRET: ${THUNDER_M2M_IRD_SECRET:-${THUNDER_M2M_CLIENT_SECRET:-1234}}
+      THUNDER_API_BASE: ${THUNDER_API_BASE:-https://thunder:8090}
+      THUNDER_PUBLIC_URL: ${IDP_PUBLIC_URL:-https://thunder:8090}
     volumes:
       - thunder-db:/opt/thunder/repository/database
       - ./idp/01-default-resources.sh:/opt/thunder/bootstrap/01-default-resources.sh
@@ -84,7 +89,7 @@ services:
       - idp
 
   thunder:
-    image: ghcr.io/asgardeo/thunder:0.23.0
+    image: ghcr.io/asgardeo/thunder:0.27.0
     ports:
       - "${IDP_PORT:-8090}:8090"
     volumes:
