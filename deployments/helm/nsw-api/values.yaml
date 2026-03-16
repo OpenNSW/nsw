@@ -1,0 +1,74 @@
+# Default values for nsw-api.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/opennsw/nsw-api
+  pullPolicy: IfNotPresent
+  tag: latest
+
+imagePullSecrets:
+  - name: ghcr-pull-secret
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+config:
+  server:
+    port: 8080
+    debug: false
+    logLevel: "info"
+
+  database:
+    host: "nsw-db"
+    port: 5432
+    name: "nsw_db"
+    username: "postgres"
+    # password comes from Secret: nsw-db-credentials.password
+    sslMode: "disable"
+
+  auth:
+    jwksUrl: "https://idp-route.national-single-window-platform.lgc.gov.lk/oauth2/jwks"
+    issuer: "https://idp-route.national-single-window-platform.lgc.gov.lk"
+    audience: "TRADER_PORTAL_APP"
+    clientId: "TRADER_PORTAL_APP"
+    insecureSkipTlsVerify: false
+
+  serviceUrl: "https://nsw-api-national-single-window-platform.lgc.gov.lk"
+
+  cors:
+    allowedOrigins:
+      - "https://trader-portal-national-single-window-platform.lgc.gov.lk"
+      - "https://npqs-portal-national-single-window-platform.lgc.gov.lk"
+
+  storage:
+    type: "local"
+    localBaseDir: "/tmp/bucket"
+    localPublicUrl: "/api/v1/uploads"
+    # S3 config — only used when storage.type is "s3"
+    s3Endpoint: ""
+    s3Bucket: "nsw-uploads"
+    s3Region: "us-east-1"
+    s3AccessKey: ""
+    s3SecretKey: ""
+    s3UseSsl: true
+    s3PublicUrl: ""
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+route:
+  enabled: true
+  # Leave empty to let OpenShift auto-assign; set explicitly only if your user has permission.
+  host: ""
+  tls:
+    enabled: true
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
