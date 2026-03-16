@@ -83,6 +83,17 @@ Markdown placeholder:
 - Server behavior flags (`SERVER_DEBUG`, `SERVER_LOG_LEVEL`, `SHOW_AUTOFILL_BUTTON`)
 - TLS skip for local IDP (`AUTH_JWKS_INSECURE_SKIP_VERIFY`) — set to `true` in local dev; remove or set to `false` in production
 
+### 3.3 Remote Services Configuration (services.json)
+
+The backend requires a `services.json` file to manage outbound connections to external agency portals.
+
+- **Development:** Copy `backend/configs/services.example.json` to `backend/configs/services.json`.
+- **Production (Docker/K8s):**
+    - Mount the configuration file to `/app/configs/services.json` (or your preferred path).
+    - Set the `SERVICES_CONFIG_PATH` environment variable to the file path.
+    - **Security:** Do not bake secrets into Docker images. Use Kubernetes Secrets or environment variable expansion if your loading logic supports it.
+- **Reference:** See [Services Migration Guide](SERVICES_MIGRATION.md) for schema details and security validation rules.
+
 ## 4) Choose a Deployment Mode
 
 | Mode | Best For | Operational Complexity | Repository Support |

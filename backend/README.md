@@ -65,6 +65,21 @@ go run ./cmd/server/main.go
 
 The server will start on the port specified in `SERVER_PORT` (default: 8080).
 
+### 5. Remote Service Configuration
+
+The backend uses a central registry to manage outbound calls to external services (like OGA portals or payment gateways).
+
+1.  **Registry File:** Copy the example services configuration:
+    ```bash
+    cp configs/services.example.json configs/services.json
+    ```
+2.  **Environment Variable:** You can override the default config path using:
+    ```bash
+    export SERVICES_CONFIG_PATH=configs/services.json
+    ```
+
+For detailed information on how to integrate new services or migrate existing ones, see the [Services Migration Guide](../docs/SERVICES_MIGRATION.md).
+
 ## Project Structure
 
 ```
