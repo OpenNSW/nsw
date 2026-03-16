@@ -44,7 +44,7 @@ func main() {
 	}()
 
 	// Initialize handlers
-	handler := internal.NewOGAHandler(service, cfg.BackendAPIBaseURL)
+	handler := internal.NewOGAHandler(service, cfg.NSWAPIBaseURL)
 	feedbackHandler := feedback.NewHandler(service)
 
 	// Set up HTTP routes

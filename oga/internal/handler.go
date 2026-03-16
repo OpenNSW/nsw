@@ -9,8 +9,6 @@ import (
 	"regexp"
 	"strconv"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 var storageKeyRx = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(\.[a-zA-Z0-9]+)?$`)
@@ -191,11 +189,11 @@ func (h *OGAHandler) HandleReviewApplication(w http.ResponseWriter, r *http.Requ
 }
 
 // HandleGetUploadURL returns a download URL for a file stored in the main
-// backend's upload service. OGA users are authenticated against a different
-// identity provider, so their tokens are not valid for the main backend.
-// Instead of proxying the authenticated metadata call, we construct the
-// public content URL directly (the backend's /content endpoint serves files
-// without auth, analogous to an S3 presigned URL).
+// backend's upload service. OGA users are authenticated against the same
+// identity provider as Traders, but their standard upload management routes
+// are separate for RBAC reasons.
+// Instead of the frontend calling the main backend directly, we provide a
+// proxied/constructed URL to bridge the two portals.
 //
 // TODO: This relies on the backend's LocalFSDriver /content endpoint which
 // has no auth. In production with S3, this endpoint should instead proxy
