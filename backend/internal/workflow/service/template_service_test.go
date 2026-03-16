@@ -11,7 +11,7 @@ import (
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 )
 
-func TestTemplateService_GetWorkflowTemplateByHSCodeIDAndFlow(t *testing.T) {
+func TestTemplateService_GetWorkflowTemplateMapByHSCodeIDAndFlow(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
 	service := NewTemplateService(db)
 	ctx := context.Background()
@@ -19,17 +19,33 @@ func TestTemplateService_GetWorkflowTemplateByHSCodeIDAndFlow(t *testing.T) {
 	hsCodeID := uuid.New()
 	flow := model.ConsignmentFlowImport
 	templateID := uuid.New()
+	goTemplateID := uuid.New()
 
-	// Expectation
-	sqlMock.ExpectQuery(`SELECT workflow_templates\.\* FROM "workflow_templates" JOIN workflow_template_maps ON workflow_templates\.id = workflow_template_maps\.workflow_template_id WHERE workflow_template_maps\.hs_code_id = \$1 AND workflow_template_maps\.consignment_flow = \$2 ORDER BY "workflow_templates"."id" LIMIT \$3`).
-		WithArgs(hsCodeID, flow, 1). // Checking matches exact args
-		WillReturnRows(sqlmock.NewRows([]string{"id", "flow", "name"}).
-			AddRow(templateID, flow, "Test Template"))
+	t.Run("Legacy Template", func(t *testing.T) {
+		sqlMock.ExpectQuery(`SELECT \* FROM "workflow_template_maps" WHERE hs_code_id = \$1 AND consignment_flow = \$2 ORDER BY "workflow_template_maps"."id" LIMIT \$3`).
+			WithArgs(hsCodeID, flow, 1).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "hs_code_id", "consignment_flow", "workflow_template_id"}).
+				AddRow(uuid.New(), hsCodeID, flow, templateID))
 
-	result, err := service.GetWorkflowTemplateByHSCodeIDAndFlow(ctx, hsCodeID, flow)
-	assert.NoError(t, err)
-	assert.NotNil(t, result)
-	assert.Equal(t, templateID, result.ID)
+		result, err := service.GetWorkflowTemplateMapByHSCodeIDAndFlow(ctx, hsCodeID, flow)
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Equal(t, templateID, *result.WorkflowTemplateID)
+		assert.Nil(t, result.GoWorkflowTemplateID)
+	})
+
+	t.Run("Go Template", func(t *testing.T) {
+		sqlMock.ExpectQuery(`SELECT \* FROM "workflow_template_maps" WHERE hs_code_id = \$1 AND consignment_flow = \$2 ORDER BY "workflow_template_maps"."id" LIMIT \$3`).
+			WithArgs(hsCodeID, flow, 1).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "hs_code_id", "consignment_flow", "go_workflow_template_id"}).
+				AddRow(uuid.New(), hsCodeID, flow, goTemplateID))
+
+		result, err := service.GetWorkflowTemplateMapByHSCodeIDAndFlow(ctx, hsCodeID, flow)
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Equal(t, goTemplateID, *result.GoWorkflowTemplateID)
+		assert.Nil(t, result.WorkflowTemplateID)
+	})
 }
 
 func TestTemplateService_GetWorkflowNodeTemplatesByIDs(t *testing.T) {

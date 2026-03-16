@@ -41,27 +41,35 @@ func (a *newWorkflowAdapter) StartWorkflowInstance(
 	tx *gorm.DB,
 	workflowID uuid.UUID,
 	workflowTemplates []model.WorkflowTemplate,
+	goWorkflowTemplate *model.GoWorkflowTemplate,
 	globalContext map[string]any,
 	handler WorkflowEventHandler,
 ) error {
 	slog.Info("StartWorkflowInstance called on new workflow adapter", "workflowID", workflowID)
 
-	wf := workflow.Workflow{
-		ID: workflowID.String(),
-	}
+	var workflowJSON []byte
+	var err error
 
-	for _, wt := range workflowTemplates {
-		for _, nodeID := range wt.GetNodeTemplateIDs() {
-			wf.Nodes = append(wf.Nodes, workflow.Node{
-				ID:   nodeID.String(),
-				Type: workflow.NodeTypeTask,
-			})
+	if goWorkflowTemplate != nil {
+		workflowJSON = goWorkflowTemplate.Definition
+	} else {
+		wf := workflow.Workflow{
+			ID: workflowID.String(),
 		}
-	}
 
-	workflowJSON, err := json.Marshal(wf)
-	if err != nil {
-		return fmt.Errorf("failed to marshal workflow: %w", err)
+		for _, wt := range workflowTemplates {
+			for _, nodeID := range wt.GetNodeTemplateIDs() {
+				wf.Nodes = append(wf.Nodes, workflow.Node{
+					ID:   nodeID.String(),
+					Type: workflow.NodeTypeTask,
+				})
+			}
+		}
+
+		workflowJSON, err = json.Marshal(wf)
+		if err != nil {
+			return fmt.Errorf("failed to marshal workflow: %w", err)
+		}
 	}
 
 	_, err = a.manager.StartWorkflow(ctx, workflowJSON, globalContext)

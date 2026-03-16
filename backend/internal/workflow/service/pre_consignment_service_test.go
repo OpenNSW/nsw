@@ -13,6 +13,8 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/OpenNSW/nsw/internal/workflow/model"
+	workflowmanager "github.com/OpenNSW/nsw/internal/workflow/manager"
+	taskmanager "github.com/OpenNSW/nsw/internal/task/manager"
 )
 
 func TestPreConsignmentService_InitializePreConsignment(t *testing.T) {
@@ -48,8 +50,8 @@ func TestPreConsignmentService_InitializePreConsignment(t *testing.T) {
 	sqlMock.ExpectExec(`INSERT INTO "pre_consignments"`).
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
-
-	mockWM.On("StartWorkflowInstance", ctx, mock.Anything, mock.AnythingOfType("uuid.UUID"), mock.Anything, initialContext, mock.Anything).Return(nil)
+	
+	mockWM.On("StartWorkflowInstance", ctx, mock.Anything, mock.AnythingOfType("uuid.UUID"), mock.Anything, (*model.GoWorkflowTemplate)(nil), initialContext, mock.Anything).Return(nil)
 	sqlMock.ExpectCommit()
 
 	// Reload pre-consignment with template

@@ -43,7 +43,7 @@ type TaskInitHandler func(ctx context.Context, request taskManager.InitTaskReque
 
 // Manager defines the public contract for the generic workflow engine.
 type Manager interface {
-	StartWorkflowInstance(ctx context.Context, tx *gorm.DB, workflowID uuid.UUID, workflowTemplates []model.WorkflowTemplate, globalContext map[string]any, handler WorkflowEventHandler) error
+	StartWorkflowInstance(ctx context.Context, tx *gorm.DB, workflowID uuid.UUID, workflowTemplates []model.WorkflowTemplate, goWorkflowTemplate *model.GoWorkflowTemplate, globalContext map[string]any, handler WorkflowEventHandler) error
 	RegisterTaskHandler(callback TaskInitHandler) error
 	HandleTaskUpdate(ctx context.Context, update taskManager.WorkflowManagerNotification) error
 	GetWorkflowInstance(ctx context.Context, workflowID uuid.UUID) (*model.Workflow, error)
@@ -91,13 +91,14 @@ func (m *workflowManager) RegisterTaskHandler(callback TaskInitHandler) error {
 	return nil
 }
 
-// StartWorkflowInstance creates a new Workflow entity and its nodes from the given templates,
-// then registers READY nodes with the TaskManager. The workflowID is set by the caller.
+// StartWorkflowInstance initializes a workflow instance for a given consignment.
+// It supports both traditional workflow templates and new go-workflow definitions.
 func (m *workflowManager) StartWorkflowInstance(
 	ctx context.Context,
 	tx *gorm.DB,
 	workflowID uuid.UUID,
 	workflowTemplates []model.WorkflowTemplate,
+	goWorkflowTemplate *model.GoWorkflowTemplate,
 	globalContext map[string]any,
 	handler WorkflowEventHandler,
 ) error {

@@ -231,7 +231,7 @@ func (s *PreConsignmentService) initializePreConsignmentInTx(
 	}
 
 	// Register workflow with the manager (creates Workflow entity + nodes + registers with TM)
-	if err := s.workflowManager.StartWorkflowInstance(ctx, tx, preConsignment.ID, []model.WorkflowTemplate{*workflowTemplate}, initialTraderContext, s); err != nil {
+	if err := s.workflowManager.StartWorkflowInstance(ctx, tx, preConsignment.ID, []model.WorkflowTemplate{*workflowTemplate}, nil, initialTraderContext, s); err != nil {
 		tx.Rollback()
 		return nil, fmt.Errorf("failed to register workflow: %w", err)
 	}

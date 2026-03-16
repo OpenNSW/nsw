@@ -92,13 +92,35 @@ func (s *ConsignmentService) InitializeConsignmentByID(ctx context.Context, cons
 
 	var items []model.ConsignmentItem
 	var workflowTemplates []model.WorkflowTemplate
+	var goWorkflowTemplates []*model.GoWorkflowTemplate
 	for _, hsCodeID := range hsCodeIDs {
 		items = append(items, model.ConsignmentItem{HSCodeID: hsCodeID})
-		wt, err := s.templateProvider.GetWorkflowTemplateByHSCodeIDAndFlow(ctx, hsCodeID, consignment.Flow)
+		templateMap, err := s.templateProvider.GetWorkflowTemplateMapByHSCodeIDAndFlow(ctx, hsCodeID, consignment.Flow)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get workflow template for HS code %s and flow %s: %w", hsCodeID, consignment.Flow, err)
+			return nil, fmt.Errorf("failed to get workflow template map for HS code %s and flow %s: %w", hsCodeID, consignment.Flow, err)
 		}
-		workflowTemplates = append(workflowTemplates, *wt)
+
+		if templateMap.GoWorkflowTemplateID != nil {
+			gwt, err := s.templateProvider.GetGoWorkflowTemplateByID(ctx, *templateMap.GoWorkflowTemplateID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get go-workflow template: %w", err)
+			}
+			goWorkflowTemplates = append(goWorkflowTemplates, gwt)
+		} else if templateMap.WorkflowTemplateID != nil {
+			wt, err := s.templateProvider.GetWorkflowTemplateByID(ctx, *templateMap.WorkflowTemplateID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get workflow template: %w", err)
+			}
+			workflowTemplates = append(workflowTemplates, *wt)
+		}
+	}
+
+	// For now, we assume only one type can be started or we combine them.
+	// The current adapter StartWorkflowInstance signature takes one goWorkflowTemplate and a slice of workflowTemplates.
+	// We'll pick the first go-workflow if available, otherwise use all workflowTemplates.
+	var finalGWT *model.GoWorkflowTemplate
+	if len(goWorkflowTemplates) > 0 {
+		finalGWT = goWorkflowTemplates[0]
 	}
 
 	tx := s.db.WithContext(ctx).Begin()
@@ -115,7 +137,7 @@ func (s *ConsignmentService) InitializeConsignmentByID(ctx context.Context, cons
 		return nil, fmt.Errorf("failed to update consignment: %w", err)
 	}
 
-	if err := s.workflowManager.StartWorkflowInstance(ctx, tx, consignment.ID, workflowTemplates, globalContext, s); err != nil {
+	if err := s.workflowManager.StartWorkflowInstance(ctx, tx, consignment.ID, workflowTemplates, finalGWT, globalContext, s); err != nil {
 		tx.Rollback()
 		return nil, fmt.Errorf("failed to register workflow: %w", err)
 	}
@@ -177,16 +199,35 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 
 	var items []model.ConsignmentItem
 	var workflowTemplates []model.WorkflowTemplate
+	var goWorkflowTemplates []*model.GoWorkflowTemplate
 	for _, itemDTO := range createReq.Items {
 		item := model.ConsignmentItem(itemDTO)
 		items = append(items, item)
-		workflowTemplate, err := s.templateProvider.GetWorkflowTemplateByHSCodeIDAndFlow(ctx, itemDTO.HSCodeID, createReq.Flow)
+		templateMap, err := s.templateProvider.GetWorkflowTemplateMapByHSCodeIDAndFlow(ctx, itemDTO.HSCodeID, createReq.Flow)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get workflow template for HS code %s and flow %s: %w", itemDTO.HSCodeID, createReq.Flow, err)
+			return nil, fmt.Errorf("failed to get workflow template map for HS code %s and flow %s: %w", itemDTO.HSCodeID, createReq.Flow, err)
 		}
-		workflowTemplates = append(workflowTemplates, *workflowTemplate)
+
+		if templateMap.GoWorkflowTemplateID != nil {
+			gwt, err := s.templateProvider.GetGoWorkflowTemplateByID(ctx, *templateMap.GoWorkflowTemplateID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get go-workflow template: %w", err)
+			}
+			goWorkflowTemplates = append(goWorkflowTemplates, gwt)
+		} else if templateMap.WorkflowTemplateID != nil {
+			wt, err := s.templateProvider.GetWorkflowTemplateByID(ctx, *templateMap.WorkflowTemplateID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get workflow template: %w", err)
+			}
+			workflowTemplates = append(workflowTemplates, *wt)
+		}
 	}
 	consignment.Items = items
+
+	var finalGWT *model.GoWorkflowTemplate
+	if len(goWorkflowTemplates) > 0 {
+		finalGWT = goWorkflowTemplates[0]
+	}
 
 	tx := s.db.WithContext(ctx).Begin()
 	defer func() {
@@ -200,7 +241,7 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 		return nil, fmt.Errorf("failed to create consignment: %w", err)
 	}
 
-	if err := s.workflowManager.StartWorkflowInstance(ctx, tx, consignment.ID, workflowTemplates, globalContext, s); err != nil {
+	if err := s.workflowManager.StartWorkflowInstance(ctx, tx, consignment.ID, workflowTemplates, finalGWT, globalContext, s); err != nil {
 		tx.Rollback()
 		return nil, fmt.Errorf("failed to register workflow: %w", err)
 	}

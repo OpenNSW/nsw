@@ -8,11 +8,15 @@ import (
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 )
 
-// TemplateProvider defines the interface for retrieving workflow templates.
-// This abstraction allows for easier testing and flexibility in template storage.
 type TemplateProvider interface {
-	// GetWorkflowTemplateByHSCodeIDAndFlow retrieves the workflow template associated with a given HS code and consignment flow.
+	// GetWorkflowTemplateMapByHSCodeIDAndFlow retrieves the workflow template map associated with a given HS code and consignment flow.
+	GetWorkflowTemplateMapByHSCodeIDAndFlow(ctx context.Context, hsCodeID uuid.UUID, flow model.ConsignmentFlow) (*model.WorkflowTemplateMap, error)
+
+	// GetWorkflowTemplateByHSCodeIDAndFlow (Legacy) retrieves the traditional workflow template associated with a given HS code and consignment flow.
 	GetWorkflowTemplateByHSCodeIDAndFlow(ctx context.Context, hsCodeID uuid.UUID, flow model.ConsignmentFlow) (*model.WorkflowTemplate, error)
+
+	// GetGoWorkflowTemplateByID retrieves a go-workflow template by its ID.
+	GetGoWorkflowTemplateByID(ctx context.Context, id uuid.UUID) (*model.GoWorkflowTemplate, error)
 
 	// GetWorkflowTemplateByID retrieves a workflow template by its ID.
 	GetWorkflowTemplateByID(ctx context.Context, id uuid.UUID) (*model.WorkflowTemplate, error)

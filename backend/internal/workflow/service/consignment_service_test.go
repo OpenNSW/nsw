@@ -22,12 +22,28 @@ type MockTemplateProvider struct {
 	mock.Mock
 }
 
+func (m *MockTemplateProvider) GetWorkflowTemplateMapByHSCodeIDAndFlow(ctx context.Context, hsCodeID uuid.UUID, flow model.ConsignmentFlow) (*model.WorkflowTemplateMap, error) {
+	args := m.Called(ctx, hsCodeID, flow)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.WorkflowTemplateMap), args.Error(1)
+}
+
 func (m *MockTemplateProvider) GetWorkflowTemplateByHSCodeIDAndFlow(ctx context.Context, hsCodeID uuid.UUID, flow model.ConsignmentFlow) (*model.WorkflowTemplate, error) {
 	args := m.Called(ctx, hsCodeID, flow)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*model.WorkflowTemplate), args.Error(1)
+}
+
+func (m *MockTemplateProvider) GetGoWorkflowTemplateByID(ctx context.Context, id uuid.UUID) (*model.GoWorkflowTemplate, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.GoWorkflowTemplate), args.Error(1)
 }
 
 func (m *MockTemplateProvider) GetWorkflowTemplateByID(ctx context.Context, id uuid.UUID) (*model.WorkflowTemplate, error) {
@@ -67,8 +83,8 @@ type MockWorkflowManager struct {
 	mock.Mock
 }
 
-func (m *MockWorkflowManager) StartWorkflowInstance(ctx context.Context, tx *gorm.DB, workflowID uuid.UUID, workflowTemplates []model.WorkflowTemplate, globalContext map[string]any, handler workflowmanager.WorkflowEventHandler) error {
-	args := m.Called(ctx, tx, workflowID, workflowTemplates, globalContext, handler)
+func (m *MockWorkflowManager) StartWorkflowInstance(ctx context.Context, tx *gorm.DB, workflowID uuid.UUID, workflowTemplates []model.WorkflowTemplate, goWorkflowTemplate *model.GoWorkflowTemplate, globalContext map[string]any, handler workflowmanager.WorkflowEventHandler) error {
+	args := m.Called(ctx, tx, workflowID, workflowTemplates, goWorkflowTemplate, globalContext, handler)
 	return args.Error(0)
 }
 
@@ -116,7 +132,7 @@ func TestConsignmentService_InitializeConsignment(t *testing.T) {
 	sqlMock.ExpectExec(`INSERT INTO "consignments"`).
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
-	mockWM.On("StartWorkflowInstance", ctx, mock.Anything, mock.AnythingOfType("uuid.UUID"), mock.Anything, globalContext, mock.Anything).Return(nil)
+	mockWM.On("StartWorkflowInstance", ctx, mock.Anything, mock.AnythingOfType("uuid.UUID"), mock.Anything, (*model.GoWorkflowTemplate)(nil), globalContext, mock.Anything).Return(nil)
 	sqlMock.ExpectCommit()
 
 	nodeTemplateID := workflowTemplate.NodeTemplates[0]

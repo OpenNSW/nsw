@@ -35,6 +35,29 @@ func (s *TemplateService) GetWorkflowTemplateByHSCodeIDAndFlow(ctx context.Conte
 	return &workflowTemplate, nil
 }
 
+// GetWorkflowTemplateMapByHSCodeIDAndFlow retrieves the workflow template map associated with a given HS code and consignment flow.
+func (s *TemplateService) GetWorkflowTemplateMapByHSCodeIDAndFlow(ctx context.Context, hsCodeID uuid.UUID, flow model.ConsignmentFlow) (*model.WorkflowTemplateMap, error) {
+	var templateMap model.WorkflowTemplateMap
+	result := s.db.WithContext(ctx).
+		Where("hs_code_id = ? AND consignment_flow = ?", hsCodeID, flow).
+		First(&templateMap)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return &templateMap, nil
+}
+
+// GetGoWorkflowTemplateByID retrieves a go-workflow template by its ID.
+func (s *TemplateService) GetGoWorkflowTemplateByID(ctx context.Context, id uuid.UUID) (*model.GoWorkflowTemplate, error) {
+	var template model.GoWorkflowTemplate
+	result := s.db.WithContext(ctx).First(&template, "id = ?", id)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &template, nil
+}
+
 // GetWorkflowTemplateByID retrieves a workflow template by its ID.
 func (s *TemplateService) GetWorkflowTemplateByID(ctx context.Context, id uuid.UUID) (*model.WorkflowTemplate, error) {
 	var workflowTemplate model.WorkflowTemplate
