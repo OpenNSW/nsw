@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -18,32 +19,37 @@ func (p *MockGateway) ID() string {
 	return "mock"
 }
 
-func (p *MockGateway) GenerateRedirectURL(referenceNumber string) string {
-	return fmt.Sprintf("http://localhost:5173/mock-payment?ref=%s", referenceNumber)
+func (p *MockGateway) GenerateRedirectURL(ctx context.Context, trx *payment_types.PaymentTransactionDB, returnUrl string) (string, error) {
+	// In mock mode, we often return an empty string to trigger the integrated frontend dialog
+	return "", nil
 }
 
-func (p *MockGateway) VerifyCallback(r *http.Request) (CallbackResult, error) {
+func (p *MockGateway) ExtractReference(r *http.Request) (string, error) {
 	var payload struct {
 		ReferenceNumber string `json:"reference_number"`
-		Status          string `json:"status"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		return CallbackResult{}, fmt.Errorf("failed to decode mock payload: %w", err)
+		return "", fmt.Errorf("failed to decode mock payload: %w", err)
 	}
 
+	return payload.ReferenceNumber, nil
+}
+
+func (p *MockGateway) GetPaymentInfo(ctx context.Context, referenceNumber string) (CallbackResult, error) {
 	return CallbackResult{
-		ReferenceNumber: payload.ReferenceNumber,
+		ReferenceNumber: referenceNumber,
 		ProviderID:      p.ID(),
-		Status:          payload.Status,
+		Status:          "SUCCESS",
 	}, nil
 }
 
 func (p *MockGateway) FormatInquiryResponse(trx *payment_types.PaymentTransactionDB) (any, error) {
 	return map[string]interface{}{
-		"provider":         p.ID(),
-		"reference_number": trx.ReferenceNumber,
-		"amount":           trx.Amount,
-		"currency":         "MOCK",
-		"status":           trx.Status,
+		"confirmationNo": trx.ReferenceNumber,
+		"paymentAmount":  trx.Amount,
+		"currency":       "MOCK",
+		"status":         trx.Status,
+		"provider":       p.ID(),
+		"name":           trx.PayerName,
 	}, nil
 }

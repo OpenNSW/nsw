@@ -16,6 +16,8 @@ type PaymentTransactionDB struct {
 	ProviderID      string    `gorm:"type:varchar(50);not null;index"`
 	Status          string    `gorm:"type:varchar(50);not null;default:'PENDING'"`
 	Amount          float64   `gorm:"type:numeric(15,2);not null"`
+	Currency        string    `gorm:"type:varchar(10);not null;default:'LKR'"`
+	PayerName       string    `gorm:"type:varchar(255)"`
 	CreatedAt       time.Time `gorm:"autoCreateTime"`
 	UpdatedAt       time.Time `gorm:"autoUpdateTime"`
 }

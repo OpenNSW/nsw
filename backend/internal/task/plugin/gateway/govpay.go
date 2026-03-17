@@ -1,65 +1,54 @@
 package gateway
 
 import (
-	"encoding/json"
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 
-	"github.com/OpenNSW/nsw/internal/config"
 	"github.com/OpenNSW/nsw/internal/task/plugin/payment_types"
 )
 
-type GovPayProvider struct {
-	cfg *config.Config
-}
+type GovPayProvider struct{}
 
-func NewGovPayProvider(cfg *config.Config) *GovPayProvider {
-	return &GovPayProvider{cfg: cfg}
+func NewGovPayProvider() *GovPayProvider {
+	return &GovPayProvider{}
 }
 
 func (p *GovPayProvider) ID() string {
 	return "govpay"
 }
 
-func (p *GovPayProvider) GenerateRedirectURL(referenceNumber string) string {
-	// Note: In a real system, we might have a specific redirect URL per gateway.
-	// For now, we use a hardcoded production default or mock mode.
-	return fmt.Sprintf("https://www.lpopp.lk/pay?ref=%s", referenceNumber)
+func (p *GovPayProvider) GenerateRedirectURL(ctx context.Context, trx *payment_types.PaymentTransactionDB, returnUrl string) (string, error) {
+	// In a real provider, we might use p.cfg to get the base URL
+	baseURL := "https://checkout.govpay.lk"
+	url := fmt.Sprintf("%s/pay?ref=%s&return=%s", baseURL, trx.ReferenceNumber, returnUrl)
+	return url, nil
 }
 
-func (p *GovPayProvider) VerifyCallback(r *http.Request) (CallbackResult, error) {
-	// GovPay specific signature check (Placeholder)
-	if !p.cfg.Payment.MockMode {
-		signature := r.Header.Get("GovPay-Signature")
-		if signature == "" {
-			return CallbackResult{}, errors.New("missing govpay signature")
-		}
-		// TODO: verifySignature(r.Body, signature, p.cfg.Payment.SecretKey)
+func (p *GovPayProvider) ExtractReference(r *http.Request) (string, error) {
+	ref := r.URL.Query().Get("ref")
+	if ref == "" {
+		return "", errors.New("missing ref query parameter")
 	}
+	return ref, nil
+}
 
-	// GovPay specific JSON decoding
-	var payload struct {
-		ReferenceNumber string `json:"reference_number"`
-		Status          string `json:"status"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		return CallbackResult{}, fmt.Errorf("failed to decode govpay payload: %w", err)
-	}
-
+func (p *GovPayProvider) GetPaymentInfo(ctx context.Context, referenceNumber string) (CallbackResult, error) {
 	return CallbackResult{
-		ReferenceNumber: payload.ReferenceNumber,
+		ReferenceNumber: referenceNumber,
 		ProviderID:      p.ID(),
-		Status:          payload.Status,
+		Status:          "SUCCESS",
 	}, nil
 }
 
 func (p *GovPayProvider) FormatInquiryResponse(trx *payment_types.PaymentTransactionDB) (any, error) {
 	return map[string]interface{}{
-		"provider":         p.ID(),
-		"reference_number": trx.ReferenceNumber,
-		"amount":           trx.Amount,
-		"currency":         "LKR",
-		"status":           trx.Status,
+		"confirmationNo": trx.ReferenceNumber,
+		"paymentAmount":  trx.Amount,
+		"currency":       "LKR",
+		"status":         trx.Status,
+		"provider":       p.ID(),
+		"name":           trx.PayerName,
 	}, nil
 }

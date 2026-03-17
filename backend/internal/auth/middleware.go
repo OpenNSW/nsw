@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -36,6 +37,12 @@ import (
 func Middleware(authService *AuthService, tokenExtractor *TokenExtractor) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Bypass auth for external payment callbacks
+			if strings.HasPrefix(r.URL.Path, "/api/v1/payments/") && strings.HasSuffix(r.URL.Path, "/callback") {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
 				slog.Debug("no authorization header provided")

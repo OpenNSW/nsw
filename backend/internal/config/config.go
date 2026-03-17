@@ -26,6 +26,7 @@ type PaymentConfig struct {
 	MerchantID    string
 	CallbackURL   string
 	InquiryAPIKey string
+	GovPayBaseURL string
 }
 
 // DatabaseConfig holds database connection configuration
@@ -142,10 +143,11 @@ func Load() (*Config, error) {
 		// if GOVPAY_SECRET or GOVPAY_MERCHANT_ID are missing in production
 		Payment: PaymentConfig{
 			MockMode:      getBoolOrDefault("GOVPAY_MOCK_MODE", true),
-			Secret:        getEnvOrDefault("GOVPAY_SECRET", "mock-secret-key-12345"),
-			MerchantID:    getEnvOrDefault("GOVPAY_MERCHANT_ID", "mock-merchant-xyz"),
+			Secret:        os.Getenv("GOVPAY_SECRET"),
+			MerchantID:    os.Getenv("GOVPAY_MERCHANT_ID"),
 			CallbackURL:   getEnvOrDefault("GOVPAY_CALLBACK_URL", "http://localhost:8080/api/v1/payments/govpay/callback"),
-			InquiryAPIKey: getEnvOrDefault("GOVPAY_INQUIRY_API_KEY", "mock-inquiry-key-123"),
+			InquiryAPIKey: os.Getenv("GOVPAY_INQUIRY_API_KEY"),
+			GovPayBaseURL: getEnvOrDefault("GOVPAY_BASE_URL", "https://checkout.govpay.lk"),
 		},
 	}
 

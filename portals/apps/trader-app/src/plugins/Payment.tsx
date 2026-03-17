@@ -1,9 +1,8 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useParams } from "react-router-dom"
 import { Box, Button, Dialog, Flex, IconButton, Text } from "@radix-ui/themes"
 import { Cross2Icon } from "@radix-ui/react-icons"
-import { useApi } from "../services/ApiContext"
-import { getTaskInfo, sendTaskAction, type TaskCommandResponse } from "../services/task"
+import { sendTaskAction } from "../services/task"
 
 export type PaymentConfigs = {
   gatewayUrl: string
@@ -17,146 +16,90 @@ export default function Payment(props: {
   onTaskUpdated?: () => Promise<void>
 }) {
   const { consignmentId, preConsignmentId, taskId } = useParams<{
-    consignmentId?: string
-    preConsignmentId?: string
-    taskId?: string
+    consignmentId?: string; preConsignmentId?: string; taskId?: string
   }>()
 
   const [isInitiating, setIsInitiating] = useState(false)
-  const [isProcessingResult, setIsProcessingResult] = useState(false)
   const [isPopupOpen, setIsPopupOpen] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
-  const api = useApi()
+  
+  // Check for errors returned via query params after failed mock/real gateway
+  const urlParams = new URLSearchParams(window.location.search);
+  const paymentError = urlParams.has('payment_error');
+
+  useEffect(() => {
+    if (paymentError) {
+      setSubmitError("Payment failed or timed out.");
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [paymentError]);
 
   const workflowId = preConsignmentId || consignmentId
   const isCompleted = props.pluginState === "COMPLETED"
-  const gatewayUrl = props.configs?.gatewayUrl ?? ""
   const amount = props.configs?.amount ?? 0
   const currency = props.configs?.currency ?? ""
 
-  const refreshGatewaySession = async () => {
-    if (!taskId) {
-      return
-    }
+  // --- INITIATE LOGIC ---
+  const handlePayNow = async (method: 'CARD') => {
+    if (!workflowId || !taskId) return;
+    setIsInitiating(true);
+    setSubmitError(null);
 
     try {
-      await getTaskInfo(taskId, api)
-    } catch (err) {
-      console.error("Error refreshing payment session:", err)
-    }
-  }
+      // Construct the exact URL the gateway should send the user back to
+      const returnUrl = `${window.location.origin}/payment-return?taskId=${taskId}&workflowId=${workflowId}`;
 
-  const isSessionExpiredResponse = (response: TaskCommandResponse): boolean => {
-    if (response.success) {
-      return false
-    }
+      // Pass this returnUrl to the backend
+      const response = await sendTaskAction(taskId, workflowId, "INITIATE_PAYMENT", {
+        method,
+        returnUrl
+      });
 
-    const code = response.error?.code ?? ""
-    const message = response.error?.message?.toLowerCase() ?? ""
-    return code === "SESSION_EXPIRED" || message.includes("session expired")
-  }
-
-  const isSessionExpiredError = (err: unknown): boolean => {
-    const message = err instanceof Error ? err.message : String(err)
-    return message.toLowerCase().includes("session expired")
-  }
-
-  const handlePayNow = async (method: 'CARD' | 'BANK_APP') => {
-    if (!workflowId || !taskId) {
-      setSubmitError("Workflow ID or Task ID is missing.")
-      return
-    }
-
-    if (props.pluginState === "IN_PROGRESS") {
-      if (!gatewayUrl) {
-        setSubmitError("Gateway URL is not available.")
-        return
-      }
-
-      setSubmitError(null)
-      setIsPopupOpen(true)
-      return
-    }
-
-    const initiatePayment = async (allowRetry: boolean): Promise<any> => {
-      try {
-        const response = await sendTaskAction(taskId, workflowId, "INITIATE_PAYMENT", { method })
-        if (response.success) {
-          return response
-        }
-
-        if (allowRetry && isSessionExpiredResponse(response)) {
-          await refreshGatewaySession()
-          return initiatePayment(false)
-        }
-
-        setSubmitError(response.error?.message ?? "Failed to initiate payment.")
-        return null
-      } catch (err) {
-        if (allowRetry && isSessionExpiredError(err)) {
-          await refreshGatewaySession()
-          return initiatePayment(false)
-        }
-
-        console.error("Error initiating payment:", err)
-        setSubmitError("Failed to initiate payment. Please try again.")
-        return null
-      }
-    }
-
-    setIsInitiating(true)
-    setSubmitError(null)
-
-    try {
-      const response = await initiatePayment(true)
-      if (!response) {
-        return
-      }
-
-      const nextUrl = (response.data as any)?.gatewayUrl
-      if (nextUrl) {
-        window.location.href = nextUrl
-      } else if (method === 'CARD' && response.success) {
-        // Instant success: refresh task state
-        if (props.onTaskUpdated) {
-          await props.onTaskUpdated()
+      if (response.success) {
+        const nextUrl = (response.data as any)?.gatewayUrl;
+        if (nextUrl) {
+          // Redirect to external gateway
+          window.location.href = nextUrl;
         } else {
-          window.location.reload()
+          // If no URL, check if we need to show the mock terminal or if it succeeded instantly
+          // We need to fetch the latest state or check the response data
+          const isNowCompleted = (response.data as any)?.message?.toLowerCase().includes("completed") || (response.data as any)?.status === "COMPLETED";
+
+          if (isNowCompleted) {
+            if (props.onTaskUpdated) await props.onTaskUpdated();
+            else window.location.reload();
+          } else {
+            // Still IN_PROGRESS, so let the user simulate the callback manually via the popup
+            setIsPopupOpen(true);
+          }
         }
       } else {
-        setIsPopupOpen(true)
+        setSubmitError(response.error?.message ?? "Failed to initiate payment.");
       }
+    } catch (err) {
+      setSubmitError("Failed to initiate payment. Please try again.");
     } finally {
-      setIsInitiating(false)
+      setIsInitiating(false);
     }
   }
 
   const handleMockGatewayResult = async (action: "PAYMENT_SUCCESS" | "PAYMENT_FAILED") => {
-    if (!workflowId || !taskId) {
-      setSubmitError("Workflow ID or Task ID is missing.")
-      return
-    }
-
-    setIsProcessingResult(true)
-    setSubmitError(null)
+    if (!workflowId || !taskId) return;
+    setIsInitiating(true);
+    setSubmitError(null);
 
     try {
-      const response = await sendTaskAction(taskId, workflowId, action)
-      if (!response.success) {
-        setSubmitError(response.error?.message ?? "Failed to process payment result.")
-        return
-      }
-
-      setIsPopupOpen(false)
-
-      if (props.onTaskUpdated) {
-        await props.onTaskUpdated()
+      const response = await sendTaskAction(taskId, workflowId, action);
+      if (response.success) {
+        setIsPopupOpen(false);
+        if (props.onTaskUpdated) await props.onTaskUpdated();
+      } else {
+        setSubmitError(response.error?.message ?? "Failed to process mock payment.");
       }
     } catch (err) {
-      console.error("Error processing payment result:", err)
-      setSubmitError("Failed to process payment result. Please try again.")
+      setSubmitError("Failed to process mock payment. Please try again.");
     } finally {
-      setIsProcessingResult(false)
+      setIsInitiating(false);
     }
   }
 
@@ -170,13 +113,22 @@ export default function Payment(props: {
 
       {!isCompleted && (
         <Flex gap="3">
-          <Button onClick={() => { void handlePayNow('CARD') }} disabled={isInitiating} size="3" color="blue">
-            {isInitiating ? "Initiating..." : "Pay with Credit Card"}
-          </Button>
-          <Button onClick={() => { void handlePayNow('BANK_APP') }} disabled={isInitiating} size="3" variant="soft">
-            {isInitiating ? "Initiating..." : "Pay with Banking App"}
+          <Button
+            onClick={() => { void handlePayNow('CARD') }}
+            disabled={isInitiating || props.pluginState === "COMPLETED"}
+            size="3"
+            color="blue"
+          >
+            {isInitiating ? "Initiating..." : "Pay Now"}
           </Button>
         </Flex>
+      )}
+
+      {isCompleted && (
+        <div className="bg-green-100 text-green-700 rounded-lg p-4">
+          <p className="font-medium">Payment Successful!</p>
+          <p className="text-sm">Your transaction has been processed and confirmed.</p>
+        </div>
       )}
 
       <Dialog.Root open={isPopupOpen} onOpenChange={setIsPopupOpen}>
@@ -194,8 +146,10 @@ export default function Payment(props: {
 
           <Box mt="4" className="space-y-3">
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <Text size="2" color="gray">Popup URL</Text>
-              <p className="text-sm text-gray-900 break-all mt-1">{gatewayUrl}</p>
+              <Text size="2" color="gray">Simulation Mode</Text>
+              <p className="text-sm text-gray-900 mt-1">
+                You are currently using the mock payment gateway. Choose an outcome to simulate the external provider response.
+              </p>
             </div>
 
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -208,17 +162,17 @@ export default function Payment(props: {
             <Button
               variant="soft"
               color="red"
-              disabled={isProcessingResult}
+              disabled={isInitiating}
               onClick={() => { void handleMockGatewayResult("PAYMENT_FAILED") }}
             >
-              {isProcessingResult ? "Processing..." : "Mark Failed"}
+              {isInitiating ? "Processing..." : "Simulate Failure"}
             </Button>
             <Button
               color="green"
-              disabled={isProcessingResult}
+              disabled={isInitiating}
               onClick={() => { void handleMockGatewayResult("PAYMENT_SUCCESS") }}
             >
-              {isProcessingResult ? "Processing..." : "Mark Success"}
+              {isInitiating ? "Processing..." : "Simulate Success"}
             </Button>
           </Flex>
         </Dialog.Content>
@@ -230,5 +184,5 @@ export default function Payment(props: {
         </div>
       )}
     </div>
-  )
+  );
 }

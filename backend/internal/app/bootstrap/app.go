@@ -11,8 +11,10 @@ import (
 	"github.com/OpenNSW/nsw/internal/database"
 	"github.com/OpenNSW/nsw/internal/form"
 	"github.com/OpenNSW/nsw/internal/middleware"
+	"github.com/OpenNSW/nsw/internal/payment"
 	"github.com/OpenNSW/nsw/internal/task/api"
 	taskManager "github.com/OpenNSW/nsw/internal/task/manager"
+	"github.com/OpenNSW/nsw/internal/task/persistence"
 	"github.com/OpenNSW/nsw/internal/task/plugin/gateway"
 	"github.com/OpenNSW/nsw/internal/uploads"
 	workflowmanager "github.com/OpenNSW/nsw/internal/workflow/manager"
@@ -65,8 +67,8 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	formService := form.NewFormService(db)
 	// Payment Gateway Registry
 	gwRegistry := gateway.NewRegistry()
-	gwRegistry.Register(gateway.NewGovPayProvider(cfg))
 	gwRegistry.Register(&gateway.MockGateway{})
+	gwRegistry.Register(gateway.NewGovPayProvider())
 
 	tm, err := taskManager.NewTaskManager(db, cfg, formService, gwRegistry)
 	if err != nil {
@@ -114,7 +116,9 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	}
 
 	tmHandler := taskManager.NewHTTPHandler(tm)
-	paymentHandler := api.NewPaymentHandler(tm, cfg, db, gwRegistry)
+	paymentRepo := persistence.NewPaymentRepository(db)
+	paymentService := payment.NewService(gwRegistry, paymentRepo, tm, db)
+	paymentHandler := api.NewPaymentHandler(cfg, paymentService)
 
 	// withAuth wraps an individual handler with the authentication middleware.
 	withAuth := authManager.Middleware()
@@ -171,7 +175,6 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	// Payment routes
 	mux.Handle("POST /api/v1/payments/{provider}/callback", http.HandlerFunc(paymentHandler.HandleCallback))
 	mux.Handle("GET /api/v1/payments/{provider}/inquiry/{reference}", withAuth(http.HandlerFunc(paymentHandler.HandleTransactionInquiry)))
-	mux.Handle("POST /api/v1/payments/mock/callback", http.HandlerFunc(paymentHandler.HandleMockCallback))
 
 	handler := middleware.CORS(&cfg.CORS)(mux)
 

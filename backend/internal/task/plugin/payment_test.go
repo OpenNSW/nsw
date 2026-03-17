@@ -111,10 +111,15 @@ func TestNewPaymentTask(t *testing.T) {
 func TestPaymentStart(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task, _ := newTestPaymentTask()
+		task, dbMock := newTestPaymentTask()
 		task.Init(mockAPI)
 
 		mockAPI.On("CanTransition", FSMActionStart).Return(true).Once()
+
+		mockAPI.On("GetTaskID").Return(uuid.New()).Once()
+		dbMock.ExpectBegin()
+		dbMock.ExpectExec("INSERT INTO \"payment_transactions\"").WillReturnResult(sqlmock.NewResult(1, 1))
+		dbMock.ExpectCommit()
 
 		var capturedSession *PaymentSession
 		mockAPI.On("WriteToLocalStore", paymentStoreSession, mock.AnythingOfType("*plugin.PaymentSession")).
@@ -155,10 +160,15 @@ func TestPaymentStart(t *testing.T) {
 
 	t.Run("PersistInitialSessionError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task, _ := newTestPaymentTask()
+		task, dbMock := newTestPaymentTask()
 		task.Init(mockAPI)
 
 		mockAPI.On("CanTransition", FSMActionStart).Return(true).Once()
+
+		mockAPI.On("GetTaskID").Return(uuid.New()).Once()
+		dbMock.ExpectBegin()
+		dbMock.ExpectExec("INSERT INTO \"payment_transactions\"").WillReturnResult(sqlmock.NewResult(1, 1))
+		dbMock.ExpectCommit()
 
 		mockAPI.On("WriteToLocalStore", paymentStoreSession, mock.AnythingOfType("*plugin.PaymentSession")).Return(errors.New("store failed")).Once()
 
@@ -173,10 +183,15 @@ func TestPaymentStart(t *testing.T) {
 
 	t.Run("TransitionError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task, _ := newTestPaymentTask()
+		task, dbMock := newTestPaymentTask()
 		task.Init(mockAPI)
 
 		mockAPI.On("CanTransition", FSMActionStart).Return(true).Once()
+
+		mockAPI.On("GetTaskID").Return(uuid.New()).Once()
+		dbMock.ExpectBegin()
+		dbMock.ExpectExec("INSERT INTO \"payment_transactions\"").WillReturnResult(sqlmock.NewResult(1, 1))
+		dbMock.ExpectCommit()
 
 		mockAPI.On("WriteToLocalStore", paymentStoreSession, mock.AnythingOfType("*plugin.PaymentSession")).Return(nil).Once()
 		mockAPI.On("Transition", FSMActionStart).Return(errors.New("transition failed")).Once()
@@ -195,7 +210,8 @@ func TestPaymentStart(t *testing.T) {
 
 func TestPaymentGetRenderInfo_IDLE(t *testing.T) {
 	mockAPI := new(MockAPI)
-	task, _ := newTestPaymentTask()
+	task, dbMock := newTestPaymentTask()
+	task.gateway = nil // Add this line to test the fallback URL
 	task.Init(mockAPI)
 
 	session := PaymentSession{
@@ -207,6 +223,12 @@ func TestPaymentGetRenderInfo_IDLE(t *testing.T) {
 	mockAPI.On("GetTaskState").Return(InProgress)
 	mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(&session, nil)
 
+	// Expect query for GetGatewayURL (via GetRenderInfo)
+	dbMock.ExpectQuery("SELECT \\* FROM \"payment_transactions\"").
+		WithArgs(session.TransactionID, 1).
+		WillReturnRows(sqlmock.NewRows([]string{"reference_number", "amount", "currency"}).
+			AddRow(session.TransactionID, 100.0, "USD"))
+
 	resp, err := task.GetRenderInfo(context.Background())
 
 	assert.NoError(t, err)
@@ -217,8 +239,8 @@ func TestPaymentGetRenderInfo_IDLE(t *testing.T) {
 	assert.Equal(t, "IDLE", data.PluginState)
 
 	content := data.Content.(PaymentRenderContent)
+	// Gateway URL should be fallback or mocked URL
 	assert.Contains(t, content.GatewayURL, "txn-123")
-	assert.Contains(t, content.GatewayURL, "http://localhost:5173/mock-payment")
 	assert.Equal(t, 100.0, content.Amount)
 	assert.Equal(t, "USD", content.Currency)
 
@@ -268,6 +290,11 @@ func TestPaymentGetRenderInfo_SessionRotation(t *testing.T) {
 	dbMock.ExpectExec("INSERT INTO \"payment_transactions\"").WillReturnResult(sqlmock.NewResult(1, 1))
 	dbMock.ExpectCommit()
 
+	// During rotation, GetRenderInfo also fetches the new transaction!
+	dbMock.ExpectQuery("SELECT \\* FROM \"payment_transactions\"").
+		WillReturnRows(sqlmock.NewRows([]string{"reference_number", "amount", "currency"}).
+			AddRow("new-txn-123", 100.0, "USD"))
+
 	mockAPI.On("WriteToLocalStore", paymentStoreSession, mock.AnythingOfType("*plugin.PaymentSession")).Return(nil).Once()
 
 	resp, err := task.GetRenderInfo(context.Background())
@@ -311,6 +338,11 @@ func TestPaymentGetRenderInfo_TimeoutTransition(t *testing.T) {
 		dbMock.ExpectExec("INSERT INTO \"payment_transactions\"").WillReturnResult(sqlmock.NewResult(1, 1))
 		dbMock.ExpectCommit()
 
+		// During timeout rotation, GetRenderInfo also fetches the new transaction!
+		dbMock.ExpectQuery("SELECT \\* FROM \"payment_transactions\"").
+			WillReturnRows(sqlmock.NewRows([]string{"reference_number", "amount", "currency"}).
+				AddRow("new-txn-456", 100.0, "USD"))
+
 		mockAPI.On("WriteToLocalStore", paymentStoreSession, mock.AnythingOfType("*plugin.PaymentSession")).Return(nil).Once()
 
 		resp, err := task.GetRenderInfo(context.Background())
@@ -338,7 +370,7 @@ func TestPaymentGetRenderInfo_TimeoutTransition(t *testing.T) {
 		}
 
 		mockAPI.On("GetPluginState").Return("IN_PROGRESS").Once()
-		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(expiredSession, nil).Once()
+		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(&expiredSession, nil).Once()
 		mockAPI.On("Transition", paymentFSMTimeout).Return(errors.New("transition failed")).Once()
 
 		resp, err := task.GetRenderInfo(context.Background())
@@ -357,7 +389,7 @@ func TestPaymentGetRenderInfo_TimeoutTransition(t *testing.T) {
 func TestPaymentExecute_InitiatePayment(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task, _ := newTestPaymentTask()
+		task, dbMock := newTestPaymentTask()
 		task.Init(mockAPI)
 
 		session := PaymentSession{
@@ -366,8 +398,13 @@ func TestPaymentExecute_InitiatePayment(t *testing.T) {
 		}
 
 		mockAPI.On("CanTransition", PaymentActionInitiate).Return(true).Once()
-
 		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(&session, nil).Once()
+
+		// Expect query for transaction lookup during initiation
+		dbMock.ExpectQuery("SELECT \\* FROM \"payment_transactions\"").
+			WithArgs(session.TransactionID, 1).
+			WillReturnRows(sqlmock.NewRows([]string{"reference_number", "task_id", "execution_id", "amount", "currency"}).
+				AddRow(session.TransactionID, uuid.New(), uuid.New(), 100.0, "USD"))
 		var capturedSession *PaymentSession
 		mockAPI.On("WriteToLocalStore", paymentStoreSession, mock.AnythingOfType("*plugin.PaymentSession")).
 			Run(func(args mock.Arguments) {

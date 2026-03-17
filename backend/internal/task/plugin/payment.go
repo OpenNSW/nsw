@@ -121,9 +121,14 @@ func (t *PaymentTask) Start(ctx context.Context) (*ExecutionResponse, error) {
 		return &ExecutionResponse{Message: "Payment task already started"}, nil
 	}
 
-	// Persist initial session to local store
+	// Create the initial transaction record in the database.
+	record, err := t.createTransactionRecord(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("payment: failed to create initial transaction: %w", err)
+	}
+	// Persist initial session to local store, using the DB reference as the transaction ID.
 	session := PaymentSession{
-		TransactionID: uuid.New().String(),
+		TransactionID: record.ReferenceNumber,
 		GeneratedAt:   time.Now(),
 	}
 	if err := t.api.WriteToLocalStore(paymentStoreSession, &session); err != nil {
@@ -159,9 +164,20 @@ func (t *PaymentTask) GetRenderInfo(ctx context.Context) (*ApiResponse, error) {
 
 	session, err := t.readSession(ctx)
 	if err != nil {
-		// Resilience: if state is IDLE or empty, returning error is better than partial success
-		// as it forces the system to handle the unstarted state.
-		return nil, fmt.Errorf("payment: failed to read session: %w", err)
+		// Resilience: if there is no session, return basic render info so UI can still load
+		// and the user can initiate a new session via the "Pay Now" button.
+		return &ApiResponse{
+			Success: true,
+			Data: GetRenderInfoResponse{
+				Type:        TaskTypePayment,
+				PluginState: pluginState,
+				State:       t.api.GetTaskState(),
+				Content: PaymentRenderContent{
+					Amount:   t.config.Amount,
+					Currency: t.config.Currency,
+				},
+			},
+		}, nil
 	}
 
 	// Lazy timeout check (if TTL is configured)
@@ -191,8 +207,19 @@ func (t *PaymentTask) GetRenderInfo(ctx context.Context) (*ApiResponse, error) {
 		}
 	}
 
-	// Generate Gateway URL based on mock mode
-	gatewayURL := t.getGatewayURL(session)
+	// Fetch the full transaction record to pass to the gateway
+	trx, err := t.repo.GetTransactionByReference(ctx, session.TransactionID, false)
+	if err != nil {
+		// Fallback to minimal info if DB is down or record missing
+		trx = &payment_types.PaymentTransactionDB{ReferenceNumber: session.TransactionID}
+	}
+
+	var gatewayURL string
+	if t.gateway != nil {
+		gatewayURL, _ = t.gateway.GenerateRedirectURL(ctx, trx, "") // returnUrl not known during render
+	} else {
+		gatewayURL = fmt.Sprintf("https://checkout.govpay.lk/pay?ref=%s&return=%s", trx.ReferenceNumber, "")
+	}
 
 	return &ApiResponse{
 		Success: true,
@@ -236,7 +263,15 @@ func (t *PaymentTask) initiateHandler(ctx context.Context, content any) (*Execut
 
 	session, err := t.readSession(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("payment: failed to read session: %w", err)
+		// Fallback for legacy tasks that were generated before Start() handled session creation
+		record, errRecord := t.createTransactionRecord(ctx)
+		if errRecord != nil {
+			return nil, fmt.Errorf("payment: failed to create transaction for legacy task: %w", errRecord)
+		}
+		session = &PaymentSession{
+			TransactionID: record.ReferenceNumber,
+			GeneratedAt:   time.Now(),
+		}
 	}
 
 	// Reject if the session has expired
@@ -252,11 +287,15 @@ func (t *PaymentTask) initiateHandler(ctx context.Context, content any) (*Execut
 		}, fmt.Errorf("payment: session expired")
 	}
 
-	// Extract method from content
+	// Extract method and returnUrl from content
 	var method string
+	var returnUrl string
 	if m, ok := content.(map[string]any); ok {
 		if val, exists := m["method"]; exists {
 			method = fmt.Sprintf("%v", val)
+		}
+		if val, exists := m["returnUrl"]; exists {
+			returnUrl = fmt.Sprintf("%v", val)
 		}
 	}
 
@@ -295,13 +334,30 @@ func (t *PaymentTask) initiateHandler(ctx context.Context, content any) (*Execut
 		}, nil
 	}
 
+	// Fetch the transaction record to pass to the gateway
+	record, err := t.repo.GetTransactionByReference(ctx, session.TransactionID, false)
+	if err != nil {
+		return nil, fmt.Errorf("payment: failed to fetch transaction for initiation: %w", err)
+	}
+
+	var gatewayUrl string
+	if t.gateway != nil {
+		var errURL error
+		gatewayUrl, errURL = t.gateway.GenerateRedirectURL(ctx, record, returnUrl)
+		if errURL != nil {
+			return nil, fmt.Errorf("payment: failed to generate gateway url: %w", errURL)
+		}
+	} else {
+		gatewayUrl = fmt.Sprintf("https://checkout.govpay.lk/pay?ref=%s&return=%s", record.ReferenceNumber, returnUrl)
+	}
+
 	return &ExecutionResponse{
 		Message: "Payment initiated",
 		ApiResponse: &ApiResponse{
 			Success: true,
 			Data: map[string]any{
 				"message":    "Payment initiated",
-				"gatewayUrl": t.getGatewayURL(session),
+				"gatewayUrl": gatewayUrl,
 			},
 		},
 	}, nil
@@ -356,23 +412,6 @@ func (t *PaymentTask) failedHandler(ctx context.Context) (*ExecutionResponse, er
 
 // ── Helper Methods ────────────────────────────────────────────────────────────
 
-// newSession creates a fresh PaymentSession with a new UUID and the current timestamp.
-func (t *PaymentTask) newSession() PaymentSession {
-	return PaymentSession{
-		TransactionID: uuid.NewString(),
-		GeneratedAt:   time.Now(),
-	}
-}
-
-func (t *PaymentTask) getGatewayURL(session *PaymentSession) string {
-	if t.gateway != nil {
-		return t.gateway.GenerateRedirectURL(session.TransactionID)
-	}
-
-	// Fallback (should not happen if wired correctly)
-	return fmt.Sprintf("https://www.lpopp.lk/pay?ref=%s", session.TransactionID)
-}
-
 func (t *PaymentTask) readSession(ctx context.Context) (*PaymentSession, error) {
 	raw, err := t.api.ReadFromLocalStore(paymentStoreSession)
 	if err != nil {
@@ -401,14 +440,22 @@ func (t *PaymentTask) readSession(ctx context.Context) (*PaymentSession, error) 
 
 func (t *PaymentTask) createTransactionRecord(ctx context.Context) (*payment_types.PaymentTransactionDB, error) {
 	referenceNumber := uuid.New().String()
+
+	taskUUID, err := uuid.Parse(t.api.GetTaskID())
+	if err != nil {
+		return nil, fmt.Errorf("invalid task id: %w", err)
+	}
+
 	record := payment_types.PaymentTransactionDB{
 		ID:              uuid.New(),
-		TaskID:          t.api.GetTaskID(),
+		TaskID:          taskUUID,
 		ExecutionID:     uuid.New().String(), // Unique ID per payment attempt
 		ReferenceNumber: referenceNumber,
 		ProviderID:      t.gateway.ID(),
 		Status:          "PENDING",
 		Amount:          t.config.Amount,
+		Currency:        t.config.Currency,
+		PayerName:       "Trader User", // Default for now
 	}
 
 	if err := t.repo.CreateTransaction(ctx, &record); err != nil {
