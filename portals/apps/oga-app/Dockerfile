@@ -14,7 +14,7 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-RUN pnpm --filter oga-app build
+RUN pnpm --filter @opennsw/jsonforms-renderers build && pnpm --filter oga-app build
 
 FROM nginx:1.27-alpine
 
