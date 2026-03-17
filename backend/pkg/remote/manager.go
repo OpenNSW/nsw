@@ -81,9 +81,11 @@ func (m *Manager) Call(ctx context.Context, serviceID string, req Request, respo
 		client, resolvedID, err = m.GetClientByURL(req.Path)
 		if err == nil {
 			// Update the request path to be relative if it matched a service baseURL
+			m.mu.RLock()
 			if cfg, ok := m.configs[resolvedID]; ok {
 				req.Path = strings.TrimPrefix(req.Path, cfg.URL)
 			}
+			m.mu.RUnlock()
 		}
 	}
 
