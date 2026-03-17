@@ -65,7 +65,7 @@ type AuthConfig struct {
 	JWKSURL               string
 	Issuer                string
 	Audience              string
-	ClientID              string
+	ClientID              []string
 	InsecureSkipTLSVerify bool
 }
 
@@ -125,7 +125,7 @@ func Load() (*Config, error) {
 			JWKSURL:               getEnvOrDefault("AUTH_JWKS_URL", "https://localhost:8090/oauth2/jwks"),
 			Issuer:                getEnvOrDefault("AUTH_ISSUER", "https://localhost:8090"),
 			Audience:              getEnvOrDefault("AUTH_AUDIENCE", "TRADER_PORTAL_APP"),
-			ClientID:              getEnvOrDefault("AUTH_CLIENT_ID", "TRADER_PORTAL_APP"),
+			ClientID:              parseCommaSeparated(getEnvOrDefault("AUTH_CLIENT_ID", "TRADER_PORTAL_APP")),
 			InsecureSkipTLSVerify: getBoolOrDefault("AUTH_JWKS_INSECURE_SKIP_VERIFY", defaultInsecureJWKS),
 		},
 	}
@@ -161,7 +161,7 @@ func (c *Config) Validate() error {
 	if c.Auth.Audience == "" {
 		return fmt.Errorf("AUTH_AUDIENCE is required")
 	}
-	if c.Auth.ClientID == "" {
+	if len(c.Auth.ClientID) == 0 {
 		return fmt.Errorf("AUTH_CLIENT_ID is required")
 	}
 	return nil
