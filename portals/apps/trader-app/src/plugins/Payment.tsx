@@ -165,7 +165,7 @@ export default function Payment(props: {
       <h1 className="text-2xl font-bold text-gray-800">Payment</h1>
 
       <div className="text-sm text-gray-700">
-  		{isCompleted ? "Paid Amount" : "Amount"}: <span className="font-medium">{amount} {currency}</span>
+        {isCompleted ? "Paid Amount" : "Amount"}: <span className="font-medium">{amount} {currency}</span>
       </div>
 
       {!isCompleted && (
@@ -184,9 +184,6 @@ export default function Payment(props: {
           <Flex justify="between" align="start">
             <Box>
               <Dialog.Title>Mock Payment Gateway</Dialog.Title>
-              <Dialog.Description size="2" color="gray">
-                Mock popup for testing payment result actions.
-              </Dialog.Description>
             </Box>
             <Dialog.Close>
               <IconButton variant="ghost" color="gray" size="1">

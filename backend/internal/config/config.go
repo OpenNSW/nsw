@@ -9,6 +9,7 @@ import (
 	"strings"
 )
 
+// Config holds all configuration for the application
 type Config struct {
 	Database DatabaseConfig
 	Server   ServerConfig
@@ -137,8 +138,8 @@ func Load() (*Config, error) {
 			ClientID:              getEnvOrDefault("AUTH_CLIENT_ID", "TRADER_PORTAL_APP"),
 			InsecureSkipTLSVerify: getBoolOrDefault("AUTH_JWKS_INSECURE_SKIP_VERIFY", defaultInsecureJWKS),
 		},
-		// TODO(Payment): When going live, consider changing defaults or failing startup
-		// if GOVPAY_SECRET or GOVPAY_MERCHANT_ID are missing in production.
+		// TODO: When going live, please change defaults or failing startup
+		// if GOVPAY_SECRET or GOVPAY_MERCHANT_ID are missing in production
 		Payment: PaymentConfig{
 			MockMode:      getBoolOrDefault("GOVPAY_MOCK_MODE", true),
 			Secret:        getEnvOrDefault("GOVPAY_SECRET", "mock-secret-key-12345"),

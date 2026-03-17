@@ -15,30 +15,32 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/OpenNSW/nsw/internal/config"
+	"github.com/OpenNSW/nsw/internal/task/plugin/gateway"
+	"github.com/OpenNSW/nsw/internal/task/plugin/payment_types"
 )
 
 type testPaymentRepo struct {
 	db *gorm.DB
 }
 
-func (r *testPaymentRepo) CreateTransaction(ctx context.Context, trx *PaymentTransactionDB) error {
+func (r *testPaymentRepo) CreateTransaction(ctx context.Context, trx *payment_types.PaymentTransactionDB) error {
 	return r.db.WithContext(ctx).Create(trx).Error
 }
 
-func (r *testPaymentRepo) GetTransactionByReference(ctx context.Context, ref string) (*PaymentTransactionDB, error) {
-	var trx PaymentTransactionDB
+func (r *testPaymentRepo) GetTransactionByReference(ctx context.Context, ref string, forUpdate bool) (*payment_types.PaymentTransactionDB, error) {
+	var trx payment_types.PaymentTransactionDB
 	err := r.db.WithContext(ctx).Where("reference_number = ?", ref).First(&trx).Error
 	return &trx, err
 }
 
-func (r *testPaymentRepo) GetTransactionByExecutionID(ctx context.Context, execID string) (*PaymentTransactionDB, error) {
-	var trx PaymentTransactionDB
+func (r *testPaymentRepo) GetTransactionByExecutionID(ctx context.Context, execID string) (*payment_types.PaymentTransactionDB, error) {
+	var trx payment_types.PaymentTransactionDB
 	err := r.db.WithContext(ctx).Where("execution_id = ?", execID).First(&trx).Error
 	return &trx, err
 }
 
 func (r *testPaymentRepo) UpdateTransactionStatus(ctx context.Context, ref string, status string) error {
-	return r.db.WithContext(ctx).Model(&PaymentTransactionDB{}).
+	return r.db.WithContext(ctx).Model(&payment_types.PaymentTransactionDB{}).
 		Where("reference_number = ?", ref).
 		Update("status", status).Error
 }
@@ -89,7 +91,7 @@ func TestNewPaymentFSM(t *testing.T) {
 func TestNewPaymentTask(t *testing.T) {
 	t.Run("ValidConfig", func(t *testing.T) {
 		cfg := `{"amount": 100.50, "currency": "USD", "gateway": "https://pay.example.com", "ttl": 300}`
-		task, err := NewPaymentTask(json.RawMessage(cfg), &config.Config{}, nil)
+		task, err := NewPaymentTask(json.RawMessage(cfg), &config.Config{}, nil, &gateway.MockGateway{})
 		assert.NoError(t, err)
 		assert.Equal(t, 100.50, task.config.Amount)
 		assert.Equal(t, "USD", task.config.Currency)
@@ -98,7 +100,7 @@ func TestNewPaymentTask(t *testing.T) {
 	})
 
 	t.Run("InvalidJSON", func(t *testing.T) {
-		_, err := NewPaymentTask(json.RawMessage(`{invalid`), nil, nil)
+		_, err := NewPaymentTask(json.RawMessage(`{invalid`), nil, nil, nil)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid config")
 	})
@@ -109,14 +111,10 @@ func TestNewPaymentTask(t *testing.T) {
 func TestPaymentStart(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task, dbMock := newTestPaymentTask()
+		task, _ := newTestPaymentTask()
 		task.Init(mockAPI)
 
 		mockAPI.On("CanTransition", FSMActionStart).Return(true).Once()
-		mockAPI.On("GetTaskID").Return(uuid.New()).Once()
-		dbMock.ExpectBegin()
-		dbMock.ExpectExec("INSERT INTO \"payment_transactions\"").WillReturnResult(sqlmock.NewResult(1, 1))
-		dbMock.ExpectCommit()
 
 		var capturedSession *PaymentSession
 		mockAPI.On("WriteToLocalStore", paymentStoreSession, mock.AnythingOfType("*plugin.PaymentSession")).
@@ -157,14 +155,10 @@ func TestPaymentStart(t *testing.T) {
 
 	t.Run("PersistInitialSessionError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task, dbMock := newTestPaymentTask()
+		task, _ := newTestPaymentTask()
 		task.Init(mockAPI)
 
 		mockAPI.On("CanTransition", FSMActionStart).Return(true).Once()
-		mockAPI.On("GetTaskID").Return(uuid.New()).Once()
-		dbMock.ExpectBegin()
-		dbMock.ExpectExec("INSERT INTO \"payment_transactions\"").WillReturnResult(sqlmock.NewResult(1, 1))
-		dbMock.ExpectCommit()
 
 		mockAPI.On("WriteToLocalStore", paymentStoreSession, mock.AnythingOfType("*plugin.PaymentSession")).Return(errors.New("store failed")).Once()
 
@@ -179,14 +173,10 @@ func TestPaymentStart(t *testing.T) {
 
 	t.Run("TransitionError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task, dbMock := newTestPaymentTask()
+		task, _ := newTestPaymentTask()
 		task.Init(mockAPI)
 
 		mockAPI.On("CanTransition", FSMActionStart).Return(true).Once()
-		mockAPI.On("GetTaskID").Return(uuid.New()).Once()
-		dbMock.ExpectBegin()
-		dbMock.ExpectExec("INSERT INTO \"payment_transactions\"").WillReturnResult(sqlmock.NewResult(1, 1))
-		dbMock.ExpectCommit()
 
 		mockAPI.On("WriteToLocalStore", paymentStoreSession, mock.AnythingOfType("*plugin.PaymentSession")).Return(nil).Once()
 		mockAPI.On("Transition", FSMActionStart).Return(errors.New("transition failed")).Once()
@@ -228,7 +218,7 @@ func TestPaymentGetRenderInfo_IDLE(t *testing.T) {
 
 	content := data.Content.(PaymentRenderContent)
 	assert.Contains(t, content.GatewayURL, "txn-123")
-	assert.Contains(t, content.GatewayURL, "https://pay.example.com")
+	assert.Contains(t, content.GatewayURL, "http://localhost:5173/mock-payment")
 	assert.Equal(t, 100.0, content.Amount)
 	assert.Equal(t, "USD", content.Currency)
 
@@ -376,6 +366,7 @@ func TestPaymentExecute_InitiatePayment(t *testing.T) {
 		}
 
 		mockAPI.On("CanTransition", PaymentActionInitiate).Return(true).Once()
+
 		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(&session, nil).Once()
 		var capturedSession *PaymentSession
 		mockAPI.On("WriteToLocalStore", paymentStoreSession, mock.AnythingOfType("*plugin.PaymentSession")).
@@ -414,6 +405,8 @@ func TestPaymentExecute_InitiatePayment(t *testing.T) {
 		}
 
 		mockAPI.On("CanTransition", PaymentActionInitiate).Return(true).Once()
+
+		// Expect record creation during initiation
 		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(&expiredSession, nil).Once()
 
 		req := &ExecutionRequest{
@@ -692,5 +685,6 @@ func newTestPaymentTask() (*PaymentTask, sqlmock.Sqlmock) {
 		},
 		appConfig: &config.Config{},
 		repo:      &testPaymentRepo{db: gdb},
+		gateway:   &gateway.MockGateway{},
 	}, mock
 }

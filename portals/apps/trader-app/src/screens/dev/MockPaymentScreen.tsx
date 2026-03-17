@@ -22,7 +22,7 @@ export function MockPaymentScreen() {
     try {
       setLoading(true)
       setError(null)
-      await api.post('/dev/mock-payment-callback', {
+      await api.post('/payments/mock/callback', {
         reference_number: referenceNumber,
         status: status,
       })

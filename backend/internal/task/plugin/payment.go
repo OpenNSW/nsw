@@ -9,6 +9,8 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/OpenNSW/nsw/internal/config"
+	"github.com/OpenNSW/nsw/internal/task/plugin/gateway"
+	"github.com/OpenNSW/nsw/internal/task/plugin/payment_types"
 )
 
 // ── Public API Actions ────────────────────────────────────────────────────────
@@ -48,25 +50,9 @@ const (
 // PaymentConfig holds the task-level configuration supplied at workflow definition time.
 type PaymentConfig struct {
 	Amount   float64 `json:"amount"`   // Amount to be paid
-	Currency string  `json:"currency"` // Currency of the payment (e.g. "LKR")
+	Currency string  `json:"currency"` // Currency of the payment (e.g. "USD")
 	Gateway  string  `json:"gateway"`  // Base URL of the payment gateway
 	TTL      int     `json:"ttl"`      // Time-to-live for a payment session in seconds
-}
-
-// PaymentTransactionDB maps to the payment_transactions table in the database
-type PaymentTransactionDB struct {
-	ID              uuid.UUID `gorm:"type:uuid;primary_key"`
-	TaskID          uuid.UUID `gorm:"type:uuid;not null;index"`
-	ExecutionID     string    `gorm:"type:varchar(100);not null;index"`
-	ReferenceNumber string    `gorm:"type:varchar(100);not null;unique"`
-	Status          string    `gorm:"type:varchar(50);not null;default:'PENDING'"`
-	Amount          float64   `gorm:"type:numeric(15,2);not null"`
-	CreatedAt       time.Time `gorm:"autoCreateTime"`
-	UpdatedAt       time.Time `gorm:"autoUpdateTime"`
-}
-
-func (PaymentTransactionDB) TableName() string {
-	return "payment_transactions"
 }
 
 // PaymentSession is the current active payment session persisted in local store.
@@ -85,6 +71,14 @@ type PaymentRenderContent struct {
 
 // ── FSM ───────────────────────────────────────────────────────────────────────
 
+// State graph:
+//
+//	""            ──START──────────────► IDLE          [no task state change]
+//	IDLE          ──INITIATE_PAYMENT──► IN_PROGRESS   [IN_PROGRESS]
+//	IN_PROGRESS   ──PAYMENT_SUCCESS───► COMPLETED     [COMPLETED]
+//	IN_PROGRESS   ──PAYMENT_FAILED────► IDLE          [INITIALIZED]
+//	IN_PROGRESS   ──PAYMENT_TIMEOUT───► IDLE          [INITIALIZED]
+//
 // NewPaymentFSM returns the state graph for the payment plugin.
 func NewPaymentFSM() *PluginFSM {
 	return NewPluginFSM(map[TransitionKey]TransitionOutcome{
@@ -103,16 +97,17 @@ type PaymentTask struct {
 	api       API
 	config    PaymentConfig
 	appConfig *config.Config
-	repo      PaymentRepository
+	repo      payment_types.PaymentRepository
+	gateway   gateway.PaymentGateway
 }
 
 // NewPaymentTask creates a PaymentTask from the raw JSON configuration.
-func NewPaymentTask(raw json.RawMessage, appCfg *config.Config, repo PaymentRepository) (*PaymentTask, error) {
+func NewPaymentTask(raw json.RawMessage, appCfg *config.Config, repo payment_types.PaymentRepository, gw gateway.PaymentGateway) (*PaymentTask, error) {
 	var cfg PaymentConfig
 	if err := json.Unmarshal(raw, &cfg); err != nil {
 		return nil, fmt.Errorf("payment: invalid config: %w", err)
 	}
-	return &PaymentTask{config: cfg, appConfig: appCfg, repo: repo}, nil
+	return &PaymentTask{config: cfg, appConfig: appCfg, repo: repo, gateway: gw}, nil
 }
 
 func (t *PaymentTask) Init(api API) {
@@ -126,22 +121,15 @@ func (t *PaymentTask) Start(ctx context.Context) (*ExecutionResponse, error) {
 		return &ExecutionResponse{Message: "Payment task already started"}, nil
 	}
 
-	// Generate payment reference and save to DB
-	record, err := t.createTransactionRecord(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Persist session to local store
+	// Persist initial session to local store
 	session := PaymentSession{
-		TransactionID: record.ReferenceNumber,
+		TransactionID: uuid.New().String(),
 		GeneratedAt:   time.Now(),
 	}
 	if err := t.api.WriteToLocalStore(paymentStoreSession, &session); err != nil {
 		return nil, fmt.Errorf("payment: failed to persist initial session: %w", err)
 	}
 
-	// Transition to IN_PROGRESS state immediately
 	if err := t.api.Transition(FSMActionStart); err != nil {
 		return nil, err
 	}
@@ -171,6 +159,8 @@ func (t *PaymentTask) GetRenderInfo(ctx context.Context) (*ApiResponse, error) {
 
 	session, err := t.readSession(ctx)
 	if err != nil {
+		// Resilience: if state is IDLE or empty, returning error is better than partial success
+		// as it forces the system to handle the unstarted state.
 		return nil, fmt.Errorf("payment: failed to read session: %w", err)
 	}
 
@@ -239,7 +229,6 @@ func (t *PaymentTask) Execute(ctx context.Context, request *ExecutionRequest) (*
 }
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
-
 func (t *PaymentTask) initiateHandler(ctx context.Context, content any) (*ExecutionResponse, error) {
 	if !t.api.CanTransition(PaymentActionInitiate) {
 		return nil, fmt.Errorf("payment: action %q not permitted", PaymentActionInitiate)
@@ -247,10 +236,10 @@ func (t *PaymentTask) initiateHandler(ctx context.Context, content any) (*Execut
 
 	session, err := t.readSession(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("payment: failed to read session: %w", err)
 	}
 
-	// Check expiration
+	// Reject if the session has expired
 	if t.config.TTL > 0 && time.Now().After(session.GeneratedAt.Add(time.Duration(t.config.TTL)*time.Second)) {
 		return &ExecutionResponse{
 			ApiResponse: &ApiResponse{
@@ -277,16 +266,19 @@ func (t *PaymentTask) initiateHandler(ctx context.Context, content any) (*Execut
 		return nil, err
 	}
 
+	// Transition Plugin state: IDLE -> IN_PROGRESS
+	// Note: t.api.Transition will check the FSM permission.
+	if err := t.api.Transition(PaymentActionInitiate); err != nil {
+		return nil, err
+	}
+
 	// Instant success for CARD in mock mode
 	if method == "CARD" && t.appConfig != nil && t.appConfig.Payment.MockMode {
 		if err := t.repo.UpdateTransactionStatus(ctx, session.TransactionID, "COMPLETED"); err != nil {
 			return nil, fmt.Errorf("payment: failed to update transaction status: %w", err)
 		}
 
-		// Perform both transitions: IDLE -> IN_PROGRESS -> COMPLETED
-		if err := t.api.Transition(PaymentActionInitiate); err != nil {
-			return nil, err
-		}
+		// Transition Plugin state: IN_PROGRESS -> COMPLETED
 		if err := t.api.Transition(PaymentActionSuccess); err != nil {
 			return nil, err
 		}
@@ -301,10 +293,6 @@ func (t *PaymentTask) initiateHandler(ctx context.Context, content any) (*Execut
 				},
 			},
 		}, nil
-	}
-
-	if err := t.api.Transition(PaymentActionInitiate); err != nil {
-		return nil, err
 	}
 
 	return &ExecutionResponse{
@@ -377,16 +365,15 @@ func (t *PaymentTask) newSession() PaymentSession {
 }
 
 func (t *PaymentTask) getGatewayURL(session *PaymentSession) string {
-	if t.appConfig != nil && t.appConfig.Payment.MockMode {
-		return fmt.Sprintf("http://localhost:5173/mock-payment?ref=%s", session.TransactionID)
-	} else if t.config.Gateway != "" {
-		return fmt.Sprintf("%s?ref=%s", t.config.Gateway, session.TransactionID)
+	if t.gateway != nil {
+		return t.gateway.GenerateRedirectURL(session.TransactionID)
 	}
-	// Default to GovPay production URL
+
+	// Fallback (should not happen if wired correctly)
 	return fmt.Sprintf("https://www.lpopp.lk/pay?ref=%s", session.TransactionID)
 }
 
-func (t *PaymentTask) readSession(_ context.Context) (*PaymentSession, error) {
+func (t *PaymentTask) readSession(ctx context.Context) (*PaymentSession, error) {
 	raw, err := t.api.ReadFromLocalStore(paymentStoreSession)
 	if err != nil {
 		return nil, err
@@ -412,13 +399,14 @@ func (t *PaymentTask) readSession(_ context.Context) (*PaymentSession, error) {
 
 // ── Inquiry Methods ───────────────────────────────────────────────────────────
 
-func (t *PaymentTask) createTransactionRecord(ctx context.Context) (*PaymentTransactionDB, error) {
+func (t *PaymentTask) createTransactionRecord(ctx context.Context) (*payment_types.PaymentTransactionDB, error) {
 	referenceNumber := uuid.New().String()
-	record := PaymentTransactionDB{
+	record := payment_types.PaymentTransactionDB{
 		ID:              uuid.New(),
 		TaskID:          t.api.GetTaskID(),
 		ExecutionID:     uuid.New().String(), // Unique ID per payment attempt
 		ReferenceNumber: referenceNumber,
+		ProviderID:      t.gateway.ID(),
 		Status:          "PENDING",
 		Amount:          t.config.Amount,
 	}
@@ -430,11 +418,11 @@ func (t *PaymentTask) createTransactionRecord(ctx context.Context) (*PaymentTran
 }
 
 // GetTransactionByExecutionID retrieves the payment record for a specific FSM execution.
-func (t *PaymentTask) GetTransactionByExecutionID(ctx context.Context, execID string) (*PaymentTransactionDB, error) {
+func (t *PaymentTask) GetTransactionByExecutionID(ctx context.Context, execID string) (*payment_types.PaymentTransactionDB, error) {
 	return t.repo.GetTransactionByExecutionID(ctx, execID)
 }
 
 // GetTransactionByReference retrieves the payment record using the external reference.
-func (t *PaymentTask) GetTransactionByReference(ctx context.Context, ref string) (*PaymentTransactionDB, error) {
-	return t.repo.GetTransactionByReference(ctx, ref)
+func (t *PaymentTask) GetTransactionByReference(ctx context.Context, ref string) (*payment_types.PaymentTransactionDB, error) {
+	return t.repo.GetTransactionByReference(ctx, ref, false)
 }

@@ -62,14 +62,6 @@ type ExecutionResponse struct {
 	ApiResponse         *ApiResponse
 }
 
-// PaymentRepository handles database operations for payment transactions.
-type PaymentRepository interface {
-	CreateTransaction(ctx context.Context, trx *PaymentTransactionDB) error
-	GetTransactionByReference(ctx context.Context, ref string) (*PaymentTransactionDB, error)
-	GetTransactionByExecutionID(ctx context.Context, execID string) (*PaymentTransactionDB, error)
-	UpdateTransactionStatus(ctx context.Context, ref string, status string) error
-}
-
 type Plugin interface {
 	Init(api API)
 	Start(ctx context.Context) (*ExecutionResponse, error)
