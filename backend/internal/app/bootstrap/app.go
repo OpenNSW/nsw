@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -29,6 +30,22 @@ func (a *App) Close() error {
 		return nil
 	}
 	return a.close()
+}
+
+// healthResponse is the JSON shape returned by the health endpoint in all cases.
+// UnhealthyComponents is omitted on success and populated with the names of all
+// failing subsystems on failure.
+type healthResponse struct {
+	Status              string   `json:"status"`
+	Service             string   `json:"service"`
+	UnhealthyComponents []string `json:"unhealthy_components,omitempty"`
+}
+
+// writeJSON sets the Content-Type header, writes the status code, and encodes v as JSON.
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(v)
 }
 
 // Build initializes dependencies and returns a fully wired application server.
@@ -91,49 +108,59 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	tmHandler := taskManager.NewHTTPHandler(tm)
 
-	// 1. Initialize Protected Router
-	// We remove the /api/v1 prefix from these definitions because
-	// we will mount this entire mux under that prefix later.
-	protectedMux := http.NewServeMux()
-	protectedMux.HandleFunc("POST /tasks", tmHandler.HandleExecuteTask)
-	protectedMux.HandleFunc("GET /tasks/{id}", tmHandler.HandleGetTask)
-	protectedMux.HandleFunc("GET /hscodes", hsCodeRouter.HandleGetAllHSCodes)
-	protectedMux.HandleFunc("GET /chas", chaRouter.HandleGetCHAs)
-	protectedMux.HandleFunc("POST /consignments", consignmentRouter.HandleCreateConsignment)
-	protectedMux.HandleFunc("GET /consignments/{id}", consignmentRouter.HandleGetConsignmentByID)
-	protectedMux.HandleFunc("PUT /consignments/{id}", consignmentRouter.HandleInitializeConsignment)
-	protectedMux.HandleFunc("GET /consignments", consignmentRouter.HandleGetConsignments)
-	protectedMux.HandleFunc("POST /pre-consignments", preConsignmentRouter.HandleCreatePreConsignment)
-	protectedMux.HandleFunc("GET /pre-consignments/{preConsignmentId}", preConsignmentRouter.HandleGetPreConsignmentByID)
-	protectedMux.HandleFunc("GET /pre-consignments", preConsignmentRouter.HandleGetTraderPreConsignments)
-	protectedMux.HandleFunc("POST /uploads", uploadHandler.Upload)
-	protectedMux.HandleFunc("GET /uploads/{key}/content", uploadHandler.DownloadContent)
-	protectedMux.HandleFunc("GET /uploads/{key}", uploadHandler.Download)
-	protectedMux.HandleFunc("DELETE /uploads/{key}", uploadHandler.Delete)
+	// withAuth wraps an individual handler with the authentication middleware.
+	withAuth := authManager.Middleware()
 
-	// 2. Initialize Main (Public) Router
-	mainMux := http.NewServeMux()
+	mux := http.NewServeMux()
 
-	// Public Health Check
-	mainMux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+	// Health check is public and returns JSON in all cases.
+	// On failure, the component field identifies which subsystem is unhealthy
+	// without exposing internal error details.
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		var unhealthy []string
+
 		if err := database.HealthCheck(db); err != nil {
-			http.Error(w, "Service Unavailable", http.StatusServiceUnavailable)
-			return
+			unhealthy = append(unhealthy, "database")
 		}
 		if err := authManager.Health(); err != nil {
-			http.Error(w, "Service Unavailable", http.StatusServiceUnavailable)
+			unhealthy = append(unhealthy, "auth")
+		}
+
+		if len(unhealthy) > 0 {
+			writeJSON(w, http.StatusServiceUnavailable, healthResponse{
+				Status:              "error",
+				Service:             "nsw-backend",
+				UnhealthyComponents: unhealthy,
+			})
 			return
 		}
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status":"ok","service":"nsw-backend"}`))
+
+		writeJSON(w, http.StatusOK, healthResponse{
+			Status:  "ok",
+			Service: "nsw-backend",
+		})
 	})
 
-	// 3. Mount Protected Mux with Auth Middleware
-	// The trailing slash in "/api/v1/" acts as a prefix match
-	mainMux.Handle("/api/v1/", http.StripPrefix("/api/v1", authManager.Middleware()(protectedMux)))
+	// v1 routes. Each handler is individually wrapped with auth,
+	// so public or differently-authenticated routes can be added
+	// alongside these without restructuring the mux.
+	mux.Handle("POST /api/v1/tasks", withAuth(http.HandlerFunc(tmHandler.HandleExecuteTask)))
+	mux.Handle("GET /api/v1/tasks/{id}", withAuth(http.HandlerFunc(tmHandler.HandleGetTask)))
+	mux.Handle("GET /api/v1/hscodes", withAuth(http.HandlerFunc(hsCodeRouter.HandleGetAllHSCodes)))
+	mux.Handle("GET /api/v1/chas", withAuth(http.HandlerFunc(chaRouter.HandleGetCHAs)))
+	mux.Handle("POST /api/v1/consignments", withAuth(http.HandlerFunc(consignmentRouter.HandleCreateConsignment)))
+	mux.Handle("GET /api/v1/consignments/{id}", withAuth(http.HandlerFunc(consignmentRouter.HandleGetConsignmentByID)))
+	mux.Handle("PUT /api/v1/consignments/{id}", withAuth(http.HandlerFunc(consignmentRouter.HandleInitializeConsignment)))
+	mux.Handle("GET /api/v1/consignments", withAuth(http.HandlerFunc(consignmentRouter.HandleGetConsignments)))
+	mux.Handle("POST /api/v1/pre-consignments", withAuth(http.HandlerFunc(preConsignmentRouter.HandleCreatePreConsignment)))
+	mux.Handle("GET /api/v1/pre-consignments/{preConsignmentId}", withAuth(http.HandlerFunc(preConsignmentRouter.HandleGetPreConsignmentByID)))
+	mux.Handle("GET /api/v1/pre-consignments", withAuth(http.HandlerFunc(preConsignmentRouter.HandleGetTraderPreConsignments)))
+	mux.Handle("POST /api/v1/uploads", withAuth(http.HandlerFunc(uploadHandler.Upload)))
+	mux.Handle("GET /api/v1/uploads/{key}/content", withAuth(http.HandlerFunc(uploadHandler.DownloadContent)))
+	mux.Handle("GET /api/v1/uploads/{key}", withAuth(http.HandlerFunc(uploadHandler.Download)))
+	mux.Handle("DELETE /api/v1/uploads/{key}", withAuth(http.HandlerFunc(uploadHandler.Delete)))
 
-	// 4. Apply Global Middlewares (CORS)
-	handler := middleware.CORS(&cfg.CORS)(mainMux)
+	handler := middleware.CORS(&cfg.CORS)(mux)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Server.Port),
