@@ -134,22 +134,20 @@
     --animate-loading-bar: loading-bar 2s ease-in-out infinite;
 }
 
-/* Custom Scrollbar */
-.custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #e2e8f0;
-    border-radius: 10px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #cbd5e1;
+/* Custom Scrollbar Utility */
+@utility custom-scrollbar {
+    &::-webkit-scrollbar {
+        @apply w-1.5;
+    }
+    &::-webkit-scrollbar-track {
+        @apply bg-transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+        @apply bg-secondary-200 rounded-full hover:bg-secondary-300;
+    }
+    /* Standard properties for Firefox/Future-proofing */
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-secondary-200) transparent;
 }
 
 /* Animation Keyframes */
