@@ -16,6 +16,7 @@ import {
   ClockIcon,
   ReaderIcon,
   InfoCircledIcon,
+  LockClosedIcon
 } from '@radix-ui/react-icons'
 import type { WorkflowNode, WorkflowNodeState } from '../../services/types/consignment'
 
@@ -52,7 +53,7 @@ const statusConfig: Record<
   LOCKED: {
     color: 'gray',
     label: 'Locked',
-    icon: <ClockIcon className="w-3 h-3" />, // Using Clock for locked as well or keep LockClosed
+    icon: <LockClosedIcon className="w-3 h-3" />,
   },
   REJECTED: {
     color: 'red',
@@ -61,13 +62,17 @@ const statusConfig: Record<
   },
 }
 
-// Re-adding LockClosedIcon for the actual Locked state
-import { LockClosedIcon } from '@radix-ui/react-icons'
-statusConfig.LOCKED.icon = <LockClosedIcon className="w-3 h-3" />
-
 export interface ActionCardProps {
   step: WorkflowNode
   consignmentId: string
+}
+
+const statusStyles: Record<string, string> = {
+  green: 'bg-green-50 text-green-600 border-green-100',
+  blue: 'bg-blue-50 text-blue-600 border-blue-100',
+  orange: 'bg-orange-50 text-orange-600 border-orange-100',
+  gray: 'bg-gray-50 text-gray-600 border-gray-100',
+  red: 'bg-red-50 text-red-600 border-red-100',
 }
 
 export const ActionCard = ({ step, consignmentId }: ActionCardProps) => {
@@ -95,7 +100,7 @@ export const ActionCard = ({ step, consignmentId }: ActionCardProps) => {
       <Flex direction="column" gap="3">
         <Flex align="start" justify="between" gap="3">
           <Flex align="center" gap="3" className="flex-1 min-w-0">
-            <Box className={`p-2.5 rounded-lg bg-${config.color}-50 text-${config.color}-600 border border-${config.color}-100`}>
+            <Box className={`p-2.5 rounded-lg border ${statusStyles[config.color] || statusStyles.gray}`}>
               {nodeTypeIcons[step.workflowNodeTemplate.type] || <FileTextIcon className="w-5 h-5" />}
             </Box>
             <Box className="flex-1 min-w-0">
