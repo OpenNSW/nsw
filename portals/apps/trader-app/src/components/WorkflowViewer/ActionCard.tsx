@@ -77,18 +77,10 @@ const statusStyles: Record<string, string> = {
 
 export const ActionCard = ({ step, consignmentId }: ActionCardProps) => {
   const navigate = useNavigate()
-  const [isLoading, setIsLoading] = useState(false)
   const config = statusConfig[step.state] || { color: 'gray', label: step.state, icon: null }
 
-  const handleOpen = async () => {
-    setIsLoading(true)
-    try {
+  const handleOpen = () => {
       navigate(`/consignments/${consignmentId}/tasks/${step.id}`)
-    } catch (error) {
-      console.error('Failed to navigate to task:', error)
-    } finally {
-      setIsLoading(false)
-    }
   }
 
   const label = step.workflowNodeTemplate.name || `Step ${step.id.split('-').pop()}`
@@ -128,8 +120,6 @@ export const ActionCard = ({ step, consignmentId }: ActionCardProps) => {
               <Button
                 size="2"
                 onClick={handleOpen}
-                disabled={isLoading}
-                loading={isLoading}
                 className="cursor-pointer"
               >
                 <PlayIcon />
@@ -142,8 +132,6 @@ export const ActionCard = ({ step, consignmentId }: ActionCardProps) => {
                 color="gray"
                 size="2"
                 onClick={handleOpen}
-                disabled={isLoading}
-                loading={isLoading}
                 className="cursor-pointer"
               >
                 <ReaderIcon />
