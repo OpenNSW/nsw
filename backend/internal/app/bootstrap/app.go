@@ -12,10 +12,14 @@ import (
 	"github.com/OpenNSW/nsw/internal/form"
 	"github.com/OpenNSW/nsw/internal/middleware"
 	taskManager "github.com/OpenNSW/nsw/internal/task/manager"
+	"github.com/OpenNSW/nsw/internal/task/plugin"
 	"github.com/OpenNSW/nsw/internal/uploads"
-	workflowmanager "github.com/OpenNSW/nsw/internal/workflow/manager"
 	"github.com/OpenNSW/nsw/internal/workflow/router"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
+	engine "github.com/lokewate/go-temporal-workflow"
+	workflowmanager "github.com/lokewate/go-temporal-workflow"
+
+	"go.temporal.io/sdk/client"
 )
 
 // App contains initialized HTTP server and cleanup hooks.
@@ -48,6 +52,66 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
+func setupTemporalWorkflowManager(
+	ctx context.Context,
+	cfg *config.Config,
+	tm taskManager.TaskManager) (workflowmanager.TemporalManager, error) {
+	// 1. Connect to the local Temporal Server
+	c, err := client.Dial(client.Options{})
+	if err != nil {
+		return nil, fmt.Errorf("Error creating Temporal client: %v\n", err)
+	}
+	defer c.Close()
+
+	// 2. Break Circular Dependency: The Dispatcher needs the Manager's TaskDone method,
+	// but the Manager needs the Dispatcher's HandleTask method during initialization.
+	// var workflowManager workflowmanager.TemporalManager
+
+	// 4. Define Handlers for Temporal Bridge
+	activationHandler := func(payload engine.TaskPayload) error {
+		tmRequest := taskManager.InitTaskRequest{
+			TaskID: payload.NodeID,
+			// WorkflowID is not used in taskManager
+			WorkflowID:             "",
+			WorkflowNodeTemplateID: payload.WorkflowID,
+			GlobalState:            payload.Inputs,
+		}
+		_, err = tm.InitTask(ctx, tmRequest)
+		if err != nil {
+			return fmt.Errorf("Error initializing task manager: %v\n", err)
+		}
+		return nil
+	}
+
+	completionHandler := func(workflowID string, finalContext map[string]any) error {
+		fmt.Printf("Temporal Workflow %s logically completed with final context!\n", workflowID)
+		return nil
+	}
+
+	// 5. Initialize Manager
+	workflowManager := engine.NewTemporalManager(c, "INTERPRETER_TASK_QUEUE", activationHandler, completionHandler)
+
+	taskDoneWrapper := func(
+		ctx context.Context,
+		taskID string,
+		state *plugin.State,
+		extendedState *string,
+		appendGlobalContext map[string]any,
+		outcome *string) {
+		workflowID := ""
+		runID := ""
+		nodeID := taskID
+		err := workflowManager.TaskDone(ctx, workflowID, runID, nodeID, appendGlobalContext)
+		if err != nil {
+			fmt.Printf("Error completing task: %v\n", err)
+		}
+	}
+
+	tm.RegisterUpstreamCallback(taskDoneWrapper)
+
+	return workflowManager, nil
+}
+
 // Build initializes dependencies and returns a fully wired application server.
 func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	db, err := database.New(&cfg.Database)
@@ -69,7 +133,8 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	nodeService := service.NewWorkflowNodeService(db)
 	templateService := service.NewTemplateService(db)
-	wm := workflowmanager.NewManager(db, nodeService, templateService)
+
+	wm := setupTemporalWorkflowManager(ctx, cfg, tm)
 
 	chaService := service.NewCHAService(db)
 	hsCodeService := service.NewHSCodeService(db)
