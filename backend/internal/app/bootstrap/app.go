@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 
+	workflowManagerV2 "github.com/OpenNSW/go-temporal-workflow"
 	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/config"
 	"github.com/OpenNSW/nsw/internal/database"
@@ -14,9 +16,11 @@ import (
 	taskManager "github.com/OpenNSW/nsw/internal/task/manager"
 	"github.com/OpenNSW/nsw/internal/uploads"
 	"github.com/OpenNSW/nsw/internal/uploads/drivers"
-	workflowmanager "github.com/OpenNSW/nsw/internal/workflow/manager"
+	workflowManagerV1 "github.com/OpenNSW/nsw/internal/workflow/manager"
 	"github.com/OpenNSW/nsw/internal/workflow/router"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
+
+	"go.temporal.io/sdk/client"
 )
 
 // App contains initialized HTTP server and cleanup hooks.
@@ -49,6 +53,73 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
+func setupWorkflowManagerV2(
+	ctx context.Context,
+	cfg *config.Config,
+	tm taskManager.TaskManager,
+	templateService *service.TemplateService) (workflowManagerV2.TemporalManager, error) {
+	// 1. Connect to the local Temporal Server (Needed for Workflow Manager V2)
+	c, err := client.Dial(client.Options{})
+	if err != nil {
+		return nil, fmt.Errorf("Error creating Temporal client: %v\n", err)
+	}
+	// ***************
+	// Note: You may need to manage closing the client gracefully elsewhere
+	// defer c.Close()
+
+	// 4. Define Handlers for Manager Bridge
+	activationHandler := func(payload workflowManagerV2.TaskPayload) error {
+		template, err := templateService.GetWorkflowNodeTemplateByID(ctx, payload.TaskTemplateID)
+		if err != nil {
+			return fmt.Errorf("Error getting workflow node template: %v\n", err)
+		}
+
+		// TODO: We need to pass the TaskPayload.RunID in the future to avoid issues with
+		// task retries. For example, when retrying a task instance, a stale version might
+		// send a completion that will trigger the new version.
+		slog.Error("---- DEBUG ---- Starting InitTaskRequest", "TaskID", payload.NodeID, "WorkflowID", payload.RunID, "WorkflowNodeTemplateID", template.ID)
+		tmRequest := taskManager.InitTaskRequest{
+			TaskID:                 payload.NodeID,
+			WorkflowID:             payload.RunID,
+			WorkflowNodeTemplateID: template.ID,
+			GlobalState:            payload.Inputs,
+			Type:                   template.Type,
+			Config:                 template.Config,
+		}
+		_, err = tm.InitTask(ctx, tmRequest)
+		if err != nil {
+			return fmt.Errorf("Error initializing task manager: %v\n", err)
+		}
+		return nil
+	}
+
+	completionHandler := func(workflowID string, finalContext map[string]any) error {
+		fmt.Printf("Workflow %s logically completed with final context!\n", workflowID)
+		return nil
+	}
+
+	// 5. Initialize Manager
+	workflowManager := workflowManagerV2.NewTemporalManager(c, "INTERPRETER_TASK_QUEUE", activationHandler, completionHandler)
+
+	taskDoneWrapper := func(
+		ctx context.Context,
+		workflowID string,
+		taskID string,
+		appendGlobalContext map[string]any) {
+		err := workflowManager.TaskDone(ctx, workflowID, "", taskID, appendGlobalContext)
+		if err != nil {
+			fmt.Printf("Error completing task: %v\n", err)
+		}
+	}
+
+	tm.RegisterUpstreamDoneCallback(taskDoneWrapper)
+
+	// Start the workers.
+	workflowManager.StartWorker()
+
+	return workflowManager, nil
+}
+
 // Build initializes dependencies and returns a fully wired application server.
 func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	db, err := database.New(&cfg.Database)
@@ -68,24 +139,51 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to create task manager: %w", err)
 	}
 
-	nodeService := service.NewWorkflowNodeService(db)
 	templateService := service.NewTemplateService(db)
-	wm := workflowmanager.NewManager(db, nodeService, templateService)
-
 	chaService := service.NewCHAService(db)
 	hsCodeService := service.NewHSCodeService(db)
-	consignmentService := service.NewConsignmentService(db, templateService, wm)
-	preConsignmentService := service.NewPreConsignmentService(db, templateService, wm)
 
-	if err := WireManagers(wm, tm); err != nil {
-		_ = database.Close(db)
-		return nil, fmt.Errorf("failed to wire managers: %w", err)
+	var consignmentRouter *router.ConsignmentRouter
+	var preConsignmentRouter *router.PreConsignmentRouter
+
+	var workflowManagerV2 workflowManagerV2.TemporalManager
+	if cfg.UseWorkflowManagerV2 {
+		// --- NEW WORKFLOW MANAGER CODE ---
+		var err error
+		workflowManagerV2, err = setupWorkflowManagerV2(ctx, cfg, tm, templateService)
+		if err != nil {
+			_ = database.Close(db)
+			return nil, fmt.Errorf("failed to create workflow manager v2: %w", err)
+		}
+
+		consignmentService := service.NewConsignmentService(db, templateService, nil, workflowManagerV2)
+		consignmentRouter = router.NewConsignmentRouter(consignmentService, chaService)
+
+		// TODO: Pre-Consignment is commented out in new workflow for now
+		// preConsignmentService := service.NewPreConsignmentService(db, templateService, workflowManagerV2)
+		// preConsignmentRouter = router.NewPreConsignmentRouter(preConsignmentService)
+		preConsignmentRouter = nil
+	} else {
+		// --- OLD WORKFLOW MANAGER CODE ---
+		nodeService := service.NewWorkflowNodeService(db)
+		wm := workflowManagerV1.NewManager(db, nodeService, templateService)
+
+		if err := WireManagers(wm, tm); err != nil {
+			_ = database.Close(db)
+			return nil, fmt.Errorf("failed to wire managers: %w", err)
+		}
+
+		// Note: The signature of NewConsignmentService might have changed to accept both managers
+		// We pass 'wm' in place of the v1 manager, and 'nil' for the v2 one.
+		consignmentService := service.NewConsignmentService(db, templateService, wm, nil)
+		preConsignmentService := service.NewPreConsignmentService(db, templateService, wm)
+
+		consignmentRouter = router.NewConsignmentRouter(consignmentService, chaService)
+		preConsignmentRouter = router.NewPreConsignmentRouter(preConsignmentService)
 	}
 
 	hsCodeRouter := router.NewHSCodeRouter(hsCodeService)
 	chaRouter := router.NewCHARouter(chaService)
-	consignmentRouter := router.NewConsignmentRouter(consignmentService, chaService)
-	preConsignmentRouter := router.NewPreConsignmentRouter(preConsignmentService)
 
 	storageDriver, err := uploads.NewStorageFromConfig(ctx, cfg.Storage)
 	if err != nil {
@@ -153,9 +251,11 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	mux.Handle("GET /api/v1/consignments/{id}", withAuth(http.HandlerFunc(consignmentRouter.HandleGetConsignmentByID)))
 	mux.Handle("PUT /api/v1/consignments/{id}", withAuth(http.HandlerFunc(consignmentRouter.HandleInitializeConsignment)))
 	mux.Handle("GET /api/v1/consignments", withAuth(http.HandlerFunc(consignmentRouter.HandleGetConsignments)))
-	mux.Handle("POST /api/v1/pre-consignments", withAuth(http.HandlerFunc(preConsignmentRouter.HandleCreatePreConsignment)))
-	mux.Handle("GET /api/v1/pre-consignments/{preConsignmentId}", withAuth(http.HandlerFunc(preConsignmentRouter.HandleGetPreConsignmentByID)))
-	mux.Handle("GET /api/v1/pre-consignments", withAuth(http.HandlerFunc(preConsignmentRouter.HandleGetTraderPreConsignments)))
+	if !cfg.UseWorkflowManagerV2 {
+		mux.Handle("POST /api/v1/pre-consignments", withAuth(http.HandlerFunc(preConsignmentRouter.HandleCreatePreConsignment)))
+		mux.Handle("GET /api/v1/pre-consignments/{preConsignmentId}", withAuth(http.HandlerFunc(preConsignmentRouter.HandleGetPreConsignmentByID)))
+		mux.Handle("GET /api/v1/pre-consignments", withAuth(http.HandlerFunc(preConsignmentRouter.HandleGetTraderPreConsignments)))
+	}
 	mux.Handle("POST /api/v1/uploads", withAuth(http.HandlerFunc(uploadHandler.Upload)))
 	mux.Handle("GET /api/v1/uploads/{key}", withAuth(http.HandlerFunc(uploadHandler.Download)))
 	mux.Handle("DELETE /api/v1/uploads/{key}", withAuth(http.HandlerFunc(uploadHandler.Delete)))
@@ -184,6 +284,10 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		}
 		if dbErr != nil {
 			return fmt.Errorf("failed to close database: %w", dbErr)
+		}
+
+		if cfg.UseWorkflowManagerV2 {
+			workflowManagerV2.StopWorker()
 		}
 		return nil
 	}

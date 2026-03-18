@@ -12,8 +12,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"gorm.io/gorm"
 
+	workflowManagerV2 "github.com/OpenNSW/go-temporal-workflow"
 	taskManager "github.com/OpenNSW/nsw/internal/task/manager"
-	workflowmanager "github.com/OpenNSW/nsw/internal/workflow/manager"
+	workflowManagerV1 "github.com/OpenNSW/nsw/internal/workflow/manager"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 )
 
@@ -67,7 +68,7 @@ type MockWorkflowManager struct {
 	mock.Mock
 }
 
-func (m *MockWorkflowManager) StartWorkflowInstance(ctx context.Context, tx *gorm.DB, workflowID string, workflowTemplates []model.WorkflowTemplate, globalContext map[string]any, handler workflowmanager.WorkflowEventHandler) error {
+func (m *MockWorkflowManager) StartWorkflowInstance(ctx context.Context, tx *gorm.DB, workflowID string, workflowTemplates []model.WorkflowTemplate, globalContext map[string]any, handler workflowManagerV1.WorkflowEventHandler) error {
 	args := m.Called(ctx, tx, workflowID, workflowTemplates, globalContext, handler)
 	return args.Error(0)
 }
@@ -80,7 +81,7 @@ func (m *MockWorkflowManager) GetWorkflowInstance(ctx context.Context, workflowI
 	return args.Get(0).(*model.Workflow), args.Error(1)
 }
 
-func (m *MockWorkflowManager) RegisterTaskHandler(_ workflowmanager.TaskInitHandler) error {
+func (m *MockWorkflowManager) RegisterTaskHandler(_ workflowManagerV1.TaskInitHandler) error {
 	return nil
 }
 
@@ -88,11 +89,41 @@ func (m *MockWorkflowManager) HandleTaskUpdate(_ context.Context, _ taskManager.
 	return nil
 }
 
+// MockWMV2 implements workflowManagerV2.TemporalManager for testing.
+type MockWMV2 struct {
+	mock.Mock
+}
+
+func (m *MockWMV2) StartWorkflow(ctx context.Context, ID string, jsonDSL []byte, initialWorkflowVariables map[string]any) error {
+	args := m.Called(ctx, ID, jsonDSL, initialWorkflowVariables)
+	return args.Error(0)
+}
+
+func (m *MockWMV2) TaskDone(ctx context.Context, workflowID, runID, nodeID string, output map[string]any) error {
+	args := m.Called(ctx, workflowID, runID, nodeID, output)
+	return args.Error(0)
+}
+
+func (m *MockWMV2) TaskUpdate(ctx context.Context, workflowID, runID string, update workflowManagerV2.UpdateEvent) error {
+	args := m.Called(ctx, workflowID, runID, update)
+	return args.Error(0)
+}
+
+func (m *MockWMV2) GetStatus(ctx context.Context, workflowID string) (*workflowManagerV2.WorkflowInstance, error) {
+	args := m.Called(ctx, workflowID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*workflowManagerV2.WorkflowInstance), args.Error(1)
+}
+
 func TestConsignmentService_InitializeConsignment(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
 	mockTP := new(MockTemplateProvider)
 	mockWM := new(MockWorkflowManager)
-	svc := NewConsignmentService(db, mockTP, mockWM)
+	// TODO: Add tests for workflow manager v2
+	// mockWMV2 := new(MockWMV2)
+	svc := NewConsignmentService(db, mockTP, mockWM, nil)
 
 	ctx := context.Background()
 	traderID := "trader1"
@@ -158,7 +189,9 @@ func TestConsignmentService_InitializeConsignment_TemplateNotFound(t *testing.T)
 	db, _ := setupTestDB(t)
 	mockTP := new(MockTemplateProvider)
 	mockWM := new(MockWorkflowManager)
-	svc := NewConsignmentService(db, mockTP, mockWM)
+	// TODO: Add tests for workflow manager v2
+	// mockWMV2 := new(MockWMV2)
+	svc := NewConsignmentService(db, mockTP, mockWM, nil)
 
 	ctx := context.Background()
 	hsCodeID := uuid.NewString()
@@ -180,7 +213,9 @@ func TestConsignmentService_InitializeConsignment_TemplateNotFound(t *testing.T)
 func TestConsignmentService_GetConsignmentByID(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
 	mockWM := new(MockWorkflowManager)
-	svc := NewConsignmentService(db, nil, mockWM)
+	// TODO: Add tests for workflow manager v2
+	// mockWMV2 := new(MockWMV2)
+	svc := NewConsignmentService(db, nil, mockWM, nil)
 
 	ctx := context.Background()
 	consignmentID := uuid.NewString()
@@ -226,7 +261,9 @@ func TestConsignmentService_GetConsignmentByID(t *testing.T) {
 func TestConsignmentService_UpdateConsignment(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
 	mockWM := new(MockWorkflowManager)
-	svc := NewConsignmentService(db, nil, mockWM)
+	// TODO: Add tests for workflow manager v2
+	// mockWMV2 := new(MockWMV2)
+	svc := NewConsignmentService(db, nil, mockWM, nil)
 
 	ctx := context.Background()
 	consignmentID := uuid.NewString()
@@ -284,7 +321,7 @@ func TestConsignmentService_UpdateConsignment(t *testing.T) {
 
 func TestConsignmentService_UpdateConsignment_NotFound(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
-	svc := NewConsignmentService(db, nil, nil)
+	svc := NewConsignmentService(db, nil, nil, nil)
 	ctx := context.Background()
 	consignmentID := uuid.NewString()
 	state := model.ConsignmentStateFinished
@@ -305,7 +342,7 @@ func TestConsignmentService_UpdateConsignment_NotFound(t *testing.T) {
 
 func TestConsignmentService_GetConsignmentsByTraderID_Empty(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
-	svc := NewConsignmentService(db, nil, nil)
+	svc := NewConsignmentService(db, nil, nil, nil)
 	ctx := context.Background()
 	traderID := "trader1"
 
@@ -325,7 +362,7 @@ func TestConsignmentService_GetConsignmentsByTraderID_Empty(t *testing.T) {
 
 func TestConsignmentService_GetConsignmentsByTraderID_CountError(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
-	svc := NewConsignmentService(db, nil, nil)
+	svc := NewConsignmentService(db, nil, nil, nil)
 	ctx := context.Background()
 	traderID := "trader1"
 
