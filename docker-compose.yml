@@ -271,6 +271,14 @@ services:
       - oga-npqs-net
     environment:
       OGA_PORT: ${OGA_NPQS_PORT:-8081}
+      OGA_DB_DRIVER: ${OGA_DB_DRIVER:-sqlite}
+      OGA_DB_PATH: /data/oga_applications.db
+      OGA_DB_HOST: ${OGA_DB_HOST:-postgres}
+      OGA_DB_PORT: ${OGA_DB_PORT:-5432}
+      OGA_DB_USER: ${OGA_DB_USER:-postgres}
+      OGA_DB_PASSWORD: ${OGA_DB_PASSWORD:-changeme}
+      OGA_DB_NAME: ${OGA_DB_NAME:-oga_db}
+      OGA_DB_SSLMODE: ${OGA_DB_SSLMODE:-disable}
       OGA_DEFAULT_FORM_ID: ${OGA_DEFAULT_FORM_ID:-default}
       OGA_ALLOWED_ORIGINS: ${OGA_ALLOWED_ORIGINS:-http://localhost:5174,http://localhost:5175,http://localhost:5176}
 
@@ -308,6 +316,14 @@ services:
       - oga-npqs
     environment:
       OGA_PORT: ${OGA_FCAU_PORT:-8082}
+      OGA_DB_DRIVER: ${OGA_DB_DRIVER:-sqlite}
+      OGA_DB_PATH: /data/oga_applications.db
+      OGA_DB_HOST: ${OGA_DB_HOST:-postgres}
+      OGA_DB_PORT: ${OGA_DB_PORT:-5432}
+      OGA_DB_USER: ${OGA_DB_USER:-postgres}
+      OGA_DB_PASSWORD: ${OGA_DB_PASSWORD:-changeme}
+      OGA_DB_NAME: ${OGA_DB_NAME:-oga_db}
+      OGA_DB_SSLMODE: ${OGA_DB_SSLMODE:-disable}
       OGA_DEFAULT_FORM_ID: ${OGA_DEFAULT_FORM_ID:-default}
       OGA_ALLOWED_ORIGINS: ${OGA_ALLOWED_ORIGINS:-http://localhost:5174,http://localhost:5175,http://localhost:5176}
 
@@ -344,6 +360,14 @@ services:
       - oga-npqs
     environment:
       OGA_PORT: ${OGA_IRD_PORT:-8083}
+      OGA_DB_DRIVER: ${OGA_DB_DRIVER:-sqlite}
+      OGA_DB_PATH: /data/oga_applications.db
+      OGA_DB_HOST: ${OGA_DB_HOST:-postgres}
+      OGA_DB_PORT: ${OGA_DB_PORT:-5432}
+      OGA_DB_USER: ${OGA_DB_USER:-postgres}
+      OGA_DB_PASSWORD: ${OGA_DB_PASSWORD:-changeme}
+      OGA_DB_NAME: ${OGA_DB_NAME:-oga_db}
+      OGA_DB_SSLMODE: ${OGA_DB_SSLMODE:-disable}
       OGA_DEFAULT_FORM_ID: ${OGA_DEFAULT_FORM_ID:-default}
       OGA_ALLOWED_ORIGINS: ${OGA_ALLOWED_ORIGINS:-http://localhost:5174,http://localhost:5175,http://localhost:5176}
 

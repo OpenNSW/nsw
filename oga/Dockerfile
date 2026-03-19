@@ -23,10 +23,15 @@ WORKDIR /app
 COPY --from=builder /out/oga /app/oga
 COPY --from=builder /app/data/forms /app/data/forms
 
-# SQLite databases are stored here; mount a volume for persistence
-RUN mkdir -p /data && chown appuser:appuser /data
-VOLUME /data
+# Database settings
+ENV OGA_DB_DRIVER=sqlite
 ENV OGA_DB_PATH=/data/oga_applications.db
+ENV OGA_DB_HOST=localhost
+ENV OGA_DB_PORT=5432
+ENV OGA_DB_USER=postgres
+ENV OGA_DB_PASSWORD=changeme
+ENV OGA_DB_NAME=oga_db
+ENV OGA_DB_SSLMODE=disable
 
 USER appuser
 

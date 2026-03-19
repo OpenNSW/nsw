@@ -25,7 +25,7 @@ func main() {
 	)
 
 	// Initialize database store
-	store, err := internal.NewApplicationStore(cfg.DBPath)
+	store, err := internal.NewApplicationStore(cfg)
 	if err != nil {
 		log.Fatalf("failed to create application store: %v", err)
 	}
