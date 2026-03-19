@@ -1,48 +1,41 @@
-# ==============================================================================
-# Build Stage
-# ==============================================================================
-FROM golang:1.25-alpine AS builder
-
-# Install build dependencies (Make and Git are required for the Makefile targets)
-RUN apk add --no-cache make git
+FROM golang:1.25-bookworm AS builder
 
 WORKDIR /app
 
-# Copy dependency definitions first to leverage Docker cache
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy the rest of the source code
 COPY . .
-
-# Ensure bucket directory exists even when repository has no tracked bucket files
 RUN mkdir -p /app/bucket
+RUN CGO_ENABLED=0 go build -ldflags "-s -w" -o /out/server ./cmd/server
 
-# Build the binary using the Makefile 'build-linux' target
-# This ensures consistency with local builds
-RUN make build-linux
-
-# ==============================================================================
-# Runtime Stage
-# ==============================================================================
-# Use distroless for a minimal, secure production image
-FROM gcr.io/distroless/static-debian12
+FROM debian:bookworm-slim
 
 LABEL org.opencontainers.image.source="https://github.com/OpenNSW/nsw"
 LABEL org.opencontainers.image.description="NSW Backend API Service"
 
 WORKDIR /app
 
-# Copy the binary from the builder stage
-# The 'linux' target outputs to bin/server-linux
-COPY --from=builder /app/bin/server-linux /app/server
-COPY --from=builder --chown=nonroot:nonroot /app/bucket /app/bucket
+RUN apt-get update \
+		&& apt-get install -y --no-install-recommends ca-certificates wget \
+		&& rm -rf /var/lib/apt/lists/* \
+		&& useradd -r -s /bin/false -d /app appuser
 
-# Run as non-root user (distroless provides uid 65534)
-USER nonroot:nonroot
+RUN mkdir -p /data/uploads \
+		&& chown appuser:appuser /data/uploads
+VOLUME /data/uploads
+
+# Copy the binary from the builder stage
+COPY --from=builder /out/server /app/server
+COPY --from=builder --chown=appuser:appuser /app/bucket /app/bucket
+
+USER appuser
 
 # Expose the application port (configurable via SERVER_PORT env var)
 EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+	CMD wget -qO- http://localhost:${SERVER_PORT:-8080}/health || exit 1
 
 # Run the binary
 CMD ["/app/server"]
