@@ -72,6 +72,7 @@ func setupTemporalWorkflowManager(
 		if err != nil {
 			return fmt.Errorf("Error getting workflow node template: %v\n", err)
 		}
+
 		// We concat the 3 key IDs that are used by the workflow manager to identify a specific
 		// task request, into the task instance ID we pass to the task manager. When the task
 		// completion callback is made, we can split and get the 3 IDs required by workflow manager.
@@ -122,6 +123,9 @@ func setupTemporalWorkflowManager(
 
 	tm.RegisterUpstreamDoneCallback(taskDoneWrapper)
 
+	// Start the workers.
+	workflowManager.StartWorker()
+
 	return workflowManager, nil
 }
 
@@ -151,19 +155,21 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	var consignmentRouter *router.ConsignmentRouter
 	var preConsignmentRouter *router.PreConsignmentRouter
 
+	var temporalWorkflowManager engine.TemporalManager
 	if cfg.UseTemporalWorkflowManager {
 		// --- NEW TEMPORAL WORKFLOW MANAGER CODE ---
-		wm, err := setupTemporalWorkflowManager(ctx, cfg, tm, templateService)
+		var err error
+		temporalWorkflowManager, err = setupTemporalWorkflowManager(ctx, cfg, tm, templateService)
 		if err != nil {
 			_ = database.Close(db)
 			return nil, fmt.Errorf("failed to create temporal workflow manager: %w", err)
 		}
 
-		consignmentService := service.NewConsignmentService(db, templateService, nil, wm)
+		consignmentService := service.NewConsignmentService(db, templateService, nil, temporalWorkflowManager)
 		consignmentRouter = router.NewConsignmentRouter(consignmentService, chaService)
 
 		// TODO: Pre-Consignment is commented out in new workflow for now
-		// preConsignmentService := service.NewPreConsignmentService(db, templateService, wm)
+		// preConsignmentService := service.NewPreConsignmentService(db, templateService, temporalWorkflowManager)
 		// preConsignmentRouter = router.NewPreConsignmentRouter(preConsignmentService)
 		preConsignmentRouter = nil
 	} else {
@@ -282,6 +288,10 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		}
 		if dbErr != nil {
 			return fmt.Errorf("failed to close database: %w", dbErr)
+		}
+
+		if cfg.UseTemporalWorkflowManager {
+			temporalWorkflowManager.StopWorker()
 		}
 		return nil
 	}
