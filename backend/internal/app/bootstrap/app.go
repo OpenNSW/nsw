@@ -55,7 +55,8 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 func setupTemporalWorkflowManager(
 	ctx context.Context,
 	cfg *config.Config,
-	tm taskManager.TaskManager) (workflowmanager.TemporalManager, error) {
+	tm taskManager.TaskManager,
+	templateService service.TemplateService) (workflowmanager.TemporalManager, error) {
 	// 1. Connect to the local Temporal Server
 	c, err := client.Dial(client.Options{})
 	if err != nil {
@@ -63,18 +64,21 @@ func setupTemporalWorkflowManager(
 	}
 	defer c.Close()
 
-	// 2. Break Circular Dependency: The Dispatcher needs the Manager's TaskDone method,
-	// but the Manager needs the Dispatcher's HandleTask method during initialization.
-	// var workflowManager workflowmanager.TemporalManager
-
 	// 4. Define Handlers for Temporal Bridge
 	activationHandler := func(payload engine.TaskPayload) error {
+		template, err := templateService.GetWorkflowNodeTemplateByID(ctx, payload.TaskTemplateID)
+		if err != nil {
+			return fmt.Errorf("Error getting workflow node template: %v\n", err)
+		}
 		tmRequest := taskManager.InitTaskRequest{
 			TaskID: payload.NodeID,
-			// WorkflowID is not used in taskManager
-			WorkflowID:             "",
-			WorkflowNodeTemplateID: payload.WorkflowID,
+			// WorkflowID is not used in taskManager. For now, we pass
+			// RunID through this.
+			WorkflowID:             payload.RunID,
+			WorkflowNodeTemplateID: template.ID,
 			GlobalState:            payload.Inputs,
+			Type:                   template.Type,
+			Config:                 template.Config,
 		}
 		_, err = tm.InitTask(ctx, tmRequest)
 		if err != nil {
@@ -134,7 +138,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	nodeService := service.NewWorkflowNodeService(db)
 	templateService := service.NewTemplateService(db)
 
-	wm := setupTemporalWorkflowManager(ctx, cfg, tm)
+	wm := setupTemporalWorkflowManager(ctx, cfg, tm, templateService)
 
 	chaService := service.NewCHAService(db)
 	hsCodeService := service.NewHSCodeService(db)
