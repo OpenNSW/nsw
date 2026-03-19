@@ -164,31 +164,9 @@ func (s *ConsignmentService) InitializeConsignmentByID(ctx context.Context, cons
 		return nil, fmt.Errorf("failed to load HS codes: %w", err)
 	}
 
-	var responseDTO *model.ConsignmentDetailDTO
-	if s.temporalWM == nil {
-		var err error
-		responseDTO, err = s.buildConsignmentDetailDTO(ctx, &consignment, wf, twf, hsLoader)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		_, err := s.temporalWM.GetStatus(ctx, consignment.ID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get workflow details: %w", err)
-		}
-		responseDTO = &model.ConsignmentDetailDTO{
-			ID:       consignment.ID,
-			Flow:     consignment.Flow,
-			TraderID: consignment.TraderID,
-			ChaID:    consignment.CHAID,
-			State:    consignment.State,
-			// TODO: Fix me
-			Items:     []model.ConsignmentItemResponseDTO{},
-			CreatedAt: consignment.CreatedAt.Format(time.RFC3339),
-			UpdatedAt: consignment.UpdatedAt.Format(time.RFC3339),
-			// TODO: Fix me
-			WorkflowNodes: []model.WorkflowNodeResponseDTO{},
-		}
+	responseDTO, err := s.buildConsignmentDetailDTO(ctx, &consignment, wf, twf, hsLoader)
+	if err != nil {
+		return nil, err
 	}
 
 	return responseDTO, nil
@@ -560,11 +538,20 @@ func (s *ConsignmentService) UpdateConsignment(ctx context.Context, updateReq *m
 	}
 
 	var wf *model.Workflow
+	var twf *engine.WorkflowInstance
 	if consignment.State != model.ConsignmentStateInitialized {
-		var err error
-		wf, err = s.workflowManager.GetWorkflowInstance(ctx, consignment.ID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get workflow details: %w", err)
+		if s.temporalWM != nil {
+			var err error
+			twf, err = s.temporalWM.GetStatus(ctx, consignment.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get temporal workflow details: %w", err)
+			}
+		} else {
+			var err error
+			wf, err = s.workflowManager.GetWorkflowInstance(ctx, consignment.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get workflow details: %w", err)
+			}
 		}
 	}
 
@@ -574,7 +561,7 @@ func (s *ConsignmentService) UpdateConsignment(ctx context.Context, updateReq *m
 		return nil, fmt.Errorf("failed to load HS codes: %w", err)
 	}
 
-	responseDTO, err := s.buildConsignmentDetailDTO(ctx, &consignment, wf, nil, hsLoader)
+	responseDTO, err := s.buildConsignmentDetailDTO(ctx, &consignment, wf, twf, hsLoader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build consignment response DTO: %w", err)
 	}
