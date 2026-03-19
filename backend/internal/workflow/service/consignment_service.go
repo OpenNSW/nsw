@@ -71,7 +71,7 @@ func (s *ConsignmentService) CreateConsignmentShell(ctx context.Context, flow mo
 	if err := s.db.WithContext(ctx).First(consignment, "id = ?", consignment.ID).Error; err != nil {
 		return nil, fmt.Errorf("failed to reload consignment: %w", err)
 	}
-	responseDTO, err := s.buildConsignmentDetailDTO(ctx, consignment, nil, newHSCodeBatchLoader(s.db))
+	responseDTO, err := s.buildConsignmentDetailDTO(ctx, consignment, nil, nil, newHSCodeBatchLoader(s.db))
 	if err != nil {
 		return nil, err
 	}
@@ -143,9 +143,10 @@ func (s *ConsignmentService) InitializeConsignmentByID(ctx context.Context, cons
 	}
 
 	var wf *model.Workflow
+	var twf *engine.WorkflowInstance
 	if s.temporalWM != nil {
-		// TODO:FIX ME
-		_, err := s.temporalWM.GetStatus(ctx, consignment.ID)
+		var err error
+		twf, err = s.temporalWM.GetStatus(ctx, consignment.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get temporal workflow details: %w", err)
 		}
@@ -166,7 +167,7 @@ func (s *ConsignmentService) InitializeConsignmentByID(ctx context.Context, cons
 	var responseDTO *model.ConsignmentDetailDTO
 	if s.temporalWM == nil {
 		var err error
-		responseDTO, err = s.buildConsignmentDetailDTO(ctx, &consignment, wf, hsLoader)
+		responseDTO, err = s.buildConsignmentDetailDTO(ctx, &consignment, wf, twf, hsLoader)
 		if err != nil {
 			return nil, err
 		}
@@ -269,9 +270,10 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 	}
 
 	var wf *model.Workflow
+	var twf *engine.WorkflowInstance
 	if s.temporalWM != nil {
-		// TODO:FIX ME
-		_, err := s.temporalWM.GetStatus(ctx, consignment.ID)
+		var err error
+		twf, err = s.temporalWM.GetStatus(ctx, consignment.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get temporal workflow details: %w", err)
 		}
@@ -289,7 +291,7 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 		return nil, fmt.Errorf("failed to load HS codes: %w", err)
 	}
 
-	responseDTO, err := s.buildConsignmentDetailDTO(ctx, consignment, wf, hsLoader)
+	responseDTO, err := s.buildConsignmentDetailDTO(ctx, consignment, wf, twf, hsLoader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build consignment response DTO: %w", err)
 	}
@@ -306,10 +308,11 @@ func (s *ConsignmentService) GetConsignmentByID(ctx context.Context, consignment
 
 	// Load workflow details (nodes + templates) if workflow exists
 	var wf *model.Workflow
+	var twf *engine.WorkflowInstance
 	if consignment.State != model.ConsignmentStateInitialized {
 		if s.temporalWM != nil {
-			// TODO:FIX ME
-			_, err := s.temporalWM.GetStatus(ctx, consignment.ID)
+			var err error
+			twf, err = s.temporalWM.GetStatus(ctx, consignment.ID)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get temporal workflow details: %w", err)
 			}
@@ -328,7 +331,7 @@ func (s *ConsignmentService) GetConsignmentByID(ctx context.Context, consignment
 		return nil, fmt.Errorf("failed to load HS codes: %w", err)
 	}
 
-	responseDTO, err := s.buildConsignmentDetailDTO(ctx, &consignment, wf, hsLoader)
+	responseDTO, err := s.buildConsignmentDetailDTO(ctx, &consignment, wf, twf, hsLoader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build consignment response DTO: %w", err)
 	}
@@ -502,6 +505,7 @@ func (s *ConsignmentService) listConsignmentsWithBaseQuery(ctx context.Context, 
 }
 
 // UpdateConsignment updates an existing consignment in the database.
+// TODO: clean up? this doesn't seem to be used anywhere other than tests?
 func (s *ConsignmentService) UpdateConsignment(ctx context.Context, updateReq *model.UpdateConsignmentDTO) (*model.ConsignmentDetailDTO, error) {
 	if updateReq == nil {
 		return nil, fmt.Errorf("update request cannot be nil")
@@ -570,7 +574,7 @@ func (s *ConsignmentService) UpdateConsignment(ctx context.Context, updateReq *m
 		return nil, fmt.Errorf("failed to load HS codes: %w", err)
 	}
 
-	responseDTO, err := s.buildConsignmentDetailDTO(ctx, &consignment, wf, hsLoader)
+	responseDTO, err := s.buildConsignmentDetailDTO(ctx, &consignment, wf, nil, hsLoader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build consignment response DTO: %w", err)
 	}
@@ -644,7 +648,12 @@ func (loader *hsCodeBatchLoader) get(id string) (model.HSCode, error) {
 
 // buildConsignmentDetailDTO builds a ConsignmentDetailDTO from a Consignment.
 // The workflow parameter provides the workflow nodes (nil for INITIALIZED consignments).
-func (s *ConsignmentService) buildConsignmentDetailDTO(_ context.Context, consignment *model.Consignment, workflow *model.Workflow, hsLoader *hsCodeBatchLoader) (*model.ConsignmentDetailDTO, error) {
+func (s *ConsignmentService) buildConsignmentDetailDTO(
+	_ context.Context,
+	consignment *model.Consignment,
+	workflow *model.Workflow,
+	temporalWorkflow *engine.WorkflowInstance,
+	hsLoader *hsCodeBatchLoader) (*model.ConsignmentDetailDTO, error) {
 	itemResponseDTOs, err := s.buildConsignmentItemResponseDTOs(consignment.Items, hsLoader)
 	if err != nil {
 		return nil, err
@@ -667,6 +676,22 @@ func (s *ConsignmentService) buildConsignmentDetailDTO(_ context.Context, consig
 				ExtendedState: node.ExtendedState,
 				Outcome:       node.Outcome,
 				DependsOn:     node.DependsOn,
+			})
+		}
+	} else if temporalWorkflow != nil {
+		nodeResponseDTOs = make([]model.WorkflowNodeResponseDTO, 0, len(temporalWorkflow.NodeInfo))
+		for _, node := range temporalWorkflow.NodeInfo {
+			nodeResponseDTOs = append(nodeResponseDTOs, model.WorkflowNodeResponseDTO{
+				ID:        node.ID,
+				CreatedAt: node.CreatedAt.Format(time.RFC3339),
+				UpdatedAt: node.UpdatedAt.Format(time.RFC3339),
+				WorkflowNodeTemplate: model.WorkflowNodeTemplateResponseDTO{
+					// TODO: These should come from the task manager.
+					Name:        "TO BE FILLED",
+					Description: "TO BE FILLED",
+					Type:        "TO BE FILLED",
+				},
+				State: model.WorkflowNodeState(node.Status),
 			})
 		}
 	}
