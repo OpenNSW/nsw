@@ -15,6 +15,7 @@ import (
 	taskManager "github.com/OpenNSW/nsw/internal/task/manager"
 	workflowmanager "github.com/OpenNSW/nsw/internal/workflow/manager"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
+	engine "github.com/lokewate/go-temporal-workflow"
 )
 
 // MockTemplateProvider implements TemplateProvider for testing.
@@ -88,11 +89,40 @@ func (m *MockWorkflowManager) HandleTaskUpdate(_ context.Context, _ taskManager.
 	return nil
 }
 
+// MockTemporalWM implements engine.TemporalManager for testing.
+type MockTemporalWM struct {
+	mock.Mock
+}
+
+func (m *MockTemporalWM) StartWorkflow(ctx context.Context, ID string, jsonDSL []byte, initialWorkflowVariables map[string]any) error {
+	args := m.Called(ctx, ID, jsonDSL, initialWorkflowVariables)
+	return args.Error(0)
+}
+
+func (m *MockTemporalWM) TaskDone(ctx context.Context, workflowID, runID, nodeID string, output map[string]any) error {
+	args := m.Called(ctx, workflowID, runID, nodeID, output)
+	return args.Error(0)
+}
+
+func (m *MockTemporalWM) TaskUpdate(ctx context.Context, workflowID, runID string, update engine.UpdateEvent) error {
+	args := m.Called(ctx, workflowID, runID, update)
+	return args.Error(0)
+}
+
+func (m *MockTemporalWM) GetStatus(ctx context.Context, workflowID string) (*engine.WorkflowInstance, error) {
+	args := m.Called(ctx, workflowID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*engine.WorkflowInstance), args.Error(1)
+}
+
 func TestConsignmentService_InitializeConsignment(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
 	mockTP := new(MockTemplateProvider)
 	mockWM := new(MockWorkflowManager)
-	svc := NewConsignmentService(db, mockTP, mockWM)
+	mockTemporalWM := new(MockTemporalWM)
+	svc := NewConsignmentService(db, mockTP, mockWM, mockTemporalWM)
 
 	ctx := context.Background()
 	traderID := "trader1"
@@ -158,7 +188,8 @@ func TestConsignmentService_InitializeConsignment_TemplateNotFound(t *testing.T)
 	db, _ := setupTestDB(t)
 	mockTP := new(MockTemplateProvider)
 	mockWM := new(MockWorkflowManager)
-	svc := NewConsignmentService(db, mockTP, mockWM)
+	mockTemporalWM := new(MockTemporalWM)
+	svc := NewConsignmentService(db, mockTP, mockWM, mockTemporalWM)
 
 	ctx := context.Background()
 	hsCodeID := uuid.NewString()
@@ -180,7 +211,8 @@ func TestConsignmentService_InitializeConsignment_TemplateNotFound(t *testing.T)
 func TestConsignmentService_GetConsignmentByID(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
 	mockWM := new(MockWorkflowManager)
-	svc := NewConsignmentService(db, nil, mockWM)
+	mockTemporalWM := new(MockTemporalWM)
+	svc := NewConsignmentService(db, nil, mockWM, mockTemporalWM)
 
 	ctx := context.Background()
 	consignmentID := uuid.NewString()
@@ -226,7 +258,8 @@ func TestConsignmentService_GetConsignmentByID(t *testing.T) {
 func TestConsignmentService_UpdateConsignment(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
 	mockWM := new(MockWorkflowManager)
-	svc := NewConsignmentService(db, nil, mockWM)
+	mockTemporalWM := new(MockTemporalWM)
+	svc := NewConsignmentService(db, nil, mockWM, mockTemporalWM)
 
 	ctx := context.Background()
 	consignmentID := uuid.NewString()
@@ -284,7 +317,8 @@ func TestConsignmentService_UpdateConsignment(t *testing.T) {
 
 func TestConsignmentService_UpdateConsignment_NotFound(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
-	svc := NewConsignmentService(db, nil, nil)
+	mockTemporalWM := new(MockTemporalWM)
+	svc := NewConsignmentService(db, nil, nil, mockTemporalWM)
 	ctx := context.Background()
 	consignmentID := uuid.NewString()
 	state := model.ConsignmentStateFinished
@@ -305,7 +339,8 @@ func TestConsignmentService_UpdateConsignment_NotFound(t *testing.T) {
 
 func TestConsignmentService_GetConsignmentsByTraderID_Empty(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
-	svc := NewConsignmentService(db, nil, nil)
+	mockTemporalWM := new(MockTemporalWM)
+	svc := NewConsignmentService(db, nil, nil, mockTemporalWM)
 	ctx := context.Background()
 	traderID := "trader1"
 
@@ -325,7 +360,8 @@ func TestConsignmentService_GetConsignmentsByTraderID_Empty(t *testing.T) {
 
 func TestConsignmentService_GetConsignmentsByTraderID_CountError(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
-	svc := NewConsignmentService(db, nil, nil)
+	mockTemporalWM := new(MockTemporalWM)
+	svc := NewConsignmentService(db, nil, nil, mockTemporalWM)
 	ctx := context.Background()
 	traderID := "trader1"
 

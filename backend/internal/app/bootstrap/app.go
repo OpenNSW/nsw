@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/config"
@@ -12,7 +13,6 @@ import (
 	"github.com/OpenNSW/nsw/internal/form"
 	"github.com/OpenNSW/nsw/internal/middleware"
 	taskManager "github.com/OpenNSW/nsw/internal/task/manager"
-	"github.com/OpenNSW/nsw/internal/task/plugin"
 	"github.com/OpenNSW/nsw/internal/uploads"
 	"github.com/OpenNSW/nsw/internal/workflow/router"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
@@ -56,7 +56,7 @@ func setupTemporalWorkflowManager(
 	ctx context.Context,
 	cfg *config.Config,
 	tm taskManager.TaskManager,
-	templateService service.TemplateService) (workflowmanager.TemporalManager, error) {
+	templateService *service.TemplateService) (workflowmanager.TemporalManager, error) {
 	// 1. Connect to the local Temporal Server
 	c, err := client.Dial(client.Options{})
 	if err != nil {
@@ -70,8 +70,12 @@ func setupTemporalWorkflowManager(
 		if err != nil {
 			return fmt.Errorf("Error getting workflow node template: %v\n", err)
 		}
+		// We concat the 3 key IDs that are used by the workflow manager to identify a specific
+		// task request, into the task instance ID we pass to the task manager. When the task
+		// completion callback is made, we can split and get the 3 IDs required by workflow manager.
+		taskInstanceID := payload.WorkflowID + ":" + payload.NodeID + ":" + payload.RunID
 		tmRequest := taskManager.InitTaskRequest{
-			TaskID: payload.NodeID,
+			TaskID: taskInstanceID,
 			// WorkflowID is not used in taskManager. For now, we pass
 			// RunID through this.
 			WorkflowID:             payload.RunID,
@@ -98,20 +102,23 @@ func setupTemporalWorkflowManager(
 	taskDoneWrapper := func(
 		ctx context.Context,
 		taskID string,
-		state *plugin.State,
-		extendedState *string,
-		appendGlobalContext map[string]any,
-		outcome *string) {
-		workflowID := ""
-		runID := ""
-		nodeID := taskID
+		appendGlobalContext map[string]any) {
+
+		parts := strings.Split(taskID, ":")
+		if len(parts) != 3 {
+			fmt.Printf("Error splitting task ID: %v\n", taskID)
+			return
+		}
+		workflowID := parts[0]
+		nodeID := parts[1]
+		runID := parts[2]
 		err := workflowManager.TaskDone(ctx, workflowID, runID, nodeID, appendGlobalContext)
 		if err != nil {
 			fmt.Printf("Error completing task: %v\n", err)
 		}
 	}
 
-	tm.RegisterUpstreamCallback(taskDoneWrapper)
+	tm.RegisterUpstreamDoneCallback(taskDoneWrapper)
 
 	return workflowManager, nil
 }
@@ -135,25 +142,31 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to create task manager: %w", err)
 	}
 
-	nodeService := service.NewWorkflowNodeService(db)
+	// nodeService := service.NewWorkflowNodeService(db)
 	templateService := service.NewTemplateService(db)
 
-	wm := setupTemporalWorkflowManager(ctx, cfg, tm, templateService)
+	wm, err := setupTemporalWorkflowManager(ctx, cfg, tm, templateService)
+	if err != nil {
+		_ = database.Close(db)
+		return nil, fmt.Errorf("failed to create temporal workflow manager: %w", err)
+	}
 
 	chaService := service.NewCHAService(db)
 	hsCodeService := service.NewHSCodeService(db)
-	consignmentService := service.NewConsignmentService(db, templateService, wm)
-	preConsignmentService := service.NewPreConsignmentService(db, templateService, wm)
+	consignmentService := service.NewConsignmentService(db, templateService, nil, wm)
+	// TODO: Fix me
+	// preConsignmentService := service.NewPreConsignmentService(db, templateService, wm)
 
-	if err := WireManagers(wm, tm); err != nil {
-		_ = database.Close(db)
-		return nil, fmt.Errorf("failed to wire managers: %w", err)
-	}
+	// if err := WireManagers(wm, tm); err != nil {
+	// 	_ = database.Close(db)
+	// 	return nil, fmt.Errorf("failed to wire managers: %w", err)
+	// }
 
 	hsCodeRouter := router.NewHSCodeRouter(hsCodeService)
 	chaRouter := router.NewCHARouter(chaService)
 	consignmentRouter := router.NewConsignmentRouter(consignmentService, chaService)
-	preConsignmentRouter := router.NewPreConsignmentRouter(preConsignmentService)
+	// TODO: Fix me
+	// preConsignmentRouter := router.NewPreConsignmentRouter(preConsignmentService)
 
 	storageDriver, err := uploads.NewStorageFromConfig(ctx, cfg.Storage)
 	if err != nil {
@@ -221,9 +234,10 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	mux.Handle("GET /api/v1/consignments/{id}", withAuth(http.HandlerFunc(consignmentRouter.HandleGetConsignmentByID)))
 	mux.Handle("PUT /api/v1/consignments/{id}", withAuth(http.HandlerFunc(consignmentRouter.HandleInitializeConsignment)))
 	mux.Handle("GET /api/v1/consignments", withAuth(http.HandlerFunc(consignmentRouter.HandleGetConsignments)))
-	mux.Handle("POST /api/v1/pre-consignments", withAuth(http.HandlerFunc(preConsignmentRouter.HandleCreatePreConsignment)))
-	mux.Handle("GET /api/v1/pre-consignments/{preConsignmentId}", withAuth(http.HandlerFunc(preConsignmentRouter.HandleGetPreConsignmentByID)))
-	mux.Handle("GET /api/v1/pre-consignments", withAuth(http.HandlerFunc(preConsignmentRouter.HandleGetTraderPreConsignments)))
+	// TODO: Fix me
+	// mux.Handle("POST /api/v1/pre-consignments", withAuth(http.HandlerFunc(preConsignmentRouter.HandleCreatePreConsignment)))
+	// mux.Handle("GET /api/v1/pre-consignments/{preConsignmentId}", withAuth(http.HandlerFunc(preConsignmentRouter.HandleGetPreConsignmentByID)))
+	// mux.Handle("GET /api/v1/pre-consignments", withAuth(http.HandlerFunc(preConsignmentRouter.HandleGetTraderPreConsignments)))
 	mux.Handle("POST /api/v1/uploads", withAuth(http.HandlerFunc(uploadHandler.Upload)))
 	mux.Handle("GET /api/v1/uploads/{key}/content", withAuth(http.HandlerFunc(uploadHandler.DownloadContent)))
 	mux.Handle("GET /api/v1/uploads/{key}", withAuth(http.HandlerFunc(uploadHandler.Download)))
