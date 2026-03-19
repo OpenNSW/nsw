@@ -17,8 +17,12 @@ import (
 )
 
 type InitTaskRequest struct {
-	TaskID                 string      `json:"task_id"`
-	WorkflowID             string      `json:"workflow_id"`
+	// Task ID is the unique identifier for this task.
+	TaskID string `json:"task_id"`
+	// Workflow ID is the unique identifier for the currently active workflow instance.
+	WorkflowID string `json:"workflow_id"`
+	// WorkflowNodeTemplateID is the unique identifier for the currently active workflow
+	// node template (aka task template).
 	WorkflowNodeTemplateID string      `json:"workflow_node_template_id"`
 	Type                   plugin.Type `json:"type"`
 	GlobalState            map[string]any
@@ -243,7 +247,12 @@ func (tm *taskManager) execute(ctx context.Context, activeTask *container.Contai
 	}
 
 	if result.NewState != nil {
-		tm.notifyWorkflowUpdateHandler(ctx, activeTask.TaskID, result.NewState, result.ExtendedState, result.AppendGlobalContext, result.EmittedOutcome)
+		if *result.NewState == plugin.Completed || *result.NewState == plugin.Failed {
+			tm.notifyWorkflowDoneHandler(ctx, activeTask.TaskID, result.NewState, result.ExtendedState, result.AppendGlobalContext, result.EmittedOutcome)
+		} else {
+			// TODO: fix this. For now, we avoid making update calls.
+			// tm.notifyWorkflowUpdateHandler(ctx, activeTask.TaskID, result.NewState, result.ExtendedState, result.AppendGlobalContext, result.EmittedOutcome)
+		}
 	}
 
 	return result, nil
