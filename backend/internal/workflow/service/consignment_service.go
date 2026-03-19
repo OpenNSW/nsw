@@ -142,6 +142,21 @@ func (s *ConsignmentService) InitializeConsignmentByID(ctx context.Context, cons
 		return nil, fmt.Errorf("failed to reload consignment: %w", err)
 	}
 
+	var wf *model.Workflow
+	if s.temporalWM != nil {
+		// TODO:FIX ME
+		_, err := s.temporalWM.GetStatus(ctx, consignment.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get temporal workflow details: %w", err)
+		}
+	} else {
+		var err error
+		wf, err = s.workflowManager.GetWorkflowInstance(ctx, consignment.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get legacy workflow details: %w", err)
+		}
+	}
+
 	hsLoader := newHSCodeBatchLoader(s.db)
 	hsLoader.collectFromItems(consignment.Items)
 	if err := hsLoader.load(ctx); err != nil {
@@ -149,7 +164,13 @@ func (s *ConsignmentService) InitializeConsignmentByID(ctx context.Context, cons
 	}
 
 	var responseDTO *model.ConsignmentDetailDTO
-	if s.temporalWM != nil {
+	if s.temporalWM == nil {
+		var err error
+		responseDTO, err = s.buildConsignmentDetailDTO(ctx, &consignment, wf, hsLoader)
+		if err != nil {
+			return nil, err
+		}
+	} else {
 		_, err := s.temporalWM.GetStatus(ctx, consignment.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get workflow details: %w", err)
@@ -166,15 +187,6 @@ func (s *ConsignmentService) InitializeConsignmentByID(ctx context.Context, cons
 			UpdatedAt: consignment.UpdatedAt.Format(time.RFC3339),
 			// TODO: Fix me
 			WorkflowNodes: []model.WorkflowNodeResponseDTO{},
-		}
-	} else {
-		wf, err := s.workflowManager.GetWorkflowInstance(ctx, consignment.ID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get workflow details: %w", err)
-		}
-		responseDTO, err = s.buildConsignmentDetailDTO(ctx, &consignment, wf, hsLoader)
-		if err != nil {
-			return nil, err
 		}
 	}
 
@@ -233,9 +245,17 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 		return nil, fmt.Errorf("failed to create consignment: %w", err)
 	}
 
-	if err := s.workflowManager.StartWorkflowInstance(ctx, tx, consignment.ID, workflowTemplates, globalContext, s); err != nil {
-		tx.Rollback()
-		return nil, fmt.Errorf("failed to register workflow: %w", err)
+	if s.temporalWM != nil {
+		workflowTemplate := []byte(wfutils.CustomsWorkflowJSON)
+		if err := s.temporalWM.StartWorkflow(ctx, consignment.ID, workflowTemplate, globalContext); err != nil {
+			tx.Rollback()
+			return nil, fmt.Errorf("failed to register temporal workflow: %w", err)
+		}
+	} else {
+		if err := s.workflowManager.StartWorkflowInstance(ctx, tx, consignment.ID, workflowTemplates, globalContext, s); err != nil {
+			tx.Rollback()
+			return nil, fmt.Errorf("failed to register workflow: %w", err)
+		}
 	}
 
 	if err := tx.Commit().Error; err != nil {
@@ -248,9 +268,19 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 		return nil, fmt.Errorf("failed to reload consignment: %w", err)
 	}
 
-	wf, err := s.workflowManager.GetWorkflowInstance(ctx, consignment.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get workflow details: %w", err)
+	var wf *model.Workflow
+	if s.temporalWM != nil {
+		// TODO:FIX ME
+		_, err := s.temporalWM.GetStatus(ctx, consignment.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get temporal workflow details: %w", err)
+		}
+	} else {
+		var err error
+		wf, err = s.workflowManager.GetWorkflowInstance(ctx, consignment.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get workflow details: %w", err)
+		}
 	}
 
 	hsLoader := newHSCodeBatchLoader(s.db)
@@ -263,7 +293,6 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 	if err != nil {
 		return nil, fmt.Errorf("failed to build consignment response DTO: %w", err)
 	}
-
 	return responseDTO, nil
 }
 
@@ -278,10 +307,18 @@ func (s *ConsignmentService) GetConsignmentByID(ctx context.Context, consignment
 	// Load workflow details (nodes + templates) if workflow exists
 	var wf *model.Workflow
 	if consignment.State != model.ConsignmentStateInitialized {
-		var err error
-		wf, err = s.workflowManager.GetWorkflowInstance(ctx, consignment.ID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get workflow details: %w", err)
+		if s.temporalWM != nil {
+			// TODO:FIX ME
+			_, err := s.temporalWM.GetStatus(ctx, consignment.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get temporal workflow details: %w", err)
+			}
+		} else {
+			var err error
+			wf, err = s.workflowManager.GetWorkflowInstance(ctx, consignment.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get workflow details: %w", err)
+			}
 		}
 	}
 
