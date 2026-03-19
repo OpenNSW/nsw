@@ -1,4 +1,4 @@
-package service
+package preconsignment
 
 import (
 	"context"
@@ -11,8 +11,9 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/OpenNSW/nsw/internal/auth"
+	"github.com/OpenNSW/nsw/internal/template"
 	workflowmanager "github.com/OpenNSW/nsw/internal/workflow/manager"
-	"github.com/OpenNSW/nsw/internal/workflow/model"
+	workflowmodel "github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/OpenNSW/nsw/utils"
 )
 
@@ -20,12 +21,12 @@ import (
 // It also implements WorkflowEventHandler for domain-specific lifecycle callbacks.
 type PreConsignmentService struct {
 	db               *gorm.DB
-	templateProvider TemplateProvider
+	templateProvider template.TemplateProvider
 	workflowManager  workflowmanager.Manager
 }
 
 // NewPreConsignmentService creates a new instance of PreConsignmentService with the provided dependencies.
-func NewPreConsignmentService(db *gorm.DB, templateProvider TemplateProvider, workflowManager workflowmanager.Manager) *PreConsignmentService {
+func NewPreConsignmentService(db *gorm.DB, templateProvider template.TemplateProvider, workflowManager workflowmanager.Manager) *PreConsignmentService {
 	return &PreConsignmentService{
 		db:               db,
 		templateProvider: templateProvider,
@@ -36,15 +37,15 @@ func NewPreConsignmentService(db *gorm.DB, templateProvider TemplateProvider, wo
 // --- WorkflowEventHandler implementation ---
 
 // OnWorkflowStatusChanged handles workflow lifecycle state propagation to pre-consignment domain state.
-func (s *PreConsignmentService) OnWorkflowStatusChanged(_ context.Context, tx *gorm.DB, workflowID string, _ model.WorkflowStatus, toStatus model.WorkflowStatus, workflow *model.Workflow) error {
-	var preConsignment model.PreConsignment
+func (s *PreConsignmentService) OnWorkflowStatusChanged(_ context.Context, tx *gorm.DB, workflowID string, _ workflowmodel.WorkflowStatus, toStatus workflowmodel.WorkflowStatus, workflow *workflowmodel.Workflow) error {
+	var preConsignment PreConsignment
 	if err := tx.First(&preConsignment, "id = ?", workflowID).Error; err != nil {
 		return fmt.Errorf("failed to retrieve pre-consignment %s: %w", workflowID, err)
 	}
 
 	switch toStatus {
-	case model.WorkflowStatusCompleted:
-		preConsignment.State = model.PreConsignmentStateCompleted
+	case workflowmodel.WorkflowStatusCompleted:
+		preConsignment.State = PreConsignmentStateCompleted
 		if err := tx.Save(&preConsignment).Error; err != nil {
 			return fmt.Errorf("failed to update pre-consignment %s state to COMPLETED: %w", workflowID, err)
 		}
@@ -61,54 +62,54 @@ func (s *PreConsignmentService) OnWorkflowStatusChanged(_ context.Context, tx *g
 
 // GetTraderPreConsignments retrieves a paginated list of pre-consignment templates and computes their state
 // based on the trader's existing pre-consignments and their dependencies.
-func (s *PreConsignmentService) GetTraderPreConsignments(ctx context.Context, traderID string, offset *int, limit *int) (model.TraderPreConsignmentsResponseDTO, error) {
+func (s *PreConsignmentService) GetTraderPreConsignments(ctx context.Context, traderID string, offset *int, limit *int) (TraderPreConsignmentsResponseDTO, error) {
 	// Apply pagination with defaults and limits
 	finalOffset, finalLimit := utils.GetPaginationParams(offset, limit)
 
 	// Get total count of templates first for pagination
 	var totalCount int64
-	if err := s.db.WithContext(ctx).Model(&model.PreConsignmentTemplate{}).Count(&totalCount).Error; err != nil {
-		return model.TraderPreConsignmentsResponseDTO{}, fmt.Errorf("failed to count pre-consignment templates: %w", err)
+	if err := s.db.WithContext(ctx).Model(&PreConsignmentTemplate{}).Count(&totalCount).Error; err != nil {
+		return TraderPreConsignmentsResponseDTO{}, fmt.Errorf("failed to count pre-consignment templates: %w", err)
 	}
 
 	if totalCount == 0 {
-		return model.TraderPreConsignmentsResponseDTO{
+		return TraderPreConsignmentsResponseDTO{
 			TotalCount: 0,
-			Items:      []model.TraderPreConsignmentResponseDTO{},
+			Items:      []TraderPreConsignmentResponseDTO{},
 			Offset:     int64(finalOffset),
 			Limit:      int64(finalLimit),
 		}, nil
 	}
 
 	// Fetch pre-consignment templates for the current page
-	var templates []model.PreConsignmentTemplate
+	var templates []PreConsignmentTemplate
 	if err := s.db.WithContext(ctx).
 		Order("name ASC").
 		Offset(finalOffset).
 		Limit(finalLimit).
 		Find(&templates).Error; err != nil {
-		return model.TraderPreConsignmentsResponseDTO{}, fmt.Errorf("failed to retrieve pre-consignment templates: %w", err)
+		return TraderPreConsignmentsResponseDTO{}, fmt.Errorf("failed to retrieve pre-consignment templates: %w", err)
 	}
 
 	// Fetch all existing pre-consignments for this trader to determine dependency satisfaction and current states
-	var preConsignments []model.PreConsignment
+	var preConsignments []PreConsignment
 	if err := s.db.WithContext(ctx).
 		Where("trader_id = ?", traderID).
 		Find(&preConsignments).Error; err != nil {
-		return model.TraderPreConsignmentsResponseDTO{}, fmt.Errorf("failed to retrieve completed pre-consignments for trader %s: %w", traderID, err)
+		return TraderPreConsignmentsResponseDTO{}, fmt.Errorf("failed to retrieve completed pre-consignments for trader %s: %w", traderID, err)
 	}
 
 	// Build a set of template IDs to PreConsignment for quick lookup
-	templateIDToPreConsignment := make(map[string]model.PreConsignment)
+	templateIDToPreConsignment := make(map[string]PreConsignment)
 	for _, pc := range preConsignments {
 		templateIDToPreConsignment[pc.PreConsignmentTemplateID] = pc
 	}
 
 	// Build response DTOs with computed state ONLY for the fetched templates (the current page)
-	responseDTOs := make([]model.TraderPreConsignmentResponseDTO, 0, len(templates))
+	responseDTOs := make([]TraderPreConsignmentResponseDTO, 0, len(templates))
 	for _, template := range templates {
 		if pc, exists := templateIDToPreConsignment[template.ID]; exists {
-			responseDTOs = append(responseDTOs, model.TraderPreConsignmentResponseDTO{
+			responseDTOs = append(responseDTOs, TraderPreConsignmentResponseDTO{
 				ID:             template.ID,
 				Name:           template.Name,
 				Description:    template.Description,
@@ -119,11 +120,11 @@ func (s *PreConsignmentService) GetTraderPreConsignments(ctx context.Context, tr
 			continue
 		}
 
-		state := model.PreConsignmentStateReady
+		state := PreConsignmentStateReady
 		if len(template.DependsOn) > 0 {
 			for _, depIDStr := range template.DependsOn {
-				if depPC, exists := templateIDToPreConsignment[depIDStr]; !exists || depPC.State != model.PreConsignmentStateCompleted {
-					state = model.PreConsignmentStateLocked
+				if depPC, exists := templateIDToPreConsignment[depIDStr]; !exists || depPC.State != PreConsignmentStateCompleted {
+					state = PreConsignmentStateLocked
 					break
 				}
 			}
@@ -134,7 +135,7 @@ func (s *PreConsignmentService) GetTraderPreConsignments(ctx context.Context, tr
 			dependsOn = []string{}
 		}
 
-		responseDTOs = append(responseDTOs, model.TraderPreConsignmentResponseDTO{
+		responseDTOs = append(responseDTOs, TraderPreConsignmentResponseDTO{
 			ID:          template.ID,
 			Name:        template.Name,
 			Description: template.Description,
@@ -143,7 +144,7 @@ func (s *PreConsignmentService) GetTraderPreConsignments(ctx context.Context, tr
 		})
 	}
 
-	return model.TraderPreConsignmentsResponseDTO{
+	return TraderPreConsignmentsResponseDTO{
 		TotalCount: totalCount,
 		Items:      responseDTOs,
 		Offset:     int64(finalOffset),
@@ -155,10 +156,10 @@ func (s *PreConsignmentService) GetTraderPreConsignments(ctx context.Context, tr
 // Returns the created pre-consignment response DTO.
 func (s *PreConsignmentService) InitializePreConsignment(
 	ctx context.Context,
-	createReq *model.CreatePreConsignmentDTO,
+	createReq *CreatePreConsignmentDTO,
 	traderId string,
 	initialTraderContext map[string]any,
-) (*model.PreConsignmentResponseDTO, error) {
+) (*PreConsignmentResponseDTO, error) {
 	if createReq == nil {
 		return nil, fmt.Errorf("create request cannot be nil")
 	}
@@ -175,12 +176,12 @@ func (s *PreConsignmentService) InitializePreConsignment(
 // initializePreConsignmentInTx initializes the pre-consignment within a transaction.
 func (s *PreConsignmentService) initializePreConsignmentInTx(
 	ctx context.Context,
-	createReq *model.CreatePreConsignmentDTO,
+	createReq *CreatePreConsignmentDTO,
 	traderId string,
 	initialTraderContext map[string]any,
-) (*model.PreConsignmentResponseDTO, error) {
+) (*PreConsignmentResponseDTO, error) {
 	// Get pre-consignment template
-	var pcTemplate model.PreConsignmentTemplate
+	var pcTemplate PreConsignmentTemplate
 	if err := s.db.WithContext(ctx).Where("id = ?", createReq.PreConsignmentTemplateID).First(&pcTemplate).Error; err != nil {
 		return nil, fmt.Errorf("pre-consignment template %s not found: %w", createReq.PreConsignmentTemplateID, err)
 	}
@@ -188,9 +189,9 @@ func (s *PreConsignmentService) initializePreConsignmentInTx(
 	// Validate dependencies are met
 	if len(pcTemplate.DependsOn) > 0 {
 		var completedCount int64
-		if err := s.db.WithContext(ctx).Model(&model.PreConsignment{}).
+		if err := s.db.WithContext(ctx).Model(&PreConsignment{}).
 			Where("trader_id = ? AND pre_consignment_template_id IN ? AND state = ?",
-				traderId, pcTemplate.DependsOn, model.PreConsignmentStateCompleted).
+				traderId, pcTemplate.DependsOn, PreConsignmentStateCompleted).
 			Count(&completedCount).Error; err != nil {
 			return nil, fmt.Errorf("failed to check dependency completion: %w", err)
 		}
@@ -214,10 +215,10 @@ func (s *PreConsignmentService) initializePreConsignmentInTx(
 	}()
 
 	// Create pre-consignment record
-	preConsignment := &model.PreConsignment{
+	preConsignment := &PreConsignment{
 		TraderID:                 traderId,
 		PreConsignmentTemplateID: createReq.PreConsignmentTemplateID,
-		State:                    model.PreConsignmentStateInProgress,
+		State:                    PreConsignmentStateInProgress,
 	}
 	if err := tx.Create(preConsignment).Error; err != nil {
 		tx.Rollback()
@@ -225,7 +226,7 @@ func (s *PreConsignmentService) initializePreConsignmentInTx(
 	}
 
 	// Register workflow with the manager (creates Workflow entity + nodes + registers with TM)
-	if err := s.workflowManager.StartWorkflowInstance(ctx, tx, preConsignment.ID, []model.WorkflowTemplate{*workflowTemplate}, initialTraderContext, s); err != nil {
+	if err := s.workflowManager.StartWorkflowInstance(ctx, tx, preConsignment.ID, []workflowmodel.WorkflowTemplate{*workflowTemplate}, initialTraderContext, s); err != nil {
 		tx.Rollback()
 		return nil, fmt.Errorf("failed to register workflow: %w", err)
 	}
@@ -254,21 +255,21 @@ func (s *PreConsignmentService) initializePreConsignmentInTx(
 }
 
 // GetPreConsignmentsByTraderID retrieves all pre-consignments for a trader (excluding LOCKED state).
-func (s *PreConsignmentService) GetPreConsignmentsByTraderID(ctx context.Context, traderID string) ([]model.PreConsignmentResponseDTO, error) {
-	var preConsignments []model.PreConsignment
+func (s *PreConsignmentService) GetPreConsignmentsByTraderID(ctx context.Context, traderID string) ([]PreConsignmentResponseDTO, error) {
+	var preConsignments []PreConsignment
 	result := s.db.WithContext(ctx).
 		Preload("PreConsignmentTemplate").
-		Where("trader_id = ? AND state != ?", traderID, model.PreConsignmentStateLocked).
+		Where("trader_id = ? AND state != ?", traderID, PreConsignmentStateLocked).
 		Find(&preConsignments)
 	if result.Error != nil {
 		return nil, fmt.Errorf("failed to retrieve pre-consignments for trader %s: %w", traderID, result.Error)
 	}
 
 	if len(preConsignments) == 0 {
-		return []model.PreConsignmentResponseDTO{}, nil
+		return []PreConsignmentResponseDTO{}, nil
 	}
 
-	responseDTOs := make([]model.PreConsignmentResponseDTO, 0, len(preConsignments))
+	responseDTOs := make([]PreConsignmentResponseDTO, 0, len(preConsignments))
 	for i := range preConsignments {
 		// Get workflow details for each pre-consignment
 		wf, err := s.workflowManager.GetWorkflowInstance(ctx, preConsignments[i].ID)
@@ -283,8 +284,8 @@ func (s *PreConsignmentService) GetPreConsignmentsByTraderID(ctx context.Context
 }
 
 // GetPreConsignmentByID retrieves a pre-consignment by its ID with loaded workflow nodes and template.
-func (s *PreConsignmentService) GetPreConsignmentByID(ctx context.Context, preConsignmentID string) (*model.PreConsignmentResponseDTO, error) {
-	var preConsignment model.PreConsignment
+func (s *PreConsignmentService) GetPreConsignmentByID(ctx context.Context, preConsignmentID string) (*PreConsignmentResponseDTO, error) {
+	var preConsignment PreConsignment
 	result := s.db.WithContext(ctx).
 		Preload("PreConsignmentTemplate").
 		First(&preConsignment, "id = ?", preConsignmentID)
@@ -303,7 +304,7 @@ func (s *PreConsignmentService) GetPreConsignmentByID(ctx context.Context, preCo
 
 // syncTraderContextToAuth synchronizes the trader context (from the workflow's global context) to the auth system.
 // This is called when a pre-consignment is completed to persist accumulated context.
-func (s *PreConsignmentService) syncTraderContextToAuth(tx *gorm.DB, preConsignment *model.PreConsignment, traderContext map[string]any) error {
+func (s *PreConsignmentService) syncTraderContextToAuth(tx *gorm.DB, preConsignment *PreConsignment, traderContext map[string]any) error {
 	var uc auth.UserContext
 	result := tx.
 		Clauses(clause.Locking{Strength: "UPDATE"}).
@@ -358,16 +359,16 @@ func (s *PreConsignmentService) syncTraderContextToAuth(tx *gorm.DB, preConsignm
 
 // buildPreConsignmentResponseDTO builds a PreConsignmentResponseDTO from a PreConsignment.
 // The workflow parameter provides the workflow nodes and global context (trader context).
-func (s *PreConsignmentService) buildPreConsignmentResponseDTO(preConsignment *model.PreConsignment, workflow *model.Workflow) *model.PreConsignmentResponseDTO {
-	var nodeResponseDTOs []model.WorkflowNodeResponseDTO
+func (s *PreConsignmentService) buildPreConsignmentResponseDTO(preConsignment *PreConsignment, workflow *workflowmodel.Workflow) *PreConsignmentResponseDTO {
+	var nodeResponseDTOs []workflowmodel.WorkflowNodeResponseDTO
 	if workflow != nil {
-		nodeResponseDTOs = make([]model.WorkflowNodeResponseDTO, 0, len(workflow.WorkflowNodes))
+		nodeResponseDTOs = make([]workflowmodel.WorkflowNodeResponseDTO, 0, len(workflow.WorkflowNodes))
 		for _, node := range workflow.WorkflowNodes {
-			nodeResponseDTOs = append(nodeResponseDTOs, model.WorkflowNodeResponseDTO{
+			nodeResponseDTOs = append(nodeResponseDTOs, workflowmodel.WorkflowNodeResponseDTO{
 				ID:        node.ID,
 				CreatedAt: node.CreatedAt.Format(time.RFC3339),
 				UpdatedAt: node.UpdatedAt.Format(time.RFC3339),
-				WorkflowNodeTemplate: model.WorkflowNodeTemplateResponseDTO{
+				WorkflowNodeTemplate: workflowmodel.WorkflowNodeTemplateResponseDTO{
 					Name:        node.WorkflowNodeTemplate.Name,
 					Description: node.WorkflowNodeTemplate.Description,
 					Type:        string(node.WorkflowNodeTemplate.Type),
@@ -380,7 +381,7 @@ func (s *PreConsignmentService) buildPreConsignmentResponseDTO(preConsignment *m
 		}
 	}
 	if nodeResponseDTOs == nil {
-		nodeResponseDTOs = []model.WorkflowNodeResponseDTO{}
+		nodeResponseDTOs = []workflowmodel.WorkflowNodeResponseDTO{}
 	}
 
 	// Populate TraderContext from the Workflow's GlobalContext for backward compatibility
@@ -394,14 +395,14 @@ func (s *PreConsignmentService) buildPreConsignmentResponseDTO(preConsignment *m
 		dependsOn = []string{}
 	}
 
-	return &model.PreConsignmentResponseDTO{
+	return &PreConsignmentResponseDTO{
 		ID:            preConsignment.ID,
 		TraderID:      preConsignment.TraderID,
 		State:         preConsignment.State,
 		TraderContext: traderContext,
 		CreatedAt:     preConsignment.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:     preConsignment.UpdatedAt.Format(time.RFC3339),
-		PreConsignmentTemplate: model.PreConsignmentTemplateResponseDTO{
+		PreConsignmentTemplate: PreConsignmentTemplateResponseDTO{
 			ID:          preConsignment.PreConsignmentTemplate.ID,
 			Name:        preConsignment.PreConsignmentTemplate.Name,
 			Description: preConsignment.PreConsignmentTemplate.Description,

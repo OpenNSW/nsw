@@ -1,23 +1,21 @@
-package router
+package preconsignment
 
 import (
 	"encoding/json"
 	"net/http"
 
 	"github.com/OpenNSW/nsw/internal/auth"
-	"github.com/OpenNSW/nsw/internal/workflow/model"
-	"github.com/OpenNSW/nsw/internal/workflow/service"
 	"github.com/OpenNSW/nsw/utils"
 )
 
-// PreConsignmentRouter handles HTTP routing for pre-consignment endpoints.
-type PreConsignmentRouter struct {
-	pcs *service.PreConsignmentService
+// PreConsignmentHandler handles HTTP routing for pre-consignment endpoints.
+type PreConsignmentHandler struct {
+	pcs *PreConsignmentService
 }
 
-// NewPreConsignmentRouter creates a new PreConsignmentRouter.
-func NewPreConsignmentRouter(pcs *service.PreConsignmentService) *PreConsignmentRouter {
-	return &PreConsignmentRouter{
+// NewPreConsignmentHandler creates a new PreConsignmentHandler.
+func NewPreConsignmentHandler(pcs *PreConsignmentService) *PreConsignmentHandler {
+	return &PreConsignmentHandler{
 		pcs: pcs,
 	}
 }
@@ -26,7 +24,7 @@ func NewPreConsignmentRouter(pcs *service.PreConsignmentService) *PreConsignment
 // No query params required for traderId - uses traderId from auth context
 // Pagination query params: offset (optional), limit (optional)
 // Response: TraderPreConsignmentsResponseDTO
-func (r *PreConsignmentRouter) HandleGetTraderPreConsignments(w http.ResponseWriter, req *http.Request) {
+func (r *PreConsignmentHandler) HandleGetTraderPreConsignments(w http.ResponseWriter, req *http.Request) {
 	// Require authentication
 	authCtx := auth.GetAuthContext(req.Context())
 	if authCtx == nil {
@@ -57,7 +55,7 @@ func (r *PreConsignmentRouter) HandleGetTraderPreConsignments(w http.ResponseWri
 }
 
 // HandleCreatePreConsignment handles POST /api/v1/pre-consignments
-func (r *PreConsignmentRouter) HandleCreatePreConsignment(w http.ResponseWriter, req *http.Request) {
+func (r *PreConsignmentHandler) HandleCreatePreConsignment(w http.ResponseWriter, req *http.Request) {
 	// Require authentication
 	authCtx := auth.GetAuthContext(req.Context())
 	if authCtx == nil {
@@ -65,7 +63,7 @@ func (r *PreConsignmentRouter) HandleCreatePreConsignment(w http.ResponseWriter,
 		return
 	}
 
-	var createReq model.CreatePreConsignmentDTO
+	var createReq CreatePreConsignmentDTO
 	if err := json.NewDecoder(req.Body).Decode(&createReq); err != nil {
 		http.Error(w, "invalid request body: "+err.Error(), http.StatusBadRequest)
 		return
@@ -94,7 +92,7 @@ func (r *PreConsignmentRouter) HandleCreatePreConsignment(w http.ResponseWriter,
 
 // HandleGetPreConsignmentsByTraderID handles GET /api/v1/pre-consignments
 // Returns all pre-consignment instances for authenticated trader
-func (r *PreConsignmentRouter) HandleGetPreConsignmentsByTraderID(w http.ResponseWriter, req *http.Request) {
+func (r *PreConsignmentHandler) HandleGetPreConsignmentsByTraderID(w http.ResponseWriter, req *http.Request) {
 	// Require authentication
 	authCtx := auth.GetAuthContext(req.Context())
 	if authCtx == nil {
@@ -119,7 +117,7 @@ func (r *PreConsignmentRouter) HandleGetPreConsignmentsByTraderID(w http.Respons
 }
 
 // HandleGetPreConsignmentByID handles GET /api/v1/pre-consignments/{preConsignmentId}
-func (r *PreConsignmentRouter) HandleGetPreConsignmentByID(w http.ResponseWriter, req *http.Request) {
+func (r *PreConsignmentHandler) HandleGetPreConsignmentByID(w http.ResponseWriter, req *http.Request) {
 	preConsignmentIDStr := req.PathValue("preConsignmentId")
 	if preConsignmentIDStr == "" {
 		http.Error(w, "pre-consignment ID is required", http.StatusBadRequest)

@@ -1,4 +1,4 @@
-package service
+package template
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 // This abstraction allows for easier testing and flexibility in template storage.
 type TemplateProvider interface {
 	// GetWorkflowTemplateByHSCodeIDAndFlow retrieves the workflow template associated with a given HS code and consignment flow.
-	GetWorkflowTemplateByHSCodeIDAndFlow(ctx context.Context, hsCodeID string, flow model.ConsignmentFlow) (*model.WorkflowTemplate, error)
+	GetWorkflowTemplateByHSCodeIDAndFlow(ctx context.Context, hsCodeID string, flow string) (*model.WorkflowTemplate, error)
 
 	// GetWorkflowTemplateByID retrieves a workflow template by its ID.
 	GetWorkflowTemplateByID(ctx context.Context, id string) (*model.WorkflowTemplate, error)

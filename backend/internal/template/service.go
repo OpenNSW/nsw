@@ -1,7 +1,8 @@
-package service
+package template
 
 import (
 	"context"
+	"fmt"
 
 	"gorm.io/gorm"
 
@@ -12,6 +13,11 @@ type TemplateService struct {
 	db *gorm.DB
 }
 
+const (
+	allowedFlowImport = "IMPORT"
+	allowedFlowExport = "EXPORT"
+)
+
 // NewTemplateService creates a new instance of TemplateService.
 func NewTemplateService(db *gorm.DB) *TemplateService {
 	return &TemplateService{
@@ -20,7 +26,11 @@ func NewTemplateService(db *gorm.DB) *TemplateService {
 }
 
 // GetWorkflowTemplateByHSCodeIDAndFlow retrieves the workflow template associated with a given HS code and consignment flow.
-func (s *TemplateService) GetWorkflowTemplateByHSCodeIDAndFlow(ctx context.Context, hsCodeID string, flow model.ConsignmentFlow) (*model.WorkflowTemplate, error) {
+func (s *TemplateService) GetWorkflowTemplateByHSCodeIDAndFlow(ctx context.Context, hsCodeID string, flow string) (*model.WorkflowTemplate, error) {
+	if flow != allowedFlowImport && flow != allowedFlowExport {
+		return nil, fmt.Errorf("invalid consignment flow: %s", flow)
+	}
+
 	var workflowTemplate model.WorkflowTemplate
 	result := s.db.WithContext(ctx).Table("workflow_templates").
 		Select("workflow_templates.*").

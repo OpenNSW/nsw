@@ -1,22 +1,20 @@
-package router
+package consignment
 
 import (
 	"encoding/json"
 	"net/http"
-
-	"github.com/OpenNSW/nsw/internal/workflow/service"
 )
 
-type CHARouter struct {
-	chaService *service.CHAService
+type CHAHandler struct {
+	chaService *CHAService
 }
 
-func NewCHARouter(chaService *service.CHAService) *CHARouter {
-	return &CHARouter{chaService: chaService}
+func NewCHAHandler(chaService *CHAService) *CHAHandler {
+	return &CHAHandler{chaService: chaService}
 }
 
 // HandleGetCHAs handles GET /api/v1/chas
-func (cr *CHARouter) HandleGetCHAs(w http.ResponseWriter, r *http.Request) {
+func (cr *CHAHandler) HandleGetCHAs(w http.ResponseWriter, r *http.Request) {
 	chas, err := cr.chaService.ListCHAs(r.Context())
 	if err != nil {
 		http.Error(w, "failed to retrieve CHAs: "+err.Error(), http.StatusInternalServerError)
