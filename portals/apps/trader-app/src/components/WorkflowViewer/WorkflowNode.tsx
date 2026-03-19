@@ -11,7 +11,7 @@ export interface WorkflowNodeData extends Record<string, unknown> {
 
 export type WorkflowNodeType = Node<WorkflowNodeData, 'workflowStep'>
 
-export function WorkflowNode({ data }: NodeProps<WorkflowNodeType>) {
+export function WorkflowNode({ data, targetPosition, sourcePosition }: NodeProps<WorkflowNodeType>) {
   const { step } = data
   const isV2 = 'type' in step
 
@@ -19,14 +19,14 @@ export function WorkflowNode({ data }: NodeProps<WorkflowNodeType>) {
     const v2Step = step as WorkflowNodeV2
     if (v2Step.type === 'INTERNAL') {
       if (v2Step.internal_type === 'GATEWAY') {
-        return <GatewayNode step={v2Step} />
+        return <GatewayNode step={v2Step} targetPosition={targetPosition} sourcePosition={sourcePosition} />
       }
       if (v2Step.internal_type === 'EVENT') {
-        return <EventNode step={v2Step} />
+        return <EventNode step={v2Step} targetPosition={targetPosition} sourcePosition={sourcePosition} />
       }
     }
   }
 
   // TASK node or Legacy node
-  return <TaskNode step={step} />
+  return <TaskNode step={step} targetPosition={targetPosition} sourcePosition={sourcePosition} />
 }

@@ -6,15 +6,17 @@ import { getStatusStyle } from './utils'
 
 interface GatewayNodeProps {
   step: WorkflowNodeV2
+  targetPosition?: Position
+  sourcePosition?: Position
 }
 
-export function GatewayNode({ step }: GatewayNodeProps) {
+export function GatewayNode({ step, targetPosition = Position.Left, sourcePosition = Position.Right }: GatewayNodeProps) {
   const statusStyle = getStatusStyle(step.state)
   const isSplit = step.gateway_type?.includes('SPLIT')
 
   return (
     <div className="relative flex items-center justify-center">
-      <Handle type="target" position={Position.Left} className="bg-slate-400! w-2! h-2!" />
+      <Handle type="target" position={targetPosition} className="bg-slate-400! w-2! h-2!" />
       <Tooltip content={step.name}>
         <div
           className={`w-12 h-12 rotate-45 border-2 flex items-center justify-center bg-white ${statusStyle.borderColor} shadow-sm group hover:scale-110 transition-transform`}
@@ -31,7 +33,7 @@ export function GatewayNode({ step }: GatewayNodeProps) {
       <div className="absolute top-full mt-2 whitespace-nowrap">
         <Text size="1" weight="bold" color="gray">{step.name}</Text>
       </div>
-      <Handle type="source" position={Position.Right} className="bg-slate-400! w-2! h-2!" />
+      <Handle type="source" position={sourcePosition} className="bg-slate-400! w-2! h-2!" />
     </div>
   )
 }

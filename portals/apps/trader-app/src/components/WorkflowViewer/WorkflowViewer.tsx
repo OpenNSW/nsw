@@ -6,6 +6,7 @@ import {
   useNodesState,
   useEdgesState,
   MarkerType,
+  Position,
 } from '@xyflow/react'
 import type { Edge, NodeTypes } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
@@ -84,6 +85,8 @@ function convertToReactFlow(workflow: WorkflowV2): {
     id: node.id,
     type: 'workflowStep' as const,
     position: { x: node.x, y: node.y },
+    targetPosition: Position.Left,
+    sourcePosition: Position.Right,
     data: {
       step: node,
     },
@@ -118,6 +121,8 @@ function convertLegacyToReactFlow(steps: LegacyWorkflowNode[]): {
     id: step.id,
     type: 'workflowStep' as const,
     position: getNodePosition(step, steps),
+    targetPosition: Position.Top,
+    sourcePosition: Position.Bottom,
     data: {
       step,
     },

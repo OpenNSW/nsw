@@ -4,14 +4,16 @@ import type { WorkflowNodeV2 } from '../../services/types/workflow'
 
 interface EventNodeProps {
   step: WorkflowNodeV2
+  targetPosition?: Position
+  sourcePosition?: Position
 }
 
-export function EventNode({ step }: EventNodeProps) {
+export function EventNode({ step, targetPosition = Position.Left, sourcePosition = Position.Right }: EventNodeProps) {
   const isStart = step.event_type === 'START'
 
   return (
     <div className="flex flex-col items-center">
-      <Handle type="target" position={Position.Left} className="bg-slate-400! w-2! h-2!" />
+      <Handle type="target" position={targetPosition} className="bg-slate-400! w-2! h-2!" />
       <Tooltip content={step.name}>
         <div
           className={`w-10 h-10 rounded-full border-2 flex items-center justify-center ${isStart ? 'bg-emerald-50 border-emerald-400' : 'bg-red-50 border-red-400'
@@ -21,7 +23,7 @@ export function EventNode({ step }: EventNodeProps) {
         </div>
       </Tooltip>
       <Text size="1" weight="bold" color="gray" className="mt-1">{step.name}</Text>
-      <Handle type="source" position={Position.Right} className="bg-slate-400! w-2! h-2!" />
+      <Handle type="source" position={sourcePosition} className="bg-slate-400! w-2! h-2!" />
     </div>
   )
 }

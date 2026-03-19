@@ -14,17 +14,19 @@ import {getStatusStyle, getStepLabel, getTooltipContent, legacyTypeIcons} from '
 
 interface TaskNodeProps {
   step: WorkflowNodeV2 | LegacyWorkflowNode
+  targetPosition?: Position
+  sourcePosition?: Position
 }
 
-export function TaskNode({step}: TaskNodeProps) {
+export function TaskNode({step, targetPosition = Position.Left, sourcePosition = Position.Right}: TaskNodeProps) {
   const {consignmentId} = useParams<{ consignmentId: string }>()
   const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(false)
 
   const statusStyle = getStatusStyle(step.state)
-  const isV2 = 'type' in step
+  const isV2Step = 'type' in step
   const isExecutable = step.state === 'READY'
-  const isViewable = step.state !== 'LOCKED' && !isExecutable && (!isV2 || (step as WorkflowNodeV2).type === 'TASK')
+  const isViewable = step.state !== 'LOCKED' && !isExecutable && (!isV2Step || (step as WorkflowNodeV2).type === 'TASK')
 
   const getViewButtonColors = () => {
     switch (step.state) {
@@ -50,7 +52,7 @@ export function TaskNode({step}: TaskNodeProps) {
     navigate(`/consignments/${consignmentId}/tasks/${step.id}`)
   }
 
-  const icon = isV2
+  const icon = isV2Step
     ? <FileTextIcon className="w-3.5 h-3.5"/>
     : legacyTypeIcons[(step as LegacyWorkflowNode).workflowNodeTemplate.type] || <FileTextIcon className="w-3.5 h-3.5"/>
 
@@ -62,7 +64,7 @@ export function TaskNode({step}: TaskNodeProps) {
     >
       <Handle
         type="target"
-        position={Position.Left}
+        position={targetPosition}
         className="bg-slate-400! w-3! h-3!"
       />
       <div className="flex items-center justify-between gap-2">
@@ -128,7 +130,7 @@ export function TaskNode({step}: TaskNodeProps) {
 
       <Handle
         type="source"
-        position={Position.Right}
+        position={sourcePosition}
         className="bg-slate-400! w-3! h-3!"
       />
     </div>
