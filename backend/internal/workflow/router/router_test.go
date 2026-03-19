@@ -155,8 +155,9 @@ func withAuthContext(ctx context.Context, userID string) context.Context {
 func TestConsignmentRouter_HandleGetConsignmentByID(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
 	mockWM := new(MockWorkflowManager)
-	MockTemporalWM := new(MockTemporalWM)
-	svc := service.NewConsignmentService(db, nil, mockWM, MockTemporalWM)
+	// TODO: Add tests for temporal workflow manager
+	// MockTemporalWM := new(MockTemporalWM)
+	svc := service.NewConsignmentService(db, nil, mockWM, nil)
 	r := NewConsignmentRouter(svc, nil)
 
 	consignmentID := uuid.NewString()
@@ -202,8 +203,9 @@ func TestConsignmentRouter_HandleCreateConsignment(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
 	tp := new(MockTemplateProvider)
 	mockWM := new(MockWorkflowManager)
-	MockTemporalWM := new(MockTemporalWM)
-	svc := service.NewConsignmentService(db, tp, mockWM, MockTemporalWM)
+	// TODO: Add tests for temporal workflow manager
+	// MockTemporalWM := new(MockTemporalWM)
+	svc := service.NewConsignmentService(db, tp, mockWM, nil)
 	r := NewConsignmentRouter(svc, nil)
 
 	traderID := "trader1"
