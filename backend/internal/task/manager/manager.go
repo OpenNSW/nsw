@@ -17,9 +17,10 @@ import (
 )
 
 type InitTaskRequest struct {
-	// Task ID is the unique identifier for this task.
+	// Task ID is the unique identifier for this task instance.
 	TaskID string `json:"task_id"`
 	// Workflow ID is the unique identifier for the currently active workflow instance.
+	// *** We do not need this ****
 	WorkflowID string `json:"workflow_id"`
 	// WorkflowNodeTemplateID is the unique identifier for the currently active workflow
 	// node template (aka task template).
@@ -45,7 +46,8 @@ type ExecuteTaskResponse struct {
 type WorkflowUpdateHandler func(ctx context.Context, taskID string, state *plugin.State, extendedState *string, appendGlobalContext map[string]any, outcome *string)
 
 // WorkflowDoneHandler handles task completion notifications for the workflow manager.
-type WorkflowDoneHandler func(ctx context.Context, workflowID string, runID string, nodeID string, outputs map[string]any)
+// TODO: these functions should return an error?
+type WorkflowDoneHandler func(ctx context.Context, taskID string, outputs map[string]any)
 
 // TaskManager handles task execution and status management
 // Architecture: Trader Portal → Workflow Engine → Task Manager
@@ -103,9 +105,14 @@ func NewTaskManager(db *gorm.DB, cfg *config.Config, formService form.FormServic
 	}, nil
 }
 
-// RegisterUpstreamCallback registers the callback used for task completion notifications.
-func (tm *taskManager) RegisterUpstreamCallback(callback WorkflowUpdateHandler) {
+// RegisterUpstreamUpdateCallback registers the callback used for task updates.
+func (tm *taskManager) RegisterUpstreamUpdateCallback(callback WorkflowUpdateHandler) {
 	tm.workflowUpdateHandler = callback
+}
+
+// RegisterUpstreamDoneCallback registers the callback used for task completion notifications.
+func (tm *taskManager) RegisterUpstreamDoneCallback(callback WorkflowDoneHandler) {
+	tm.workflowDoneHandler = callback
 }
 
 // GetTaskRenderInfo retrieves task rendering info (core logic)
@@ -374,7 +381,7 @@ func (tm *taskManager) notifyWorkflowDoneHandler(
 		return
 	}
 
-	tm.workflowDoneHandler(ctx, taskID, "", "", appendGlobalContext)
+	tm.workflowDoneHandler(ctx, taskID, appendGlobalContext)
 	slog.DebugContext(ctx, "task completion notification sent via callback",
 		"taskID", taskID,
 		"state", state,

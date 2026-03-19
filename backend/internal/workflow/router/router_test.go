@@ -11,6 +11,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
+	engine "github.com/lokewate/go-temporal-workflow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"gorm.io/driver/postgres"
@@ -91,6 +92,34 @@ func (m *MockWorkflowManager) HandleTaskUpdate(_ context.Context, _ taskManager.
 	return nil
 }
 
+// MockTemporalWM implements engine.TemporalManager for testing.
+type MockTemporalWM struct {
+	mock.Mock
+}
+
+func (m *MockTemporalWM) StartWorkflow(ctx context.Context, ID string, jsonDSL []byte, initialWorkflowVariables map[string]any) error {
+	args := m.Called(ctx, ID, jsonDSL, initialWorkflowVariables)
+	return args.Error(0)
+}
+
+func (m *MockTemporalWM) TaskDone(ctx context.Context, workflowID, runID, nodeID string, output map[string]any) error {
+	args := m.Called(ctx, workflowID, runID, nodeID, output)
+	return args.Error(0)
+}
+
+func (m *MockTemporalWM) TaskUpdate(ctx context.Context, workflowID, runID string, update engine.UpdateEvent) error {
+	args := m.Called(ctx, workflowID, runID, update)
+	return args.Error(0)
+}
+
+func (m *MockTemporalWM) GetStatus(ctx context.Context, workflowID string) (*engine.WorkflowInstance, error) {
+	args := m.Called(ctx, workflowID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*engine.WorkflowInstance), args.Error(1)
+}
+
 func setupRouterTestDB(t *testing.T) (*gorm.DB, sqlmock.Sqlmock) {
 	mockDB, sqlMock, err := sqlmock.New()
 	if err != nil {
@@ -126,7 +155,8 @@ func withAuthContext(ctx context.Context, userID string) context.Context {
 func TestConsignmentRouter_HandleGetConsignmentByID(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
 	mockWM := new(MockWorkflowManager)
-	svc := service.NewConsignmentService(db, nil, mockWM)
+	MockTemporalWM := new(MockTemporalWM)
+	svc := service.NewConsignmentService(db, nil, mockWM, MockTemporalWM)
 	r := NewConsignmentRouter(svc, nil)
 
 	consignmentID := uuid.NewString()
@@ -151,7 +181,7 @@ func TestConsignmentRouter_HandleGetConsignmentByID(t *testing.T) {
 
 func TestConsignmentRouter_HandleGetConsignments(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
-	svc := service.NewConsignmentService(db, nil, nil)
+	svc := service.NewConsignmentService(db, nil, nil, nil)
 	r := NewConsignmentRouter(svc, nil)
 
 	traderID := "trader1"
@@ -172,7 +202,8 @@ func TestConsignmentRouter_HandleCreateConsignment(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
 	tp := new(MockTemplateProvider)
 	mockWM := new(MockWorkflowManager)
-	svc := service.NewConsignmentService(db, tp, mockWM)
+	MockTemporalWM := new(MockTemporalWM)
+	svc := service.NewConsignmentService(db, tp, mockWM, MockTemporalWM)
 	r := NewConsignmentRouter(svc, nil)
 
 	traderID := "trader1"
@@ -367,7 +398,7 @@ func TestPreConsignmentRouter_HandleCreatePreConsignment_InvalidPayload(t *testi
 
 func TestConsignmentRouter_HandleGetConsignmentByID_InvalidID(t *testing.T) {
 	db, _ := setupRouterTestDB(t)
-	svc := service.NewConsignmentService(db, nil, nil)
+	svc := service.NewConsignmentService(db, nil, nil, nil)
 	r := NewConsignmentRouter(svc, nil)
 
 	req, _ := http.NewRequest("GET", "/api/v1/consignments/invalid-uuid", nil)
@@ -379,7 +410,7 @@ func TestConsignmentRouter_HandleGetConsignmentByID_InvalidID(t *testing.T) {
 
 func TestConsignmentRouter_HandleGetConsignments_PaginationError(t *testing.T) {
 	db, _ := setupRouterTestDB(t)
-	svc := service.NewConsignmentService(db, nil, nil)
+	svc := service.NewConsignmentService(db, nil, nil, nil)
 	r := NewConsignmentRouter(svc, nil)
 
 	req, _ := http.NewRequest("GET", "/api/v1/consignments?limit=invalid", nil)
@@ -393,7 +424,7 @@ func TestConsignmentRouter_HandleGetConsignments_PaginationError(t *testing.T) {
 
 func TestConsignmentRouter_HandleGetConsignmentByID_ServiceError(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
-	svc := service.NewConsignmentService(db, nil, nil)
+	svc := service.NewConsignmentService(db, nil, nil, nil)
 	r := NewConsignmentRouter(svc, nil)
 
 	id := uuid.NewString()
@@ -436,7 +467,7 @@ func TestHSCodeRouter_HandleGetAllHSCodes_ServiceError(t *testing.T) {
 
 func TestConsignmentRouter_HandleGetConsignments_ServiceError(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
-	svc := service.NewConsignmentService(db, nil, nil)
+	svc := service.NewConsignmentService(db, nil, nil, nil)
 	r := NewConsignmentRouter(svc, nil)
 
 	sqlMock.ExpectQuery("(?i)SELECT count").WillReturnError(fmt.Errorf("db error"))
@@ -450,7 +481,7 @@ func TestConsignmentRouter_HandleGetConsignments_ServiceError(t *testing.T) {
 
 func TestConsignmentRouter_HandleCreateConsignment_InvalidPayload(t *testing.T) {
 	db, _ := setupRouterTestDB(t)
-	r := NewConsignmentRouter(service.NewConsignmentService(db, nil, nil), nil)
+	r := NewConsignmentRouter(service.NewConsignmentService(db, nil, nil, nil), nil)
 
 	req, _ := http.NewRequest("POST", "/api/v1/consignments", bytes.NewBufferString("invalid json"))
 	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
