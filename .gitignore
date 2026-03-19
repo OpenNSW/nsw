@@ -27,4 +27,3 @@ coverage.html
 
 # Files uploaded by users to the server
 **/bucket/
-oga/data/forms/*.json
