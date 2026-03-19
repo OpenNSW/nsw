@@ -165,9 +165,9 @@ cat <<EOF
 NSW Docker services:
   - backend        -> http://localhost:${BACKEND_PORT}
   - trader-app     -> http://localhost:${TRADER_APP_PORT}
-  - oga-npqs       -> http://localhost:${OGA_NPQS_PORT}
-  - oga-fcau       -> http://localhost:${OGA_FCAU_PORT}
-  - oga-ird        -> http://localhost:${OGA_IRD_PORT}
+  - oga-npqs       -> http://localhost:${OGA_NPQS_PORT} (Driver: ${OGA_DB_DRIVER:-sqlite})
+  - oga-fcau       -> http://localhost:${OGA_FCAU_PORT} (Driver: ${OGA_DB_DRIVER:-sqlite})
+  - oga-ird        -> http://localhost:${OGA_IRD_PORT} (Driver: ${OGA_DB_DRIVER:-sqlite})
   - oga-app-npqs   -> http://localhost:${OGA_APP_NPQS_PORT}
   - oga-app-fcau   -> http://localhost:${OGA_APP_FCAU_PORT}
   - oga-app-ird    -> http://localhost:${OGA_APP_IRD_PORT}

@@ -7,7 +7,14 @@ import (
 
 type Config struct {
 	Port           string
-	DBPath         string
+	DBDriver       string // "sqlite" or "postgres"
+	DBPath         string // for sqlite
+	DBHost         string // for postgres
+	DBPort         string // for postgres
+	DBUser         string // for postgres
+	DBPassword     string // for postgres
+	DBName         string // for postgres
+	DBSSLMode      string // for postgres
 	FormsPath      string
 	DefaultFormID  string
 	AllowedOrigins []string
@@ -16,12 +23,17 @@ type Config struct {
 
 func LoadConfig() Config {
 	return Config{
-		Port:      envOrDefault("OGA_PORT", "8081"),
-		DBPath:    envOrDefault("OGA_DB_PATH", "./oga_applications.db"),
-		FormsPath: envOrDefault("OGA_FORMS_PATH", "./data/forms"),
-		// If Meta is not set in the request from NSW, the default form will be used
-		DefaultFormID: envOrDefault("OGA_DEFAULT_FORM_ID", "default"),
-		// TODO: when productionization, need to remove the '*' (Allowing All Origins)
+		Port:           envOrDefault("OGA_PORT", "8081"),
+		DBDriver:       envOrDefault("OGA_DB_DRIVER", "sqlite"),
+		DBPath:         envOrDefault("OGA_DB_PATH", "./oga_applications.db"),
+		DBHost:         envOrDefault("OGA_DB_HOST", "localhost"),
+		DBPort:         envOrDefault("OGA_DB_PORT", "5432"),
+		DBUser:         envOrDefault("OGA_DB_USER", "postgres"),
+		DBPassword:     envOrDefault("OGA_DB_PASSWORD", "changeme"),
+		DBName:         envOrDefault("OGA_DB_NAME", "oga_db"),
+		DBSSLMode:      envOrDefault("OGA_DB_SSLMODE", "disable"),
+		FormsPath:      envOrDefault("OGA_FORMS_PATH", "./data/forms"),
+		DefaultFormID:  envOrDefault("OGA_DEFAULT_FORM_ID", "default"),
 		AllowedOrigins: parseOrigins(envOrDefault("OGA_ALLOWED_ORIGINS", "*")),
 		NSWAPIBaseURL:  envOrDefault("NSW_API_BASE_URL", "http://localhost:8080/api/v1"),
 	}

@@ -20,8 +20,8 @@ Each government agency runs its own OGA instance with its own database, ensuring
 └─────────────────┘                                        └──────────────────┘
                                                                    │
                                                             ┌──────┴──────┐
-                                                            │  SQLite DB  │
-                                                            │ (per agency)│
+                                                            │  DB Store   │
+                                                            │ (SQLite/PG) │
                                                             └─────────────┘
 ```
 
@@ -50,8 +50,11 @@ cd oga
 # Run with defaults (port 8081, SQLite at ./oga_applications.db)
 go run ./cmd/server
 
-# Run with custom config
+# Run with custom config (SQLite)
 OGA_PORT=8081 OGA_DB_PATH=./npqs.db go run ./cmd/server
+
+# Run with custom config (PostgreSQL)
+OGA_DB_DRIVER=postgres OGA_DB_NAME=npqs_db OGA_DB_USER=postgres OGA_DB_PASSWORD=changeme go run ./cmd/server
 ```
 
 The database is auto-created and auto-migrated on first startup.
@@ -82,7 +85,14 @@ All configuration is via environment variables:
 | Variable              | Description                             | Default                 |
 |-----------------------|-----------------------------------------|-------------------------|
 | `OGA_PORT`            | HTTP server port                        | `8081`                  |
+| `OGA_DB_DRIVER`       | Database driver (`sqlite`, `postgres`)  | `sqlite`                |
 | `OGA_DB_PATH`         | Path to SQLite database file            | `./oga_applications.db` |
+| `OGA_DB_HOST`         | PostgreSQL host                         | `localhost`             |
+| `OGA_DB_PORT`         | PostgreSQL port                         | `5432`                  |
+| `OGA_DB_USER`         | PostgreSQL user                         | `postgres`              |
+| `OGA_DB_PASSWORD`     | PostgreSQL password                     | `changeme`              |
+| `OGA_DB_NAME`         | PostgreSQL database name                | `oga_db`                |
+| `OGA_DB_SSLMODE`      | PostgreSQL SSL mode                     | `disable`               |
 | `OGA_FORMS_PATH`      | Directory containing form JSON files    | `./data/forms`          |
 | `OGA_DEFAULT_FORM_ID` | Fallback form ID when no metadata match | `default`               |
 | `OGA_ALLOWED_ORIGINS` | Comma-separated CORS origins (`*` to allow all) | `*`               |
