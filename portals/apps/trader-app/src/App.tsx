@@ -6,6 +6,7 @@ import {ConsignmentScreen} from "./screens/ConsignmentScreen.tsx"
 import {ConsignmentDetailScreen} from "./screens/ConsignmentDetailScreen.tsx"
 import {TaskDetailScreen} from "./screens/TaskDetailScreen.tsx";
 import {PreconsignmentScreen} from "./screens/PreconsignmentScreen.tsx"
+import {PaymentReturnScreen} from "./screens/PaymentReturnScreen.tsx"
 import {useAsgardeo, SignedOut} from '@asgardeo/react'
 import {LoginScreen} from "./screens/LoginScreen.tsx";
 import {ApiProvider, useApi} from './services/ApiContext'
@@ -50,6 +51,7 @@ function App() {
         <Route path="/consignments/:consignmentId/tasks/:taskId" element={<TaskDetailScreen/>}/>
         <Route path="/pre-consignments" element={<PreconsignmentScreen/>}/>
         <Route path="/pre-consignments/:preConsignmentId/tasks/:taskId" element={<TaskDetailScreen/>}/>
+        <Route path="/payment-return" element={<PaymentReturnScreen/>}/>
       </Route>
 
       <Route path="*" element={<Navigate to="/login" replace/>}/>

@@ -45,11 +45,12 @@ export async function sendTaskAction(
   taskId: string,
   workflowId: string,
   action: string,
+  content: Record<string, unknown> = {}
 ): Promise<TaskCommandResponse> {
   return apiPost<SendTaskCommandRequest, TaskCommandResponse>(TASKS_API_URL, {
     task_id: taskId,
     workflow_id: workflowId,
-    payload: { action, content: {} },
+    payload: { action, content },
   })
 }
 

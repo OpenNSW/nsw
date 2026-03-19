@@ -14,6 +14,7 @@ import (
 	"github.com/OpenNSW/nsw/internal/task/container"
 	"github.com/OpenNSW/nsw/internal/task/persistence"
 	"github.com/OpenNSW/nsw/internal/task/plugin"
+	"github.com/OpenNSW/nsw/internal/task/plugin/gateway"
 )
 
 type InitTaskRequest struct {
@@ -76,7 +77,7 @@ type taskManager struct {
 // NewTaskManager creates a new TaskManager instance with persistence data store.
 // db is the shared database connection
 // NewTaskManager creates a new TaskManager instance with persistence data store.
-func NewTaskManager(db *gorm.DB, cfg *config.Config, formService form.FormService) (TaskManager, error) {
+func NewTaskManager(db *gorm.DB, cfg *config.Config, formService form.FormService, gateways *gateway.Registry) (TaskManager, error) {
 	store, err := persistence.NewTaskStore(db)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create task store: %w", err)
@@ -85,8 +86,10 @@ func NewTaskManager(db *gorm.DB, cfg *config.Config, formService form.FormServic
 	// Initialize container cache with capacity of 100 active containers
 	cache := newContainerCache(100)
 
+	paymentRepo := persistence.NewPaymentRepository(db)
+
 	return &taskManager{
-		factory:        plugin.NewTaskFactory(cfg, formService),
+		factory:        plugin.NewTaskFactory(cfg, formService, paymentRepo, gateways),
 		store:          store,
 		config:         cfg,
 		containerCache: cache,

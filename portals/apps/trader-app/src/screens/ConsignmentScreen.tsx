@@ -263,9 +263,6 @@ export function ConsignmentScreen() {
               </Flex>
             ) : (
               <Flex direction="column" gap="3">
-                <RadixText size="2" weight="medium" color="gray">
-                  Select CHA
-                </RadixText>
                 <CHASearch
                   options={chaOptions}
                   value={chaOptions.find((c) => c.id === newChaId) ?? null}

@@ -16,6 +16,17 @@ type Config struct {
 	CORS     CORSConfig
 	Storage  StorageConfig
 	Auth     AuthConfig
+	Payment  PaymentConfig
+}
+
+// PaymentConfig holds configuration for the External Payment integration
+type PaymentConfig struct {
+	MockMode      bool
+	Secret        string
+	MerchantID    string
+	CallbackURL   string
+	InquiryAPIKey string
+	GovPayBaseURL string
 }
 
 // DatabaseConfig holds database connection configuration
@@ -128,6 +139,16 @@ func Load() (*Config, error) {
 			ClientID:              getEnvOrDefault("AUTH_CLIENT_ID", "TRADER_PORTAL_APP"),
 			InsecureSkipTLSVerify: getBoolOrDefault("AUTH_JWKS_INSECURE_SKIP_VERIFY", defaultInsecureJWKS),
 		},
+		// TODO: When going live, please change defaults or failing startup
+		// if GOVPAY_SECRET or GOVPAY_MERCHANT_ID are missing in production
+		Payment: PaymentConfig{
+			MockMode:      getBoolOrDefault("GOVPAY_MOCK_MODE", true),
+			Secret:        os.Getenv("GOVPAY_SECRET"),
+			MerchantID:    os.Getenv("GOVPAY_MERCHANT_ID"),
+			CallbackURL:   getEnvOrDefault("GOVPAY_CALLBACK_URL", "http://localhost:8080/api/v1/payments/govpay/callback"),
+			InquiryAPIKey: os.Getenv("GOVPAY_INQUIRY_API_KEY"),
+			GovPayBaseURL: getEnvOrDefault("GOVPAY_BASE_URL", "https://checkout.govpay.lk"),
+		},
 	}
 
 	// Validate required fields
@@ -163,6 +184,19 @@ func (c *Config) Validate() error {
 	}
 	if c.Auth.ClientID == "" {
 		return fmt.Errorf("AUTH_CLIENT_ID is required")
+	}
+
+	// Payment: when not in mock mode, require production secrets
+	if !c.Payment.MockMode {
+		if c.Payment.Secret == "" {
+			return fmt.Errorf("GOVPAY_SECRET is required when GOVPAY_MOCK_MODE is false")
+		}
+		if c.Payment.MerchantID == "" {
+			return fmt.Errorf("GOVPAY_MERCHANT_ID is required when GOVPAY_MOCK_MODE is false")
+		}
+		if c.Payment.InquiryAPIKey == "" {
+			return fmt.Errorf("GOVPAY_INQUIRY_API_KEY is required when GOVPAY_MOCK_MODE is false")
+		}
 	}
 	return nil
 }

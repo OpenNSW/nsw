@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/OpenNSW/nsw/internal/task/plugin/gateway"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -481,7 +482,7 @@ func TestNewTaskManager(t *testing.T) {
 	// Since NewTaskStore connects to DB and migrates (maybe?), or just returns struct
 	// Here persistence.NewTaskStore(db) likely just returns struct.
 
-	tm, err := NewTaskManager(gormDB, cfg, nil)
+	tm, err := NewTaskManager(gormDB, cfg, nil, gateway.NewRegistry())
 	assert.NoError(t, err)
 	assert.NotNil(t, tm)
 }

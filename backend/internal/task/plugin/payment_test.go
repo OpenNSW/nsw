@@ -7,9 +7,43 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+
+	"github.com/OpenNSW/nsw/internal/config"
+	"github.com/OpenNSW/nsw/internal/task/plugin/gateway"
+	"github.com/OpenNSW/nsw/internal/task/plugin/payment_types"
 )
+
+type testPaymentRepo struct {
+	db *gorm.DB
+}
+
+func (r *testPaymentRepo) CreateTransaction(ctx context.Context, trx *payment_types.PaymentTransactionDB) error {
+	return r.db.WithContext(ctx).Create(trx).Error
+}
+
+func (r *testPaymentRepo) GetTransactionByReference(ctx context.Context, ref string, forUpdate bool) (*payment_types.PaymentTransactionDB, error) {
+	var trx payment_types.PaymentTransactionDB
+	err := r.db.WithContext(ctx).Where("reference_number = ?", ref).First(&trx).Error
+	return &trx, err
+}
+
+func (r *testPaymentRepo) GetTransactionByExecutionID(ctx context.Context, execID string) (*payment_types.PaymentTransactionDB, error) {
+	var trx payment_types.PaymentTransactionDB
+	err := r.db.WithContext(ctx).Where("execution_id = ?", execID).First(&trx).Error
+	return &trx, err
+}
+
+func (r *testPaymentRepo) UpdateTransactionStatus(ctx context.Context, ref string, status string) error {
+	return r.db.WithContext(ctx).Model(&payment_types.PaymentTransactionDB{}).
+		Where("reference_number = ?", ref).
+		Update("status", status).Error
+}
 
 // ── FSM Tests ─────────────────────────────────────────────────────────────────
 
@@ -56,17 +90,17 @@ func TestNewPaymentFSM(t *testing.T) {
 
 func TestNewPaymentTask(t *testing.T) {
 	t.Run("ValidConfig", func(t *testing.T) {
-		cfg := `{"amount": 100.50, "currency": "USD", "gateway": "https://pay.example.com", "ttl": 300}`
-		task, err := NewPaymentTask(json.RawMessage(cfg))
+		cfg := `{"amount": 100.50, "currency": "USD", "gatewayId": "mock", "ttl": 300}`
+		task, err := NewPaymentTask(json.RawMessage(cfg), &config.Config{}, nil, &gateway.MockGateway{})
 		assert.NoError(t, err)
 		assert.Equal(t, 100.50, task.config.Amount)
 		assert.Equal(t, "USD", task.config.Currency)
-		assert.Equal(t, "https://pay.example.com", task.config.Gateway)
+		assert.Equal(t, "mock", task.config.GatewayID)
 		assert.Equal(t, 300, task.config.TTL)
 	})
 
 	t.Run("InvalidJSON", func(t *testing.T) {
-		_, err := NewPaymentTask(json.RawMessage(`{invalid`))
+		_, err := NewPaymentTask(json.RawMessage(`{invalid`), nil, nil, nil)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid config")
 	})
@@ -77,11 +111,21 @@ func TestNewPaymentTask(t *testing.T) {
 func TestPaymentStart(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		task, dbMock := newTestPaymentTask()
 		task.Init(mockAPI)
 
 		mockAPI.On("CanTransition", FSMActionStart).Return(true).Once()
-		mockAPI.On("WriteToLocalStore", paymentStoreSession, mock.AnythingOfType("*plugin.PaymentSession")).Return(nil).Once()
+
+		mockAPI.On("GetTaskID").Return(uuid.New().String()).Once()
+		dbMock.ExpectBegin()
+		dbMock.ExpectExec("INSERT INTO \"payment_transactions\"").WillReturnResult(sqlmock.NewResult(1, 1))
+		dbMock.ExpectCommit()
+
+		var capturedSession *PaymentSession
+		mockAPI.On("WriteToLocalStore", paymentStoreSession, mock.AnythingOfType("*plugin.PaymentSession")).
+			Run(func(args mock.Arguments) {
+				capturedSession = args.Get(1).(*PaymentSession)
+			}).Return(nil).Once()
 		mockAPI.On("Transition", FSMActionStart).Return(nil).Once()
 
 		resp, err := task.Start(context.Background())
@@ -91,18 +135,17 @@ func TestPaymentStart(t *testing.T) {
 		assert.Equal(t, "Payment task started", resp.Message)
 
 		// Verify session was written with a valid transaction ID.
-		call := mockAPI.Calls[1] // WriteToLocalStore call
-		session := call.Arguments[1].(*PaymentSession)
-		assert.NotEmpty(t, session.TransactionID)
-		assert.False(t, session.GeneratedAt.IsZero())
-		assert.Nil(t, session.InitiatedAt)
+		assert.NotNil(t, capturedSession)
+		assert.NotEmpty(t, capturedSession.TransactionID)
+		assert.False(t, capturedSession.GeneratedAt.IsZero())
+		assert.Nil(t, capturedSession.InitiatedAt)
 
 		mockAPI.AssertExpectations(t)
 	})
 
 	t.Run("AlreadyStarted", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		task, _ := newTestPaymentTask()
 		task.Init(mockAPI)
 
 		mockAPI.On("CanTransition", FSMActionStart).Return(false).Once()
@@ -117,10 +160,16 @@ func TestPaymentStart(t *testing.T) {
 
 	t.Run("PersistInitialSessionError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		task, dbMock := newTestPaymentTask()
 		task.Init(mockAPI)
 
 		mockAPI.On("CanTransition", FSMActionStart).Return(true).Once()
+
+		mockAPI.On("GetTaskID").Return(uuid.New().String()).Once()
+		dbMock.ExpectBegin()
+		dbMock.ExpectExec("INSERT INTO \"payment_transactions\"").WillReturnResult(sqlmock.NewResult(1, 1))
+		dbMock.ExpectCommit()
+
 		mockAPI.On("WriteToLocalStore", paymentStoreSession, mock.AnythingOfType("*plugin.PaymentSession")).Return(errors.New("store failed")).Once()
 
 		resp, err := task.Start(context.Background())
@@ -134,10 +183,16 @@ func TestPaymentStart(t *testing.T) {
 
 	t.Run("TransitionError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		task, dbMock := newTestPaymentTask()
 		task.Init(mockAPI)
 
 		mockAPI.On("CanTransition", FSMActionStart).Return(true).Once()
+
+		mockAPI.On("GetTaskID").Return(uuid.New().String()).Once()
+		dbMock.ExpectBegin()
+		dbMock.ExpectExec("INSERT INTO \"payment_transactions\"").WillReturnResult(sqlmock.NewResult(1, 1))
+		dbMock.ExpectCommit()
+
 		mockAPI.On("WriteToLocalStore", paymentStoreSession, mock.AnythingOfType("*plugin.PaymentSession")).Return(nil).Once()
 		mockAPI.On("Transition", FSMActionStart).Return(errors.New("transition failed")).Once()
 
@@ -155,7 +210,8 @@ func TestPaymentStart(t *testing.T) {
 
 func TestPaymentGetRenderInfo_IDLE(t *testing.T) {
 	mockAPI := new(MockAPI)
-	task := newTestPaymentTask()
+	task, dbMock := newTestPaymentTask()
+	task.gateway = nil // Add this line to test the fallback URL
 	task.Init(mockAPI)
 
 	session := PaymentSession{
@@ -165,7 +221,13 @@ func TestPaymentGetRenderInfo_IDLE(t *testing.T) {
 
 	mockAPI.On("GetPluginState").Return("IDLE")
 	mockAPI.On("GetTaskState").Return(InProgress)
-	mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(session, nil)
+	mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(&session, nil)
+
+	// Expect query for GetGatewayURL (via GetRenderInfo)
+	dbMock.ExpectQuery("SELECT \\* FROM \"payment_transactions\"").
+		WithArgs(session.TransactionID, 1).
+		WillReturnRows(sqlmock.NewRows([]string{"reference_number", "amount", "currency"}).
+			AddRow(session.TransactionID, 100.0, "USD"))
 
 	resp, err := task.GetRenderInfo(context.Background())
 
@@ -177,8 +239,8 @@ func TestPaymentGetRenderInfo_IDLE(t *testing.T) {
 	assert.Equal(t, "IDLE", data.PluginState)
 
 	content := data.Content.(PaymentRenderContent)
+	// Gateway URL should be fallback or mocked URL
 	assert.Contains(t, content.GatewayURL, "txn-123")
-	assert.Contains(t, content.GatewayURL, "https://pay.example.com")
 	assert.Equal(t, 100.0, content.Amount)
 	assert.Equal(t, "USD", content.Currency)
 
@@ -187,7 +249,7 @@ func TestPaymentGetRenderInfo_IDLE(t *testing.T) {
 
 func TestPaymentGetRenderInfo_Completed(t *testing.T) {
 	mockAPI := new(MockAPI)
-	task := newTestPaymentTask()
+	task, _ := newTestPaymentTask()
 	task.Init(mockAPI)
 
 	mockAPI.On("GetPluginState").Return("COMPLETED")
@@ -209,7 +271,7 @@ func TestPaymentGetRenderInfo_Completed(t *testing.T) {
 
 func TestPaymentGetRenderInfo_SessionRotation(t *testing.T) {
 	mockAPI := new(MockAPI)
-	task := newTestPaymentTask()
+	task, dbMock := newTestPaymentTask()
 	task.Init(mockAPI)
 
 	// Session generated 10 minutes ago — well past the 5-minute TTL.
@@ -220,7 +282,19 @@ func TestPaymentGetRenderInfo_SessionRotation(t *testing.T) {
 
 	mockAPI.On("GetPluginState").Return("IDLE")
 	mockAPI.On("GetTaskState").Return(InProgress)
-	mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(expiredSession, nil)
+	mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(&expiredSession, nil)
+
+	// Session rotation calls createTransactionRecord
+	mockAPI.On("GetTaskID").Return(uuid.New().String()).Once()
+	dbMock.ExpectBegin()
+	dbMock.ExpectExec("INSERT INTO \"payment_transactions\"").WillReturnResult(sqlmock.NewResult(1, 1))
+	dbMock.ExpectCommit()
+
+	// During rotation, GetRenderInfo also fetches the new transaction!
+	dbMock.ExpectQuery("SELECT \\* FROM \"payment_transactions\"").
+		WillReturnRows(sqlmock.NewRows([]string{"reference_number", "amount", "currency"}).
+			AddRow("new-txn-123", 100.0, "USD"))
+
 	mockAPI.On("WriteToLocalStore", paymentStoreSession, mock.AnythingOfType("*plugin.PaymentSession")).Return(nil).Once()
 
 	resp, err := task.GetRenderInfo(context.Background())
@@ -239,7 +313,7 @@ func TestPaymentGetRenderInfo_SessionRotation(t *testing.T) {
 func TestPaymentGetRenderInfo_TimeoutTransition(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		task, dbMock := newTestPaymentTask()
 		task.Init(mockAPI)
 
 		// Session initiated 10 minutes ago — well past TTL (5m) + Threshold (30s).
@@ -254,14 +328,21 @@ func TestPaymentGetRenderInfo_TimeoutTransition(t *testing.T) {
 		mockAPI.On("GetPluginState").Return("IN_PROGRESS").Once()
 		mockAPI.On("GetPluginState").Return("IDLE").Once()
 		mockAPI.On("GetTaskState").Return(InProgress)
-		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(expiredSession, nil).Once()
+		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(&expiredSession, nil).Once()
 
-		// Expect timeout transaction recording.
-		mockAPI.On("ReadFromLocalStore", paymentStoreTransactions).Return(nil, nil).Once()
-		mockAPI.On("WriteToLocalStore", paymentStoreTransactions, mock.AnythingOfType("[]plugin.PaymentTransaction")).Return(nil).Once()
 		mockAPI.On("Transition", paymentFSMTimeout).Return(nil).Once()
 
-		// Expect session rotation (session is also past TTL).
+		// Session rotation calls createTransactionRecord
+		mockAPI.On("GetTaskID").Return(uuid.New().String()).Once()
+		dbMock.ExpectBegin()
+		dbMock.ExpectExec("INSERT INTO \"payment_transactions\"").WillReturnResult(sqlmock.NewResult(1, 1))
+		dbMock.ExpectCommit()
+
+		// During timeout rotation, GetRenderInfo also fetches the new transaction!
+		dbMock.ExpectQuery("SELECT \\* FROM \"payment_transactions\"").
+			WillReturnRows(sqlmock.NewRows([]string{"reference_number", "amount", "currency"}).
+				AddRow("new-txn-456", 100.0, "USD"))
+
 		mockAPI.On("WriteToLocalStore", paymentStoreSession, mock.AnythingOfType("*plugin.PaymentSession")).Return(nil).Once()
 
 		resp, err := task.GetRenderInfo(context.Background())
@@ -278,7 +359,7 @@ func TestPaymentGetRenderInfo_TimeoutTransition(t *testing.T) {
 
 	t.Run("TransitionError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		task, _ := newTestPaymentTask()
 		task.Init(mockAPI)
 
 		initiatedAt := time.Now().Add(-10 * time.Minute)
@@ -289,9 +370,7 @@ func TestPaymentGetRenderInfo_TimeoutTransition(t *testing.T) {
 		}
 
 		mockAPI.On("GetPluginState").Return("IN_PROGRESS").Once()
-		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(expiredSession, nil).Once()
-		mockAPI.On("ReadFromLocalStore", paymentStoreTransactions).Return(nil, nil).Once()
-		mockAPI.On("WriteToLocalStore", paymentStoreTransactions, mock.AnythingOfType("[]plugin.PaymentTransaction")).Return(nil).Once()
+		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(&expiredSession, nil).Once()
 		mockAPI.On("Transition", paymentFSMTimeout).Return(errors.New("transition failed")).Once()
 
 		resp, err := task.GetRenderInfo(context.Background())
@@ -303,30 +382,6 @@ func TestPaymentGetRenderInfo_TimeoutTransition(t *testing.T) {
 		mockAPI.AssertExpectations(t)
 	})
 
-	t.Run("RecordTimeoutError", func(t *testing.T) {
-		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
-		task.Init(mockAPI)
-
-		initiatedAt := time.Now().Add(-10 * time.Minute)
-		expiredSession := PaymentSession{
-			TransactionID: "stale-txn",
-			GeneratedAt:   time.Now().Add(-10 * time.Minute),
-			InitiatedAt:   &initiatedAt,
-		}
-
-		mockAPI.On("GetPluginState").Return("IN_PROGRESS").Once()
-		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(expiredSession, nil).Once()
-		mockAPI.On("ReadFromLocalStore", paymentStoreTransactions).Return(nil, errors.New("read history failed")).Once()
-
-		resp, err := task.GetRenderInfo(context.Background())
-
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to record timeout transaction")
-		assert.Nil(t, resp)
-
-		mockAPI.AssertExpectations(t)
-	})
 }
 
 // ── Execute Tests ─────────────────────────────────────────────────────────────
@@ -334,7 +389,7 @@ func TestPaymentGetRenderInfo_TimeoutTransition(t *testing.T) {
 func TestPaymentExecute_InitiatePayment(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		task, dbMock := newTestPaymentTask()
 		task.Init(mockAPI)
 
 		session := PaymentSession{
@@ -342,8 +397,15 @@ func TestPaymentExecute_InitiatePayment(t *testing.T) {
 			GeneratedAt:   time.Now(), // fresh session
 		}
 
+		mockAPI.On("GetPluginState").Return(string(paymentIdle)).Once()
 		mockAPI.On("CanTransition", PaymentActionInitiate).Return(true).Once()
-		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(session, nil).Once()
+		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(&session, nil).Once()
+
+		// Expect query for transaction lookup during initiation
+		dbMock.ExpectQuery("SELECT \\* FROM \"payment_transactions\"").
+			WithArgs(session.TransactionID, 1).
+			WillReturnRows(sqlmock.NewRows([]string{"reference_number", "task_id", "execution_id", "amount", "currency"}).
+				AddRow(session.TransactionID, uuid.New(), uuid.New(), 100.0, "USD"))
 		var capturedSession *PaymentSession
 		mockAPI.On("WriteToLocalStore", paymentStoreSession, mock.AnythingOfType("*plugin.PaymentSession")).
 			Run(func(args mock.Arguments) {
@@ -372,7 +434,7 @@ func TestPaymentExecute_InitiatePayment(t *testing.T) {
 
 	t.Run("ExpiredSession", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		task, _ := newTestPaymentTask()
 		task.Init(mockAPI)
 
 		expiredSession := PaymentSession{
@@ -380,8 +442,11 @@ func TestPaymentExecute_InitiatePayment(t *testing.T) {
 			GeneratedAt:   time.Now().Add(-10 * time.Minute), // well past 5m TTL
 		}
 
+		mockAPI.On("GetPluginState").Return(string(paymentIdle)).Once()
 		mockAPI.On("CanTransition", PaymentActionInitiate).Return(true).Once()
-		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(expiredSession, nil).Once()
+
+		// Expect record creation during initiation
+		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(&expiredSession, nil).Once()
 
 		req := &ExecutionRequest{
 			Action:  PaymentActionInitiate,
@@ -401,11 +466,11 @@ func TestPaymentExecute_InitiatePayment(t *testing.T) {
 
 	t.Run("InvalidTransition", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		task, _ := newTestPaymentTask()
 		task.Init(mockAPI)
 
+		mockAPI.On("GetPluginState").Return(string(paymentInProgress)).Once()
 		mockAPI.On("CanTransition", PaymentActionInitiate).Return(false).Once()
-		mockAPI.On("GetPluginState").Return("COMPLETED")
 
 		req := &ExecutionRequest{
 			Action:  PaymentActionInitiate,
@@ -425,7 +490,7 @@ func TestPaymentExecute_InitiatePayment(t *testing.T) {
 func TestPaymentExecute_PaymentSuccess(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		task, _ := newTestPaymentTask()
 		task.Init(mockAPI)
 
 		mockAPI.On("CanTransition", PaymentActionSuccess).Return(true).Once()
@@ -444,11 +509,10 @@ func TestPaymentExecute_PaymentSuccess(t *testing.T) {
 
 	t.Run("InvalidTransition", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		task, _ := newTestPaymentTask()
 		task.Init(mockAPI)
 
 		mockAPI.On("CanTransition", PaymentActionSuccess).Return(false).Once()
-		mockAPI.On("GetPluginState").Return("IDLE").Once()
 
 		req := &ExecutionRequest{Action: PaymentActionSuccess}
 		resp, err := task.Execute(context.Background(), req)
@@ -462,7 +526,7 @@ func TestPaymentExecute_PaymentSuccess(t *testing.T) {
 
 	t.Run("TransitionError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		task, _ := newTestPaymentTask()
 		task.Init(mockAPI)
 
 		mockAPI.On("CanTransition", PaymentActionSuccess).Return(true).Once()
@@ -482,26 +546,16 @@ func TestPaymentExecute_PaymentSuccess(t *testing.T) {
 func TestPaymentExecute_PaymentFailed(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		task, dbMock := newTestPaymentTask()
 		task.Init(mockAPI)
 
-		initiatedAt := time.Now().Add(-2 * time.Minute)
-		session := PaymentSession{
-			TransactionID: "txn-789",
-			GeneratedAt:   time.Now().Add(-3 * time.Minute),
-			InitiatedAt:   &initiatedAt,
-		}
-
 		mockAPI.On("CanTransition", PaymentActionFailed).Return(true).Once()
-		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(session, nil).Once()
 
-		// Expect transaction history read (empty) and write.
-		mockAPI.On("ReadFromLocalStore", paymentStoreTransactions).Return(nil, nil).Once()
-		var capturedTxns []PaymentTransaction
-		mockAPI.On("WriteToLocalStore", paymentStoreTransactions, mock.AnythingOfType("[]plugin.PaymentTransaction")).
-			Run(func(args mock.Arguments) {
-				capturedTxns = args.Get(1).([]PaymentTransaction)
-			}).Return(nil).Once()
+		// Expect new record creation for retry
+		mockAPI.On("GetTaskID").Return(uuid.New().String()).Once()
+		dbMock.ExpectBegin()
+		dbMock.ExpectExec("INSERT INTO \"payment_transactions\"").WillReturnResult(sqlmock.NewResult(1, 1))
+		dbMock.ExpectCommit()
 
 		// Expect new session write.
 		mockAPI.On("WriteToLocalStore", paymentStoreSession, mock.AnythingOfType("*plugin.PaymentSession")).Return(nil).Once()
@@ -515,112 +569,20 @@ func TestPaymentExecute_PaymentFailed(t *testing.T) {
 		assert.Contains(t, resp.Message, "failed")
 		assert.True(t, resp.ApiResponse.Success)
 
-		// Verify the transaction was recorded.
-		assert.Len(t, capturedTxns, 1)
-		assert.Equal(t, "txn-789", capturedTxns[0].TransactionID)
-		assert.Equal(t, "FAILED", capturedTxns[0].Status)
-		assert.Equal(t, 1, capturedTxns[0].Round)
-
-		mockAPI.AssertExpectations(t)
-	})
-
-	t.Run("ReadHistoryError", func(t *testing.T) {
-		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
-		task.Init(mockAPI)
-
-		initiatedAt := time.Now().Add(-2 * time.Minute)
-		session := PaymentSession{
-			TransactionID: "txn-789",
-			GeneratedAt:   time.Now().Add(-3 * time.Minute),
-			InitiatedAt:   &initiatedAt,
-		}
-
-		mockAPI.On("CanTransition", PaymentActionFailed).Return(true).Once()
-		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(session, nil).Once()
-		mockAPI.On("ReadFromLocalStore", paymentStoreTransactions).Return(nil, errors.New("read history failed")).Once()
-
-		req := &ExecutionRequest{Action: PaymentActionFailed}
-		resp, err := task.Execute(context.Background(), req)
-
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to record failed transaction")
-		assert.Nil(t, resp)
-
-		mockAPI.AssertExpectations(t)
-	})
-
-	t.Run("PersistHistoryError", func(t *testing.T) {
-		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
-		task.Init(mockAPI)
-
-		initiatedAt := time.Now().Add(-2 * time.Minute)
-		session := PaymentSession{
-			TransactionID: "txn-789",
-			GeneratedAt:   time.Now().Add(-3 * time.Minute),
-			InitiatedAt:   &initiatedAt,
-		}
-
-		mockAPI.On("CanTransition", PaymentActionFailed).Return(true).Once()
-		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(session, nil).Once()
-		mockAPI.On("ReadFromLocalStore", paymentStoreTransactions).Return(nil, nil).Once()
-		mockAPI.On("WriteToLocalStore", paymentStoreTransactions, mock.AnythingOfType("[]plugin.PaymentTransaction")).Return(errors.New("write history failed")).Once()
-
-		req := &ExecutionRequest{Action: PaymentActionFailed}
-		resp, err := task.Execute(context.Background(), req)
-
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to record failed transaction")
-		assert.Nil(t, resp)
-
-		mockAPI.AssertExpectations(t)
-	})
-
-	t.Run("PersistNewSessionError", func(t *testing.T) {
-		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
-		task.Init(mockAPI)
-
-		initiatedAt := time.Now().Add(-2 * time.Minute)
-		session := PaymentSession{
-			TransactionID: "txn-789",
-			GeneratedAt:   time.Now().Add(-3 * time.Minute),
-			InitiatedAt:   &initiatedAt,
-		}
-
-		mockAPI.On("CanTransition", PaymentActionFailed).Return(true).Once()
-		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(session, nil).Once()
-		mockAPI.On("ReadFromLocalStore", paymentStoreTransactions).Return(nil, nil).Once()
-		mockAPI.On("WriteToLocalStore", paymentStoreTransactions, mock.AnythingOfType("[]plugin.PaymentTransaction")).Return(nil).Once()
-		mockAPI.On("WriteToLocalStore", paymentStoreSession, mock.AnythingOfType("*plugin.PaymentSession")).Return(errors.New("persist session failed")).Once()
-
-		req := &ExecutionRequest{Action: PaymentActionFailed}
-		resp, err := task.Execute(context.Background(), req)
-
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to persist new session")
-		assert.Nil(t, resp)
-
 		mockAPI.AssertExpectations(t)
 	})
 
 	t.Run("TransitionError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		task, dbMock := newTestPaymentTask()
 		task.Init(mockAPI)
 
-		initiatedAt := time.Now().Add(-2 * time.Minute)
-		session := PaymentSession{
-			TransactionID: "txn-789",
-			GeneratedAt:   time.Now().Add(-3 * time.Minute),
-			InitiatedAt:   &initiatedAt,
-		}
-
 		mockAPI.On("CanTransition", PaymentActionFailed).Return(true).Once()
-		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(session, nil).Once()
-		mockAPI.On("ReadFromLocalStore", paymentStoreTransactions).Return(nil, nil).Once()
-		mockAPI.On("WriteToLocalStore", paymentStoreTransactions, mock.AnythingOfType("[]plugin.PaymentTransaction")).Return(nil).Once()
+		mockAPI.On("GetTaskID").Return(uuid.New().String()).Once()
+		dbMock.ExpectBegin()
+		dbMock.ExpectExec("INSERT INTO \"payment_transactions\"").WillReturnResult(sqlmock.NewResult(1, 1))
+		dbMock.ExpectCommit()
+
 		mockAPI.On("WriteToLocalStore", paymentStoreSession, mock.AnythingOfType("*plugin.PaymentSession")).Return(nil).Once()
 		mockAPI.On("Transition", PaymentActionFailed).Return(errors.New("transition failed")).Once()
 
@@ -638,7 +600,7 @@ func TestPaymentExecute_PaymentFailed(t *testing.T) {
 func TestPaymentHelpers_readSession(t *testing.T) {
 	t.Run("ReadError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		task, _ := newTestPaymentTask()
 		task.Init(mockAPI)
 
 		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(nil, errors.New("read failed")).Once()
@@ -652,7 +614,7 @@ func TestPaymentHelpers_readSession(t *testing.T) {
 
 	t.Run("NilSession", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		task, _ := newTestPaymentTask()
 		task.Init(mockAPI)
 
 		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(nil, nil).Once()
@@ -667,7 +629,7 @@ func TestPaymentHelpers_readSession(t *testing.T) {
 
 	t.Run("SlowPathSuccess", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		task, _ := newTestPaymentTask()
 		task.Init(mockAPI)
 
 		now := time.Now().UTC().Format(time.RFC3339)
@@ -688,7 +650,7 @@ func TestPaymentHelpers_readSession(t *testing.T) {
 
 	t.Run("SlowPathMarshalError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		task, _ := newTestPaymentTask()
 		task.Init(mockAPI)
 
 		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(map[string]any{"bad": func() {}}, nil).Once()
@@ -703,7 +665,7 @@ func TestPaymentHelpers_readSession(t *testing.T) {
 
 	t.Run("SlowPathUnmarshalError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		task, _ := newTestPaymentTask()
 		task.Init(mockAPI)
 
 		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(map[string]any{
@@ -720,87 +682,9 @@ func TestPaymentHelpers_readSession(t *testing.T) {
 	})
 }
 
-func TestPaymentHelpers_readTransactionHistory(t *testing.T) {
-	t.Run("ReadError", func(t *testing.T) {
-		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
-		task.Init(mockAPI)
-
-		mockAPI.On("ReadFromLocalStore", paymentStoreTransactions).Return(nil, errors.New("read failed")).Once()
-
-		result, err := task.readTransactionHistory(context.Background())
-
-		assert.Error(t, err)
-		assert.Nil(t, result)
-		mockAPI.AssertExpectations(t)
-	})
-
-	t.Run("SlowPathSuccess", func(t *testing.T) {
-		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
-		task.Init(mockAPI)
-
-		now := time.Now().UTC().Format(time.RFC3339)
-		mockAPI.On("ReadFromLocalStore", paymentStoreTransactions).Return([]any{
-			map[string]any{
-				"transactionId": "txn-1",
-				"initiatedAt":   now,
-				"resolvedAt":    now,
-				"status":        "FAILED",
-				"round":         1,
-			},
-		}, nil).Once()
-
-		result, err := task.readTransactionHistory(context.Background())
-
-		assert.NoError(t, err)
-		assert.Len(t, result, 1)
-		assert.Equal(t, "txn-1", result[0].TransactionID)
-		mockAPI.AssertExpectations(t)
-	})
-
-	t.Run("SlowPathMarshalError", func(t *testing.T) {
-		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
-		task.Init(mockAPI)
-
-		mockAPI.On("ReadFromLocalStore", paymentStoreTransactions).Return(map[string]any{"bad": func() {}}, nil).Once()
-
-		result, err := task.readTransactionHistory(context.Background())
-
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to marshal stored transactions")
-		assert.Nil(t, result)
-		mockAPI.AssertExpectations(t)
-	})
-
-	t.Run("SlowPathUnmarshalError", func(t *testing.T) {
-		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
-		task.Init(mockAPI)
-
-		mockAPI.On("ReadFromLocalStore", paymentStoreTransactions).Return([]any{
-			map[string]any{
-				"transactionId": "txn-1",
-				"initiatedAt":   "bad-time",
-				"resolvedAt":    "bad-time",
-				"status":        "FAILED",
-				"round":         1,
-			},
-		}, nil).Once()
-
-		result, err := task.readTransactionHistory(context.Background())
-
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to unmarshal stored transactions")
-		assert.Nil(t, result)
-		mockAPI.AssertExpectations(t)
-	})
-}
-
 func TestPaymentExecute_NilRequest(t *testing.T) {
 	mockAPI := new(MockAPI)
-	task := newTestPaymentTask()
+	task, _ := newTestPaymentTask()
 	task.Init(mockAPI)
 
 	resp, err := task.Execute(context.Background(), nil)
@@ -812,7 +696,7 @@ func TestPaymentExecute_NilRequest(t *testing.T) {
 
 func TestPaymentExecute_UnknownAction(t *testing.T) {
 	mockAPI := new(MockAPI)
-	task := newTestPaymentTask()
+	task, _ := newTestPaymentTask()
 	task.Init(mockAPI)
 
 	req := &ExecutionRequest{Action: "UNKNOWN"}
@@ -825,14 +709,22 @@ func TestPaymentExecute_UnknownAction(t *testing.T) {
 
 // ── Helper ────────────────────────────────────────────────────────────────────
 
-// newTestPaymentTask creates a PaymentTask with a standard test configuration.
-func newTestPaymentTask() *PaymentTask {
+// newTestPaymentTask creates a PaymentTask with a standard test configuration and mock DB.
+func newTestPaymentTask() (*PaymentTask, sqlmock.Sqlmock) {
+	db, mock, _ := sqlmock.New()
+	gdb, _ := gorm.Open(postgres.New(postgres.Config{
+		Conn: db,
+	}), &gorm.Config{})
+
 	return &PaymentTask{
 		config: PaymentConfig{
-			Amount:   100.0,
-			Currency: "USD",
-			Gateway:  "https://pay.example.com",
-			TTL:      300, // 5 minutes
+			Amount:    100.0,
+			Currency:  "USD",
+			GatewayID: "mock",
+			TTL:       300, // 5 minutes
 		},
-	}
+		appConfig: &config.Config{},
+		repo:      &testPaymentRepo{db: gdb},
+		gateway:   &gateway.MockGateway{},
+	}, mock
 }

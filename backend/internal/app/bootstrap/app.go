@@ -11,7 +11,11 @@ import (
 	"github.com/OpenNSW/nsw/internal/database"
 	"github.com/OpenNSW/nsw/internal/form"
 	"github.com/OpenNSW/nsw/internal/middleware"
+	"github.com/OpenNSW/nsw/internal/payment"
+	"github.com/OpenNSW/nsw/internal/task/api"
 	taskManager "github.com/OpenNSW/nsw/internal/task/manager"
+	"github.com/OpenNSW/nsw/internal/task/persistence"
+	"github.com/OpenNSW/nsw/internal/task/plugin/gateway"
 	"github.com/OpenNSW/nsw/internal/uploads"
 	workflowmanager "github.com/OpenNSW/nsw/internal/workflow/manager"
 	"github.com/OpenNSW/nsw/internal/workflow/router"
@@ -61,7 +65,12 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	}
 
 	formService := form.NewFormService(db)
-	tm, err := taskManager.NewTaskManager(db, cfg, formService)
+	// Payment Gateway Registry
+	gwRegistry := gateway.NewRegistry()
+	gwRegistry.Register(&gateway.MockGateway{})
+	gwRegistry.Register(gateway.NewGovPayProvider())
+
+	tm, err := taskManager.NewTaskManager(db, cfg, formService, gwRegistry)
 	if err != nil {
 		_ = database.Close(db)
 		return nil, fmt.Errorf("failed to create task manager: %w", err)
@@ -107,6 +116,9 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	}
 
 	tmHandler := taskManager.NewHTTPHandler(tm)
+	paymentRepo := persistence.NewPaymentRepository(db)
+	paymentService := payment.NewService(gwRegistry, paymentRepo, tm, db)
+	paymentHandler := api.NewPaymentHandler(cfg, paymentService)
 
 	// withAuth wraps an individual handler with the authentication middleware.
 	withAuth := authManager.Middleware()
@@ -159,6 +171,10 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	mux.Handle("GET /api/v1/uploads/{key}/content", withAuth(http.HandlerFunc(uploadHandler.DownloadContent)))
 	mux.Handle("GET /api/v1/uploads/{key}", withAuth(http.HandlerFunc(uploadHandler.Download)))
 	mux.Handle("DELETE /api/v1/uploads/{key}", withAuth(http.HandlerFunc(uploadHandler.Delete)))
+
+	// Payment routes
+	mux.Handle("POST /api/v1/payments/{provider}/callback", http.HandlerFunc(paymentHandler.HandleCallback))
+	mux.Handle("GET /api/v1/payments/{provider}/inquiry/{reference}", withAuth(http.HandlerFunc(paymentHandler.HandleTransactionInquiry)))
 
 	handler := middleware.CORS(&cfg.CORS)(mux)
 
