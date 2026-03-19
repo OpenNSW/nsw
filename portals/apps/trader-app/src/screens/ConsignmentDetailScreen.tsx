@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useParams, useNavigate } from 'react-router-dom'
-import { Button, Badge, Spinner, Text, Progress } from '@radix-ui/themes'
-import { ArrowLeftIcon } from '@radix-ui/react-icons'
-import { WorkflowViewer } from '../components/WorkflowViewer'
+import { Button, Badge, Spinner, Text, Progress, Flex, IconButton, Tooltip as RadixTooltip } from '@radix-ui/themes'
+import { ArrowLeftIcon, ListBulletIcon, ViewGridIcon, InfoCircledIcon, CheckCircledIcon, ClockIcon } from '@radix-ui/react-icons'
+import { WorkflowViewer, ActionListView } from '../components/WorkflowViewer'
 import type { ConsignmentDetail } from "../services/types/consignment.ts"
 import { getConsignment, initializeConsignment } from "../services/consignment.ts"
 import { useApi } from '../services/ApiContext'
@@ -21,6 +21,7 @@ export function ConsignmentDetailScreen() {
   const [error, setError] = useState<string | null>(null)
   const [hsPickerOpen, setHsPickerOpen] = useState(false)
   const [initializing, setInitializing] = useState(false)
+  const [viewMode, setViewMode] = useState<'list' | 'graph'>('list')
 
   const fetchConsignment = useCallback(async () => {
     if (!consignmentId) {
@@ -178,12 +179,12 @@ export function ConsignmentDetailScreen() {
           ) : null}
         </div>
 
-        <div className="px-4 py-3 border-b border-gray-200">
+        <div className="px-4 py-3 border-b border-gray-200 bg-gray-50/30">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div>
               <h3 className="text-xs font-medium text-gray-500 mb-1">Item Details</h3>
               <p className="text-sm font-medium text-gray-900">{item?.hsCode?.hsCode || '-'}</p>
-              <p className="text-xs text-gray-600">{item?.hsCode?.description || '-'}</p>
+              <p className="text-xs text-gray-600 line-clamp-1">{item?.hsCode?.description || '-'}</p>
             </div>
             <div>
               <h3 className="text-xs font-medium text-gray-500 mb-1">Workflow Progress</h3>
@@ -207,45 +208,100 @@ export function ConsignmentDetailScreen() {
           </div>
         </div>
 
-        {workflowNodes.length > 0 ? (
-          <div className="p-4 flex-1 flex flex-col min-h-0">
-            <h3 className="text-xs font-medium text-gray-500 mb-2">Workflow Process</h3>
-            <WorkflowViewer className="flex-1 min-h-0" steps={workflowNodes} onRefresh={handleRefresh} refreshing={refreshing} />
-          </div>
-        ) : (
-          <div className="p-4 flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <Text size="4" color="gray" weight="medium" className="block mb-2">
-                No Workflow Steps
-              </Text>
-              <Text size="2" color="gray">
-                This consignment doesn't have any workflow steps configured.
-              </Text>
-            </div>
-          </div>
-        )}
+        <div className="p-4 flex-1 flex flex-col min-h-0">
+          <Flex align="center" justify="between" mb="3">
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+              Workflow Process
+            </h3>
+            
+            <Flex gap="1" className="bg-gray-100 p-1 rounded-lg border border-gray-200 shadow-sm">
+              <RadixTooltip content="List View (Action Oriented)">
+                <IconButton 
+                  variant={viewMode === 'list' ? 'solid' : 'soft'} 
+                  color={viewMode === 'list' ? 'blue' : 'gray'}
+                  highContrast={viewMode !== 'list'}
+                  size="2"
+                  onClick={() => setViewMode('list')}
+                  className="cursor-pointer transition-all duration-200"
+                >
+                  <ListBulletIcon width="18" height="18" />
+                </IconButton>
+              </RadixTooltip>
+              <RadixTooltip content="Workflow Graph (Visualizer)">
+                <IconButton 
+                  variant={viewMode === 'graph' ? 'solid' : 'soft'} 
+                  color={viewMode === 'graph' ? 'blue' : 'gray'}
+                  highContrast={viewMode !== 'graph'}
+                  size="2"
+                  onClick={() => setViewMode('graph')}
+                  className="cursor-pointer transition-all duration-200"
+                >
+                  <ViewGridIcon width="18" height="18" />
+                </IconButton>
+              </RadixTooltip>
+            </Flex>
+          </Flex>
 
-        <div className="px-4 py-2.5 border-t border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-          <h3 className="text-xs font-medium text-gray-700 mb-1 flex items-center gap-2">
-            <span className="inline-block w-1 h-3 bg-blue-500 rounded"></span>
-            Next Steps
-          </h3>
-          {workflowNodes.length === 0 ? (
-            <p className="text-xs text-gray-600">
-              No actions required at this time.
-            </p>
-          ) : workflowNodes.some(n => n.state === 'READY') ? (
-            <p className="text-xs text-gray-700">
-              <span className="font-medium">Action required:</span> Click the play button (▶) on steps marked as "Ready" to proceed with your consignment.
-            </p>
-          ) : workflowNodes.every(n => n.state === 'COMPLETED') ? (
-            <p className="text-xs text-green-700 font-medium">
-              ✓ All steps have been completed. Your consignment is ready.
-            </p>
+          {workflowNodes.length > 0 ? (
+            <div className="flex-1 min-h-0 bg-gray-50/50 rounded-xl border border-gray-200/50 p-2 sm:p-4 shadow-inner flex flex-col overflow-hidden">
+              {viewMode === 'list' ? (
+                <ActionListView 
+                  className="flex-1 min-h-0"
+                  steps={workflowNodes} 
+                  consignmentId={consignmentId!} 
+                  onRefresh={handleRefresh} 
+                  refreshing={refreshing} 
+                />
+              ) : (
+                <WorkflowViewer 
+                  className="h-full border-0 bg-transparent" 
+                  steps={workflowNodes} 
+                  onRefresh={handleRefresh} 
+                  refreshing={refreshing} 
+                />
+              )}
+            </div>
           ) : (
-            <p className="text-xs text-gray-600">
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center">
+                <Text size="4" color="gray" weight="medium" className="block mb-2">
+                  No Workflow Steps
+                </Text>
+                <Text size="2" color="gray">
+                  This consignment doesn't have any workflow steps configured.
+                </Text>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="px-4 py-3 border-t border-gray-200 bg-gradient-to-r from-blue-50/50 to-indigo-50/50">
+          <Flex align="center" gap="2" mb="1">
+            <div className="w-1.5 h-3 bg-blue-500 rounded-full" />
+            <h3 className="text-xs font-bold text-gray-700">
+              Next Steps
+            </h3>
+          </Flex>
+          {workflowNodes.length === 0 ? (
+            <Text size="1" color="gray">
+              No actions required at this time.
+            </Text>
+          ) : workflowNodes.some(n => n.state === 'READY') ? (
+            <Text size="1" color="gray" className="flex items-center gap-1.5">
+              <InfoCircledIcon className="text-blue-500" />
+              <span className="font-medium text-gray-900">Action required:</span> 
+              Proceed with tasks marked as <Badge size="1" color="blue" variant="soft">Ready</Badge> in the list above.
+            </Text>
+          ) : workflowNodes.every(n => n.state === 'COMPLETED') ? (
+            <Text size="1" color="green" weight="medium" className="flex items-center gap-1.5">
+              <CheckCircledIcon />
+              All steps have been completed. Your consignment is ready.
+            </Text>
+          ) : (
+            <Text size="1" color="gray" className="flex items-center gap-1.5">
+              <ClockIcon />
               Waiting for dependent steps to be completed before you can proceed.
-            </p>
+            </Text>
           )}
         </div>
       </div>

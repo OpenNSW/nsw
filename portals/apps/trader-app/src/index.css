@@ -134,6 +134,22 @@
     --animate-loading-bar: loading-bar 2s ease-in-out infinite;
 }
 
+/* Custom Scrollbar Utility */
+@utility custom-scrollbar {
+    &::-webkit-scrollbar {
+        @apply w-1.5;
+    }
+    &::-webkit-scrollbar-track {
+        @apply bg-transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+        @apply bg-secondary-200 rounded-full hover:bg-secondary-300;
+    }
+    /* Standard properties for Firefox/Future-proofing */
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-secondary-200) transparent;
+}
+
 /* Animation Keyframes */
 @keyframes bounce-gentle {
     0%, 100% {
