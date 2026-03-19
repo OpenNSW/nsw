@@ -20,10 +20,11 @@ type InitTaskRequest struct {
 	// Task ID is the unique identifier for this task instance.
 	TaskID string `json:"task_id"`
 	// Workflow ID is the unique identifier for the currently active workflow instance.
-	// *** We do not need this ****
+	// TODO: This is not used, remove this in a separate PR
 	WorkflowID string `json:"workflow_id"`
 	// WorkflowNodeTemplateID is the unique identifier for the currently active workflow
 	// node template (aka task template).
+	// TODO: This is not used, remove this in a separate PR
 	WorkflowNodeTemplateID string      `json:"workflow_node_template_id"`
 	Type                   plugin.Type `json:"type"`
 	GlobalState            map[string]any
@@ -62,6 +63,11 @@ type TaskManager interface {
 	ExecuteTask(ctx context.Context, req ExecuteTaskRequest) (*plugin.ExecutionResponse, error)
 	GetTaskRenderInfo(ctx context.Context, taskID string) (*plugin.ApiResponse, error)
 
+	// Used by Old WorkflowManager
+	// RegisterUpstreamCallback registers the callback used for task updates.
+	RegisterUpstreamCallback(callback WorkflowUpdateHandler)
+
+	// User by New Temporal WorkflowManager
 	// RegisterUpstreamDoneCallback registers the callback used when task is done.
 	RegisterUpstreamDoneCallback(callback WorkflowDoneHandler)
 	// RegisterUpstreamUpdateCallback registers the callback used when task state changes.
@@ -103,6 +109,11 @@ func NewTaskManager(db *gorm.DB, cfg *config.Config, formService form.FormServic
 		config:         cfg,
 		containerCache: cache,
 	}, nil
+}
+
+// RegisterUpstreamUpdateCallback registers the callback used for task updates.
+func (tm *taskManager) RegisterUpstreamCallback(callback WorkflowUpdateHandler) {
+	tm.workflowUpdateHandler = callback
 }
 
 // RegisterUpstreamUpdateCallback registers the callback used for task updates.
