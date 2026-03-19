@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"maps"
 	"time"
 
@@ -636,7 +637,7 @@ func (loader *hsCodeBatchLoader) get(id string) (model.HSCode, error) {
 // buildConsignmentDetailDTO builds a ConsignmentDetailDTO from a Consignment.
 // The workflow parameter provides the workflow nodes (nil for INITIALIZED consignments).
 func (s *ConsignmentService) buildConsignmentDetailDTO(
-	_ context.Context,
+	ctx context.Context,
 	consignment *model.Consignment,
 	workflow *model.Workflow,
 	temporalWorkflow *engine.WorkflowInstance,
@@ -666,19 +667,58 @@ func (s *ConsignmentService) buildConsignmentDetailDTO(
 			})
 		}
 	} else if temporalWorkflow != nil {
+		taskTemplateIDs := make([]string, 0, len(temporalWorkflow.NodeInfo))
+		for _, node := range temporalWorkflow.NodeInfo {
+			if node.Type == engine.NodeTypeTask {
+				taskTemplateIDs = append(taskTemplateIDs, node.TaskTemplateID)
+			}
+		}
+		taskTemplates, err := s.templateProvider.GetWorkflowNodeTemplatesByIDs(ctx, taskTemplateIDs)
+		taskTemplateMap := make(map[string]model.WorkflowNodeTemplate)
+		for _, taskTemplate := range taskTemplates {
+			taskTemplateMap[taskTemplate.ID] = taskTemplate
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to retrieve workflow node templates for consignment %s: %w", consignment.ID, err)
+		}
 		nodeResponseDTOs = make([]model.WorkflowNodeResponseDTO, 0, len(temporalWorkflow.NodeInfo))
 		for _, node := range temporalWorkflow.NodeInfo {
+			var taskName, taskDescription, taskType string
+			var nodeState model.WorkflowNodeState
+			if node.Type == engine.NodeTypeTask {
+				taskTemplate, ok := taskTemplateMap[node.TaskTemplateID]
+				if !ok {
+					slog.Error("failed to retrieve workflow node template for", "consignment_id", consignment.ID, "node_id", node.ID)
+				} else {
+					taskName = taskTemplate.Name
+					taskDescription = taskTemplate.Description
+					taskType = string(taskTemplate.Type)
+				}
+			} else {
+				taskType = string(node.Type)
+			}
+			// TODO: clean up translations once the frontend is updated.
+			switch node.Status {
+			case engine.NodeStatusRunning:
+				nodeState = model.WorkflowNodeStateInProgress
+			case engine.NodeStatusCompleted:
+				nodeState = model.WorkflowNodeStateCompleted
+			case engine.NodeStatusFailed:
+				nodeState = model.WorkflowNodeStateFailed
+			case engine.NodeStatusNotStarted:
+				nodeState = model.WorkflowNodeStateLocked
+			}
 			nodeResponseDTOs = append(nodeResponseDTOs, model.WorkflowNodeResponseDTO{
-				ID:        node.ID,
+				ID:        ID,
 				CreatedAt: node.CreatedAt.Format(time.RFC3339),
 				UpdatedAt: node.UpdatedAt.Format(time.RFC3339),
 				WorkflowNodeTemplate: model.WorkflowNodeTemplateResponseDTO{
-					// TODO: These should come from the task manager.
-					Name:        "TO BE FILLED",
-					Description: "TO BE FILLED",
-					Type:        "TO BE FILLED",
+					Name:        taskName,
+					Description: taskDescription,
+					Type:        taskType,
 				},
-				State: model.WorkflowNodeState(node.Status),
+				State:     nodeState,
+				DependsOn: []string{},
 			})
 		}
 	}
