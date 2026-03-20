@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/config"
@@ -73,14 +72,11 @@ func setupTemporalWorkflowManager(
 			return fmt.Errorf("Error getting workflow node template: %v\n", err)
 		}
 
-		// We concat the 3 key IDs that are used by the workflow manager to identify a specific
-		// task request, into the task instance ID we pass to the task manager. When the task
-		// completion callback is made, we can split and get the 3 IDs required by workflow manager.
-		taskInstanceID := payload.WorkflowID + ":" + payload.NodeID + ":" + payload.RunID
+		// TODO: We need to pass the TaskPayload.RunID in the future to avoid issues with
+		// task retries. For example, when retrying a task instance, a stale version might
+		// send a completion that will trigger the new version.
 		tmRequest := taskManager.InitTaskRequest{
-			TaskID: taskInstanceID,
-			// WorkflowID is not used in taskManager. For now, we pass
-			// RunID through this.
+			TaskID:                 payload.NodeID,
 			WorkflowID:             payload.RunID,
 			WorkflowNodeTemplateID: template.ID,
 			GlobalState:            payload.Inputs,
@@ -104,18 +100,10 @@ func setupTemporalWorkflowManager(
 
 	taskDoneWrapper := func(
 		ctx context.Context,
+		workflowID string,
 		taskID string,
 		appendGlobalContext map[string]any) {
-
-		parts := strings.Split(taskID, ":")
-		if len(parts) != 3 {
-			fmt.Printf("Error splitting task ID: %v\n", taskID)
-			return
-		}
-		workflowID := parts[0]
-		nodeID := parts[1]
-		runID := parts[2]
-		err := workflowManager.TaskDone(ctx, workflowID, runID, nodeID, appendGlobalContext)
+		err := workflowManager.TaskDone(ctx, workflowID, "", taskID, appendGlobalContext)
 		if err != nil {
 			fmt.Printf("Error completing task: %v\n", err)
 		}
