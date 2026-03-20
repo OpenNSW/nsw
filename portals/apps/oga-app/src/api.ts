@@ -128,8 +128,8 @@ export interface OGAApplication {
   createdAt: string;
   updatedAt: string;
   ogaForm?: {
-    schema: Record<string, unknown>;
-    uiSchema: Record<string, unknown>;
+    schema: JsonSchema;
+    uiSchema: UISchemaElement;
   };
 }
 

@@ -145,6 +145,11 @@ VALUES
                     "type": "string",
                     "title": "Disinfestation Treatment",
                     "example": "Fumigation with Methyl Bromide (CH3Br) at 48g/m³ for 24 hrs"
+                },
+                "supportingDocuments": {
+                    "type": "string",
+                    "title": "Supporting Documents",
+                    "format": "file"
                 }
             }
         }',
@@ -181,6 +186,10 @@ VALUES
                 {
                     "type": "Control",
                     "scope": "#/properties/disinfestationTreatment"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/supportingDocuments"
                 }
             ]
         }',
@@ -243,6 +252,11 @@ VALUES
                     "type": "string",
                     "title": "Processing Plant Registration No.",
                     "description": "CDA/REG/2025/158"
+                },
+                "supportingDocuments": {
+                    "type": "string",
+                    "title": "Supporting Documents",
+                    "format": "file"
                 }
             }
         }',
@@ -287,6 +301,10 @@ VALUES
                 {
                     "type": "Control",
                     "scope": "#/properties/processingPlantRegistrationNo"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/supportingDocuments"
                 }
             ]
         }',

@@ -5,18 +5,24 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"strconv"
+	"time"
 )
+
+var storageKeyRx = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(\.[a-zA-Z0-9]+)?$`)
 
 // OGAHandler handles HTTP requests for OGA portal operations
 type OGAHandler struct {
-	service OGAService
+	service       OGAService
+	nswAPIBaseURL string
 }
 
 // NewOGAHandler creates a new OGA handler instance
-func NewOGAHandler(service OGAService) *OGAHandler {
+func NewOGAHandler(service OGAService, nswAPIBaseURL string) *OGAHandler {
 	return &OGAHandler{
-		service: service,
+		service:       service,
+		nswAPIBaseURL: nswAPIBaseURL,
 	}
 }
 
@@ -75,14 +81,14 @@ func (h *OGAHandler) HandleGetApplications(w http.ResponseWriter, r *http.Reques
 	ctx := r.Context()
 	status := r.URL.Query().Get("status")
 	page, err := strconv.Atoi(r.URL.Query().Get("page"))
-
 	if err != nil {
 		WriteJSONError(w, http.StatusBadRequest, "Invalid page number")
+		return
 	}
 	pageSize, err := strconv.Atoi(r.URL.Query().Get("pageSize"))
-
 	if err != nil {
 		WriteJSONError(w, http.StatusBadRequest, "Invalid page size")
+		return
 	}
 
 	result, err := h.service.GetApplications(ctx, status, page, pageSize)
@@ -178,5 +184,33 @@ func (h *OGAHandler) HandleReviewApplication(w http.ResponseWriter, r *http.Requ
 	WriteJSONResponse(w, http.StatusOK, map[string]any{
 		"success": true,
 		"message": "Application reviewed successfully",
+	})
+}
+
+// HandleGetUploadURL returns a download URL for a file stored in the main
+// backend's upload service.  The OGA frontend calls this endpoint and expects
+// a JSON response with {download_url, expires_at} so that the FileControl
+// component can set the <a href> to the resolved URL.
+func (h *OGAHandler) HandleGetUploadURL(w http.ResponseWriter, r *http.Request) {
+	key := r.PathValue("key")
+	if key == "" {
+		WriteJSONError(w, http.StatusBadRequest, "key is required")
+		return
+	}
+	if !storageKeyRx.MatchString(key) {
+		WriteJSONError(w, http.StatusBadRequest, "invalid key format")
+		return
+	}
+
+	downloadURL, err := h.service.GetUploadURL(r.Context(), key, h.nswAPIBaseURL)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "failed to get upload URL from backend", "key", key, "error", err)
+		WriteJSONError(w, http.StatusInternalServerError, "failed to get upload URL")
+		return
+	}
+
+	WriteJSONResponse(w, http.StatusOK, map[string]any{
+		"download_url": downloadURL,
+		"expires_at":   time.Now().Add(15 * time.Minute).Unix(),
 	})
 }

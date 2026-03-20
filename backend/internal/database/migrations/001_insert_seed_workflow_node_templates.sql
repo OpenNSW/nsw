@@ -176,7 +176,13 @@ VALUES
                 }
             },
             "submission": {
-                "url": ' || to_jsonb((:'FCAU_OGA_SUBMISSION_URL')::text)::text || '
+                "url": ' || to_jsonb((:'FCAU_OGA_SUBMISSION_URL')::text)::text || ',
+                "request": {
+                    "meta": {
+                        "type": "consignment",
+                        "verificationId": "edb:fcau:health-certificate:001"
+                    }
+                }
             }
         }')::jsonb,
         '[

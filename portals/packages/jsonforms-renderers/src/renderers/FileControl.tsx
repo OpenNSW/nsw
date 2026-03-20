@@ -235,6 +235,8 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
         }
     };
 
+    if (!isEnabled && !data) return null;
+
     return (
         <Box mb="4">
             <Text as="label" size="2" weight="bold" mb="1" className="block">

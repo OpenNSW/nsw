@@ -35,6 +35,9 @@ type OGAService interface {
 	// and updates the application status to FEEDBACK_REQUESTED.
 	FeedbackApplication(ctx context.Context, taskID string, content map[string]any) error
 
+	// GetUploadURL fetches a download URL for a key from the main backend.
+	GetUploadURL(ctx context.Context, key string, nswAPIBaseURL string) (string, error)
+
 	// Close closes the service and releases resources
 	Close() error
 }
@@ -62,6 +65,7 @@ type Application struct {
 	Data            map[string]any   `json:"data"`
 	Meta            *Meta            `json:"meta,omitempty"`
 	Form            json.RawMessage  `json:"form,omitempty"`
+	OgaForm         json.RawMessage  `json:"ogaForm,omitempty"`
 	Status          string           `json:"status"`
 	FeedbackHistory []feedback.Entry `json:"feedbackHistory,omitempty"`
 	ReviewedAt      *time.Time       `json:"reviewedAt,omitempty"`
@@ -117,19 +121,19 @@ func metaFromJSONB(j JSONB) *Meta {
 }
 
 type ogaService struct {
-	store      *ApplicationStore
-	formStore  *FormStore
-	httpClient *http.Client
+	store         *ApplicationStore
+	formStore     *FormStore
+	httpClient    *http.Client
+	nswAPIBaseURL string
 }
 
 // NewOGAService creates a new OGA service instance with database storage
-func NewOGAService(store *ApplicationStore, formStore *FormStore) OGAService {
+func NewOGAService(cfg Config, store *ApplicationStore, formStore *FormStore) OGAService {
 	return &ogaService{
-		store:     store,
-		formStore: formStore,
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+		store:         store,
+		formStore:     formStore,
+		httpClient:    &http.Client{Timeout: 30 * time.Second},
+		nswAPIBaseURL: cfg.NSWAPIBaseURL,
 	}
 }
 
@@ -255,6 +259,11 @@ func (s *ogaService) GetApplication(ctx context.Context, taskID string) (*Applic
 				app.Form = form
 			}
 		}
+		// Try to load an oga form (view template)
+		ogaFormID := formID + ".view"
+		if ogaForm, err := s.formStore.GetForm(ogaFormID); err == nil {
+			app.OgaForm = ogaForm
+		}
 	} else {
 		if form, err := s.formStore.GetDefaultForm(); err == nil {
 			app.Form = form
@@ -352,6 +361,20 @@ func (s *ogaService) FeedbackApplication(ctx context.Context, taskID string, con
 
 	slog.InfoContext(ctx, "feedback sent", "taskID", taskID, "round", entry.Round)
 	return nil
+}
+
+// GetUploadURL returns a download URL for a file stored in the main backend.
+//
+// For local development (LocalFSDriver), the backend serves file content at
+// GET /uploads/{key}/content without authentication, so we construct the URL
+// directly and avoid the authenticated GET /uploads/{key} metadata endpoint.
+//
+// TODO: In production with S3, this should call GET /uploads/{key} with
+// service-to-service auth headers to obtain a presigned download URL.
+func (s *ogaService) GetUploadURL(ctx context.Context, key string, nswAPIBaseURL string) (string, error) {
+	downloadURL := fmt.Sprintf("%s/uploads/%s/content", nswAPIBaseURL, key)
+	slog.InfoContext(ctx, "resolved upload URL", "key", key, "downloadURL", downloadURL)
+	return downloadURL, nil
 }
 
 // feedbackHistoryFromRaw converts the raw JSONB slice from the store into typed feedback entries.

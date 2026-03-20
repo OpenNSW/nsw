@@ -285,8 +285,16 @@ VALUES
             "agency": "IRD",
             "formId": "f0000002-0001-0001-0001-000000000005",
             "service": "inland-revenue",
-            "submissionUrl": ' || to_jsonb((:'PRECONSIGNMENT_OGA_SUBMISSION_URL')::text)::text || ',
-            "requiresOgaVerification": true
+            "requiresOgaVerification": true,
+            "submission": {
+                "url": ' || to_jsonb((:'PRECONSIGNMENT_OGA_SUBMISSION_URL')::text)::text || ',
+                "request": {
+                    "meta": {
+                        "type": "preconsignment",
+                        "verificationId": "ird:general-trader-verification:001"
+                    }
+                }
+            }
         }')::jsonb,
         '[]'::jsonb
     );

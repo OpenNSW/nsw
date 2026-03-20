@@ -11,6 +11,7 @@ type Config struct {
 	FormsPath      string
 	DefaultFormID  string
 	AllowedOrigins []string
+	NSWAPIBaseURL  string
 }
 
 func LoadConfig() Config {
@@ -22,6 +23,7 @@ func LoadConfig() Config {
 		DefaultFormID: envOrDefault("OGA_DEFAULT_FORM_ID", "default"),
 		// TODO: when productionization, need to remove the '*' (Allowing All Origins)
 		AllowedOrigins: parseOrigins(envOrDefault("OGA_ALLOWED_ORIGINS", "*")),
+		NSWAPIBaseURL:  envOrDefault("NSW_API_BASE_URL", "http://localhost:8080/api/v1"),
 	}
 }
 

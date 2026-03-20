@@ -36,7 +36,7 @@ func main() {
 	}
 
 	// Initialize OGA service
-	service := internal.NewOGAService(store, formStore)
+	service := internal.NewOGAService(cfg, store, formStore)
 	defer func() {
 		if err := service.Close(); err != nil {
 			slog.Error("failed to close service", "error", err)
@@ -44,7 +44,7 @@ func main() {
 	}()
 
 	// Initialize handlers
-	handler := internal.NewOGAHandler(service)
+	handler := internal.NewOGAHandler(service, cfg.NSWAPIBaseURL)
 	feedbackHandler := feedback.NewHandler(service)
 
 	// Set up HTTP routes
@@ -58,6 +58,7 @@ func main() {
 	mux.HandleFunc("GET /api/oga/applications/{taskId}", handler.HandleGetApplication)
 	mux.HandleFunc("POST /api/oga/applications/{taskId}/review", handler.HandleReviewApplication)
 	mux.HandleFunc("POST /api/oga/applications/{taskId}/feedback", feedbackHandler.HandleFeedback)
+	mux.HandleFunc("GET /api/oga/uploads/{key}", handler.HandleGetUploadURL)
 
 	// Set up graceful shutdown
 	serverAddr := fmt.Sprintf(":%s", cfg.Port)

@@ -32,17 +32,8 @@ export async function uploadFile(apiClient: ApiClient, file: File): Promise<Uplo
 }
 
 export async function getDownloadUrl(apiClient: ApiClient, key: string): Promise<{ url: string; expiresAt: number }> {
-  const response = await fetch(`${API_BASE_URL}/uploads/${key}`, {
-    headers: await apiClient.getAuthHeaders(false),
-  })
-
-  if (!response.ok) {
-    throw new Error(`Failed to get download URL: ${response.status} ${response.statusText}`)
-  }
-
-  const data = (await response.json()) as { download_url: string; expires_at: number }
-  const url = data.download_url.startsWith('/')
-    ? `${new URL(API_BASE_URL).origin}${data.download_url}`
-    : data.download_url
-  return { url, expiresAt: data.expires_at }
+  const response = await apiClient.get<{ download_url: string; expires_at: number }>(
+    `/api/oga/uploads/${key}`
+  )
+  return { url: response.download_url, expiresAt: response.expires_at }
 }
