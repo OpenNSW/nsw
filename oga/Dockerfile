@@ -30,6 +30,6 @@ USER appuser
 EXPOSE 8081
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget -qO- http://localhost:8081/health || exit 1
+  CMD wget -qO- http://localhost:${OGA_PORT:-8081}/health || exit 1
 
 CMD ["/app/oga"]

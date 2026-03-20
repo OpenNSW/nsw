@@ -52,7 +52,7 @@ type ApplicationRecord struct {
 	ReviewerResponse   JSONB            `gorm:"type:text"`                                   // Response from reviewer
 	Status             string           `gorm:"type:varchar(50);not null;default:'PENDING'"` // PENDING, APPROVED, REJECTED
 	OGAFeedbackHistory []map[string]any `gorm:"type:text;serializer:json"`
-	ReviewedAt         *time.Time       `gorm:"type:datetime"` // When it was reviewed
+	ReviewedAt         *time.Time       // When it was reviewed
 	CreatedAt          time.Time        `gorm:"autoCreateTime"`
 	UpdatedAt          time.Time        `gorm:"autoUpdateTime"`
 }
@@ -69,16 +69,7 @@ type ApplicationStore struct {
 
 // NewApplicationStore creates a new ApplicationStore with configured database
 func NewApplicationStore(cfg Config) (*ApplicationStore, error) {
-	connector, err := database.NewConnector(database.Config{
-		Driver:   cfg.DBDriver,
-		Path:     cfg.DBPath,
-		Host:     cfg.DBHost,
-		Port:     cfg.DBPort,
-		User:     cfg.DBUser,
-		Password: cfg.DBPassword,
-		Name:     cfg.DBName,
-		SSLMode:  cfg.DBSSLMode,
-	})
+	connector, err := database.NewConnector(cfg.DB)
 	if err != nil {
 		return nil, err
 	}

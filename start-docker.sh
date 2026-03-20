@@ -149,7 +149,7 @@ DB_PORT="${DB_PORT:-55432}"
 # --- Build --------------------------------------------------------------------
 if [[ "$RUN_BUILD" == "true" ]]; then
   echo "Building images..."
-  "${compose_cmd[@]}" build
+  COMPOSE_PARALLEL_LIMIT=1 "${compose_cmd[@]}" build
 fi
 
 # --- Start --------------------------------------------------------------------
