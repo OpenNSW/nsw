@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "services": [
+    {
+      "id": "npqs",
+      "url": "http://localhost:8081",
+      "timeout": "30s"
+    },
+    {
+      "id": "fcau",
+      "url": "http://localhost:8082",
+      "timeout": "30s"
+    },
+    {
+      "id": "ird",
+      "url": "http://localhost:8083",
+      "timeout": "30s"
+    },
+    {
+      "id": "customs-asycuda",
+      "url": "https://7b0eb5f0-1ee3-4a0c-8946-82a893cb60c2.mock.pstmn.io",
+      "timeout": "10s"
+    },
+    {
+      "id": "customs-app",
+      "url": "http://localhost:3001",
+      "timeout": "5s"
+    }
+  ]
+}

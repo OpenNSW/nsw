@@ -19,6 +19,10 @@ coverage.html
 .env*
 !*.example
 
+# Services Configs
+backend/configs/*
+!backend/configs/*.example.json
+
 # Intellij Configs
 **/.idea/**
 

@@ -65,7 +65,7 @@ func TestSimpleForm_Execute_SaveAsDraft(t *testing.T) {
 		mockAPI := new(MockAPI)
 
 		// Create SimpleForm with empty config for testing
-		sf, err := NewSimpleForm(json.RawMessage(`{}`), nil, nil)
+		sf, err := NewSimpleForm(json.RawMessage(`{}`), nil, nil, nil)
 		assert.NoError(t, err)
 
 		sf.Init(mockAPI)
@@ -93,7 +93,7 @@ func TestSimpleForm_Execute_SaveAsDraft(t *testing.T) {
 	t.Run("WriteToLocalStore Failure", func(t *testing.T) {
 		mockAPI := new(MockAPI)
 
-		sf, err := NewSimpleForm(json.RawMessage(`{}`), nil, nil)
+		sf, err := NewSimpleForm(json.RawMessage(`{}`), nil, nil, nil)
 		assert.NoError(t, err)
 
 		sf.Init(mockAPI)
@@ -125,7 +125,7 @@ func TestSimpleForm_Execute_SaveAsDraft(t *testing.T) {
 	t.Run("Invalid Transition", func(t *testing.T) {
 		mockAPI := new(MockAPI)
 
-		sf, err := NewSimpleForm(json.RawMessage(`{}`), nil, nil)
+		sf, err := NewSimpleForm(json.RawMessage(`{}`), nil, nil, nil)
 		assert.NoError(t, err)
 
 		sf.Init(mockAPI)

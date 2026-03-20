@@ -36,6 +36,7 @@ WORKDIR /app
 # Copy the binary from the builder stage
 # The 'linux' target outputs to bin/server-linux
 COPY --from=builder /app/bin/server-linux /app/server
+COPY --from=builder --chown=nonroot:nonroot /app/configs /app/configs
 COPY --from=builder --chown=nonroot:nonroot /app/bucket /app/bucket
 
 # Run as non-root user (distroless provides uid 65534)
