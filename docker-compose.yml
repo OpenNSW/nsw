@@ -202,7 +202,7 @@ services:
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     volumes:
-      - backend-uploads:/data/uploads
+      - backend-uploads:/app/bucket
     networks:
       - core-net
       - idp-net
@@ -234,7 +234,7 @@ services:
       AUTH_AUDIENCE: ${AUTH_AUDIENCE:-TRADER_PORTAL_APP}
       AUTH_JWKS_INSECURE_SKIP_VERIFY: ${AUTH_JWKS_INSECURE_SKIP_VERIFY:-true}
       STORAGE_TYPE: ${STORAGE_TYPE:-local}
-      STORAGE_LOCAL_BASE_DIR: /data/uploads
+      STORAGE_LOCAL_BASE_DIR: ${STORAGE_LOCAL_BASE_DIR:-/app/bucket}
       STORAGE_LOCAL_PUBLIC_URL: ${STORAGE_LOCAL_PUBLIC_URL:-/bucket}
 
   # ============================================================================
