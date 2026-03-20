@@ -103,7 +103,7 @@ func Load() (*Config, error) {
 			LogLevel:   parseLogLevel(getEnvOrDefault("SERVER_LOG_LEVEL", "info")),
 		},
 		CORS: CORSConfig{
-			AllowedOrigins:   parseCommaSeparated(getEnvOrDefault("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173")),
+			AllowedOrigins:   parseCommaSeparated(getEnvOrDefault("CORS_ALLOWED_ORIGINS", "*")),
 			AllowedMethods:   parseCommaSeparated(getEnvOrDefault("CORS_ALLOWED_METHODS", "GET,POST,PUT,DELETE,OPTIONS")),
 			AllowedHeaders:   parseCommaSeparated(getEnvOrDefault("CORS_ALLOWED_HEADERS", "Content-Type,Authorization")),
 			AllowCredentials: getBoolOrDefault("CORS_ALLOW_CREDENTIALS", true),
@@ -163,6 +163,16 @@ func (c *Config) Validate() error {
 	}
 	if c.Auth.ClientID == "" {
 		return fmt.Errorf("AUTH_CLIENT_ID is required")
+	}
+	if !c.Server.Debug {
+		if len(c.CORS.AllowedOrigins) == 0 {
+			return fmt.Errorf("CORS_ALLOWED_ORIGINS must be explicitly configured in production")
+		}
+		for _, origin := range c.CORS.AllowedOrigins {
+			if origin == "*" {
+				return fmt.Errorf("CORS_ALLOWED_ORIGINS cannot contain '*' in production (SERVER_DEBUG=false)")
+			}
+		}
 	}
 	return nil
 }

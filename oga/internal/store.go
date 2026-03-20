@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/OpenNSW/nsw/oga/internal/database"
 	"gorm.io/gorm"
 )
 
@@ -68,7 +69,16 @@ type ApplicationStore struct {
 
 // NewApplicationStore creates a new ApplicationStore with configured database
 func NewApplicationStore(cfg Config) (*ApplicationStore, error) {
-	connector, err := NewDBConnector(cfg)
+	connector, err := database.NewConnector(database.Config{
+		Driver:   cfg.DBDriver,
+		Path:     cfg.DBPath,
+		Host:     cfg.DBHost,
+		Port:     cfg.DBPort,
+		User:     cfg.DBUser,
+		Password: cfg.DBPassword,
+		Name:     cfg.DBName,
+		SSLMode:  cfg.DBSSLMode,
+	})
 	if err != nil {
 		return nil, err
 	}

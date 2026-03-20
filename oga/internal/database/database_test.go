@@ -1,4 +1,4 @@
-package internal
+package database
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestNewDBConnector(t *testing.T) {
+func TestNewConnector(t *testing.T) {
 	tests := []struct {
 		name         string
 		cfg          Config
@@ -16,33 +16,33 @@ func TestNewDBConnector(t *testing.T) {
 	}{
 		{
 			name:         "valid sqlite",
-			cfg:          Config{DBDriver: "sqlite", DBPath: ":memory:"},
+			cfg:          Config{Driver: "sqlite", Path: ":memory:"},
 			wantErr:      false,
-			expectedType: "*internal.SQLiteConnector",
+			expectedType: "*database.SQLiteConnector",
 		},
 		{
 			name:         "valid postgres",
-			cfg:          Config{DBDriver: "postgres"},
+			cfg:          Config{Driver: "postgres"},
 			wantErr:      false,
-			expectedType: "*internal.PostgresConnector",
+			expectedType: "*database.PostgresConnector",
 		},
 		{
 			name:    "invalid driver",
-			cfg:     Config{DBDriver: "mysql"},
+			cfg:     Config{Driver: "mysql"},
 			wantErr: true,
 		},
 		{
 			name:    "empty driver",
-			cfg:     Config{DBDriver: ""},
+			cfg:     Config{Driver: ""},
 			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			connector, err := NewDBConnector(tt.cfg)
+			connector, err := NewConnector(tt.cfg)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("NewDBConnector() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("NewConnector() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if tt.wantErr {
@@ -51,16 +51,15 @@ func TestNewDBConnector(t *testing.T) {
 				}
 				return
 			}
-			// Assert type
 			if gotType := fmt.Sprintf("%T", connector); gotType != tt.expectedType {
-				t.Errorf("NewDBConnector() = %v, want %v", gotType, tt.expectedType)
+				t.Errorf("NewConnector() = %v, want %v", gotType, tt.expectedType)
 			}
 		})
 	}
 }
 
-func TestNewDBConnector_ErrorMessage(t *testing.T) {
-	_, err := NewDBConnector(Config{DBDriver: "mysql"})
+func TestNewConnector_ErrorMessage(t *testing.T) {
+	_, err := NewConnector(Config{Driver: "mysql"})
 	if err == nil {
 		t.Fatal("expected error for unsupported driver")
 	}
@@ -69,12 +68,40 @@ func TestNewDBConnector_ErrorMessage(t *testing.T) {
 	}
 }
 
+// TestPostgresDSN verifies postgres connector fields match config.
+func TestPostgresDSN(t *testing.T) {
+	cfg := Config{
+		Driver:   "postgres",
+		Host:     "localhost",
+		Port:     "5432",
+		User:     "testuser",
+		Password: "testpassword",
+		Name:     "testdb",
+		SSLMode:  "disable",
+	}
+
+	connector, err := NewConnector(cfg)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	pgConn, ok := connector.(*PostgresConnector)
+	if !ok {
+		t.Fatal("expected *PostgresConnector type")
+	}
+
+	if pgConn.Host != "localhost" || pgConn.User != "testuser" {
+		t.Errorf("config mismatch: %+v", pgConn)
+	}
+	if pgConn.SSLMode != "disable" {
+		t.Errorf("expected SSLMode 'disable', got %q", pgConn.SSLMode)
+	}
+}
+
 // TestStoreDecoupling verifies that store.go does not import any GORM driver
 // packages directly, ensuring the store remains driver-agnostic.
 func TestStoreDecoupling(t *testing.T) {
-	// Read store.go directly rather than using `go list` (which reports
-	// package-level imports including connector files in the same package).
-	content, err := os.ReadFile("store.go")
+	content, err := os.ReadFile("../store.go")
 	if err != nil {
 		t.Fatalf("failed to read store.go: %v", err)
 	}
@@ -93,8 +120,7 @@ func TestStoreDecoupling(t *testing.T) {
 	}
 }
 
-// TestInterfaceCompliance is a compile-time check that both connector types
-// implement the DBConnector interface. If they don't, this file won't compile.
+// Compile-time interface compliance checks.
 var (
 	_ DBConnector = (*SQLiteConnector)(nil)
 	_ DBConnector = (*PostgresConnector)(nil)

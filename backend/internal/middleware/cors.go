@@ -77,7 +77,7 @@ func CORS(cfg *config.CORSConfig) func(http.Handler) http.Handler {
 // isOriginAllowed checks if the given origin is in the list of allowed origins
 func isOriginAllowed(origin string, allowedOrigins []string) bool {
 	for _, allowed := range allowedOrigins {
-		if allowed == origin {
+		if allowed == "*" || allowed == origin {
 			return true
 		}
 	}
