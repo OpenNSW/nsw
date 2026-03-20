@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/OpenNSW/nsw/internal/auth"
@@ -75,6 +76,7 @@ func setupTemporalWorkflowManager(
 		// TODO: We need to pass the TaskPayload.RunID in the future to avoid issues with
 		// task retries. For example, when retrying a task instance, a stale version might
 		// send a completion that will trigger the new version.
+		slog.Error("---- DEBUG ---- Starting InitTaskRequest", "TaskID", payload.NodeID, "WorkflowID", payload.RunID, "WorkflowNodeTemplateID", template.ID)
 		tmRequest := taskManager.InitTaskRequest{
 			TaskID:                 payload.NodeID,
 			WorkflowID:             payload.RunID,
