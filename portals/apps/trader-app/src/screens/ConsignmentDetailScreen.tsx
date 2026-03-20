@@ -106,8 +106,11 @@ export function ConsignmentDetailScreen() {
 
   const item = consignment.items?.[0]
   const workflowNodes = consignment.workflowNodes || []
-  const completedSteps = workflowNodes.filter(n => n.state === 'COMPLETED').length
-  const totalSteps = workflowNodes.length
+  const v2Nodes = consignment.workflow?.nodes || []
+  
+  const allNodes = v2Nodes.length > 0 ? v2Nodes : workflowNodes
+  const completedSteps = allNodes.filter(n => n.state === 'COMPLETED').length
+  const totalSteps = allNodes.length
   const progressPercentage = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0
   const searchParams = new URLSearchParams(location.search)
   const isChaView = searchParams.get('view') === 'cha'
@@ -207,10 +210,16 @@ export function ConsignmentDetailScreen() {
           </div>
         </div>
 
-        {workflowNodes.length > 0 ? (
+        {allNodes.length > 0 ? (
           <div className="p-4 flex-1 flex flex-col min-h-0">
             <h3 className="text-xs font-medium text-gray-500 mb-2">Workflow Process</h3>
-            <WorkflowViewer className="flex-1 min-h-0" steps={workflowNodes} onRefresh={handleRefresh} refreshing={refreshing} />
+            <WorkflowViewer 
+              className="flex-1 min-h-0" 
+              workflow={consignment.workflow} 
+              steps={workflowNodes} 
+              onRefresh={handleRefresh} 
+              refreshing={refreshing} 
+            />
           </div>
         ) : (
           <div className="p-4 flex-1 flex items-center justify-center">
@@ -230,15 +239,15 @@ export function ConsignmentDetailScreen() {
             <span className="inline-block w-1 h-3 bg-blue-500 rounded"></span>
             Next Steps
           </h3>
-          {workflowNodes.length === 0 ? (
+          {allNodes.length === 0 ? (
             <p className="text-xs text-gray-600">
               No actions required at this time.
             </p>
-          ) : workflowNodes.some(n => n.state === 'READY') ? (
+          ) : allNodes.some(n => n.state === 'READY') ? (
             <p className="text-xs text-gray-700">
               <span className="font-medium">Action required:</span> Click the play button (▶) on steps marked as "Ready" to proceed with your consignment.
             </p>
-          ) : workflowNodes.every(n => n.state === 'COMPLETED') ? (
+          ) : allNodes.every(n => n.state === 'COMPLETED') ? (
             <p className="text-xs text-green-700 font-medium">
               ✓ All steps have been completed. Your consignment is ready.
             </p>
@@ -247,6 +256,7 @@ export function ConsignmentDetailScreen() {
               Waiting for dependent steps to be completed before you can proceed.
             </p>
           )}
+
         </div>
       </div>
 
