@@ -709,7 +709,7 @@ func (s *ConsignmentService) buildConsignmentDetailDTO(
 				nodeState = model.WorkflowNodeStateLocked
 			}
 			nodeResponseDTOs = append(nodeResponseDTOs, model.WorkflowNodeResponseDTO{
-				ID:        ID,
+				ID:        node.ID,
 				CreatedAt: node.CreatedAt.Format(time.RFC3339),
 				UpdatedAt: node.UpdatedAt.Format(time.RFC3339),
 				WorkflowNodeTemplate: model.WorkflowNodeTemplateResponseDTO{
