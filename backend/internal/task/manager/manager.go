@@ -178,6 +178,7 @@ func (tm *taskManager) ExecuteTask(ctx context.Context, req ExecuteTaskRequest) 
 // to the database, and invokes the plugin's Start method.
 // Returns InitTaskResponse on success, or an error if initialization or start fails.
 func (tm *taskManager) InitTask(ctx context.Context, request InitTaskRequest) (*InitTaskResponse, error) {
+
 	// Check if container already exists in cache
 	if existing, found := tm.containerCache.Get(request.TaskID); found {
 		slog.WarnContext(ctx, "task already initialized, reusing existing container",
@@ -220,6 +221,8 @@ func (tm *taskManager) InitTask(ctx context.Context, request InitTaskRequest) (*
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal global context: %w", err)
 	}
+
+	slog.Error("---- DEBUG ---- About to create persistence.taskInfo", "activeTask.TaskID", activeTask.TaskID, "request.TaskID", request.TaskID, "request.WorkflowID", request.WorkflowID, "request.WorkflowNodeTemplateID", request.WorkflowNodeTemplateID, "request.Type", request.Type)
 
 	// Create a task execution record
 	taskInfo := &persistence.TaskInfo{
