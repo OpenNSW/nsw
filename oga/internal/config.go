@@ -3,11 +3,13 @@ package internal
 import (
 	"os"
 	"strings"
+
+	"github.com/OpenNSW/nsw/oga/internal/database"
 )
 
 type Config struct {
 	Port           string
-	DBPath         string
+	DB             database.Config
 	FormsPath      string
 	DefaultFormID  string
 	AllowedOrigins []string
@@ -15,12 +17,19 @@ type Config struct {
 
 func LoadConfig() Config {
 	return Config{
-		Port:      envOrDefault("OGA_PORT", "8081"),
-		DBPath:    envOrDefault("OGA_DB_PATH", "./oga_applications.db"),
-		FormsPath: envOrDefault("OGA_FORMS_PATH", "./data/forms"),
-		// If Meta is not set in the request from NSW, the default form will be used
-		DefaultFormID: envOrDefault("OGA_DEFAULT_FORM_ID", "default"),
-		// TODO: when productionization, need to remove the '*' (Allowing All Origins)
+		Port: envOrDefault("OGA_PORT", "8081"),
+		DB: database.Config{
+			Driver:   envOrDefault("OGA_DB_DRIVER", "sqlite"),
+			Path:     envOrDefault("OGA_DB_PATH", "./oga_applications.db"),
+			Host:     envOrDefault("OGA_DB_HOST", "localhost"),
+			Port:     envOrDefault("OGA_DB_PORT", "5432"),
+			User:     envOrDefault("OGA_DB_USER", "postgres"),
+			Password: envOrDefault("OGA_DB_PASSWORD", "changeme"),
+			Name:     envOrDefault("OGA_DB_NAME", "oga_db"),
+			SSLMode:  envOrDefault("OGA_DB_SSLMODE", "disable"),
+		},
+		FormsPath:      envOrDefault("OGA_FORMS_PATH", "./data/forms"),
+		DefaultFormID:  envOrDefault("OGA_DEFAULT_FORM_ID", "default"),
 		AllowedOrigins: parseOrigins(envOrDefault("OGA_ALLOWED_ORIGINS", "*")),
 	}
 }

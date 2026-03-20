@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"gorm.io/driver/sqlite"
+	"github.com/OpenNSW/nsw/oga/internal/database"
 	"gorm.io/gorm"
 )
 
@@ -52,7 +52,7 @@ type ApplicationRecord struct {
 	ReviewerResponse   JSONB            `gorm:"type:text"`                                   // Response from reviewer
 	Status             string           `gorm:"type:varchar(50);not null;default:'PENDING'"` // PENDING, APPROVED, REJECTED
 	OGAFeedbackHistory []map[string]any `gorm:"type:text;serializer:json"`
-	ReviewedAt         *time.Time       `gorm:"type:datetime"` // When it was reviewed
+	ReviewedAt         *time.Time       // When it was reviewed
 	CreatedAt          time.Time        `gorm:"autoCreateTime"`
 	UpdatedAt          time.Time        `gorm:"autoUpdateTime"`
 }
@@ -67,13 +67,14 @@ type ApplicationStore struct {
 	db *gorm.DB
 }
 
-// NewApplicationStore creates a new ApplicationStore with SQLite database
-func NewApplicationStore(dbPath string) (*ApplicationStore, error) {
-	if dbPath == "" {
-		dbPath = "oga_applications.db"
+// NewApplicationStore creates a new ApplicationStore with configured database
+func NewApplicationStore(cfg Config) (*ApplicationStore, error) {
+	connector, err := database.NewConnector(cfg.DB)
+	if err != nil {
+		return nil, err
 	}
 
-	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+	db, err := connector.Open()
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}

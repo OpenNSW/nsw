@@ -19,13 +19,14 @@ func main() {
 	cfg := internal.LoadConfig()
 
 	slog.Info("OGA service configuration",
-		"db_path", cfg.DBPath,
+		"db_driver", cfg.DB.Driver,
+		"db_path", cfg.DB.Path,
 		"port", cfg.Port,
 		"forms_path", cfg.FormsPath,
 	)
 
 	// Initialize database store
-	store, err := internal.NewApplicationStore(cfg.DBPath)
+	store, err := internal.NewApplicationStore(cfg)
 	if err != nil {
 		log.Fatalf("failed to create application store: %v", err)
 	}
