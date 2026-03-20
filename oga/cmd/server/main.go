@@ -19,7 +19,8 @@ func main() {
 	cfg := internal.LoadConfig()
 
 	slog.Info("OGA service configuration",
-		"db_path", cfg.DBPath,
+		"db_driver", cfg.DB.Driver,
+		"db_path", cfg.DB.Path,
 		"port", cfg.Port,
 		"forms_path", cfg.FormsPath,
 	)

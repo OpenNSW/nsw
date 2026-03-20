@@ -6,20 +6,40 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/OpenNSW/nsw/oga/internal/database"
 )
 
 // ---------- helpers ----------
 
-// newTestStore creates an in-memory SQLite-backed ApplicationStore for tests.
+// newTestStore creates an ApplicationStore for tests.
+// When OGA_DB_DRIVER=postgres (set via env), it connects to the configured
+// PostgreSQL instance and truncates the table before each test.
+// Otherwise it falls back to an in-memory SQLite database.
 func newTestStore(t *testing.T) *ApplicationStore {
 	t.Helper()
-	store, err := NewApplicationStore(Config{
-		DBDriver: "sqlite",
-		DBPath:   ":memory:",
-	})
-	if err != nil {
-		t.Fatalf("failed to create in-memory store: %v", err)
+
+	var cfg Config
+	if os.Getenv("OGA_DB_DRIVER") == "postgres" {
+		cfg = LoadConfig()
+	} else {
+		cfg = Config{
+			DB: database.Config{Driver: "sqlite", Path: ":memory:"},
+		}
 	}
+
+	store, err := NewApplicationStore(cfg)
+	if err != nil {
+		t.Fatalf("failed to create store (driver=%s): %v", cfg.DB.Driver, err)
+	}
+
+	// For persistent backends, clean the table before each test.
+	if cfg.DB.Driver != "sqlite" || cfg.DB.Path != ":memory:" {
+		if err := store.db.Exec("TRUNCATE TABLE applications").Error; err != nil {
+			t.Fatalf("failed to truncate applications table: %v", err)
+		}
+	}
+
 	return store
 }
 
@@ -48,7 +68,7 @@ func TestApplicationStore_SQLite_FileCreated(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test_oga.db")
 
-	_, err := NewApplicationStore(Config{DBDriver: "sqlite", DBPath: dbPath})
+	_, err := NewApplicationStore(Config{DB: database.Config{Driver: "sqlite", Path: dbPath}})
 	if err != nil {
 		t.Fatalf("NewApplicationStore failed: %v", err)
 	}
