@@ -43,19 +43,7 @@ volumes:
   oga-fcau-data:
   oga-ird-data:
 
-# ---- Extension Blocks --------------------------------------------------------
 
-x-oga-common-env: &oga-common-env
-  OGA_DB_DRIVER: ${OGA_DB_DRIVER:-sqlite}
-  OGA_DB_PATH: /data/oga_applications.db
-  OGA_DB_HOST: ${OGA_DB_HOST:-postgres}
-  OGA_DB_PORT: ${OGA_DB_PORT:-5432}
-  OGA_DB_USER: ${OGA_DB_USER:-postgres}
-  OGA_DB_PASSWORD: ${OGA_DB_PASSWORD:-changeme}
-  OGA_DB_NAME: ${OGA_DB_NAME:-oga_db}
-  OGA_DB_SSLMODE: ${OGA_DB_SSLMODE:-disable}
-  OGA_DEFAULT_FORM_ID: ${OGA_DEFAULT_FORM_ID:-default}
-  OGA_ALLOWED_ORIGINS: ${OGA_ALLOWED_ORIGINS:-http://localhost:5174,http://localhost:5175,http://localhost:5176}
 
 # ---- Services ----------------------------------------------------------------
 
@@ -289,8 +277,17 @@ services:
     networks:
       - oga-npqs-net
     environment:
-      <<: *oga-common-env
       OGA_PORT: ${OGA_NPQS_PORT:-8081}
+      OGA_DB_DRIVER: ${OGA_NPQS_DB_DRIVER:-postgres}
+      OGA_DB_PATH: ${OGA_NPQS_DB_PATH:-/data/oga_applications.db}
+      OGA_DB_HOST: ${OGA_NPQS_DB_HOST:-postgres}
+      OGA_DB_PORT: ${OGA_NPQS_DB_PORT:-5432}
+      OGA_DB_USER: ${OGA_NPQS_DB_USER:-postgres}
+      OGA_DB_PASSWORD: ${OGA_NPQS_DB_PASSWORD:-changeme}
+      OGA_DB_NAME: ${OGA_NPQS_DB_NAME:-oga_npqs_db}
+      OGA_DB_SSLMODE: ${OGA_NPQS_DB_SSLMODE:-disable}
+      OGA_DEFAULT_FORM_ID: ${OGA_NPQS_DEFAULT_FORM_ID:-default}
+      OGA_ALLOWED_ORIGINS: ${OGA_NPQS_ALLOWED_ORIGINS:-http://localhost:5174}
 
   oga-portal-npqs:
     build:
@@ -325,8 +322,17 @@ services:
     depends_on:
       - oga-npqs
     environment:
-      <<: *oga-common-env
       OGA_PORT: ${OGA_FCAU_PORT:-8082}
+      OGA_DB_DRIVER: ${OGA_FCAU_DB_DRIVER:-sqlite}
+      OGA_DB_PATH: ${OGA_FCAU_DB_PATH:-/data/oga_applications.db}
+      OGA_DB_HOST: ${OGA_FCAU_DB_HOST:-postgres}
+      OGA_DB_PORT: ${OGA_FCAU_DB_PORT:-5432}
+      OGA_DB_USER: ${OGA_FCAU_DB_USER:-postgres}
+      OGA_DB_PASSWORD: ${OGA_FCAU_DB_PASSWORD:-changeme}
+      OGA_DB_NAME: ${OGA_FCAU_DB_NAME:-oga_fcau_db}
+      OGA_DB_SSLMODE: ${OGA_FCAU_DB_SSLMODE:-disable}
+      OGA_DEFAULT_FORM_ID: ${OGA_FCAU_DEFAULT_FORM_ID:-default}
+      OGA_ALLOWED_ORIGINS: ${OGA_FCAU_ALLOWED_ORIGINS:-http://localhost:5175}
 
   oga-portal-fcau:
     image: nsw-oga-portal:local
@@ -360,8 +366,17 @@ services:
     depends_on:
       - oga-npqs
     environment:
-      <<: *oga-common-env
       OGA_PORT: ${OGA_IRD_PORT:-8083}
+      OGA_DB_DRIVER: ${OGA_IRD_DB_DRIVER:-sqlite}
+      OGA_DB_PATH: ${OGA_IRD_DB_PATH:-/data/oga_applications.db}
+      OGA_DB_HOST: ${OGA_IRD_DB_HOST:-postgres}
+      OGA_DB_PORT: ${OGA_IRD_DB_PORT:-5432}
+      OGA_DB_USER: ${OGA_IRD_DB_USER:-postgres}
+      OGA_DB_PASSWORD: ${OGA_IRD_DB_PASSWORD:-changeme}
+      OGA_DB_NAME: ${OGA_IRD_DB_NAME:-oga_ird_db}
+      OGA_DB_SSLMODE: ${OGA_IRD_DB_SSLMODE:-disable}
+      OGA_DEFAULT_FORM_ID: ${OGA_IRD_DEFAULT_FORM_ID:-default}
+      OGA_ALLOWED_ORIGINS: ${OGA_IRD_ALLOWED_ORIGINS:-http://localhost:5176}
 
   oga-portal-ird:
     image: nsw-oga-portal:local
