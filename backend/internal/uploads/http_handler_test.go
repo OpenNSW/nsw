@@ -11,7 +11,41 @@ import (
 	"testing"
 
 	"github.com/OpenNSW/nsw/internal/auth"
+	"github.com/OpenNSW/nsw/internal/uploads/drivers"
 )
+
+// ... existing code ...
+
+func TestDownloadContent_LocalDriver_Success(t *testing.T) {
+	tempDir := t.TempDir()
+	driver, _ := drivers.NewLocalFSDriver(tempDir, "/api/v1/uploads")
+	service := NewUploadService(driver)
+	handler := NewHTTPHandler(service)
+
+	ctx := context.Background()
+	key := "550e8400-e29b-41d4-a716-446655440000.pdf"
+	content := []byte("test content")
+	_ = driver.Save(ctx, key, bytes.NewReader(content), "application/pdf")
+
+	req := httptest.NewRequest(http.MethodGet, "/uploads/"+key+"/content", nil)
+	req.SetPathValue("key", key)
+	rec := httptest.NewRecorder()
+
+	// No auth context set — should still succeed because this endpoint is intended to be public.
+	handler.DownloadContent(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rec.Code)
+	}
+
+	if rec.Header().Get("Content-Type") != "application/pdf" {
+		t.Errorf("expected Content-Type application/pdf, got %s", rec.Header().Get("Content-Type"))
+	}
+
+	if !bytes.Equal(rec.Body.Bytes(), content) {
+		t.Error("body does not match")
+	}
+}
 
 // withAuthContext returns a context with the given AuthContext injected.
 func withAuthContext(ctx context.Context, ac *auth.AuthContext) context.Context {

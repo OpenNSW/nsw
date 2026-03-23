@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/config"
@@ -156,9 +157,14 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	mux.Handle("GET /api/v1/pre-consignments/{preConsignmentId}", withAuth(http.HandlerFunc(preConsignmentRouter.HandleGetPreConsignmentByID)))
 	mux.Handle("GET /api/v1/pre-consignments", withAuth(http.HandlerFunc(preConsignmentRouter.HandleGetTraderPreConsignments)))
 	mux.Handle("POST /api/v1/uploads", withAuth(http.HandlerFunc(uploadHandler.Upload)))
-	mux.Handle("GET /api/v1/uploads/{key}/content", withAuth(http.HandlerFunc(uploadHandler.DownloadContent)))
 	mux.Handle("GET /api/v1/uploads/{key}", withAuth(http.HandlerFunc(uploadHandler.Download)))
 	mux.Handle("DELETE /api/v1/uploads/{key}", withAuth(http.HandlerFunc(uploadHandler.Delete)))
+
+	// When using local storage, this endpoint serves the actual file bytes.
+	// It's made public since it's the equivalent of a presigned URL when using S3.
+	if strings.ToLower(strings.TrimSpace(cfg.Storage.Type)) == "local" {
+		mux.HandleFunc("GET /api/v1/uploads/{key}/content", uploadHandler.DownloadContent)
+	}
 
 	handler := middleware.CORS(&cfg.CORS)(mux)
 
