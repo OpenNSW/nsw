@@ -25,7 +25,9 @@ func TestDownloadContent_LocalDriver_Success(t *testing.T) {
 	ctx := context.Background()
 	key := "550e8400-e29b-41d4-a716-446655440000.pdf"
 	content := []byte("test content")
-	_ = driver.Save(ctx, key, bytes.NewReader(content), "application/pdf")
+	if err := driver.Save(ctx, key, bytes.NewReader(content), "application/pdf"); err != nil {
+		t.Fatalf("failed to save test file: %v", err)
+	}
 
 	req := httptest.NewRequest(http.MethodGet, "/uploads/"+key+"/content", nil)
 	req.SetPathValue("key", key)

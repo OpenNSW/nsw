@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/config"
@@ -14,6 +13,7 @@ import (
 	"github.com/OpenNSW/nsw/internal/middleware"
 	taskManager "github.com/OpenNSW/nsw/internal/task/manager"
 	"github.com/OpenNSW/nsw/internal/uploads"
+	"github.com/OpenNSW/nsw/internal/uploads/drivers"
 	workflowmanager "github.com/OpenNSW/nsw/internal/workflow/manager"
 	"github.com/OpenNSW/nsw/internal/workflow/router"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
@@ -162,7 +162,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	// When using local storage, this endpoint serves the actual file bytes.
 	// It's made public since it's the equivalent of a presigned URL when using S3.
-	if strings.ToLower(strings.TrimSpace(cfg.Storage.Type)) == "local" {
+	if _, ok := storageDriver.(*drivers.LocalFSDriver); ok {
 		mux.HandleFunc("GET /api/v1/uploads/{key}/content", uploadHandler.DownloadContent)
 	}
 
