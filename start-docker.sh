@@ -99,9 +99,11 @@ PROFILES=()
 [[ "$RUN_IDP" == "true" ]]      && PROFILES+=(idp)
 [[ "$RUN_POSTGRES" == "true" ]] && PROFILES+=(db)
 
-for p in "${PROFILES[@]}"; do
-  compose_cmd+=(--profile "$p")
-done
+if [[ ${#PROFILES[@]} -gt 0 ]]; then
+  for p in "${PROFILES[@]}"; do
+    compose_cmd+=(--profile "$p")
+  done
+fi
 
 # When --skip-migrations is used but postgres is still enabled,
 # scale the migration init container to 0
@@ -144,6 +146,9 @@ OGA_IRD_PORT="${OGA_IRD_PORT:-8083}"
 OGA_APP_NPQS_PORT="${OGA_APP_NPQS_PORT:-5174}"
 OGA_APP_FCAU_PORT="${OGA_APP_FCAU_PORT:-5175}"
 OGA_APP_IRD_PORT="${OGA_APP_IRD_PORT:-5176}"
+OGA_NPQS_DB_DRIVER="${OGA_NPQS_DB_DRIVER:-postgres}"
+OGA_FCAU_DB_DRIVER="${OGA_FCAU_DB_DRIVER:-sqlite}"
+OGA_IRD_DB_DRIVER="${OGA_IRD_DB_DRIVER:-sqlite}"
 DB_PORT="${DB_PORT:-55432}"
 
 # --- Build --------------------------------------------------------------------
@@ -165,9 +170,9 @@ cat <<EOF
 NSW Docker services:
   - backend        -> http://localhost:${BACKEND_PORT}
   - trader-app     -> http://localhost:${TRADER_APP_PORT}
-  - oga-npqs       -> http://localhost:${OGA_NPQS_PORT} (Driver: ${OGA_DB_DRIVER:-sqlite})
-  - oga-fcau       -> http://localhost:${OGA_FCAU_PORT} (Driver: ${OGA_DB_DRIVER:-sqlite})
-  - oga-ird        -> http://localhost:${OGA_IRD_PORT} (Driver: ${OGA_DB_DRIVER:-sqlite})
+  - oga-npqs       -> http://localhost:${OGA_NPQS_PORT} (Driver: ${OGA_NPQS_DB_DRIVER})
+  - oga-fcau       -> http://localhost:${OGA_FCAU_PORT} (Driver: ${OGA_FCAU_DB_DRIVER})
+  - oga-ird        -> http://localhost:${OGA_IRD_PORT} (Driver: ${OGA_IRD_DB_DRIVER})
   - oga-app-npqs   -> http://localhost:${OGA_APP_NPQS_PORT}
   - oga-app-fcau   -> http://localhost:${OGA_APP_FCAU_PORT}
   - oga-app-ird    -> http://localhost:${OGA_APP_IRD_PORT}

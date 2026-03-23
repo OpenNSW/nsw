@@ -14,9 +14,11 @@ LABEL org.opencontainers.image.source="https://github.com/OpenNSW/nsw"
 LABEL org.opencontainers.image.description="NSW OGA Backend Service"
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates wget \
-    && rm -rf /var/lib/apt/lists/* \
-    && useradd -r -s /bin/false -d /app appuser
+  && apt-get install -y --no-install-recommends ca-certificates wget \
+  && rm -rf /var/lib/apt/lists/* \
+  && useradd -r -s /bin/false -d /app appuser \
+  && mkdir -p /app /data \
+  && chown -R appuser:appuser /data /app
 
 WORKDIR /app
 

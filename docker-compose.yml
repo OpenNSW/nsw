@@ -38,6 +38,7 @@ networks:
 volumes:
   thunder-db:
   postgres-data:
+  oga-npqs-postgres-data:
   backend-uploads:
   oga-npqs-data:
   oga-fcau-data:
@@ -265,6 +266,23 @@ services:
   # OGA NPQS — oga-npqs-net
   # ============================================================================
 
+  oga-npqs-db:
+    image: postgres:16-alpine
+    ports:
+      - "${OGA_NPQS_DB_PORT:-55433}:5432"
+    environment:
+      POSTGRES_PASSWORD: ${OGA_NPQS_DB_PASSWORD:-changeme}
+      POSTGRES_DB: ${OGA_NPQS_DB_NAME:-oga_npqs_db}
+    volumes:
+      - oga-npqs-postgres-data:/var/lib/postgresql/data
+    networks:
+      - oga-npqs-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${OGA_NPQS_DB_USERNAME:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   oga-npqs:
     build:
       context: ./oga
@@ -276,16 +294,18 @@ services:
       - oga-npqs-data:/data
     networks:
       - oga-npqs-net
+    depends_on:
+      oga-npqs-db:
+        condition: service_healthy
     environment:
       OGA_PORT: ${OGA_NPQS_PORT:-8081}
       OGA_DB_DRIVER: ${OGA_NPQS_DB_DRIVER:-postgres}
-      OGA_DB_PATH: ${OGA_NPQS_DB_PATH:-/data/oga_applications.db}
-      OGA_DB_HOST: ${OGA_NPQS_DB_HOST:-postgres}
-      OGA_DB_PORT: ${OGA_NPQS_DB_PORT:-5432}
-      OGA_DB_USER: ${OGA_NPQS_DB_USER:-postgres}
+      OGA_DB_HOST: ${OGA_NPQS_DB_HOST:-oga-npqs-db}
+      OGA_DB_PORT: "5432"
+      OGA_DB_USER: ${OGA_NPQS_DB_USERNAME:-postgres}
       OGA_DB_PASSWORD: ${OGA_NPQS_DB_PASSWORD:-changeme}
       OGA_DB_NAME: ${OGA_NPQS_DB_NAME:-oga_npqs_db}
-      OGA_DB_SSLMODE: ${OGA_NPQS_DB_SSLMODE:-disable}
+      OGA_DB_SSLMODE: disable
       OGA_DEFAULT_FORM_ID: ${OGA_NPQS_DEFAULT_FORM_ID:-default}
       OGA_ALLOWED_ORIGINS: ${OGA_NPQS_ALLOWED_ORIGINS:-http://localhost:5174}
 
@@ -325,12 +345,6 @@ services:
       OGA_PORT: ${OGA_FCAU_PORT:-8082}
       OGA_DB_DRIVER: ${OGA_FCAU_DB_DRIVER:-sqlite}
       OGA_DB_PATH: ${OGA_FCAU_DB_PATH:-/data/oga_applications.db}
-      OGA_DB_HOST: ${OGA_FCAU_DB_HOST:-postgres}
-      OGA_DB_PORT: ${OGA_FCAU_DB_PORT:-5432}
-      OGA_DB_USER: ${OGA_FCAU_DB_USER:-postgres}
-      OGA_DB_PASSWORD: ${OGA_FCAU_DB_PASSWORD:-changeme}
-      OGA_DB_NAME: ${OGA_FCAU_DB_NAME:-oga_fcau_db}
-      OGA_DB_SSLMODE: ${OGA_FCAU_DB_SSLMODE:-disable}
       OGA_DEFAULT_FORM_ID: ${OGA_FCAU_DEFAULT_FORM_ID:-default}
       OGA_ALLOWED_ORIGINS: ${OGA_FCAU_ALLOWED_ORIGINS:-http://localhost:5175}
 
@@ -369,12 +383,6 @@ services:
       OGA_PORT: ${OGA_IRD_PORT:-8083}
       OGA_DB_DRIVER: ${OGA_IRD_DB_DRIVER:-sqlite}
       OGA_DB_PATH: ${OGA_IRD_DB_PATH:-/data/oga_applications.db}
-      OGA_DB_HOST: ${OGA_IRD_DB_HOST:-postgres}
-      OGA_DB_PORT: ${OGA_IRD_DB_PORT:-5432}
-      OGA_DB_USER: ${OGA_IRD_DB_USER:-postgres}
-      OGA_DB_PASSWORD: ${OGA_IRD_DB_PASSWORD:-changeme}
-      OGA_DB_NAME: ${OGA_IRD_DB_NAME:-oga_ird_db}
-      OGA_DB_SSLMODE: ${OGA_IRD_DB_SSLMODE:-disable}
       OGA_DEFAULT_FORM_ID: ${OGA_IRD_DEFAULT_FORM_ID:-default}
       OGA_ALLOWED_ORIGINS: ${OGA_IRD_ALLOWED_ORIGINS:-http://localhost:5176}
 
