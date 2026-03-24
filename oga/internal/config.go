@@ -25,18 +25,18 @@ func LoadConfig() (Config, error) {
 	// Isolate required configurations per driver
 	switch driver {
 	case "postgres":
-		password := firstEnv("OGA_DB_PASSWORD", "DB_PASSWORD", "")
+		password := os.Getenv("OGA_DB_PASSWORD")
 		if password == "" {
-			return Config{}, fmt.Errorf("database password secret is missing: OGA_DB_PASSWORD or DB_PASSWORD is required for postgres driver")
+			return Config{}, fmt.Errorf("database password secret is missing: OGA_DB_PASSWORD is required for postgres driver")
 		}
 
 		dbConfig = database.Config{
 			Driver:   driver,
-			Host:     firstEnv("OGA_DB_HOST", "DB_HOST", "localhost"),
-			Port:     firstEnv("OGA_DB_PORT", "DB_PORT", "5432"),
-			User:     firstEnv("OGA_DB_USER", "DB_USERNAME", "postgres"),
+			Host:     envOrDefault("OGA_DB_HOST", "localhost"),
+			Port:     envOrDefault("OGA_DB_PORT", "5432"),
+			User:     envOrDefault("OGA_DB_USER", "postgres"),
 			Password: password, // Uses the strictly validated password
-			Name:     firstEnv("OGA_DB_NAME", "DB_NAME", "oga_db"),
+			Name:     envOrDefault("OGA_DB_NAME", "oga_db"),
 			SSLMode:  envOrDefault("OGA_DB_SSLMODE", "disable"),
 		}
 
@@ -61,17 +61,6 @@ func LoadConfig() (Config, error) {
 	}
 
 	return cfg, nil
-}
-
-// firstEnv checks multiple environment variables in order, returning the first one found, or the fallback.
-func firstEnv(key1, key2, fallback string) string {
-	if v := os.Getenv(key1); v != "" {
-		return v
-	}
-	if v := os.Getenv(key2); v != "" {
-		return v
-	}
-	return fallback
 }
 
 func envOrDefault(key, defaultValue string) string {
