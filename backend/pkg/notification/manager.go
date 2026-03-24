@@ -38,6 +38,11 @@ func (m *Manager) SendEmail(ctx context.Context, payload EmailPayload) {
 	channel := m.emailChannel
 	m.mu.RUnlock()
 
+	if channel == nil {
+		slog.WarnContext(ctx, "email channel not registered, skipping send")
+		return
+	}
+
 	go func() {
 		results := channel.Send(ctx, payload)
 		m.logErrors("EMAIL", results)
@@ -49,6 +54,11 @@ func (m *Manager) SendSMS(ctx context.Context, payload SMSPayload) {
 	m.mu.RLock()
 	channel := m.smsChannel
 	m.mu.RUnlock()
+
+	if channel == nil {
+		slog.WarnContext(ctx, "sms channel not registered, skipping send")
+		return
+	}
 
 	go func() {
 		results := channel.Send(ctx, payload)
