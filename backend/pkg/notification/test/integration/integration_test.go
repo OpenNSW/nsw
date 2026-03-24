@@ -19,7 +19,7 @@ func TestNotificationIntegration(t *testing.T) {
 	received := make(chan map[string]interface{}, 1)
 
 	// 1. Setup Mock SMS Server
-	smsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	smsServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		var payload map[string]interface{}
 		_ = json.Unmarshal(body, &payload)
@@ -37,6 +37,7 @@ func TestNotificationIntegration(t *testing.T) {
 		SIDCode:      "TEST_BRAND",
 		BaseURL:      smsServer.URL,
 		TemplateRoot: "testdata/sms",
+		HTTPClient:   smsServer.Client(),
 	})
 
 	manager.RegisterSMSChannel(smsChan)

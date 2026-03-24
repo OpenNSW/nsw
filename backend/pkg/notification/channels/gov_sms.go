@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 	"time"
 
@@ -48,6 +49,16 @@ type govSMSRequestPayload struct {
 
 func (s *GovSMSChannel) Send(ctx context.Context, payload notification.SMSPayload) map[string]error {
 	results := make(map[string]error)
+
+	// Security Check: Ensure BaseURL uses HTTPS to protect credentials sent in the body.
+	if !strings.HasPrefix(strings.ToLower(s.config.BaseURL), "https://") {
+		err := fmt.Errorf("insecure GovSMS BaseURL: HTTPS is required to protect credentials")
+		for _, recipient := range payload.Recipients {
+			results[recipient] = err
+		}
+		return results
+	}
+
 	body := payload.Body
 	if payload.TemplateID != "" {
 		var err error

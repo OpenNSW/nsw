@@ -46,6 +46,7 @@ emailChan := channels.NewEmailChannel("/path/to/email/templates")
 manager.RegisterEmailChannel(emailChan)
 
 // Register Gov SMS Channel
+// NOTE: BaseURL MUST use https:// to protect credentials sent in the request body.
 smsCfg := channels.GovSMSConfig{
     UserName:     "api_user",
     Password:     "secret",
