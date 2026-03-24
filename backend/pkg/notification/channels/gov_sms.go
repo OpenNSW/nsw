@@ -113,7 +113,8 @@ func (s *GovSMSChannel) sendToRecipient(ctx context.Context, recipient string, b
 	}(resp.Body)
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("GovSMS provider returned non-200 status: %d", resp.StatusCode)
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("GovSMS provider returned non-200 status: %d, body: %s", resp.StatusCode, string(body))
 	}
 
 	return nil

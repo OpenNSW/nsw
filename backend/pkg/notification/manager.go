@@ -45,7 +45,7 @@ func (m *Manager) SendEmail(ctx context.Context, payload EmailPayload) {
 
 	go func() {
 		results := channel.Send(ctx, payload)
-		m.logErrors("EMAIL", results)
+		m.logErrors(ctx, "EMAIL", results)
 	}()
 }
 
@@ -62,14 +62,14 @@ func (m *Manager) SendSMS(ctx context.Context, payload SMSPayload) {
 
 	go func() {
 		results := channel.Send(ctx, payload)
-		m.logErrors("SMS", results)
+		m.logErrors(ctx, "SMS", results)
 	}()
 }
 
-func (m *Manager) logErrors(cType string, results map[string]error) {
+func (m *Manager) logErrors(ctx context.Context, cType string, results map[string]error) {
 	for recipient, err := range results {
 		if err != nil {
-			slog.Error("failed to send notification",
+			slog.ErrorContext(ctx, "failed to send notification",
 				"type", cType,
 				"recipient", recipient,
 				"error", err)
