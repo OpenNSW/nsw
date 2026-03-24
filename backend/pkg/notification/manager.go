@@ -18,21 +18,21 @@ func NewManager() *Manager {
 	return &Manager{}
 }
 
-// RegisterEmailChannel registers a new email provider.
+// RegisterEmailChannel registers the email provider.
 func (m *Manager) RegisterEmailChannel(channel EmailChannel) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.emailChannel = channel
 }
 
-// RegisterSMSChannel registers a new SMS/WhatsApp provider.
+// RegisterSMSChannel registers the SMS/WhatsApp provider.
 func (m *Manager) RegisterSMSChannel(channel SMSChannel) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.smsChannel = channel
 }
 
-// SendEmail dispatches email notifications asynchronously to all registered providers.
+// SendEmail dispatches an email notification asynchronously using the registered provider.
 func (m *Manager) SendEmail(ctx context.Context, payload EmailPayload) {
 	m.mu.RLock()
 	channel := m.emailChannel
@@ -49,7 +49,7 @@ func (m *Manager) SendEmail(ctx context.Context, payload EmailPayload) {
 	}()
 }
 
-// SendSMS dispatches SMS/WhatsApp notifications asynchronously to all registered providers.
+// SendSMS dispatches an SMS/WhatsApp notification asynchronously using the registered provider.
 func (m *Manager) SendSMS(ctx context.Context, payload SMSPayload) {
 	m.mu.RLock()
 	channel := m.smsChannel

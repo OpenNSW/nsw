@@ -8,14 +8,14 @@ The `notification` package provides a centralized, type-safe, and asynchronous s
 - **Asynchronous Dispatch**: All notifications are sent in the background, preventing blocking of the main application flow.
 - **Multipart Email Support**: Automatic discovery and rendering of both HTML and Plain Text templates for maximum email deliverability.
 - **Dynamic Templating**: Templates are loaded at runtime from the filesystem, allowing updates without application restarts.
-- **Granular Error Reporting**: Comprehensive logging of failures per recipient and per channel using structured logging (`slog`).
-- **Flexible Channel Implementation**: Supports multiple providers for the same channel type (e.g., multiple SMS gateways).
+- **Granular Error Reporting**: Comprehensive logging of failures per recipient using structured logging (`slog`).
+- **Pluggable Architecture**: Supports interchangeable providers for each channel type (e.g., different SMS or Email gateways).
 
 ## Architecture
 
 ### Core Components
 
-- **`Manager`**: The orchestrator that manages channel registries and dispatches notifications asynchronously.
+- **`Manager`**: The orchestrator that manages registered channels and dispatches notifications asynchronously.
 - **`EmailChannel`**: Interface and implementation for sending emails with multipart template support.
 - **`SMSChannel`**: Interface for phone-based notifications, implemented by providers like `GovSMS` and `WhatsApp`.
 - **`Payloads`**: 
