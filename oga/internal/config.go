@@ -1,12 +1,14 @@
 package internal
 
 import (
+	"log"
 	"os"
 	"strings"
 
 	"github.com/OpenNSW/nsw/oga/internal/database"
 )
 
+// Config holds the application configuration
 type Config struct {
 	Port           string
 	DB             database.Config
@@ -16,17 +18,33 @@ type Config struct {
 	NSWAPIBaseURL  string
 }
 
+// LoadConfig loads configuration from environment variables
 func LoadConfig() Config {
+	driver := envOrDefault("OGA_DB_DRIVER", "sqlite")
+
+	// Fetch the password directly using the fallback helper
+	password := firstEnv("OGA_DB_PASSWORD", "DB_PASSWORD", "")
+
+	// The Fail-Fast Security Check for Production (Postgres)
+	if driver == "postgres" && password == "" {
+		log.Fatal("FATAL: Database password secret is missing! OGA_DB_PASSWORD or DB_PASSWORD is required for postgres.")
+	}
+
+	// Fallback exclusively for local SQLite development
+	if password == "" {
+		password = "changeme"
+	}
+
 	return Config{
 		Port: envOrDefault("OGA_PORT", "8081"),
 		DB: database.Config{
-			Driver:   envOrDefault("OGA_DB_DRIVER", "sqlite"),
+			Driver:   driver,
 			Path:     envOrDefault("OGA_DB_PATH", "./oga_applications.db"),
-			Host:     envOrDefault("OGA_DB_HOST", "localhost"),
-			Port:     envOrDefault("OGA_DB_PORT", "5432"),
-			User:     envOrDefault("OGA_DB_USER", "postgres"),
-			Password: envOrDefault("OGA_DB_PASSWORD", "changeme"),
-			Name:     envOrDefault("OGA_DB_NAME", "oga_db"),
+			Host:     firstEnv("OGA_DB_HOST", "DB_HOST", "localhost"),
+			Port:     firstEnv("OGA_DB_PORT", "DB_PORT", "5432"),
+			User:     firstEnv("OGA_DB_USER", "DB_USERNAME", "postgres"),
+			Password: password, // Uses the validated password
+			Name:     firstEnv("OGA_DB_NAME", "DB_NAME", "oga_db"),
 			SSLMode:  envOrDefault("OGA_DB_SSLMODE", "disable"),
 		},
 		FormsPath:      envOrDefault("OGA_FORMS_PATH", "./data/forms"),
@@ -36,21 +54,31 @@ func LoadConfig() Config {
 	}
 }
 
-// parseOrigins splits a comma-separated list of origins.
-func parseOrigins(s string) []string {
-	var origins []string
-	for _, o := range strings.Split(s, ",") {
-		o = strings.TrimSpace(o)
-		if o != "" {
-			origins = append(origins, o)
-		}
+// firstEnv checks multiple environment variables in order, returning the first one found, or the fallback.
+func firstEnv(key1, key2, fallback string) string {
+	if v := os.Getenv(key1); v != "" {
+		return v
 	}
-	return origins
-}
-
-func envOrDefault(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
+	if v := os.Getenv(key2); v != "" {
 		return v
 	}
 	return fallback
+}
+
+func envOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+func parseOrigins(origins string) []string {
+	if origins == "" {
+		return []string{}
+	}
+	parts := strings.Split(origins, ",")
+	for i, part := range parts {
+		parts[i] = strings.TrimSpace(part)
+	}
+	return parts
 }
