@@ -16,7 +16,10 @@ import (
 )
 
 func main() {
-	cfg := internal.LoadConfig()
+	cfg, err := internal.LoadConfig()
+	if err != nil {
+		log.Fatalf("FATAL: failed to load configuration: %v", err)
+	}
 
 	slog.Info("OGA service configuration",
 		"db_driver", cfg.DB.Driver,

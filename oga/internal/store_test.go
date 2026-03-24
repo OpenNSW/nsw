@@ -21,7 +21,7 @@ func newTestStore(t *testing.T) *ApplicationStore {
 
 	var cfg Config
 	if os.Getenv("OGA_DB_DRIVER") == "postgres" {
-		cfg = LoadConfig()
+		cfg, _ = LoadConfig()
 	} else {
 		cfg = Config{
 			DB: database.Config{Driver: "sqlite", Path: ":memory:"},

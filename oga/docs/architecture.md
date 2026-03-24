@@ -75,11 +75,12 @@ Responsible for:
 Dependencies are injected top-down via constructors:
 
 ```go
-config    := LoadConfig()
-store     := NewApplicationStore(config.DBPath)
+config, err := LoadConfig()
+// handle error...
+store     := NewApplicationStore(config)
 formStore := NewFormStore(config.FormsPath, config.DefaultFormID)
-service   := NewOGAService(store, formStore)
-handler   := NewOGAHandler(service)
+service   := NewOGAService(config, store, formStore)
+handler   := NewOGAHandler(service, config.NSWAPIBaseURL)
 ```
 
 The `OGAService` interface allows the handler to depend on an abstraction rather than a concrete implementation, enabling mock-based testing.

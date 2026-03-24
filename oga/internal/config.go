@@ -1,14 +1,13 @@
 package internal
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"strings"
 
 	"github.com/OpenNSW/nsw/oga/internal/database"
 )
 
-// Config holds the application configuration
 type Config struct {
 	Port           string
 	DB             database.Config
@@ -19,39 +18,49 @@ type Config struct {
 }
 
 // LoadConfig loads configuration from environment variables
-func LoadConfig() Config {
+func LoadConfig() (Config, error) {
 	driver := envOrDefault("OGA_DB_DRIVER", "sqlite")
+	var dbConfig database.Config
 
-	// Fetch the password directly using the fallback helper
-	password := firstEnv("OGA_DB_PASSWORD", "DB_PASSWORD", "")
+	// Isolate required configurations per driver
+	switch driver {
+	case "postgres":
+		password := firstEnv("OGA_DB_PASSWORD", "DB_PASSWORD", "")
+		if password == "" {
+			return Config{}, fmt.Errorf("database password secret is missing: OGA_DB_PASSWORD or DB_PASSWORD is required for postgres driver")
+		}
 
-	// The Fail-Fast Security Check for Production (Postgres)
-	if driver == "postgres" && password == "" {
-		log.Fatal("FATAL: Database password secret is missing! OGA_DB_PASSWORD or DB_PASSWORD is required for postgres.")
-	}
-
-	// Fallback exclusively for local SQLite development
-	if password == "" {
-		password = "changeme"
-	}
-
-	return Config{
-		Port: envOrDefault("OGA_PORT", "8081"),
-		DB: database.Config{
+		dbConfig = database.Config{
 			Driver:   driver,
-			Path:     envOrDefault("OGA_DB_PATH", "./oga_applications.db"),
 			Host:     firstEnv("OGA_DB_HOST", "DB_HOST", "localhost"),
 			Port:     firstEnv("OGA_DB_PORT", "DB_PORT", "5432"),
 			User:     firstEnv("OGA_DB_USER", "DB_USERNAME", "postgres"),
-			Password: password, // Uses the validated password
+			Password: password, // Uses the strictly validated password
 			Name:     firstEnv("OGA_DB_NAME", "DB_NAME", "oga_db"),
 			SSLMode:  envOrDefault("OGA_DB_SSLMODE", "disable"),
-		},
+		}
+
+	case "sqlite":
+		// SQLite only requires a file path
+		dbConfig = database.Config{
+			Driver: driver,
+			Path:   envOrDefault("OGA_DB_PATH", "./oga_applications.db"),
+		}
+
+	default:
+		return Config{}, fmt.Errorf("unsupported database driver configured: %s", driver)
+	}
+
+	cfg := Config{
+		Port:           envOrDefault("OGA_PORT", "8081"),
+		DB:             dbConfig,
 		FormsPath:      envOrDefault("OGA_FORMS_PATH", "./data/forms"),
 		DefaultFormID:  envOrDefault("OGA_DEFAULT_FORM_ID", "default"),
 		AllowedOrigins: parseOrigins(envOrDefault("OGA_ALLOWED_ORIGINS", "*")),
 		NSWAPIBaseURL:  envOrDefault("NSW_API_BASE_URL", "http://localhost:8080/api/v1"),
 	}
+
+	return cfg, nil
 }
 
 // firstEnv checks multiple environment variables in order, returning the first one found, or the fallback.
