@@ -6,7 +6,7 @@ metadata:
 endpoints:
   - name: api
     port: 8080
-    type: REST
+    type: HTTP
     basePath: /api/v1
     visibility:
       - external
