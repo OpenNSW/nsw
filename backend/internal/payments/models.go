@@ -1,0 +1,98 @@
+package payments
+
+import (
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
+)
+
+// PaymentTransaction represents the internal state of a payment
+type PaymentTransaction struct {
+	ID              uuid.UUID         `json:"id" gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ReferenceNumber string            `json:"reference_number" gorm:"uniqueIndex"` // e.g., NSW-PR-2026-X892J
+	TaskID          string            `json:"task_id" gorm:"index"`                // Links back to the FSM Task Node
+	SessionID       string            `json:"session_id"`                          // LankaPay session identifier
+	Amount          decimal.Decimal   `json:"amount"`
+	Currency        string            `json:"currency"`       // "LKR" or foreign currency
+	Status          string            `json:"status"`         // PENDING, SUCCESS, FAILED, EXPIRED
+	PaymentMethod   string            `json:"payment_method"` // CC, BANK_TRANSFER (populated on webhook)
+	ExpiryDate      time.Time         `json:"expiry_date"`
+	GatewayMetadata map[string]string `json:"gateway_metadata" gorm:"serializer:json"`
+	CreatedAt       time.Time         `json:"created_at"`
+	UpdatedAt       time.Time         `json:"updated_at"`
+}
+
+// --------------------------------------------------------
+// Gateway Session API Contracts (Outbound to GovPay)
+// --------------------------------------------------------
+
+// CreateCheckoutRequest is the payload sent to LankaPay to initialize a session.
+type CreateCheckoutRequest struct {
+	ReferenceNumber string            `json:"reference_number"`
+	Amount          decimal.Decimal   `json:"amount"`
+	Currency        string            `json:"currency"`
+	ReturnURL       string            `json:"return_url"` // User redirect on success
+	CancelURL       string            `json:"cancel_url"` // User redirect on cancel
+	ExpiresAt       time.Time         `json:"expires_at"` // Aligned with Task TTL
+	Metadata        map[string]string `json:"metadata"`   // Pass-through data (e.g., TaskID)
+}
+
+// CreateCheckoutResponse is the expected reply from LankaPay.
+type CreateCheckoutResponse struct {
+	SessionID   string `json:"session_id"`
+	CheckoutURL string `json:"checkout_url"` // The hosted URL to redirect the user to
+	ExpiresIn   int    `json:"expires_in_seconds"`
+}
+
+// --------------------------------------------------------
+// Real-Time Validation API Contracts (Inbound from GovPay)
+// --------------------------------------------------------
+
+// ValidateReferenceRequest is the payload GovPay sends when a user enters a reference in their bank app.
+type ValidateReferenceRequest struct {
+	PaymentReference string `json:"paymentReference"` // Maps to our ReferenceNumber
+	ServiceType      string `json:"serviceType"`      // e.g., NSW_IMPORT_PERMIT_CD
+}
+
+// ValidateReferenceResponse is the payload we return to GovPay to auto-populate the user's screen.
+type ValidateReferenceResponse struct {
+	Amount     decimal.Decimal `json:"amount"`
+	Currency   string          `json:"currency"`
+	TraderName string          `json:"traderName"`
+	OGAName    string          `json:"ogaName"`
+	ExpiryDate string          `json:"expiryDate"` // ISO8601 format string
+	IsPayable  bool            `json:"isPayable"`  // false if already paid or expired
+	Remarks    string          `json:"remarks,omitempty"`
+}
+
+// --------------------------------------------------------
+// Webhook and Internal Events
+// --------------------------------------------------------
+
+// WebhookPayload represents the external callback from LankaPay to the Payment Service.
+type WebhookPayload struct {
+	ReferenceNumber      string            `json:"reference_number"`
+	SessionID            string            `json:"session_id"`
+	GatewayTransactionID string            `json:"gateway_transaction_id"`
+	Status               string            `json:"status"`
+	Amount               decimal.Decimal   `json:"amount"`
+	Currency             string            `json:"currency"`
+	PaymentMethod        string            `json:"payment_method"`
+	Timestamp            string            `json:"timestamp"`
+	Metadata             map[string]string `json:"metadata"`
+}
+
+// InternalPaymentEvent represents the internal event the Payment Service fires for the Task Engine.
+type InternalPaymentEvent struct {
+	EventType string `json:"event_type"`
+	Data      struct {
+		TaskID               string          `json:"task_id"`
+		ReferenceNumber      string          `json:"reference_number"`
+		GatewayTransactionID string          `json:"gateway_transaction_id"`
+		Status               string          `json:"status"`
+		AmountPaid           decimal.Decimal `json:"amount_paid"`
+		Currency             string          `json:"currency"`
+		ConfirmedAt          string          `json:"confirmed_at"`
+	} `json:"data"`
+}
