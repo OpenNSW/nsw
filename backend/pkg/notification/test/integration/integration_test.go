@@ -12,6 +12,7 @@ import (
 	"github.com/OpenNSW/nsw/pkg/notification"
 	"github.com/OpenNSW/nsw/pkg/notification/channels"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNotificationIntegration(t *testing.T) {
@@ -20,9 +21,10 @@ func TestNotificationIntegration(t *testing.T) {
 
 	// 1. Setup Mock SMS Server
 	smsServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ := io.ReadAll(r.Body)
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
 		var payload map[string]interface{}
-		_ = json.Unmarshal(body, &payload)
+		require.NoError(t, json.Unmarshal(body, &payload))
 		received <- payload
 		w.WriteHeader(http.StatusOK)
 	}))

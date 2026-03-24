@@ -35,9 +35,10 @@ func TestGovSMSChannel_Send(t *testing.T) {
 
 	t.Run("Successful Send with Body", func(t *testing.T) {
 		server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			body, _ := io.ReadAll(r.Body)
+			body, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
 			var req govSMSRequestPayload
-			_ = json.Unmarshal(body, &req)
+			require.NoError(t, json.Unmarshal(body, &req))
 
 			assert.Equal(t, "POST", r.Method)
 			assert.Equal(t, "Direct Body", req.Data)
@@ -65,9 +66,10 @@ func TestGovSMSChannel_Send(t *testing.T) {
 
 	t.Run("Successful Send with Template", func(t *testing.T) {
 		server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			body, _ := io.ReadAll(r.Body)
+			body, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
 			var req govSMSRequestPayload
-			_ = json.Unmarshal(body, &req)
+			require.NoError(t, json.Unmarshal(body, &req))
 
 			assert.Equal(t, "Hello World!", req.Data)
 			w.WriteHeader(http.StatusOK)
