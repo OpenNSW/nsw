@@ -17,8 +17,14 @@ import (
 )
 
 type InitTaskRequest struct {
-	TaskID                 string      `json:"task_id"`
-	WorkflowID             string      `json:"workflow_id"`
+	// Task ID is the unique identifier for this task instance.
+	TaskID string `json:"task_id"`
+	// Workflow ID is the unique identifier for the currently active workflow instance.
+	// TODO: This is not used, remove this in a separate PR
+	WorkflowID string `json:"workflow_id"`
+	// WorkflowNodeTemplateID is the unique identifier for the currently active workflow
+	// node template (aka task template).
+	// TODO: This is not used, remove this in a separate PR
 	WorkflowNodeTemplateID string      `json:"workflow_node_template_id"`
 	Type                   plugin.Type `json:"type"`
 	GlobalState            map[string]any
@@ -37,8 +43,12 @@ type ExecuteTaskResponse struct {
 	Error   string      `json:"error,omitempty"`
 }
 
-// WorkflowUpdateHandler handles task completion notifications for the workflow manager.
+// WorkflowUpdateHandler handles task update notifications for the workflow manager.
 type WorkflowUpdateHandler func(ctx context.Context, taskID string, state *plugin.State, extendedState *string, appendGlobalContext map[string]any, outcome *string)
+
+// WorkflowDoneHandler handles task completion notifications for the workflow manager.
+// TODO: these functions should return an error?
+type WorkflowDoneHandler func(ctx context.Context, workflowID, taskID string, outputs map[string]any)
 
 // TaskManager handles task execution and status management
 // Architecture: Trader Portal → Workflow Engine → Task Manager
@@ -53,8 +63,15 @@ type TaskManager interface {
 	ExecuteTask(ctx context.Context, req ExecuteTaskRequest) (*plugin.ExecutionResponse, error)
 	GetTaskRenderInfo(ctx context.Context, taskID string) (*plugin.ApiResponse, error)
 
-	// RegisterUpstreamCallback registers the callback used when task state changes.
+	// Used by Old WorkflowManager
+	// RegisterUpstreamCallback registers the callback used for task updates.
 	RegisterUpstreamCallback(callback WorkflowUpdateHandler)
+
+	// User by New WorkflowManager V2
+	// RegisterUpstreamDoneCallback registers the callback used when task is done.
+	RegisterUpstreamDoneCallback(callback WorkflowDoneHandler)
+	// RegisterUpstreamUpdateCallback registers the callback used when task state changes.
+	RegisterUpstreamUpdateCallback(callback WorkflowUpdateHandler)
 }
 
 // ExecuteTaskRequest represents the request body for task execution
@@ -67,10 +84,12 @@ type ExecuteTaskRequest struct {
 type taskManager struct {
 	factory               plugin.TaskFactory
 	store                 persistence.TaskStoreInterface // Storage for task executions
-	workflowUpdateHandler WorkflowUpdateHandler          // Handler used to notify Workflow Manager of task completions
+	workflowUpdateHandler WorkflowUpdateHandler          // Handler used to notify Workflow Manager of task updates
+	workflowDoneHandler   WorkflowDoneHandler            // Handler used to notify Workflow Manager of task completions
 	config                *config.Config                 // Application configuration
 	containerCache        *containerCache                // LRU cache for active containers
 	containerBuildMu      sync.Mutex                     // Protects container creation to prevent duplicates
+	useWorkflowManagerV2  bool                           // Are we using the  workflow manager v2. This is a temporary flag during the migration.
 }
 
 // NewTaskManager creates a new TaskManager instance with persistence data store.
@@ -93,9 +112,23 @@ func NewTaskManager(db *gorm.DB, cfg *config.Config, formService form.FormServic
 	}, nil
 }
 
-// RegisterUpstreamCallback registers the callback used for task completion notifications.
+// RegisterUpstreamUpdateCallback registers the callback used for task updates.
+// TODO: delete this after the migration to the new WorkflowManager.
 func (tm *taskManager) RegisterUpstreamCallback(callback WorkflowUpdateHandler) {
+	tm.useWorkflowManagerV2 = false
 	tm.workflowUpdateHandler = callback
+}
+
+// RegisterUpstreamUpdateCallback registers the callback used for task updates.
+func (tm *taskManager) RegisterUpstreamUpdateCallback(callback WorkflowUpdateHandler) {
+	tm.useWorkflowManagerV2 = true
+	tm.workflowUpdateHandler = callback
+}
+
+// RegisterUpstreamDoneCallback registers the callback used for task completion notifications.
+func (tm *taskManager) RegisterUpstreamDoneCallback(callback WorkflowDoneHandler) {
+	tm.useWorkflowManagerV2 = true
+	tm.workflowDoneHandler = callback
 }
 
 // GetTaskRenderInfo retrieves task rendering info (core logic)
@@ -145,6 +178,7 @@ func (tm *taskManager) ExecuteTask(ctx context.Context, req ExecuteTaskRequest) 
 // to the database, and invokes the plugin's Start method.
 // Returns InitTaskResponse on success, or an error if initialization or start fails.
 func (tm *taskManager) InitTask(ctx context.Context, request InitTaskRequest) (*InitTaskResponse, error) {
+
 	// Check if container already exists in cache
 	if existing, found := tm.containerCache.Get(request.TaskID); found {
 		slog.WarnContext(ctx, "task already initialized, reusing existing container",
@@ -237,7 +271,15 @@ func (tm *taskManager) execute(ctx context.Context, activeTask *container.Contai
 	}
 
 	if result.NewState != nil {
-		tm.notifyWorkflowUpdateHandler(ctx, activeTask.TaskID, result.NewState, result.ExtendedState, result.AppendGlobalContext, result.EmittedOutcome)
+		if tm.useWorkflowManagerV2 {
+			if *result.NewState == plugin.Completed || *result.NewState == plugin.Failed {
+				tm.notifyWorkflowDoneHandler(ctx, activeTask.WorkflowID, activeTask.TaskID, result.AppendGlobalContext)
+			} else {
+				tm.notifyWorkflowUpdateHandler(ctx, activeTask.TaskID, result.NewState, result.ExtendedState, result.AppendGlobalContext, result.EmittedOutcome)
+			}
+		} else {
+			tm.notifyWorkflowUpdateHandler(ctx, activeTask.TaskID, result.NewState, result.ExtendedState, result.AppendGlobalContext, result.EmittedOutcome)
+		}
 	}
 
 	return result, nil
@@ -338,6 +380,26 @@ func (tm *taskManager) notifyWorkflowUpdateHandler(ctx context.Context, taskID s
 		"taskID", taskID,
 		"state", state,
 		"extendedState", extendedState,
+		"appendGlobalContext", appendGlobalContext,
+	)
+}
+
+func (tm *taskManager) notifyWorkflowDoneHandler(
+	ctx context.Context,
+	workflowID string,
+	taskID string,
+	appendGlobalContext map[string]any) {
+	if tm.workflowDoneHandler == nil {
+		slog.WarnContext(ctx, "workflow manager callback not configured, skipping notification",
+			"taskID", taskID,
+			"appendGlobalContext", appendGlobalContext,
+		)
+		return
+	}
+
+	tm.workflowDoneHandler(ctx, workflowID, taskID, appendGlobalContext)
+	slog.DebugContext(ctx, "task completion notification sent via callback",
+		"taskID", taskID,
 		"appendGlobalContext", appendGlobalContext,
 	)
 }

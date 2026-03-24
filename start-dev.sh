@@ -71,6 +71,18 @@ if [[ "$RUN_MIGRATIONS" == "true" ]]; then
   )
 fi
 
+# Use Workflow Manager V2 by default for development and testing. Set to 'false' if you want to use the old workflow manager.
+# TODO: Need to remove this flag and related code once Temporal Workflow Manager is fully adopted and tested.
+USE_WORKFLOW_MANAGER_V2="${USE_WORKFLOW_MANAGER_V2:-false}"
+
+if [[ "$USE_WORKFLOW_MANAGER_V2" == "true" ]]; then
+  echo "Starting Temporal Workflow Manager..."
+  (
+    cd "$ROOT_DIR/temporal"
+    docker compose up -d
+  )
+fi
+
 DB_HOST="${DB_HOST:-localhost}"
 DB_PORT="${DB_PORT:-5432}"
 DB_NAME="${DB_NAME:-nsw_db}"
@@ -150,6 +162,7 @@ start_service() {
 echo "Starting local development services (non-Docker)..."
 
 start_service "backend" "$ROOT_DIR/backend" env \
+  USE_WORKFLOW_MANAGER_V2="$USE_WORKFLOW_MANAGER_V2" \
   DB_HOST="$DB_HOST" \
   DB_PORT="$DB_PORT" \
   DB_NAME="$DB_NAME" \

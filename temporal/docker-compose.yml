@@ -1,0 +1,46 @@
+volumes:
+  postgres-data:
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: temporal-postgres
+    ports:
+      - "${TEMPORAL_DB_PORT:-55435}:5432"
+    environment:
+      POSTGRES_USER: ${TEMPORAL_DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${TEMPORAL_DB_PASSWORD:-changeme}
+      POSTGRES_DB: temporal
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${TEMPORAL_DB_USERNAME:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  temporal:
+    image: temporalio/auto-setup:1.28.3
+    container_name: temporal
+    ports:
+      - "${TEMPORAL_PORT:-7233}:7233"
+    environment:
+      DB: postgres12
+      DB_PORT: 5432
+      POSTGRES_USER: ${TEMPORAL_DB_USERNAME:-postgres}
+      POSTGRES_PWD: ${TEMPORAL_DB_PASSWORD:-changeme}
+      POSTGRES_SEEDS: postgres
+      DB_NAME: temporal
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  temporal-ui:
+    image: temporalio/ui:2.48.0
+    container_name: temporal-ui
+    ports:
+      - "${TEMPORAL_UI_PORT:-8233}:8080"
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+    depends_on:
+      - temporal

@@ -3,13 +3,17 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"maps"
 	"time"
 
 	"gorm.io/gorm"
 
-	workflowmanager "github.com/OpenNSW/nsw/internal/workflow/manager"
+	workflowManagerV2 "github.com/OpenNSW/go-temporal-workflow"
+
+	workflowmanagerV1 "github.com/OpenNSW/nsw/internal/workflow/manager"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
+	wfutils "github.com/OpenNSW/nsw/internal/workflow/utils"
 	"github.com/OpenNSW/nsw/utils"
 )
 
@@ -17,17 +21,19 @@ import (
 // It coordinates between workflow templates, nodes, and the workflow manager.
 // It also implements WorkflowEventHandler for domain-specific lifecycle callbacks.
 type ConsignmentService struct {
-	db               *gorm.DB
-	templateProvider TemplateProvider
-	workflowManager  workflowmanager.Manager
+	db                *gorm.DB
+	templateProvider  TemplateProvider
+	workflowManagerV1 workflowmanagerV1.Manager
+	workflowManagerV2 workflowManagerV2.Manager
 }
 
 // NewConsignmentService creates a new instance of ConsignmentService.
-func NewConsignmentService(db *gorm.DB, templateProvider TemplateProvider, workflowManager workflowmanager.Manager) *ConsignmentService {
+func NewConsignmentService(db *gorm.DB, templateProvider TemplateProvider, wmV1 workflowmanagerV1.Manager, wmV2 workflowManagerV2.Manager) *ConsignmentService {
 	return &ConsignmentService{
-		db:               db,
-		templateProvider: templateProvider,
-		workflowManager:  workflowManager,
+		db:                db,
+		templateProvider:  templateProvider,
+		workflowManagerV1: wmV1,
+		workflowManagerV2: wmV2,
 	}
 }
 
@@ -67,7 +73,7 @@ func (s *ConsignmentService) CreateConsignmentShell(ctx context.Context, flow mo
 	if err := s.db.WithContext(ctx).First(consignment, "id = ?", consignment.ID).Error; err != nil {
 		return nil, fmt.Errorf("failed to reload consignment: %w", err)
 	}
-	responseDTO, err := s.buildConsignmentDetailDTO(ctx, consignment, nil, newHSCodeBatchLoader(s.db))
+	responseDTO, err := s.buildConsignmentDetailDTO(ctx, consignment, nil, nil, newHSCodeBatchLoader(s.db))
 	if err != nil {
 		return nil, err
 	}
@@ -114,9 +120,18 @@ func (s *ConsignmentService) InitializeConsignmentByID(ctx context.Context, cons
 		return nil, fmt.Errorf("failed to update consignment: %w", err)
 	}
 
-	if err := s.workflowManager.StartWorkflowInstance(ctx, tx, consignment.ID, workflowTemplates, globalContext, s); err != nil {
-		tx.Rollback()
-		return nil, fmt.Errorf("failed to register workflow: %w", err)
+	if s.workflowManagerV2 != nil {
+		// TODO: add support for collapsing multiple HS codes to one workflow.
+		workflowTemplate := []byte(wfutils.CustomsWorkflowJSON)
+		if err := s.workflowManagerV2.StartWorkflow(ctx, consignment.ID, workflowTemplate, globalContext); err != nil {
+			tx.Rollback()
+			return nil, fmt.Errorf("failed to register workflow: %w", err)
+		}
+	} else {
+		if err := s.workflowManagerV1.StartWorkflowInstance(ctx, tx, consignment.ID, workflowTemplates, globalContext, s); err != nil {
+			tx.Rollback()
+			return nil, fmt.Errorf("failed to register workflow: %w", err)
+		}
 	}
 
 	if err := tx.Commit().Error; err != nil {
@@ -129,9 +144,20 @@ func (s *ConsignmentService) InitializeConsignmentByID(ctx context.Context, cons
 		return nil, fmt.Errorf("failed to reload consignment: %w", err)
 	}
 
-	wf, err := s.workflowManager.GetWorkflowInstance(ctx, consignment.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get workflow details: %w", err)
+	var wf *model.Workflow
+	var twf *workflowManagerV2.WorkflowInstance
+	if s.workflowManagerV2 != nil {
+		var err error
+		twf, err = s.workflowManagerV2.GetStatus(ctx, consignment.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get v2 workflow details: %w", err)
+		}
+	} else {
+		var err error
+		wf, err = s.workflowManagerV1.GetWorkflowInstance(ctx, consignment.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get legacy workflow details: %w", err)
+		}
 	}
 
 	hsLoader := newHSCodeBatchLoader(s.db)
@@ -140,10 +166,11 @@ func (s *ConsignmentService) InitializeConsignmentByID(ctx context.Context, cons
 		return nil, fmt.Errorf("failed to load HS codes: %w", err)
 	}
 
-	responseDTO, err := s.buildConsignmentDetailDTO(ctx, &consignment, wf, hsLoader)
+	responseDTO, err := s.buildConsignmentDetailDTO(ctx, &consignment, wf, twf, hsLoader)
 	if err != nil {
 		return nil, err
 	}
+
 	return responseDTO, nil
 }
 
@@ -199,9 +226,17 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 		return nil, fmt.Errorf("failed to create consignment: %w", err)
 	}
 
-	if err := s.workflowManager.StartWorkflowInstance(ctx, tx, consignment.ID, workflowTemplates, globalContext, s); err != nil {
-		tx.Rollback()
-		return nil, fmt.Errorf("failed to register workflow: %w", err)
+	if s.workflowManagerV2 != nil {
+		workflowTemplate := []byte(wfutils.CustomsWorkflowJSON)
+		if err := s.workflowManagerV2.StartWorkflow(ctx, consignment.ID, workflowTemplate, globalContext); err != nil {
+			tx.Rollback()
+			return nil, fmt.Errorf("failed to register v2 workflow: %w", err)
+		}
+	} else {
+		if err := s.workflowManagerV1.StartWorkflowInstance(ctx, tx, consignment.ID, workflowTemplates, globalContext, s); err != nil {
+			tx.Rollback()
+			return nil, fmt.Errorf("failed to register workflow: %w", err)
+		}
 	}
 
 	if err := tx.Commit().Error; err != nil {
@@ -214,9 +249,20 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 		return nil, fmt.Errorf("failed to reload consignment: %w", err)
 	}
 
-	wf, err := s.workflowManager.GetWorkflowInstance(ctx, consignment.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get workflow details: %w", err)
+	var wf *model.Workflow
+	var twf *workflowManagerV2.WorkflowInstance
+	if s.workflowManagerV2 != nil {
+		var err error
+		twf, err = s.workflowManagerV2.GetStatus(ctx, consignment.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get v2 workflow details: %w", err)
+		}
+	} else {
+		var err error
+		wf, err = s.workflowManagerV1.GetWorkflowInstance(ctx, consignment.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get workflow details: %w", err)
+		}
 	}
 
 	hsLoader := newHSCodeBatchLoader(s.db)
@@ -225,11 +271,10 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 		return nil, fmt.Errorf("failed to load HS codes: %w", err)
 	}
 
-	responseDTO, err := s.buildConsignmentDetailDTO(ctx, consignment, wf, hsLoader)
+	responseDTO, err := s.buildConsignmentDetailDTO(ctx, consignment, wf, twf, hsLoader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build consignment response DTO: %w", err)
 	}
-
 	return responseDTO, nil
 }
 
@@ -243,11 +288,20 @@ func (s *ConsignmentService) GetConsignmentByID(ctx context.Context, consignment
 
 	// Load workflow details (nodes + templates) if workflow exists
 	var wf *model.Workflow
+	var twf *workflowManagerV2.WorkflowInstance
 	if consignment.State != model.ConsignmentStateInitialized {
-		var err error
-		wf, err = s.workflowManager.GetWorkflowInstance(ctx, consignment.ID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get workflow details: %w", err)
+		if s.workflowManagerV2 != nil {
+			var err error
+			twf, err = s.workflowManagerV2.GetStatus(ctx, consignment.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get v2 workflow details: %w", err)
+			}
+		} else {
+			var err error
+			wf, err = s.workflowManagerV1.GetWorkflowInstance(ctx, consignment.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get workflow details: %w", err)
+			}
 		}
 	}
 
@@ -257,7 +311,7 @@ func (s *ConsignmentService) GetConsignmentByID(ctx context.Context, consignment
 		return nil, fmt.Errorf("failed to load HS codes: %w", err)
 	}
 
-	responseDTO, err := s.buildConsignmentDetailDTO(ctx, &consignment, wf, hsLoader)
+	responseDTO, err := s.buildConsignmentDetailDTO(ctx, &consignment, wf, twf, hsLoader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build consignment response DTO: %w", err)
 	}
@@ -431,6 +485,7 @@ func (s *ConsignmentService) listConsignmentsWithBaseQuery(ctx context.Context, 
 }
 
 // UpdateConsignment updates an existing consignment in the database.
+// TODO: clean up? this doesn't seem to be used anywhere other than tests?
 func (s *ConsignmentService) UpdateConsignment(ctx context.Context, updateReq *model.UpdateConsignmentDTO) (*model.ConsignmentDetailDTO, error) {
 	if updateReq == nil {
 		return nil, fmt.Errorf("update request cannot be nil")
@@ -485,11 +540,20 @@ func (s *ConsignmentService) UpdateConsignment(ctx context.Context, updateReq *m
 	}
 
 	var wf *model.Workflow
+	var twf *workflowManagerV2.WorkflowInstance
 	if consignment.State != model.ConsignmentStateInitialized {
-		var err error
-		wf, err = s.workflowManager.GetWorkflowInstance(ctx, consignment.ID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get workflow details: %w", err)
+		if s.workflowManagerV2 != nil {
+			var err error
+			twf, err = s.workflowManagerV2.GetStatus(ctx, consignment.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get v2 workflow details: %w", err)
+			}
+		} else {
+			var err error
+			wf, err = s.workflowManagerV1.GetWorkflowInstance(ctx, consignment.ID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get workflow details: %w", err)
+			}
 		}
 	}
 
@@ -499,7 +563,7 @@ func (s *ConsignmentService) UpdateConsignment(ctx context.Context, updateReq *m
 		return nil, fmt.Errorf("failed to load HS codes: %w", err)
 	}
 
-	responseDTO, err := s.buildConsignmentDetailDTO(ctx, &consignment, wf, hsLoader)
+	responseDTO, err := s.buildConsignmentDetailDTO(ctx, &consignment, wf, twf, hsLoader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build consignment response DTO: %w", err)
 	}
@@ -573,16 +637,21 @@ func (loader *hsCodeBatchLoader) get(id string) (model.HSCode, error) {
 
 // buildConsignmentDetailDTO builds a ConsignmentDetailDTO from a Consignment.
 // The workflow parameter provides the workflow nodes (nil for INITIALIZED consignments).
-func (s *ConsignmentService) buildConsignmentDetailDTO(_ context.Context, consignment *model.Consignment, workflow *model.Workflow, hsLoader *hsCodeBatchLoader) (*model.ConsignmentDetailDTO, error) {
+func (s *ConsignmentService) buildConsignmentDetailDTO(
+	ctx context.Context,
+	consignment *model.Consignment,
+	workflowV1 *model.Workflow,
+	workflowV2 *workflowManagerV2.WorkflowInstance,
+	hsLoader *hsCodeBatchLoader) (*model.ConsignmentDetailDTO, error) {
 	itemResponseDTOs, err := s.buildConsignmentItemResponseDTOs(consignment.Items, hsLoader)
 	if err != nil {
 		return nil, err
 	}
 
 	var nodeResponseDTOs []model.WorkflowNodeResponseDTO
-	if workflow != nil {
-		nodeResponseDTOs = make([]model.WorkflowNodeResponseDTO, 0, len(workflow.WorkflowNodes))
-		for _, node := range workflow.WorkflowNodes {
+	if workflowV1 != nil {
+		nodeResponseDTOs = make([]model.WorkflowNodeResponseDTO, 0, len(workflowV1.WorkflowNodes))
+		for _, node := range workflowV1.WorkflowNodes {
 			nodeResponseDTOs = append(nodeResponseDTOs, model.WorkflowNodeResponseDTO{
 				ID:        node.ID,
 				CreatedAt: node.CreatedAt.Format(time.RFC3339),
@@ -596,6 +665,61 @@ func (s *ConsignmentService) buildConsignmentDetailDTO(_ context.Context, consig
 				ExtendedState: node.ExtendedState,
 				Outcome:       node.Outcome,
 				DependsOn:     node.DependsOn,
+			})
+		}
+	} else if workflowV2 != nil {
+		taskTemplateIDs := make([]string, 0, len(workflowV2.NodeInfo))
+		for _, node := range workflowV2.NodeInfo {
+			if node.Type == workflowManagerV2.NodeTypeTask {
+				taskTemplateIDs = append(taskTemplateIDs, node.TaskTemplateID)
+			}
+		}
+		taskTemplates, err := s.templateProvider.GetWorkflowNodeTemplatesByIDs(ctx, taskTemplateIDs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to retrieve workflow node templates for consignment %s: %w", consignment.ID, err)
+		}
+		taskTemplateMap := make(map[string]model.WorkflowNodeTemplate)
+		for _, taskTemplate := range taskTemplates {
+			taskTemplateMap[taskTemplate.ID] = taskTemplate
+		}
+		nodeResponseDTOs = make([]model.WorkflowNodeResponseDTO, 0, len(workflowV2.NodeInfo))
+		for _, node := range workflowV2.NodeInfo {
+			var taskName, taskDescription, taskType string
+			var nodeState model.WorkflowNodeState
+			if node.Type == workflowManagerV2.NodeTypeTask {
+				taskTemplate, ok := taskTemplateMap[node.TaskTemplateID]
+				if !ok {
+					slog.Error("failed to retrieve workflow node template for", "consignment_id", consignment.ID, "node_id", node.ID, "task_template_id", node.TaskTemplateID)
+					return nil, fmt.Errorf("failed to retrieve workflow node template %s for node %s", node.TaskTemplateID, node.ID)
+				}
+				taskName = taskTemplate.Name
+				taskDescription = taskTemplate.Description
+				taskType = string(taskTemplate.Type)
+			} else {
+				taskType = string(node.Type)
+			}
+			// TODO: clean up translations once the frontend is updated.
+			switch node.Status {
+			case workflowManagerV2.NodeStatusRunning:
+				nodeState = model.WorkflowNodeStateInProgress
+			case workflowManagerV2.NodeStatusCompleted:
+				nodeState = model.WorkflowNodeStateCompleted
+			case workflowManagerV2.NodeStatusFailed:
+				nodeState = model.WorkflowNodeStateFailed
+			case workflowManagerV2.NodeStatusNotStarted:
+				nodeState = model.WorkflowNodeStateLocked
+			}
+			nodeResponseDTOs = append(nodeResponseDTOs, model.WorkflowNodeResponseDTO{
+				ID:        node.ID,
+				CreatedAt: node.CreatedAt.Format(time.RFC3339),
+				UpdatedAt: node.UpdatedAt.Format(time.RFC3339),
+				WorkflowNodeTemplate: model.WorkflowNodeTemplateResponseDTO{
+					Name:        taskName,
+					Description: taskDescription,
+					Type:        taskType,
+				},
+				State:     nodeState,
+				DependsOn: []string{}, // TODO: should be removed or should be populated based on the workflow definition (not currently stored in DB for v2 workflows)
 			})
 		}
 	}

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	workflowManagerV2 "github.com/OpenNSW/go-temporal-workflow"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -19,7 +20,7 @@ import (
 
 	"github.com/OpenNSW/nsw/internal/auth"
 	taskManager "github.com/OpenNSW/nsw/internal/task/manager"
-	workflowmanager "github.com/OpenNSW/nsw/internal/workflow/manager"
+	workflowManagerV1 "github.com/OpenNSW/nsw/internal/workflow/manager"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
 )
@@ -70,7 +71,7 @@ type MockWorkflowManager struct {
 	mock.Mock
 }
 
-func (m *MockWorkflowManager) StartWorkflowInstance(ctx context.Context, tx *gorm.DB, workflowID string, workflowTemplates []model.WorkflowTemplate, globalContext map[string]any, handler workflowmanager.WorkflowEventHandler) error {
+func (m *MockWorkflowManager) StartWorkflowInstance(ctx context.Context, tx *gorm.DB, workflowID string, workflowTemplates []model.WorkflowTemplate, globalContext map[string]any, handler workflowManagerV1.WorkflowEventHandler) error {
 	args := m.Called(ctx, tx, workflowID, workflowTemplates, globalContext, handler)
 	return args.Error(0)
 }
@@ -83,12 +84,40 @@ func (m *MockWorkflowManager) GetWorkflowInstance(ctx context.Context, workflowI
 	return args.Get(0).(*model.Workflow), args.Error(1)
 }
 
-func (m *MockWorkflowManager) RegisterTaskHandler(_ workflowmanager.TaskInitHandler) error {
+func (m *MockWorkflowManager) RegisterTaskHandler(_ workflowManagerV1.TaskInitHandler) error {
 	return nil
 }
 
 func (m *MockWorkflowManager) HandleTaskUpdate(_ context.Context, _ taskManager.WorkflowManagerNotification) error {
 	return nil
+}
+
+// MockWMV2 implements workflowManagerV2.TemporalManager for testing.
+type MockWMV2 struct {
+	mock.Mock
+}
+
+func (m *MockWMV2) StartWorkflow(ctx context.Context, ID string, jsonDSL []byte, initialWorkflowVariables map[string]any) error {
+	args := m.Called(ctx, ID, jsonDSL, initialWorkflowVariables)
+	return args.Error(0)
+}
+
+func (m *MockWMV2) TaskDone(ctx context.Context, workflowID, runID, nodeID string, output map[string]any) error {
+	args := m.Called(ctx, workflowID, runID, nodeID, output)
+	return args.Error(0)
+}
+
+func (m *MockWMV2) TaskUpdate(ctx context.Context, workflowID, runID string, update workflowManagerV2.UpdateEvent) error {
+	args := m.Called(ctx, workflowID, runID, update)
+	return args.Error(0)
+}
+
+func (m *MockWMV2) GetStatus(ctx context.Context, workflowID string) (*workflowManagerV2.WorkflowInstance, error) {
+	args := m.Called(ctx, workflowID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*workflowManagerV2.WorkflowInstance), args.Error(1)
 }
 
 func setupRouterTestDB(t *testing.T) (*gorm.DB, sqlmock.Sqlmock) {
@@ -126,7 +155,9 @@ func withAuthContext(ctx context.Context, userID string) context.Context {
 func TestConsignmentRouter_HandleGetConsignmentByID(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
 	mockWM := new(MockWorkflowManager)
-	svc := service.NewConsignmentService(db, nil, mockWM)
+	// TODO: Add tests for workflow manager v2
+	// MockWMV2 := new(MockWMV2)
+	svc := service.NewConsignmentService(db, nil, mockWM, nil)
 	r := NewConsignmentRouter(svc, nil)
 
 	consignmentID := uuid.NewString()
@@ -151,7 +182,7 @@ func TestConsignmentRouter_HandleGetConsignmentByID(t *testing.T) {
 
 func TestConsignmentRouter_HandleGetConsignments(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
-	svc := service.NewConsignmentService(db, nil, nil)
+	svc := service.NewConsignmentService(db, nil, nil, nil)
 	r := NewConsignmentRouter(svc, nil)
 
 	traderID := "trader1"
@@ -172,7 +203,9 @@ func TestConsignmentRouter_HandleCreateConsignment(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
 	tp := new(MockTemplateProvider)
 	mockWM := new(MockWorkflowManager)
-	svc := service.NewConsignmentService(db, tp, mockWM)
+	// TODO: Add tests for workflow manager v2
+	// MockWMV2 := new(MockWMV2)
+	svc := service.NewConsignmentService(db, tp, mockWM, nil)
 	r := NewConsignmentRouter(svc, nil)
 
 	traderID := "trader1"
@@ -367,7 +400,7 @@ func TestPreConsignmentRouter_HandleCreatePreConsignment_InvalidPayload(t *testi
 
 func TestConsignmentRouter_HandleGetConsignmentByID_InvalidID(t *testing.T) {
 	db, _ := setupRouterTestDB(t)
-	svc := service.NewConsignmentService(db, nil, nil)
+	svc := service.NewConsignmentService(db, nil, nil, nil)
 	r := NewConsignmentRouter(svc, nil)
 
 	req, _ := http.NewRequest("GET", "/api/v1/consignments/invalid-uuid", nil)
@@ -379,7 +412,7 @@ func TestConsignmentRouter_HandleGetConsignmentByID_InvalidID(t *testing.T) {
 
 func TestConsignmentRouter_HandleGetConsignments_PaginationError(t *testing.T) {
 	db, _ := setupRouterTestDB(t)
-	svc := service.NewConsignmentService(db, nil, nil)
+	svc := service.NewConsignmentService(db, nil, nil, nil)
 	r := NewConsignmentRouter(svc, nil)
 
 	req, _ := http.NewRequest("GET", "/api/v1/consignments?limit=invalid", nil)
@@ -393,7 +426,7 @@ func TestConsignmentRouter_HandleGetConsignments_PaginationError(t *testing.T) {
 
 func TestConsignmentRouter_HandleGetConsignmentByID_ServiceError(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
-	svc := service.NewConsignmentService(db, nil, nil)
+	svc := service.NewConsignmentService(db, nil, nil, nil)
 	r := NewConsignmentRouter(svc, nil)
 
 	id := uuid.NewString()
@@ -436,7 +469,7 @@ func TestHSCodeRouter_HandleGetAllHSCodes_ServiceError(t *testing.T) {
 
 func TestConsignmentRouter_HandleGetConsignments_ServiceError(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
-	svc := service.NewConsignmentService(db, nil, nil)
+	svc := service.NewConsignmentService(db, nil, nil, nil)
 	r := NewConsignmentRouter(svc, nil)
 
 	sqlMock.ExpectQuery("(?i)SELECT count").WillReturnError(fmt.Errorf("db error"))
@@ -450,7 +483,7 @@ func TestConsignmentRouter_HandleGetConsignments_ServiceError(t *testing.T) {
 
 func TestConsignmentRouter_HandleCreateConsignment_InvalidPayload(t *testing.T) {
 	db, _ := setupRouterTestDB(t)
-	r := NewConsignmentRouter(service.NewConsignmentService(db, nil, nil), nil)
+	r := NewConsignmentRouter(service.NewConsignmentService(db, nil, nil, nil), nil)
 
 	req, _ := http.NewRequest("POST", "/api/v1/consignments", bytes.NewBufferString("invalid json"))
 	req = req.WithContext(withAuthContext(req.Context(), "trader1"))

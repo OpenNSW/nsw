@@ -11,11 +11,12 @@ import (
 
 // Config holds all configuration for the application
 type Config struct {
-	Database DatabaseConfig
-	Server   ServerConfig
-	CORS     CORSConfig
-	Storage  StorageConfig
-	Auth     AuthConfig
+	Database             DatabaseConfig
+	Server               ServerConfig
+	CORS                 CORSConfig
+	Storage              StorageConfig
+	Auth                 AuthConfig
+	UseWorkflowManagerV2 bool
 }
 
 // DatabaseConfig holds database connection configuration
@@ -130,6 +131,7 @@ func Load() (*Config, error) {
 			ClientID:              getEnvOrDefault("AUTH_CLIENT_ID", "TRADER_PORTAL_APP"),
 			InsecureSkipTLSVerify: getBoolOrDefault("AUTH_JWKS_INSECURE_SKIP_VERIFY", defaultInsecureJWKS),
 		},
+		UseWorkflowManagerV2: getBoolOrDefault("USE_WORKFLOW_MANAGER_V2", false),
 	}
 
 	// Validate required fields
