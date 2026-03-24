@@ -8,35 +8,51 @@ import (
 
 // Manager is responsible for handling notification channels and dispatching messages.
 type Manager struct {
-	mu          sync.RWMutex
-	smsChannels []SMSChannel
+	mu           sync.RWMutex
+	emailChannel EmailChannel
+	smsChannel   SMSChannel
 }
 
 // NewManager initializes a new notification manager.
 func NewManager() *Manager {
-	return &Manager{
-		smsChannels: make([]SMSChannel, 0),
-	}
+	return &Manager{}
+}
+
+// RegisterEmailChannel registers a new email provider.
+func (m *Manager) RegisterEmailChannel(channel EmailChannel) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.emailChannel = channel
 }
 
 // RegisterSMSChannel registers a new SMS/WhatsApp provider.
 func (m *Manager) RegisterSMSChannel(channel SMSChannel) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.smsChannels = append(m.smsChannels, channel)
+	m.smsChannel = channel
+}
+
+// SendEmail dispatches email notifications asynchronously to all registered providers.
+func (m *Manager) SendEmail(ctx context.Context, payload EmailPayload) {
+	m.mu.RLock()
+	channel := m.emailChannel
+	m.mu.RUnlock()
+
+	go func() {
+		results := channel.Send(ctx, payload)
+		m.logErrors("EMAIL", results)
+	}()
 }
 
 // SendSMS dispatches SMS/WhatsApp notifications asynchronously to all registered providers.
 func (m *Manager) SendSMS(ctx context.Context, payload SMSPayload) {
 	m.mu.RLock()
-	channels := m.smsChannels
+	channel := m.smsChannel
 	m.mu.RUnlock()
 
 	go func() {
-		for _, channel := range channels {
-			results := channel.Send(ctx, payload)
-			m.logErrors("SMS", results)
-		}
+		results := channel.Send(ctx, payload)
+		m.logErrors("SMS", results)
 	}()
 }
 

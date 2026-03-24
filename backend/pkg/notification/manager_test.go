@@ -45,10 +45,8 @@ func TestNotificationManager(t *testing.T) {
 		SIDCode:      "TESTSID",
 		BaseURL:      smsServer.URL,
 	})
-	waChannel := channels.NewWhatsAppChannel(waTmplDir)
 
 	manager.RegisterSMSChannel(smsChannel)
-	manager.RegisterSMSChannel(waChannel)
 
 	ctx := context.Background()
 
