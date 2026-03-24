@@ -1,4 +1,4 @@
-package service
+package consignment
 
 import (
 	"context"
@@ -8,8 +8,9 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/OpenNSW/nsw/internal/template"
 	workflowmanager "github.com/OpenNSW/nsw/internal/workflow/manager"
-	"github.com/OpenNSW/nsw/internal/workflow/model"
+	workflowmodel "github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/OpenNSW/nsw/utils"
 )
 
@@ -18,12 +19,12 @@ import (
 // It also implements WorkflowEventHandler for domain-specific lifecycle callbacks.
 type ConsignmentService struct {
 	db               *gorm.DB
-	templateProvider TemplateProvider
+	templateProvider template.TemplateProvider
 	workflowManager  workflowmanager.Manager
 }
 
 // NewConsignmentService creates a new instance of ConsignmentService.
-func NewConsignmentService(db *gorm.DB, templateProvider TemplateProvider, workflowManager workflowmanager.Manager) *ConsignmentService {
+func NewConsignmentService(db *gorm.DB, templateProvider template.TemplateProvider, workflowManager workflowmanager.Manager) *ConsignmentService {
 	return &ConsignmentService{
 		db:               db,
 		templateProvider: templateProvider,
@@ -34,9 +35,9 @@ func NewConsignmentService(db *gorm.DB, templateProvider TemplateProvider, workf
 // --- WorkflowEventHandler implementation ---
 
 // OnWorkflowStatusChanged handles workflow lifecycle state propagation to consignment domain state.
-func (s *ConsignmentService) OnWorkflowStatusChanged(_ context.Context, tx *gorm.DB, workflowID string, _ model.WorkflowStatus, toStatus model.WorkflowStatus, _ *model.Workflow) error {
+func (s *ConsignmentService) OnWorkflowStatusChanged(_ context.Context, tx *gorm.DB, workflowID string, _ workflowmodel.WorkflowStatus, toStatus workflowmodel.WorkflowStatus, _ *workflowmodel.Workflow) error {
 	switch toStatus {
-	case model.WorkflowStatusCompleted:
+	case workflowmodel.WorkflowStatusCompleted:
 		return s.markConsignmentAsFinished(tx, workflowID)
 	default:
 		return nil
@@ -44,21 +45,21 @@ func (s *ConsignmentService) OnWorkflowStatusChanged(_ context.Context, tx *gorm
 }
 
 // CreateConsignmentShell creates a shell consignment (Stage 1: Trader selects CHA). State is INITIALIZED; no workflow nodes.
-func (s *ConsignmentService) CreateConsignmentShell(ctx context.Context, flow model.ConsignmentFlow, chaID string, traderID string) (*model.ConsignmentDetailDTO, error) {
+func (s *ConsignmentService) CreateConsignmentShell(ctx context.Context, flow ConsignmentFlow, chaID string, traderID string) (*ConsignmentDetailDTO, error) {
 	if traderID == "" {
 		return nil, fmt.Errorf("trader ID cannot be empty")
 	}
 	// Validate CHA exists
-	var cha model.CHA
+	var cha CHA
 	if err := s.db.WithContext(ctx).First(&cha, "id = ?", chaID).Error; err != nil {
 		return nil, fmt.Errorf("CHA not found: %w", err)
 	}
-	consignment := &model.Consignment{
+	consignment := &Consignment{
 		Flow:     flow,
 		TraderID: traderID,
 		CHAID:    &chaID,
-		State:    model.ConsignmentStateInitialized,
-		Items:    []model.ConsignmentItem{},
+		State:    ConsignmentStateInitialized,
+		Items:    []ConsignmentItem{},
 	}
 	if err := s.db.WithContext(ctx).Create(consignment).Error; err != nil {
 		return nil, fmt.Errorf("failed to create consignment: %w", err)
@@ -76,24 +77,24 @@ func (s *ConsignmentService) CreateConsignmentShell(ctx context.Context, flow mo
 
 // InitializeConsignmentByID runs Stage 2: CHA selects one or more HS Codes; creates workflow and sets state to IN_PROGRESS.
 // Returns error if consignment is not in INITIALIZED.
-func (s *ConsignmentService) InitializeConsignmentByID(ctx context.Context, consignmentID string, hsCodeIDs []string, globalContext map[string]any) (*model.ConsignmentDetailDTO, error) {
+func (s *ConsignmentService) InitializeConsignmentByID(ctx context.Context, consignmentID string, hsCodeIDs []string, globalContext map[string]any) (*ConsignmentDetailDTO, error) {
 	if len(hsCodeIDs) == 0 {
 		return nil, fmt.Errorf("at least one HS code ID is required")
 	}
 
-	var consignment model.Consignment
+	var consignment Consignment
 	if err := s.db.WithContext(ctx).First(&consignment, "id = ?", consignmentID).Error; err != nil {
 		return nil, fmt.Errorf("consignment not found: %w", err)
 	}
-	if consignment.State != model.ConsignmentStateInitialized {
+	if consignment.State != ConsignmentStateInitialized {
 		return nil, fmt.Errorf("consignment must be in INITIALIZED (current state: %s)", consignment.State)
 	}
 
-	var items []model.ConsignmentItem
-	var workflowTemplates []model.WorkflowTemplate
+	var items []ConsignmentItem
+	var workflowTemplates []workflowmodel.WorkflowTemplate
 	for _, hsCodeID := range hsCodeIDs {
-		items = append(items, model.ConsignmentItem{HSCodeID: hsCodeID})
-		wt, err := s.templateProvider.GetWorkflowTemplateByHSCodeIDAndFlow(ctx, hsCodeID, consignment.Flow)
+		items = append(items, ConsignmentItem{HSCodeID: hsCodeID})
+		wt, err := s.templateProvider.GetWorkflowTemplateByHSCodeIDAndFlow(ctx, hsCodeID, string(consignment.Flow))
 		if err != nil {
 			return nil, fmt.Errorf("failed to get workflow template for HS code %s and flow %s: %w", hsCodeID, consignment.Flow, err)
 		}
@@ -108,7 +109,7 @@ func (s *ConsignmentService) InitializeConsignmentByID(ctx context.Context, cons
 	}()
 
 	consignment.Items = items
-	consignment.State = model.ConsignmentStateInProgress
+	consignment.State = ConsignmentStateInProgress
 	if err := tx.Save(&consignment).Error; err != nil {
 		tx.Rollback()
 		return nil, fmt.Errorf("failed to update consignment: %w", err)
@@ -149,7 +150,7 @@ func (s *ConsignmentService) InitializeConsignmentByID(ctx context.Context, cons
 
 // InitializeConsignment initializes the consignment based on the provided creation request (legacy/single-stage: flow + items).
 // Returns the created consignment response DTO or an error if the operation fails.
-func (s *ConsignmentService) InitializeConsignment(ctx context.Context, createReq *model.CreateConsignmentDTO, traderId string, globalContext map[string]any) (*model.ConsignmentDetailDTO, error) {
+func (s *ConsignmentService) InitializeConsignment(ctx context.Context, createReq *CreateConsignmentDTO, traderId string, globalContext map[string]any) (*ConsignmentDetailDTO, error) {
 	if createReq == nil {
 		return nil, fmt.Errorf("create request cannot be nil")
 	}
@@ -167,19 +168,19 @@ func (s *ConsignmentService) InitializeConsignment(ctx context.Context, createRe
 }
 
 // initializeConsignmentInTx initializes the consignment within a transaction.
-func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, createReq *model.CreateConsignmentDTO, traderId string, globalContext map[string]any) (*model.ConsignmentDetailDTO, error) {
-	consignment := &model.Consignment{
+func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, createReq *CreateConsignmentDTO, traderId string, globalContext map[string]any) (*ConsignmentDetailDTO, error) {
+	consignment := &Consignment{
 		Flow:     createReq.Flow,
 		TraderID: traderId,
-		State:    model.ConsignmentStateInProgress,
+		State:    ConsignmentStateInProgress,
 	}
 
-	var items []model.ConsignmentItem
-	var workflowTemplates []model.WorkflowTemplate
+	var items []ConsignmentItem
+	var workflowTemplates []workflowmodel.WorkflowTemplate
 	for _, itemDTO := range createReq.Items {
-		item := model.ConsignmentItem(itemDTO)
+		item := ConsignmentItem(itemDTO)
 		items = append(items, item)
-		workflowTemplate, err := s.templateProvider.GetWorkflowTemplateByHSCodeIDAndFlow(ctx, itemDTO.HSCodeID, createReq.Flow)
+		workflowTemplate, err := s.templateProvider.GetWorkflowTemplateByHSCodeIDAndFlow(ctx, itemDTO.HSCodeID, string(createReq.Flow))
 		if err != nil {
 			return nil, fmt.Errorf("failed to get workflow template for HS code %s and flow %s: %w", itemDTO.HSCodeID, createReq.Flow, err)
 		}
@@ -234,16 +235,16 @@ func (s *ConsignmentService) initializeConsignmentInTx(ctx context.Context, crea
 }
 
 // GetConsignmentByID retrieves a consignment by its ID from the database.
-func (s *ConsignmentService) GetConsignmentByID(ctx context.Context, consignmentID string) (*model.ConsignmentDetailDTO, error) {
-	var consignment model.Consignment
+func (s *ConsignmentService) GetConsignmentByID(ctx context.Context, consignmentID string) (*ConsignmentDetailDTO, error) {
+	var consignment Consignment
 	result := s.db.WithContext(ctx).First(&consignment, "id = ?", consignmentID)
 	if result.Error != nil {
 		return nil, fmt.Errorf("failed to retrieve consignment with ID %s: %w", consignmentID, result.Error)
 	}
 
 	// Load workflow details (nodes + templates) if workflow exists
-	var wf *model.Workflow
-	if consignment.State != model.ConsignmentStateInitialized {
+	var wf *workflowmodel.Workflow
+	if consignment.State != ConsignmentStateInitialized {
 		var err error
 		wf, err = s.workflowManager.GetWorkflowInstance(ctx, consignment.ID)
 		if err != nil {
@@ -266,12 +267,12 @@ func (s *ConsignmentService) GetConsignmentByID(ctx context.Context, consignment
 }
 
 // ListConsignments returns consignments filtered by trader (role=trader) or by CHA (role=cha). Exactly one of filter.TraderID or filter.ChaID must be set.
-func (s *ConsignmentService) ListConsignments(ctx context.Context, filter model.ConsignmentFilter) (*model.ConsignmentListResult, error) {
+func (s *ConsignmentService) ListConsignments(ctx context.Context, filter ConsignmentFilter) (*ConsignmentListResult, error) {
 	var baseQuery *gorm.DB
 	if filter.ChaID != nil {
-		baseQuery = s.db.WithContext(ctx).Model(&model.Consignment{}).Where("cha_id = ?", *filter.ChaID)
+		baseQuery = s.db.WithContext(ctx).Model(&Consignment{}).Where("cha_id = ?", *filter.ChaID)
 	} else if filter.TraderID != nil {
-		baseQuery = s.db.WithContext(ctx).Model(&model.Consignment{}).Where("trader_id = ?", *filter.TraderID)
+		baseQuery = s.db.WithContext(ctx).Model(&Consignment{}).Where("trader_id = ?", *filter.TraderID)
 	} else {
 		return nil, fmt.Errorf("either TraderID or ChaID must be set in filter")
 	}
@@ -279,7 +280,7 @@ func (s *ConsignmentService) ListConsignments(ctx context.Context, filter model.
 }
 
 // GetConsignmentsByTraderID retrieves consignments associated with a specific trader ID with optional filtering.
-func (s *ConsignmentService) GetConsignmentsByTraderID(ctx context.Context, traderID string, offset *int, limit *int, filter model.ConsignmentFilter) (*model.ConsignmentListResult, error) {
+func (s *ConsignmentService) GetConsignmentsByTraderID(ctx context.Context, traderID string, offset *int, limit *int, filter ConsignmentFilter) (*ConsignmentListResult, error) {
 	filter.TraderID = &traderID
 	filter.Offset = offset
 	filter.Limit = limit
@@ -287,7 +288,7 @@ func (s *ConsignmentService) GetConsignmentsByTraderID(ctx context.Context, trad
 }
 
 // listConsignmentsWithBaseQuery runs the shared list logic (filters, count, pagination, DTOs).
-func (s *ConsignmentService) listConsignmentsWithBaseQuery(ctx context.Context, baseQuery *gorm.DB, filter model.ConsignmentFilter) (*model.ConsignmentListResult, error) {
+func (s *ConsignmentService) listConsignmentsWithBaseQuery(ctx context.Context, baseQuery *gorm.DB, filter ConsignmentFilter) (*ConsignmentListResult, error) {
 	// Apply pagination with defaults and limits
 	finalOffset, finalLimit := utils.GetPaginationParams(filter.Offset, filter.Limit)
 
@@ -307,15 +308,15 @@ func (s *ConsignmentService) listConsignmentsWithBaseQuery(ctx context.Context, 
 	}
 
 	if totalCount == 0 {
-		return &model.ConsignmentListResult{
+		return &ConsignmentListResult{
 			TotalCount: 0,
-			Items:      []model.ConsignmentSummaryDTO{},
+			Items:      []ConsignmentSummaryDTO{},
 			Offset:     finalOffset,
 			Limit:      finalLimit,
 		}, nil
 	}
 
-	var consignments []model.Consignment
+	var consignments []Consignment
 	// Apply Pagination and Ordering to the filtered query
 	// NOTE: We do NOT preload WorkflowNodes here to improve performance
 	query = query.
@@ -341,8 +342,8 @@ func (s *ConsignmentService) listConsignmentsWithBaseQuery(ctx context.Context, 
 	}
 
 	var nodeCounts []NodeCounts
-	err := s.db.WithContext(ctx).Model(&model.WorkflowNode{}).
-		Select("workflow_id, count(*) as total, count(case when state = ? then 1 end) as completed", model.WorkflowNodeStateCompleted).
+	err := s.db.WithContext(ctx).Model(&workflowmodel.WorkflowNode{}).
+		Select("workflow_id, count(*) as total, count(case when state = ? then 1 end) as completed", workflowmodel.WorkflowNodeStateCompleted).
 		Where("workflow_id IN ?", consignmentIDs).
 		Group("workflow_id").
 		Scan(&nodeCounts).Error
@@ -363,7 +364,7 @@ func (s *ConsignmentService) listConsignmentsWithBaseQuery(ctx context.Context, 
 		EndNodeID *string
 	}
 	var workflowEndNodes []WorkflowEndNode
-	err = s.db.WithContext(ctx).Model(&model.Workflow{}).
+	err = s.db.WithContext(ctx).Model(&workflowmodel.Workflow{}).
 		Select("id, end_node_id").
 		Where("id IN ?", consignmentIDs).
 		Scan(&workflowEndNodes).Error
@@ -387,7 +388,7 @@ func (s *ConsignmentService) listConsignmentsWithBaseQuery(ctx context.Context, 
 	}
 
 	// Build Summary DTOs for all consignments
-	var consignmentDTOs []model.ConsignmentSummaryDTO
+	var consignmentDTOs []ConsignmentSummaryDTO
 	for i := range consignments {
 		c := consignments[i]
 		counts := countsMap[c.ID]
@@ -408,7 +409,7 @@ func (s *ConsignmentService) listConsignmentsWithBaseQuery(ctx context.Context, 
 			return nil, fmt.Errorf("failed to load HS code for item in consignment %s: %w", c.ID, err)
 		}
 
-		consignmentDTOs = append(consignmentDTOs, model.ConsignmentSummaryDTO{
+		consignmentDTOs = append(consignmentDTOs, ConsignmentSummaryDTO{
 			ID:                         c.ID,
 			Flow:                       c.Flow,
 			TraderID:                   c.TraderID,
@@ -422,7 +423,7 @@ func (s *ConsignmentService) listConsignmentsWithBaseQuery(ctx context.Context, 
 		})
 	}
 
-	return &model.ConsignmentListResult{
+	return &ConsignmentListResult{
 		TotalCount: totalCount,
 		Items:      consignmentDTOs,
 		Offset:     finalOffset,
@@ -431,12 +432,12 @@ func (s *ConsignmentService) listConsignmentsWithBaseQuery(ctx context.Context, 
 }
 
 // UpdateConsignment updates an existing consignment in the database.
-func (s *ConsignmentService) UpdateConsignment(ctx context.Context, updateReq *model.UpdateConsignmentDTO) (*model.ConsignmentDetailDTO, error) {
+func (s *ConsignmentService) UpdateConsignment(ctx context.Context, updateReq *UpdateConsignmentDTO) (*ConsignmentDetailDTO, error) {
 	if updateReq == nil {
 		return nil, fmt.Errorf("update request cannot be nil")
 	}
 
-	var consignment model.Consignment
+	var consignment Consignment
 	result := s.db.WithContext(ctx).First(&consignment, "id = ?", updateReq.ConsignmentID)
 	if result.Error != nil {
 		return nil, fmt.Errorf("failed to retrieve consignment with ID %s for update: %w", updateReq.ConsignmentID, result.Error)
@@ -460,7 +461,7 @@ func (s *ConsignmentService) UpdateConsignment(ctx context.Context, updateReq *m
 	// Handle global context updates via the Workflow entity
 	if updateReq.AppendToGlobalContext != nil {
 		tx := s.db.WithContext(ctx).Begin()
-		var wf model.Workflow
+		var wf workflowmodel.Workflow
 		if err := tx.First(&wf, "id = ?", updateReq.ConsignmentID).Error; err != nil {
 			tx.Rollback()
 			return nil, fmt.Errorf("failed to retrieve workflow for consignment %s: %w", updateReq.ConsignmentID, err)
@@ -484,8 +485,8 @@ func (s *ConsignmentService) UpdateConsignment(ctx context.Context, updateReq *m
 		return nil, fmt.Errorf("failed to reload consignment: %w", err)
 	}
 
-	var wf *model.Workflow
-	if consignment.State != model.ConsignmentStateInitialized {
+	var wf *workflowmodel.Workflow
+	if consignment.State != ConsignmentStateInitialized {
 		var err error
 		wf, err = s.workflowManager.GetWorkflowInstance(ctx, consignment.ID)
 		if err != nil {
@@ -509,11 +510,11 @@ func (s *ConsignmentService) UpdateConsignment(ctx context.Context, updateReq *m
 
 // markConsignmentAsFinished updates the consignment state to FINISHED.
 func (s *ConsignmentService) markConsignmentAsFinished(tx *gorm.DB, consignmentID string) error {
-	var consignment model.Consignment
+	var consignment Consignment
 	if err := tx.First(&consignment, "id = ?", consignmentID).Error; err != nil {
 		return fmt.Errorf("failed to retrieve consignment %s: %w", consignmentID, err)
 	}
-	consignment.State = model.ConsignmentStateFinished
+	consignment.State = ConsignmentStateFinished
 	if err := tx.Save(&consignment).Error; err != nil {
 		return fmt.Errorf("failed to update consignment %s state to FINISHED: %w", consignmentID, err)
 	}
@@ -523,19 +524,19 @@ func (s *ConsignmentService) markConsignmentAsFinished(tx *gorm.DB, consignmentI
 // hsCodeBatchLoader handles batch loading of HS codes for JSONB items
 type hsCodeBatchLoader struct {
 	db        *gorm.DB
-	hsCodeMap map[string]model.HSCode
+	hsCodeMap map[string]HSCode
 	hsCodeIDs map[string]struct{}
 }
 
 func newHSCodeBatchLoader(db *gorm.DB) *hsCodeBatchLoader {
 	return &hsCodeBatchLoader{
 		db:        db,
-		hsCodeMap: make(map[string]model.HSCode),
+		hsCodeMap: make(map[string]HSCode),
 		hsCodeIDs: make(map[string]struct{}),
 	}
 }
 
-func (loader *hsCodeBatchLoader) collectFromItems(items []model.ConsignmentItem) {
+func (loader *hsCodeBatchLoader) collectFromItems(items []ConsignmentItem) {
 	for _, item := range items {
 		loader.hsCodeIDs[item.HSCodeID] = struct{}{}
 	}
@@ -551,7 +552,7 @@ func (loader *hsCodeBatchLoader) load(ctx context.Context) error {
 		hsCodeIDList = append(hsCodeIDList, id)
 	}
 
-	var hsCodes []model.HSCode
+	var hsCodes []HSCode
 	if err := loader.db.WithContext(ctx).Where("id IN ?", hsCodeIDList).Find(&hsCodes).Error; err != nil {
 		return fmt.Errorf("failed to batch load HS codes: %w", err)
 	}
@@ -563,31 +564,31 @@ func (loader *hsCodeBatchLoader) load(ctx context.Context) error {
 	return nil
 }
 
-func (loader *hsCodeBatchLoader) get(id string) (model.HSCode, error) {
+func (loader *hsCodeBatchLoader) get(id string) (HSCode, error) {
 	hsCode, exists := loader.hsCodeMap[id]
 	if !exists {
-		return model.HSCode{}, fmt.Errorf("HS code not found for ID %s", id)
+		return HSCode{}, fmt.Errorf("HS code not found for ID %s", id)
 	}
 	return hsCode, nil
 }
 
 // buildConsignmentDetailDTO builds a ConsignmentDetailDTO from a Consignment.
 // The workflow parameter provides the workflow nodes (nil for INITIALIZED consignments).
-func (s *ConsignmentService) buildConsignmentDetailDTO(_ context.Context, consignment *model.Consignment, workflow *model.Workflow, hsLoader *hsCodeBatchLoader) (*model.ConsignmentDetailDTO, error) {
+func (s *ConsignmentService) buildConsignmentDetailDTO(_ context.Context, consignment *Consignment, workflow *workflowmodel.Workflow, hsLoader *hsCodeBatchLoader) (*ConsignmentDetailDTO, error) {
 	itemResponseDTOs, err := s.buildConsignmentItemResponseDTOs(consignment.Items, hsLoader)
 	if err != nil {
 		return nil, err
 	}
 
-	var nodeResponseDTOs []model.WorkflowNodeResponseDTO
+	var nodeResponseDTOs []workflowmodel.WorkflowNodeResponseDTO
 	if workflow != nil {
-		nodeResponseDTOs = make([]model.WorkflowNodeResponseDTO, 0, len(workflow.WorkflowNodes))
+		nodeResponseDTOs = make([]workflowmodel.WorkflowNodeResponseDTO, 0, len(workflow.WorkflowNodes))
 		for _, node := range workflow.WorkflowNodes {
-			nodeResponseDTOs = append(nodeResponseDTOs, model.WorkflowNodeResponseDTO{
+			nodeResponseDTOs = append(nodeResponseDTOs, workflowmodel.WorkflowNodeResponseDTO{
 				ID:        node.ID,
 				CreatedAt: node.CreatedAt.Format(time.RFC3339),
 				UpdatedAt: node.UpdatedAt.Format(time.RFC3339),
-				WorkflowNodeTemplate: model.WorkflowNodeTemplateResponseDTO{
+				WorkflowNodeTemplate: workflowmodel.WorkflowNodeTemplateResponseDTO{
 					Name:        node.WorkflowNodeTemplate.Name,
 					Description: node.WorkflowNodeTemplate.Description,
 					Type:        string(node.WorkflowNodeTemplate.Type),
@@ -600,10 +601,10 @@ func (s *ConsignmentService) buildConsignmentDetailDTO(_ context.Context, consig
 		}
 	}
 	if nodeResponseDTOs == nil {
-		nodeResponseDTOs = []model.WorkflowNodeResponseDTO{}
+		nodeResponseDTOs = []workflowmodel.WorkflowNodeResponseDTO{}
 	}
 
-	return &model.ConsignmentDetailDTO{
+	return &ConsignmentDetailDTO{
 		ID:            consignment.ID,
 		Flow:          consignment.Flow,
 		TraderID:      consignment.TraderID,
@@ -617,15 +618,15 @@ func (s *ConsignmentService) buildConsignmentDetailDTO(_ context.Context, consig
 }
 
 // buildConsignmentItemResponseDTOs builds a slice of ConsignmentItemResponseDTO from ConsignmentItems.
-func (s *ConsignmentService) buildConsignmentItemResponseDTOs(items []model.ConsignmentItem, hsLoader *hsCodeBatchLoader) ([]model.ConsignmentItemResponseDTO, error) {
-	itemResponseDTOs := make([]model.ConsignmentItemResponseDTO, 0, len(items))
+func (s *ConsignmentService) buildConsignmentItemResponseDTOs(items []ConsignmentItem, hsLoader *hsCodeBatchLoader) ([]ConsignmentItemResponseDTO, error) {
+	itemResponseDTOs := make([]ConsignmentItemResponseDTO, 0, len(items))
 	for _, item := range items {
 		hsCode, err := hsLoader.get(item.HSCodeID)
 		if err != nil {
 			return nil, err
 		}
-		itemResponseDTOs = append(itemResponseDTOs, model.ConsignmentItemResponseDTO{
-			HSCode: model.HSCodeResponseDTO{
+		itemResponseDTOs = append(itemResponseDTOs, ConsignmentItemResponseDTO{
+			HSCode: HSCodeResponseDTO{
 				HSCodeID:    hsCode.ID,
 				HSCode:      hsCode.HSCode,
 				Description: hsCode.Description,

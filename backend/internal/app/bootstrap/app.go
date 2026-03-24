@@ -8,14 +8,15 @@ import (
 
 	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/config"
+	"github.com/OpenNSW/nsw/internal/consignment"
 	"github.com/OpenNSW/nsw/internal/database"
 	"github.com/OpenNSW/nsw/internal/form"
 	"github.com/OpenNSW/nsw/internal/middleware"
+	"github.com/OpenNSW/nsw/internal/preconsignment"
 	taskManager "github.com/OpenNSW/nsw/internal/task/manager"
+	"github.com/OpenNSW/nsw/internal/template"
 	"github.com/OpenNSW/nsw/internal/uploads"
 	workflowmanager "github.com/OpenNSW/nsw/internal/workflow/manager"
-	"github.com/OpenNSW/nsw/internal/workflow/router"
-	"github.com/OpenNSW/nsw/internal/workflow/service"
 )
 
 // App contains initialized HTTP server and cleanup hooks.
@@ -67,24 +68,24 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to create task manager: %w", err)
 	}
 
-	nodeService := service.NewWorkflowNodeService(db)
-	templateService := service.NewTemplateService(db)
+	nodeService := workflowmanager.NewWorkflowNodeService(db)
+	templateService := template.NewTemplateService(db)
 	wm := workflowmanager.NewManager(db, nodeService, templateService)
 
-	chaService := service.NewCHAService(db)
-	hsCodeService := service.NewHSCodeService(db)
-	consignmentService := service.NewConsignmentService(db, templateService, wm)
-	preConsignmentService := service.NewPreConsignmentService(db, templateService, wm)
+	chaService := consignment.NewCHAService(db)
+	hsCodeService := consignment.NewHSCodeService(db)
+	consignmentService := consignment.NewConsignmentService(db, templateService, wm)
+	preConsignmentService := preconsignment.NewPreConsignmentService(db, templateService, wm)
 
 	if err := WireManagers(wm, tm); err != nil {
 		_ = database.Close(db)
 		return nil, fmt.Errorf("failed to wire managers: %w", err)
 	}
 
-	hsCodeRouter := router.NewHSCodeRouter(hsCodeService)
-	chaRouter := router.NewCHARouter(chaService)
-	consignmentRouter := router.NewConsignmentRouter(consignmentService, chaService)
-	preConsignmentRouter := router.NewPreConsignmentRouter(preConsignmentService)
+	hsCodeRouter := consignment.NewHSCodeHandler(hsCodeService)
+	chaRouter := consignment.NewCHAHandler(chaService)
+	consignmentRouter := consignment.NewHandler(consignmentService, chaService)
+	preConsignmentRouter := preconsignment.NewPreConsignmentHandler(preConsignmentService)
 
 	storageDriver, err := uploads.NewStorageFromConfig(ctx, cfg.Storage)
 	if err != nil {
