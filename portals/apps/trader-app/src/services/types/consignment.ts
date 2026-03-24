@@ -1,3 +1,5 @@
+import type { WorkflowV2 } from './workflow'
+
 export interface CHA {
   id: string
   name: string
@@ -79,6 +81,7 @@ export interface ConsignmentDetail {
   createdAt: string
   updatedAt: string
   workflowNodes: WorkflowNode[]
+  workflow?: WorkflowV2
 }
 
 // Deprecated: Use ConsignmentDetail or ConsignmentSummary

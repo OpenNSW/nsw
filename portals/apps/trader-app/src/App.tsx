@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react'
+import {type ReactNode} from 'react'
 import {Routes, Route, Navigate} from 'react-router-dom'
 import './App.css'
 import {Layout} from './components/Layout'
@@ -9,10 +9,11 @@ import {PreconsignmentScreen} from "./screens/PreconsignmentScreen.tsx"
 import {useAsgardeo, SignedOut} from '@asgardeo/react'
 import {LoginScreen} from "./screens/LoginScreen.tsx";
 import {ApiProvider, useApi} from './services/ApiContext'
-import { UploadProvider } from '@opennsw/jsonforms-renderers'
-import { uploadFile, getDownloadUrl } from './services/upload'
+import {UploadProvider} from '@opennsw/jsonforms-renderers'
+import {uploadFile, getDownloadUrl} from './services/upload'
+import {TestWorkflowScreen} from "./screens/TestWorkflowScreen.tsx";
 
-function UploadWrapper({ children }: { children: ReactNode }) {
+function UploadWrapper({children}: { children: ReactNode }) {
   const api = useApi()
   return (
     <UploadProvider
@@ -42,6 +43,10 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<SignedOut><LoginScreen/></SignedOut>}/>
+
+      if (import.meta.env.DEV) {
+        <Route path="/test-workflow" element={<TestWorkflowScreen/>}/>
+      }
 
       <Route element={<ProtectedLayout/>}>
         <Route path="/" element={<Navigate to="/consignments" replace/>}/>
