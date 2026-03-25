@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "idp-thunder.fullname" . }}
+  labels:
+    {{- include "idp-thunder.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "idp-thunder.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "idp-thunder.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml .Values.imagePullSecrets | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: thunder-db-init
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          command: ["sh", "-c", "cp -r /opt/thunder/repository/database/* /data/"]
+          volumeMounts:
+            - name: db-data
+              mountPath: /data
+      containers:
+        - name: thunder
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          volumeMounts:
+            - name: db-data
+              mountPath: /opt/thunder/repository/database
+            - name: deployment-yaml
+              mountPath: /opt/thunder/repository/conf/deployment.yaml
+              subPath: deployment.yaml
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+        - name: thunder-setup
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - "sh"
+            - "-c"
+            - "while ! wget -qO- http://localhost:8090/health; do sleep 2; echo 'waiting for thunder api...'; done; ./setup.sh; echo 'Setup complete!'; sleep infinity"
+          env:
+            - name: THUNDER_API_BASE
+              value: "http://localhost:8090"
+            - name: THUNDER_PUBLIC_URL
+              value: "https://idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"
+          volumeMounts:
+            - name: db-data
+              mountPath: /opt/thunder/repository/database
+            - name: setup-scripts
+              mountPath: /opt/thunder/bootstrap
+      volumes:
+        - name: db-data
+          emptyDir: {}
+        - name: setup-scripts
+          configMap:
+            name: {{ include "idp-thunder.fullname" . }}-scripts
+            defaultMode: 0755
+        - name: deployment-yaml
+          configMap:
+            name: {{ include "idp-thunder.fullname" . }}-config
+            defaultMode: 0644

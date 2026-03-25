@@ -1,5 +1,6 @@
 # Default values for nsw-api.
 
+fullnameOverride: "nsw-api"
 replicaCount: 1
 
 image:
