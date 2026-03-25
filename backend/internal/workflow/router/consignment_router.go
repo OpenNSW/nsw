@@ -37,29 +37,8 @@ func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *ht
 	}
 
 	traderID := authCtx.UserID
-	globalContext, err := authCtx.GetUserContextMap()
-	if err != nil {
-		http.Error(w, "failed to parse user context", http.StatusInternalServerError)
-		return
-	}
-
-	if req.ChaID != nil {
-		// Stage 1: create shell only
-		consignment, err := c.cs.CreateConsignmentShell(r.Context(), req.Flow, *req.ChaID, traderID)
-		if err != nil {
-			http.Error(w, "failed to create consignment: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		if err := json.NewEncoder(w).Encode(consignment); err != nil {
-			slog.Error("failed to encode response for consignment", "error", err)
-		}
-		return
-	}
-
-	// Legacy: full init with items
-	consignment, err := c.cs.InitializeConsignment(r.Context(), &req, traderID, globalContext)
+	// Stage 1: create shell only
+	consignment, err := c.cs.CreateConsignmentShell(r.Context(), req.Flow, req.ChaID, traderID)
 	if err != nil {
 		http.Error(w, "failed to create consignment: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -67,8 +46,8 @@ func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *ht
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(consignment); err != nil {
+		slog.Error("failed to encode response for consignment", "error", err)
 		http.Error(w, "failed to encode response", http.StatusInternalServerError)
-		return
 	}
 }
 

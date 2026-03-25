@@ -58,7 +58,8 @@ func setupWorkflowManagerV2(
 	ctx context.Context,
 	cfg *config.Config,
 	tm taskManager.TaskManager,
-	templateService *service.TemplateService) (workflowManagerV2.TemporalManager, error) {
+	templateService *service.TemplateService,
+) (workflowManagerV2.TemporalManager, error) {
 	// 1. Connect to the local Temporal Server (Needed for Workflow Manager V2)
 	c, err := client.Dial(client.Options{})
 	if err != nil {
@@ -80,7 +81,7 @@ func setupWorkflowManagerV2(
 		// send a completion that will trigger the new version.
 		tmRequest := taskManager.InitTaskRequest{
 			TaskID:                 payload.NodeID,
-			WorkflowID:             payload.RunID,
+			WorkflowID:             payload.WorkflowID,
 			WorkflowNodeTemplateID: template.ID,
 			GlobalState:            payload.Inputs,
 			Type:                   template.Type,
@@ -95,17 +96,15 @@ func setupWorkflowManagerV2(
 
 	completionHandler := func(workflowID string, finalContext map[string]any) error {
 		slog.Info("Workflow logically completed", "workflowID", workflowID, "finalContext", finalContext)
+		// TODO: If consignment, need to call OnWorkflowStatusChanged
+		//       If pre-consignment, need to call OnPreWorkflowStatusChanged
 		return nil
 	}
 
 	// 5. Initialize Manager
 	workflowManager := workflowManagerV2.NewTemporalManager(c, "INTERPRETER_TASK_QUEUE", activationHandler, completionHandler)
 
-	taskDoneWrapper := func(
-		ctx context.Context,
-		workflowID string,
-		taskID string,
-		appendGlobalContext map[string]any) {
+	taskDoneWrapper := func(ctx context.Context, workflowID string, taskID string, appendGlobalContext map[string]any) {
 		err := workflowManager.TaskDone(ctx, workflowID, "", taskID, appendGlobalContext)
 		if err != nil {
 			slog.Error("error completing task", "error", err)
@@ -148,21 +147,21 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	var consignmentRouter *router.ConsignmentRouter
 	var preConsignmentRouter *router.PreConsignmentRouter
 
-	var workflowManagerV2 workflowManagerV2.TemporalManager
+	var wmV2 workflowManagerV2.TemporalManager
 	if cfg.UseWorkflowManagerV2 {
 		// --- NEW WORKFLOW MANAGER CODE ---
 		var err error
-		workflowManagerV2, err = setupWorkflowManagerV2(ctx, cfg, tm, templateService)
+		wmV2, err = setupWorkflowManagerV2(ctx, cfg, tm, templateService)
 		if err != nil {
 			_ = database.Close(db)
 			return nil, fmt.Errorf("failed to create workflow manager v2: %w", err)
 		}
 
-		consignmentService := service.NewConsignmentService(db, templateService, nil, workflowManagerV2)
+		consignmentService := service.NewConsignmentService(db, templateService, nil, wmV2)
 		consignmentRouter = router.NewConsignmentRouter(consignmentService, chaService)
 
 		// TODO: Pre-Consignment is commented out in new workflow for now
-		// preConsignmentService := service.NewPreConsignmentService(db, templateService, workflowManagerV2)
+		// preConsignmentService := service.NewPreConsignmentService(db, templateService, wmV2)
 		// preConsignmentRouter = router.NewPreConsignmentRouter(preConsignmentService)
 		preConsignmentRouter = nil
 	} else {
@@ -289,7 +288,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		}
 
 		if cfg.UseWorkflowManagerV2 {
-			workflowManagerV2.StopWorker()
+			wmV2.StopWorker()
 		}
 		return nil
 	}

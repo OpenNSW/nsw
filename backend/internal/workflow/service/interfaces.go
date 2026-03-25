@@ -12,6 +12,9 @@ type TemplateProvider interface {
 	// GetWorkflowTemplateByHSCodeIDAndFlow retrieves the workflow template associated with a given HS code and consignment flow.
 	GetWorkflowTemplateByHSCodeIDAndFlow(ctx context.Context, hsCodeID string, flow model.ConsignmentFlow) (*model.WorkflowTemplate, error)
 
+	// GetWorkflowTemplateByHSCodeIDAndFlowV2 retrieves the workflow template associated with a given HS code and consignment flow.
+	GetWorkflowTemplateByHSCodeIDAndFlowV2(ctx context.Context, hsCodeID string, flow model.ConsignmentFlow) (*model.WorkflowTemplateV2, error)
+
 	// GetWorkflowTemplateByID retrieves a workflow template by its ID.
 	GetWorkflowTemplateByID(ctx context.Context, id string) (*model.WorkflowTemplate, error)
 

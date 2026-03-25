@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 
 	"gorm.io/gorm"
 
@@ -27,6 +28,35 @@ func (s *TemplateService) GetWorkflowTemplateByHSCodeIDAndFlow(ctx context.Conte
 		Joins("JOIN workflow_template_maps ON workflow_templates.id = workflow_template_maps.workflow_template_id").
 		Where("workflow_template_maps.hs_code_id = ? AND workflow_template_maps.consignment_flow = ?", hsCodeID, flow).
 		First(&workflowTemplate)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return &workflowTemplate, nil
+}
+
+func (s *TemplateService) GetWorkflowTemplateByHSCodeIDAndFlowV2(
+	ctx context.Context,
+	hsCodeID string,
+	flow model.ConsignmentFlow,
+) (*model.WorkflowTemplateV2, error) {
+
+	var workflowTemplate model.WorkflowTemplateV2
+
+	result := s.db.WithContext(ctx).
+		Model(&model.WorkflowTemplateV2{}).
+		Joins("JOIN workflow_template_maps_v2 ON workflow_template_v2.id = workflow_template_maps_v2.workflow_template_id").
+		Where(
+			"workflow_template_maps_v2.hs_code_id = ? AND workflow_template_maps_v2.consignment_flow = ?",
+			hsCodeID,
+			flow,
+		).
+		Order("workflow_template_v2.version DESC"). // optional but future-proof
+		First(&workflowTemplate)
+
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
 	if result.Error != nil {
 		return nil, result.Error
 	}

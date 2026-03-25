@@ -32,6 +32,14 @@ func (m *MockTemplateProvider) GetWorkflowTemplateByHSCodeIDAndFlow(ctx context.
 	return args.Get(0).(*model.WorkflowTemplate), args.Error(1)
 }
 
+func (m *MockTemplateProvider) GetWorkflowTemplateByHSCodeIDAndFlowV2(ctx context.Context, hsCodeID string, flow model.ConsignmentFlow) (*model.WorkflowTemplateV2, error) {
+	args := m.Called(ctx, hsCodeID, flow)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.WorkflowTemplateV2), args.Error(1)
+}
+
 func (m *MockTemplateProvider) GetWorkflowTemplateByID(ctx context.Context, id string) (*model.WorkflowTemplate, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
@@ -116,99 +124,6 @@ func (m *MockWMV2) GetStatus(ctx context.Context, workflowID string) (*workflowM
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*workflowManagerV2.WorkflowInstance), args.Error(1)
-}
-
-func TestConsignmentService_InitializeConsignment(t *testing.T) {
-	db, sqlMock := setupTestDB(t)
-	mockTP := new(MockTemplateProvider)
-	mockWM := new(MockWorkflowManager)
-	// TODO: Add tests for workflow manager v2
-	// mockWMV2 := new(MockWMV2)
-	svc := NewConsignmentService(db, mockTP, mockWM, nil)
-
-	ctx := context.Background()
-	traderID := "trader1"
-	hsCodeID := uuid.NewString()
-	createReq := &model.CreateConsignmentDTO{
-		Flow: model.ConsignmentFlowImport,
-		Items: []model.CreateConsignmentItemDTO{
-			{HSCodeID: hsCodeID},
-		},
-	}
-	globalContext := map[string]any{"key": "value"}
-
-	workflowTemplate := &model.WorkflowTemplate{
-		BaseModel:     model.BaseModel{ID: uuid.NewString()},
-		Name:          "Test Template",
-		NodeTemplates: model.StringArray{uuid.NewString()},
-	}
-	mockTP.On("GetWorkflowTemplateByHSCodeIDAndFlow", ctx, hsCodeID, model.ConsignmentFlowImport).Return(workflowTemplate, nil)
-
-	sqlMock.ExpectBegin()
-	sqlMock.ExpectExec(`INSERT INTO "consignments"`).
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnResult(sqlmock.NewResult(1, 1))
-	mockWM.On("StartWorkflowInstance", ctx, mock.Anything, mock.AnythingOfType("string"), mock.Anything, globalContext, mock.Anything).Return(nil)
-	sqlMock.ExpectCommit()
-
-	nodeTemplateID := workflowTemplate.NodeTemplates[0]
-	mockWM.On("GetWorkflowInstance", ctx, mock.AnythingOfType("string")).Return(&model.Workflow{
-		BaseModel: model.BaseModel{ID: uuid.NewString()},
-		Status:    model.WorkflowStatusInProgress,
-		WorkflowNodes: []model.WorkflowNode{
-			{
-				BaseModel:              model.BaseModel{ID: uuid.NewString()},
-				WorkflowNodeTemplateID: nodeTemplateID,
-				State:                  model.WorkflowNodeStateReady,
-				WorkflowNodeTemplate: model.WorkflowNodeTemplate{
-					BaseModel: model.BaseModel{ID: nodeTemplateID},
-					Name:      "Test Node",
-					Type:      "SIMPLE_FORM",
-				},
-			},
-		},
-	}, nil)
-
-	sqlMock.ExpectQuery(`SELECT \* FROM "consignments"`).
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "flow", "trader_id", "state", "created_at", "updated_at", "items"}).
-			AddRow(uuid.NewString(), "IMPORT", traderID, "IN_PROGRESS", time.Now(), time.Now(), []byte(`[{"hsCodeId":"`+hsCodeID+`"}]`)))
-
-	sqlMock.ExpectQuery(`SELECT \* FROM "hs_codes" WHERE id IN`).
-		WithArgs(hsCodeID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "hs_code", "description", "category"}).
-			AddRow(hsCodeID, "1234.56", "Test Description", "Test Category"))
-
-	resp, err := svc.InitializeConsignment(ctx, createReq, traderID, globalContext)
-	assert.NoError(t, err)
-	assert.NotNil(t, resp)
-	mockTP.AssertExpectations(t)
-	mockWM.AssertExpectations(t)
-}
-
-func TestConsignmentService_InitializeConsignment_TemplateNotFound(t *testing.T) {
-	db, _ := setupTestDB(t)
-	mockTP := new(MockTemplateProvider)
-	mockWM := new(MockWorkflowManager)
-	// TODO: Add tests for workflow manager v2
-	// mockWMV2 := new(MockWMV2)
-	svc := NewConsignmentService(db, mockTP, mockWM, nil)
-
-	ctx := context.Background()
-	hsCodeID := uuid.NewString()
-	createReq := &model.CreateConsignmentDTO{
-		Flow: model.ConsignmentFlowImport,
-		Items: []model.CreateConsignmentItemDTO{
-			{HSCodeID: hsCodeID},
-		},
-	}
-
-	mockTP.On("GetWorkflowTemplateByHSCodeIDAndFlow", ctx, hsCodeID, model.ConsignmentFlowImport).Return(nil, errors.New("template not found"))
-
-	resp, err := svc.InitializeConsignment(ctx, createReq, "trader1", nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to get workflow template")
-	assert.Nil(t, resp)
 }
 
 func TestConsignmentService_GetConsignmentByID(t *testing.T) {
