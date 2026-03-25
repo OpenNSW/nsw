@@ -1,6 +1,6 @@
 server:
   hostname: "0.0.0.0"
-  public_url: "https://localhost:8090"
+  public_url: "https://idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"
   port: 8090
 
 tls:
@@ -16,7 +16,6 @@ database:
     max_open_conns: 500
     max_idle_conns: 100
     conn_max_lifetime: 3600
-
   runtime:
     type: "sqlite"
     path: "repository/database/runtimedb.db"
@@ -24,7 +23,6 @@ database:
     max_open_conns: 500
     max_idle_conns: 100
     conn_max_lifetime: 3600
-
   user:
     type: "sqlite"
     path: "repository/database/userdb.db"
@@ -35,7 +33,7 @@ database:
 
 crypto:
   encryption:
-    key: "file://repository/resources/security/crypto.key"
+    key: "file:///opt/thunder/repository/resources/security/crypto.key"
   keys:
     - id: "default-key"
       cert_file: "repository/resources/security/signing.cert"
@@ -47,15 +45,10 @@ jwt:
 cors:
   allowed_origins:
     - "http://localhost:3000"
-    - "https://localhost:5173"
-    - "http://localhost:5173"
-    - "https://localhost:5174"
-    - "http://localhost:5174"
-    - "https://localhost:5175"
-    - "http://localhost:5175"
-    - "https://localhost:5176"
-    - "http://localhost:5176"
+    - "https://trader-app-national-single-window-platform.apps.sovecloud.akaza.lk"
+    - "https://oga-app-national-single-window-platform.apps.sovecloud.akaza.lk"
+    - "https://nsw-api-national-single-window-platform.apps.sovecloud.akaza.lk"
 
 passkey:
   allowed_origins:
-    - "https://localhost:8090"
+    - "https://idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"

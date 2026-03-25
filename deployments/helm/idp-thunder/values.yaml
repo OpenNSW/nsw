@@ -16,8 +16,34 @@ service:
 
 route:
   enabled: true
-  host: ""
+  host: "idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"
   tls:
     enabled: true
-    termination: edge
+    termination: passthrough
     insecureEdgeTerminationPolicy: Redirect
+
+auth:
+  adminUsername: "admin"
+  existingSecret: "thunder-auth-secret"
+  secretKey: "adminPassword" 
+
+# --- OpenShift / Akaza Compatibility Section ---
+resources:
+  requests:
+    cpu: "200m"
+    memory: "512Mi"
+  limits:
+    cpu: "500m"
+    memory: "1Gi"
+
+# Security Context (Fixes 'permission denied' on signing.key)
+podSecurityContext:
+  {}
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  privileged: false
+  readOnlyRootFilesystem: false
