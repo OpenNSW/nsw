@@ -2,8 +2,16 @@ import { withJsonFormsControlProps } from '@jsonforms/react';
 import type { ControlElement, JsonSchema } from '@jsonforms/core';
 import { Card, Flex, Text, Box, IconButton, Button } from '@radix-ui/themes';
 import { UploadIcon, FileTextIcon, Cross2Icon, CheckCircledIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
-import { useState, useRef, useEffect, useCallback, type ChangeEvent, type DragEvent } from 'react';
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  type ChangeEvent,
+  type DragEvent
+} from 'react';
 import { useUpload } from '../contexts/UploadContext';
+import * as React from "react";
 
 interface FileControlProps {
     data: string | null;
@@ -16,40 +24,11 @@ interface FileControlProps {
     enabled?: boolean;
 }
 
-const MAX_CACHE_SIZE = 50;
-const CACHE_TTL_BUFFER_SEC = 60;
-
-/** Bounded cache for download URLs: evict expired on read, cap size when writing. */
-const downloadUrlCache = new Map<string, { url: string; expiresAt: number }>();
-
-function evictExpiredCache(): void {
-    const now = Date.now() / 1000;
-    for (const [k, v] of downloadUrlCache.entries()) {
-        if (v.expiresAt <= now + CACHE_TTL_BUFFER_SEC) downloadUrlCache.delete(k);
-    }
-}
-
-function setCachedDownloadUrl(key: string, url: string, expiresAt: number): void {
-    evictExpiredCache();
-    if (downloadUrlCache.size >= MAX_CACHE_SIZE) {
-        const first = downloadUrlCache.keys().next().value;
-        if (first != null) downloadUrlCache.delete(first);
-    }
-    downloadUrlCache.set(key, { url, expiresAt });
-}
-
-function isFileKey(data: string): boolean {
-    return !data.startsWith('data:');
-}
-
 const FileControl = ({ data, handleChange, path, label, required, uischema, enabled }: FileControlProps) => {
     const uploadContext = useUpload();
     const [dragActive, setDragActive] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [fileName, setFileName] = useState<string | null>(null);
-    const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
-    const [downloadLoading, setDownloadLoading] = useState(false);
-    const [downloadError, setDownloadError] = useState<string | null>(null);
     const [localBlobUrl, setLocalBlobUrl] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -64,51 +43,6 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
     const accept = (options.accept as string) || 'image/*,application/pdf';
     const isEnabled = enabled !== false;
 
-    // Use only the host's getDownloadUrl callback — no fetch in the renderer.
-    const fetchDownloadUrl = useCallback(async (fileKey: string, signal?: AbortSignal) => {
-        evictExpiredCache();
-        const cached = downloadUrlCache.get(fileKey);
-        if (cached && cached.expiresAt > Date.now() / 1000 + CACHE_TTL_BUFFER_SEC) {
-            setDownloadUrl(cached.url);
-            return;
-        }
-
-        if (!uploadContext?.getDownloadUrl) {
-            if (import.meta.env.DEV) {
-                console.warn('[FileControl] UploadProvider should provide getDownloadUrl so the host app can resolve download URLs.');
-            }
-            setDownloadError('Download not configured for this application.');
-            return;
-        }
-
-        setDownloadLoading(true);
-        setDownloadError(null);
-
-        try {
-            const result = await uploadContext.getDownloadUrl(fileKey);
-            if (signal?.aborted) return;
-            setDownloadUrl(result.url);
-            setCachedDownloadUrl(fileKey, result.url, result.expiresAt);
-        } catch (e) {
-            if (signal?.aborted) return;
-            setDownloadError('Unable to reach the server.');
-        } finally {
-            if (!signal?.aborted) setDownloadLoading(false);
-        }
-    }, [uploadContext]);
-
-    useEffect(() => {
-        if (data && isFileKey(data) && !localBlobUrl) {
-            const ac = new AbortController();
-            fetchDownloadUrl(data, ac.signal);
-            return () => ac.abort();
-        }
-        if (!localBlobUrl) {
-            setDownloadUrl(null);
-            setDownloadError(null);
-        }
-    }, [data, fetchDownloadUrl, localBlobUrl]);
-
     const getDisplayText = () => {
         if (fileName) return fileName;
         if (!data) return null;
@@ -116,41 +50,10 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
         return 'Uploaded File';
     };
 
-    const [blobUrl, setBlobUrl] = useState<string | null>(null);
-
-    // Convert data URLs to blob URLs to bypass browser restrictions on data: URLs in new tabs
-    useEffect(() => {
-        if (data && !isFileKey(data)) {
-            try {
-                const parts = data.split(',');
-                const mime = parts[0].match(/:(.*?);/)?.[1] || 'application/octet-stream';
-                const b64Data = parts[1];
-                const byteCharacters = atob(b64Data);
-                const byteNumbers = new Array(byteCharacters.length);
-                for (let i = 0; i < byteCharacters.length; i++) {
-                    byteNumbers[i] = byteCharacters.charCodeAt(i);
-                }
-                const byteArray = new Uint8Array(byteNumbers);
-                const blob = new Blob([byteArray], { type: mime });
-                const url = URL.createObjectURL(blob);
-                setBlobUrl(url);
-
-                return () => URL.revokeObjectURL(url);
-            } catch (err) {
-                console.error('Failed to create blob URL:', err);
-                setBlobUrl(null);
-            }
-        } else {
-            setBlobUrl(null);
-        }
-    }, [data]);
-
-    const resolvedHref = localBlobUrl ?? (data && isFileKey(data) ? downloadUrl : blobUrl);
-
     const processFile = useCallback(async (file: File) => {
         if (file.size > maxSize) {
             const sizeMB = (maxSize / (1024 * 1024)).toFixed(0);
-            setError(`File size exceeds ${sizeMB}MB limit.`);
+            setError(`File size exceeds ${sizeMB} MiB limit.`);
             return;
         }
 
@@ -237,6 +140,61 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
 
     if (!isEnabled && !data) return null;
 
+    const onView = async (e: React.MouseEvent<HTMLButtonElement>) => {
+        e.preventDefault()
+        // 1. Handle local files or data URLs immediately (synchronous = no popup block)
+        if (localBlobUrl) {
+            const url = localBlobUrl || data;
+            window.open(url!, '_blank', 'noopener,noreferrer')?.focus();
+            return;
+        }
+
+        if (data && data.startsWith('data:')) {
+            let blobUrl: string | null = null;
+            try {
+                const parts = data.split(',');
+                const mime = parts[0].match(/:(.*?);/)?.[1] || 'application/octet-stream';
+                const b64Data = parts[1];
+                const byteCharacters = atob(b64Data);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: mime });
+                blobUrl = URL.createObjectURL(blob);
+                window.open(blobUrl, '_blank', 'noopener,noreferrer')?.focus();
+            } catch (err) {
+                console.error('[FileControl] Failed to create blob URL from data URL, attempting direct open:', err);
+                window.open(data, '_blank', 'noopener,noreferrer')?.focus();
+            } finally {
+                if (blobUrl) {
+                    URL.revokeObjectURL(blobUrl);
+                }
+            }
+            return;
+        }
+
+        if (!data) return;
+
+        // 2. Handle remote keys: open a blank tab FIRST to capture the user gesture
+        const newWindow = window.open('', '_blank');
+        if (!newWindow) return; // Browser blocked the popup
+
+        try {
+            const result = await uploadContext?.getDownloadUrl?.(data);
+            if (result?.url) {
+                // 3. Redirect the already-opened tab to the presigned URL
+                newWindow.location.href = result.url;
+            } else {
+                newWindow.close();
+            }
+        } catch (err) {
+            console.error('[FileControl] Failed to fetch download URL:', err);
+            newWindow.close();
+        }
+    };
+
     return (
         <Box mb="4">
             <Text as="label" size="2" weight="bold" mb="1" className="block">
@@ -255,25 +213,9 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
                             </Text>
                         </Box>
                         <Flex align="center" gap="3">
-                            {downloadLoading ? (
-                                <Text size="1" color="gray">Loading...</Text>
-                            ) : downloadError ? (
-                                <Text size="1" color="red">Error</Text>
-                            ) : (
-                                <Button variant="soft" color="blue" size="1" asChild>
-                                    <a
-                                        href={resolvedHref || '#'}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (!resolvedHref) e.preventDefault();
-                                        }}
-                                    >
-                                        View
-                                    </a>
-                                </Button>
-                            )}
+                            <Button variant="soft" color="blue" size="1" onClick={onView}>
+                              View
+                            </Button>
                             <Flex align="center" gap="2">
                                 <CheckCircledIcon className="text-green-600 w-5 h-5" />
                                 {isEnabled && (
