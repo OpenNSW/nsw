@@ -96,6 +96,8 @@ All configuration is via environment variables:
 | `OGA_FORMS_PATH`      | Directory containing form JSON files    | `./data/forms`          |
 | `OGA_DEFAULT_FORM_ID` | Fallback form ID when no metadata match | `default`               |
 | `OGA_ALLOWED_ORIGINS` | Comma-separated CORS origins (`*` to allow all) | `*`               |
+| `NSW_API_BASE_URL`    | Base URL for NSW backend API            | `http://localhost:8080/api/v1` |
+| `NSW_API_AUTH_TOKEN`  | Bearer token for service-to-service auth (required for S3 storage) | (empty) |
 
 See [`.env.example`](.env.example) for a template.
 
