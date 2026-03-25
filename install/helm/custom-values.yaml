@@ -1,0 +1,49 @@
+# Official Overrides for NSW Platform
+
+# Fix for the 'initResources' key in the template
+initResources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+deployment:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+  securityContext:
+    enabled: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    runAsNonRoot: true
+
+image:
+  repository: ghcr.io/asgardeo/thunder
+  tag: "0.29.0"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - name: ghcr-secret
+
+configuration:
+  database:
+    config:
+      host: "nsw-db"
+      name: "configdb"
+      username: "thunder_user"
+    runtime:
+      host: "nsw-db"
+      name: "runtimedb"
+      username: "thunder_user"
+
+auth:
+  existingSecret: "thunder-auth-secret"
+  secretKey: "adminPassword"
