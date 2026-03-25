@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"time"
@@ -125,6 +126,7 @@ type ogaService struct {
 	formStore     *FormStore
 	httpClient    *http.Client
 	nswAPIBaseURL string
+	authToken     string
 }
 
 // NewOGAService creates a new OGA service instance with database storage
@@ -134,6 +136,7 @@ func NewOGAService(cfg Config, store *ApplicationStore, formStore *FormStore) OG
 		formStore:     formStore,
 		httpClient:    &http.Client{Timeout: 30 * time.Second},
 		nswAPIBaseURL: cfg.NSWAPIBaseURL,
+		authToken:     cfg.NSWAPIAuthToken,
 	}
 }
 
@@ -365,15 +368,62 @@ func (s *ogaService) FeedbackApplication(ctx context.Context, taskID string, con
 
 // GetUploadURL returns a download URL for a file stored in the main backend.
 //
-// For local development (LocalFSDriver), the backend serves file content at
-// GET /uploads/{key}/content without authentication, so we construct the URL
-// directly and avoid the authenticated GET /uploads/{key} metadata endpoint.
+// When an auth token is configured (NSW_API_AUTH_TOKEN), this method calls the
+// backend's authenticated GET /uploads/{key} endpoint to obtain a presigned URL
+// (for S3) or a direct content URL (for LocalFS). This is the correct approach
+// for production environments using non-local storage.
 //
-// TODO: In production with S3, this should call GET /uploads/{key} with
-// service-to-service auth headers to obtain a presigned download URL.
+// For backward compatibility with local development without authentication,
+// if no auth token is set, the method falls back to constructing a direct
+// /uploads/{key}/content URL. However, this fallback only works with LocalFSDriver.
 func (s *ogaService) GetUploadURL(ctx context.Context, key string, nswAPIBaseURL string) (string, error) {
+	// If an auth token is configured, call the backend's authenticated endpoint
+	if s.authToken != "" {
+		url := fmt.Sprintf("%s/uploads/%s", nswAPIBaseURL, key)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			return "", fmt.Errorf("failed to create request: %w", err)
+		}
+
+		// Add Bearer token authentication
+		req.Header.Set("Authorization", "Bearer "+s.authToken)
+		req.Header.Set("Accept", "application/json")
+
+		slog.InfoContext(ctx, "fetching presigned URL from backend", "key", key, "url", url)
+
+		resp, err := s.httpClient.Do(req)
+		if err != nil {
+			return "", fmt.Errorf("failed to call backend upload service: %w", err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return "", fmt.Errorf("backend returned status %d: %s", resp.StatusCode, string(body))
+		}
+
+		// Parse the response to extract the download_url
+		var result struct {
+			DownloadURL string `json:"download_url"`
+			ExpiresAt   int64  `json:"expires_at"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			return "", fmt.Errorf("failed to decode backend response: %w", err)
+		}
+
+		slog.InfoContext(ctx, "received presigned URL from backend",
+			"key", key,
+			"download_url", result.DownloadURL,
+			"expires_at", result.ExpiresAt)
+
+		return result.DownloadURL, nil
+	}
+
+	// Fallback for local development without authentication (LocalFSDriver only)
 	downloadURL := fmt.Sprintf("%s/uploads/%s/content", nswAPIBaseURL, key)
-	slog.InfoContext(ctx, "resolved upload URL", "key", key, "downloadURL", downloadURL)
+	slog.InfoContext(ctx, "using direct content URL (no auth token configured)",
+		"key", key,
+		"downloadURL", downloadURL)
 	return downloadURL, nil
 }
 

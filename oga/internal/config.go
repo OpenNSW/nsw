@@ -9,12 +9,13 @@ import (
 )
 
 type Config struct {
-	Port           string
-	DB             database.Config
-	FormsPath      string
-	DefaultFormID  string
-	AllowedOrigins []string
-	NSWAPIBaseURL  string
+	Port            string
+	DB              database.Config
+	FormsPath       string
+	DefaultFormID   string
+	AllowedOrigins  []string
+	NSWAPIBaseURL   string
+	NSWAPIAuthToken string
 }
 
 // LoadConfig loads configuration from environment variables
@@ -52,12 +53,13 @@ func LoadConfig() (Config, error) {
 	}
 
 	cfg := Config{
-		Port:           envOrDefault("OGA_PORT", "8081"),
-		DB:             dbConfig,
-		FormsPath:      envOrDefault("OGA_FORMS_PATH", "./data/forms"),
-		DefaultFormID:  envOrDefault("OGA_DEFAULT_FORM_ID", "default"),
-		AllowedOrigins: parseOrigins(envOrDefault("OGA_ALLOWED_ORIGINS", "*")),
-		NSWAPIBaseURL:  envOrDefault("NSW_API_BASE_URL", "http://localhost:8080/api/v1"),
+		Port:            envOrDefault("OGA_PORT", "8081"),
+		DB:              dbConfig,
+		FormsPath:       envOrDefault("OGA_FORMS_PATH", "./data/forms"),
+		DefaultFormID:   envOrDefault("OGA_DEFAULT_FORM_ID", "default"),
+		AllowedOrigins:  parseOrigins(envOrDefault("OGA_ALLOWED_ORIGINS", "*")),
+		NSWAPIBaseURL:   envOrDefault("NSW_API_BASE_URL", "http://localhost:8080/api/v1"),
+		NSWAPIAuthToken: os.Getenv("NSW_API_AUTH_TOKEN"),
 	}
 
 	return cfg, nil
