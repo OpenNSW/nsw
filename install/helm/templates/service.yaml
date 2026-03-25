@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "thunder.fullname" . }}
+  labels:
+    {{- include "thunder.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type | default "ClusterIP" }}
+  ports:
+    - port: {{ .Values.service.port | default 8090 }}
+      targetPort: 8090
+      protocol: TCP
+      name: https
+  selector:
+    {{- include "thunder.selectorLabels" . | nindent 4 }}

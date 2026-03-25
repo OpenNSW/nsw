@@ -1,0 +1,80 @@
+# Official Asgardeo Thunder OCI Chart Overrides (nsw-idp)
+
+# 1. Deployment and Resources (Akaza Mandatory Quotas)
+deployment:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 512Mi
+  # OpenShift: Disable fixed UIDs
+  securityContext:
+    enableRunAsUser: false
+    enableRunAsGroup: false
+    enableFsGroup: false
+
+# 2. Thunder Configuration
+configuration:
+  server:
+    publicURL: "https://idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"
+  gateClient:
+    hostname: "idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"
+  
+  # Database Configuration (Postgres)
+  database:
+    config:
+      type: postgres
+      host: "nsw-db"
+      name: "configdb"
+      username: "postgres"
+      passwordRef:
+        name: "nsw-db-credentials"
+        key: "password"
+    runtime:
+      type: postgres
+      host: "nsw-db"
+      name: "runtimedb"
+      username: "postgres"
+      passwordRef:
+        name: "nsw-db-credentials"
+        key: "password"
+    user:
+      type: postgres
+      host: "nsw-db"
+      name: "userdb"
+      username: "postgres"
+      passwordRef:
+        name: "nsw-db-credentials"
+        key: "password"
+
+# 3. Authentication (Bootstrap)
+auth:
+  adminUsername: "admin"
+  existingSecret: "thunder-auth-secret"
+  secretKey: "adminPassword"
+
+# 4. Networking
+service:
+  type: ClusterIP
+  port: 8090
+
+ingress:
+  enabled: true
+  hostname: "idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"
+  commonAnnotations:
+    # Essential for SSL passthrough in OpenShift
+    route.openshift.io/termination: passthrough
+
+# 5. Setup Job Resources
+setup:
+  enabled: true
+  resources:
+    limits:
+      cpu: 200m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi

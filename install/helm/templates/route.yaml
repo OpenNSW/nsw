@@ -1,0 +1,22 @@
+{{- if .Values.ingress.enabled -}}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "thunder.fullname" . }}
+  labels:
+    {{- include "thunder.labels" . | nindent 4 }}
+  {{- with .Values.ingress.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  host: {{ .Values.ingress.hostname | quote }}
+  to:
+    kind: Service
+    name: {{ include "thunder.fullname" . }}
+    weight: 100
+  port:
+    targetPort: https
+  tls:
+    termination: {{ index .Values.ingress.commonAnnotations "route.openshift.io/termination" | default "passthrough" }}
+{{- end }}
