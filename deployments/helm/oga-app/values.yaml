@@ -22,9 +22,9 @@ service:
 config:
   instanceConfig: "npqs"
   apiBaseUrl: "https://nsw-api-national-single-window-platform.lgc.gov.lk/api/v1"
-  idpBaseUrl: "https://idp-route.national-single-window-platform.lgc.gov.lk"
+  idpBaseUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"
   idpClientId: "OGA_PORTAL_APP_NPQS"
-  appUrl: "https://npqs-portal-national-single-window-platform.lgc.gov.lk"
+  appUrl: "https://oga-app-national-single-window-platform.apps.sovecloud.akaza.lk"
   idpScopes: "openid,profile,email"
   idpPlatform: "AsgardeoV2"
 

@@ -31,18 +31,18 @@ config:
     sslMode: "disable"
 
   auth:
-    jwksUrl: "https://idp-route.national-single-window-platform.lgc.gov.lk/oauth2/jwks"
-    issuer: "https://idp-route.national-single-window-platform.lgc.gov.lk"
+    jwksUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk/oauth2/jwks"
+    issuer: "https://idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"
     audience: "TRADER_PORTAL_APP"
     clientId: "TRADER_PORTAL_APP"
     insecureSkipTlsVerify: false
 
-  serviceUrl: "https://nsw-api-national-single-window-platform.lgc.gov.lk"
+  serviceUrl: "https://nsw-api-national-single-window-platform.apps.sovecloud.akaza.lk"
 
   cors:
     allowedOrigins:
-      - "https://trader-portal-national-single-window-platform.lgc.gov.lk"
-      - "https://npqs-portal-national-single-window-platform.lgc.gov.lk"
+      - "https://trader-app-national-single-window-platform.apps.sovecloud.akaza.lk"
+      - "https://oga-app-national-single-window-platform.apps.sovecloud.akaza.lk"
 
   storage:
     type: "local"
