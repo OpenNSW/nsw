@@ -24,9 +24,10 @@ LABEL org.opencontainers.image.description="NSW OGA Officer Portal Frontend"
 
 COPY apps/oga-app/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /workspace/apps/oga-app/dist /usr/share/nginx/html
+USER root
 COPY apps/oga-app/docker-entrypoint.sh /docker-entrypoint.d/40-runtime-env.sh
-
 RUN chmod +x /docker-entrypoint.d/40-runtime-env.sh
+USER 101
 
 EXPOSE 8080
 

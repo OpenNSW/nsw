@@ -1,20 +1,23 @@
 # Default values for oga-app.
-# Override with per-instance values files (e.g. oga-npqs-values.yaml).
+
+fullnameOverride: "oga-app"
 
 replicaCount: 1
 
 image:
   repository: ghcr.io/opennsw/oga-app
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
   tag: latest
 
 imagePullSecrets:
-  - name: ghcr-pull-secret
+  - name: ghcr-secret
 
 service:
   type: ClusterIP
+  # The external port the service exposes
   port: 80
-  targetPort: 80
+  # CRITICAL: Must match the Nginx 'listen' port (8080 for non-root)
+  targetPort: 8080
 
 config:
   instanceConfig: "npqs"
@@ -28,14 +31,14 @@ config:
 resources:
   limits:
     cpu: 200m
-    memory: 128Mi
+    memory: 256Mi # Increased slightly; 128Mi can be tight for Nginx + sidecars
   requests:
     cpu: 50m
-    memory: 64Mi
+    memory: 128Mi
 
 route:
   enabled: true
-  host: npqs-portal-national-single-window-platform.lgc.gov.lk
+  host: ""
   tls:
     enabled: true
     termination: edge

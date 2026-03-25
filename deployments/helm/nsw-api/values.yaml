@@ -8,7 +8,7 @@ image:
   tag: latest
 
 imagePullSecrets:
-  - name: ghcr-pull-secret
+  - name: ghcr-secret
 
 service:
   type: ClusterIP
