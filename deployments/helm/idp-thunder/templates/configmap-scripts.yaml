@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "idp-thunder.fullname" . }}-scripts
+data:
+  01-default-resources.sh: |-
+{{ .Files.Get "files/01-default-resources.sh" | indent 4 }}
+  02-sample-resources.sh: |-
+{{ .Files.Get "files/02-sample-resources.sh" | indent 4 }}
+  .env: |-
+    # Empty env file for setup
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "idp-thunder.fullname" . }}-config
+data:
+  deployment.yaml: |-
+{{ .Files.Get "files/deployment.yaml" | indent 4 }}
