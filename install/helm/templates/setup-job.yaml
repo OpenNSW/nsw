@@ -1,0 +1,40 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "thunder.fullname" . }}-setup
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  template:
+    spec:
+      containers:
+        - name: setup
+          image: "{{ .Values.deployment.image.registry }}/{{ .Values.deployment.image.repository }}:{{ .Values.deployment.image.tag }}"
+          command:
+            - /bin/bash
+            - -c
+            - |
+              echo "Waiting for Thunder Service..."
+              # Wait for the service URL rather than localhost
+              until wget --no-check-certificate --spider -q https://{{ include "thunder.fullname" . }}:8090/console; do
+                sleep 2
+              done
+              
+              export THUNDER_ADMIN_USERNAME="{{ .Values.auth.adminUsername }}"
+              export THUNDER_ADMIN_PASSWORD="$THUNDER_ADMIN_PASSWORD"
+              export THUNDER_API_BASE="https://{{ include "thunder.fullname" . }}:8090"
+              export SKIP_SSL_VERIFICATION="true"
+
+              /opt/thunder/bootstrap/01-default-resources.sh
+              /opt/thunder/bootstrap/02-sample-resources.sh
+          env:
+            - name: THUNDER_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.auth.existingSecret | default "thunder-auth-secret" }}
+                  key: {{ .Values.auth.secretKey | default "adminPassword" }}
+          resources:
+            {{- toYaml .Values.setup.resources | nindent 12 }}
+      restartPolicy: OnFailure
+  backoffLimit: 3
