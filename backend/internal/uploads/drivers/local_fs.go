@@ -139,5 +139,5 @@ func (d *LocalFSDriver) GetDownloadURL(ctx context.Context, key string, ttl time
 	if d.PublicURL == "" {
 		return key, nil
 	}
-	return fmt.Sprintf("%s/%s/content", d.PublicURL, key), nil
+	return fmt.Sprintf("%s/api/v1/uploads/%s/content", d.PublicURL, key), nil
 }

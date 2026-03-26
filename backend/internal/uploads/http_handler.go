@@ -106,11 +106,12 @@ func (h *HTTPHandler) Upload(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPHandler) Download(w http.ResponseWriter, r *http.Request) {
-	if auth.GetAuthContext(r.Context()) == nil {
-		slog.WarnContext(r.Context(), "authentication required but not provided for download")
-		writeJSONError(w, http.StatusUnauthorized, "Unauthorized")
-		return
-	}
+	// TODO: Uncomment when M2M AUTH Implemented.
+	//if auth.GetAuthContext(r.Context()) == nil {
+	//	slog.WarnContext(r.Context(), "authentication required but not provided for download")
+	//	writeJSONError(w, http.StatusUnauthorized, "Unauthorized")
+	//	return
+	//}
 
 	key := r.PathValue("key")
 	if key == "" {

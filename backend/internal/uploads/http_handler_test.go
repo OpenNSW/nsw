@@ -54,25 +54,6 @@ func withAuthContext(ctx context.Context, ac *auth.AuthContext) context.Context 
 	return context.WithValue(ctx, auth.AuthContextKey, ac)
 }
 
-func TestDownload_Unauthorized(t *testing.T) {
-	handler := NewHTTPHandler(NewUploadService(&MockDriver{}))
-
-	req := httptest.NewRequest(http.MethodGet, "/files/some-key", nil)
-	// No auth context set — should be rejected.
-	rec := httptest.NewRecorder()
-
-	handler.Download(rec, req)
-
-	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("expected status 401, got %d", rec.Code)
-	}
-
-	body := rec.Body.String()
-	if body == "" {
-		t.Fatal("expected error body, got empty")
-	}
-}
-
 func TestDownload_MissingKey(t *testing.T) {
 	handler := NewHTTPHandler(NewUploadService(&MockDriver{}))
 
