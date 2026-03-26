@@ -1,0 +1,23 @@
+# OGA-NPQS Backend Values
+nameOverride: oga-npqs-backend
+fullnameOverride: oga-npqs-backend
+
+# Resource Management (Akaza Quotas)
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Isolated Database Configuration
+env:
+  - name: DB_HOST
+    value: "nsw-db"                # Points to the shared DB service
+  - name: DB_NAME
+    value: "oga-backend-npqs"     
+  - name: DB_USERNAME
+    value: "oga_npqs_user"
+  - name: DB_PASSWORD
+    value: "oga_npqs_pw"            # Ensure this matches the 'CREATE ROLE' password

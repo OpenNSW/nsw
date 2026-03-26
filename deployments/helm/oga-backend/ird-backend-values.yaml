@@ -1,0 +1,23 @@
+# OGA-IRD Backend Values
+nameOverride: oga-ird-backend
+fullnameOverride: oga-ird-backend
+
+# Resource Management (Akaza Quotas)
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Isolated Database Configuration
+env:
+  - name: DB_HOST
+    value: "nsw-db"                # Points to the shared DB service in the namespace
+  - name: DB_NAME
+    value: "oga-backend-ird"  
+  - name: DB_USERNAME
+    value: "oga_ird_user"
+  - name: DB_PASSWORD
+    value: "oga_ird_pw"            # Ensure this matches the 'CREATE ROLE' password

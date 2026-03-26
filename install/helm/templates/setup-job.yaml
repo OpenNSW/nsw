@@ -7,27 +7,45 @@ metadata:
     "helm.sh/hook-delete-policy": before-hook-creation
 spec:
   template:
+    metadata:
+      labels:
+        {{- include "thunder.selectorLabels" . | nindent 8 }}
     spec:
+      serviceAccountName: {{ .Values.serviceAccountName | default "thunder-service-account" }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
       containers:
         - name: setup
-          image: "{{ .Values.deployment.image.registry }}/{{ .Values.deployment.image.repository }}:{{ .Values.deployment.image.tag }}"
+          # FIX: Using the corrected image mapping from your values
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
           command:
             - /bin/bash
             - -c
             - |
-              echo "Waiting for Thunder Service..."
-              # Wait for the service URL rather than localhost
+              echo "Waiting for Thunder Service at {{ include "thunder.fullname" . }}:8090..."
+              # Increased sleep to 5s to reduce log noise while waiting for Admin SCC fix
               until wget --no-check-certificate --spider -q https://{{ include "thunder.fullname" . }}:8090/console; do
-                sleep 2
+                echo "Thunder Service not reachable yet. Retrying..."
+                sleep 5
               done
               
+              echo "Thunder Service is UP. Starting bootstrap..."
               export THUNDER_ADMIN_USERNAME="{{ .Values.auth.adminUsername }}"
               export THUNDER_ADMIN_PASSWORD="$THUNDER_ADMIN_PASSWORD"
               export THUNDER_API_BASE="https://{{ include "thunder.fullname" . }}:8090"
               export SKIP_SSL_VERIFICATION="true"
 
+              # Run the bootstrap scripts provided by the Asgardeo image
               /opt/thunder/bootstrap/01-default-resources.sh
               /opt/thunder/bootstrap/02-sample-resources.sh
+              echo "Bootstrap successful."
           env:
             - name: THUNDER_ADMIN_PASSWORD
               valueFrom:
@@ -37,4 +55,5 @@ spec:
           resources:
             {{- toYaml .Values.setup.resources | nindent 12 }}
       restartPolicy: OnFailure
-  backoffLimit: 3
+  # Allow it to retry if the service blips during startup
+  backoffLimit: 10

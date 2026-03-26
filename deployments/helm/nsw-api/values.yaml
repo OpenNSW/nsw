@@ -31,11 +31,13 @@ config:
     sslMode: "disable"
 
   auth:
-    jwksUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk/oauth2/jwks"
+    # Use the internal service name and port 8081
+    jwksUrl: "http://idp-thunder.national-single-window-platform.svc.cluster.local:8081/oauth2/jwks"
     issuer: "https://idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"
     audience: "TRADER_PORTAL_APP"
     clientId: "TRADER_PORTAL_APP"
-    insecureSkipTlsVerify: false
+    # Set to true if the IDP is using a self-signed cert internally (common in GovCloud)
+    insecureSkipTlsVerify: true
 
   serviceUrl: "https://nsw-api-national-single-window-platform.apps.sovecloud.akaza.lk"
 

@@ -7,9 +7,9 @@ metadata:
 spec:
   type: {{ .Values.service.type | default "ClusterIP" }}
   ports:
-    - port: {{ .Values.service.port | default 8090 }}
-      targetPort: 8090
+    - port: 8081        # Internal Cluster port
+      targetPort: 8081  # Matches OGA Application port
       protocol: TCP
-      name: https
+      name: http     
   selector:
     {{- include "thunder.selectorLabels" . | nindent 4 }}

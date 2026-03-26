@@ -1,0 +1,23 @@
+# OGA-FCAU Backend Values
+nameOverride: oga-fcau-backend
+fullnameOverride: oga-fcau-backend
+
+# Resource Management (Akaza Quotas)
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Isolated Database Configuration
+env:
+  - name: DB_NAME
+    value: "oga-backend-fcau"  # Corrected to match your 'CREATE DATABASE' command
+  - name: DB_USERNAME
+    value: "oga_fcau_user"
+  - name: DB_PASSWORD
+    value: "oga_fcau_pw"
+  - name: DB_HOST
+    value: "nsw-db"            # Ensure this matches your 'oc get services' name
