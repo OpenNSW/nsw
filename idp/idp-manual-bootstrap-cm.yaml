@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: idp-manual-bootstrap-cm
+  namespace: national-single-window-platform
+data:
+  30-nsw-apps.sh: |
+    #!/bin/bash
+    set -e
+    # Source common functions provided by the official Thunder setup environment
+    SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]:-$0}")"
+    source "${SCRIPT_DIR}/common.sh"
+
+    log_info "Registering NSW Portal Applications..."
+
+    # Register Trader Portal App
+    thunder_api_call POST "/applications" '{
+      "name": "Trader Portal",
+      "handle": "TRADER_PORTAL_APP",
+      "type": "spa",
+      "settings": {
+        "redirectUris": ["https://trader-app-national-single-window-platform.apps.sovecloud.akaza.lk"],
+        "postLogoutRedirectUris": ["https://trader-app-national-single-window-platform.apps.sovecloud.akaza.lk"],
+        "allowedOrigins": ["https://trader-app-national-single-window-platform.apps.sovecloud.akaza.lk"]
+      },
+      "inbound_auth_config": [{
+        "type": "oauth2",
+        "config": {
+          "client_id": "TRADER_PORTAL_APP",
+          "public_client": true,
+          "pkce_required": true,
+          "grant_types": ["authorization_code"],
+          "response_types": ["code"],
+          "token_endpoint_auth_method": "none",
+          "redirect_uris": ["https://trader-app-national-single-window-platform.apps.sovecloud.akaza.lk"]
+        }
+      }]
+    }'
+
+    # Register OGA Portal App (NPQS)
+    thunder_api_call POST "/applications" '{
+      "name": "OGA Portal (NPQS)",
+      "handle": "OGA_PORTAL_APP_NPQS",
+      "type": "spa",
+      "settings": {
+        "redirectUris": ["https://oga-app-national-single-window-platform.apps.sovecloud.akaza.lk"],
+        "postLogoutRedirectUris": ["https://oga-app-national-single-window-platform.apps.sovecloud.akaza.lk"],
+        "allowedOrigins": ["https://oga-app-national-single-window-platform.apps.sovecloud.akaza.lk"]
+      },
+      "inbound_auth_config": [{
+        "type": "oauth2",
+        "config": {
+          "client_id": "OGA_PORTAL_APP_NPQS",
+          "public_client": true,
+          "pkce_required": true,
+          "grant_types": ["authorization_code"],
+          "response_types": ["code"],
+          "token_endpoint_auth_method": "none",
+          "redirect_uris": ["https://oga-app-national-single-window-platform.apps.sovecloud.akaza.lk"]
+        }
+      }]
+    }'
+

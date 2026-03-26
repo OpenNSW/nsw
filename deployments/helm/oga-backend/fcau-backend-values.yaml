@@ -14,7 +14,7 @@ resources:
 # Isolated Database Configuration
 env:
   - name: DB_NAME
-    value: "oga-backend-fcau"  # Corrected to match your 'CREATE DATABASE' command
+    value: "oga-backend-fcau" 
   - name: DB_USERNAME
     value: "oga_fcau_user"
   - name: DB_PASSWORD

@@ -1,0 +1,123 @@
+# configuration for official ghcr.io/asgardeo/helm-charts/thunder
+configuration:
+  server:
+    port: 8090
+    publicUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"
+    httpOnly: true
+    
+  gateClient:
+    hostname: "idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"
+    port: 443
+    scheme: "https"
+    
+  cors:
+    allowedOrigins:
+      - "https://trader-app-national-single-window-platform.apps.sovecloud.akaza.lk"
+      - "https://oga-app-national-single-window-platform.apps.sovecloud.akaza.lk"
+      - "https://nsw-api-national-single-window-platform.apps.sovecloud.akaza.lk"
+
+  database:
+    config:
+      type: "postgres"
+      host: "nsw-db"
+      port: 5432
+      name: "configdb"
+      username: "postgres"
+      sslmode: "disable"
+      passwordRef:
+        name: "nsw-db-credentials"
+        key: "password"
+    runtime:
+      type: "postgres"
+      host: "nsw-db"
+      port: 5432
+      name: "runtimedb"
+      username: "postgres"
+      sslmode: "disable"
+      passwordRef:
+        name: "nsw-db-credentials"
+        key: "password"
+    user:
+      type: "postgres"
+      host: "nsw-db"
+      port: 5432
+      name: "userdb"
+      username: "postgres"
+      sslmode: "disable"
+      passwordRef:
+        name: "nsw-db-credentials"
+        key: "password"
+
+deployment:
+  replicaCount: 1
+  image:
+    registry: ghcr.io
+    repository: opennsw/idp
+    tag: "latest"
+  # This tells the deployment which secret to use to talk to GHCR
+  imagePullSecrets:
+    - name: ghcr-pull-secret
+  container:
+    port: 8090
+    
+  securityContext:
+    runAsNonRoot: true
+    enableRunAsUser: false   # Allow OpenShift to assign random UID
+    enableRunAsGroup: false  # Allow OpenShift to assign random GID
+    enableFsGroup: false     # Do not attempt to change volume ownership
+    readOnlyRootFilesystem: false # Required for some internal Thunder operations
+    seccompProfile:
+      type: RuntimeDefault
+    capabilities:
+      drop:
+        - ALL
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+
+  volumeMounts:
+    - name: thunder-signing-keys-volume
+      mountPath: "/opt/thunder/repository/resources/security"
+      readOnly: true
+
+  volumes:
+    - name: thunder-signing-keys-volume
+      secret:
+        secretName: "thunder-signing-keys"
+        defaultMode: 0444
+
+# Mandatory: Fixes the "failed quota" for the setup job
+setup:
+  enabled: true
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+
+# Mandatory: Fixes the "failed quota" for init containers (init-db, etc)
+initResources:
+  limits:
+    cpu: 200m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 64Mi
+
+serviceAccount:
+  create: true
+  name: "thunder-service-account"
+
+ingress:
+  enabled: true
+  className: "" 
+  hostname: "idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"
+  customAnnotations:
+    route.openshift.io/termination: edge

@@ -2,8 +2,6 @@ apiVersion: v2
 name: oga-backend
 description: A standardized, generic Helm chart for NSW OGA (Other Government Agency) backend services
 type: application
-
-# This is the version of the Chart itself
 version: 0.1.1
 appVersion: "1.0.0"
 
