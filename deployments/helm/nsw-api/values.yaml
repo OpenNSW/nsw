@@ -5,7 +5,7 @@ replicaCount: 1
 
 image:
   repository: ghcr.io/opennsw/nsw-api
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
   tag: latest
 
 imagePullSecrets:
@@ -31,8 +31,8 @@ config:
     sslMode: "disable"
 
   auth:
-    # Use the internal service name and port 8081
-    jwksUrl: "http://idp-thunder.national-single-window-platform.svc.cluster.local:8081/oauth2/jwks"
+    # Use the internal service name and port 8090
+    jwksUrl: "http://idp-thunder-service.national-single-window-platform.svc.cluster.local:8090/oauth2/jwks"
     issuer: "https://idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"
     audience: "TRADER_PORTAL_APP"
     clientId: "TRADER_PORTAL_APP"

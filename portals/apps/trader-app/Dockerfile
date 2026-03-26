@@ -27,7 +27,7 @@ LABEL org.opencontainers.image.description="NSW Trader Portal Frontend"
 COPY apps/trader-app/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /workspace/apps/trader-app/dist /usr/share/nginx/html
 
-# 4. OpenShift Compliance: Fix permissions for random UID (Group 0)
+# OpenShift Compliance: Fix permissions for random UID (Group 0)
 USER root
 COPY apps/trader-app/docker-entrypoint.sh /docker-entrypoint.d/40-runtime-env.sh
 
