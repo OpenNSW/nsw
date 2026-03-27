@@ -6,10 +6,11 @@ fullnameOverride: oga-npqs-app
 
 config:
   instanceConfig: "npqs"
-  apiBaseUrl: "https://nsw-api-national-single-window-platform.apps.sovecloud.akaza.lk/api/v1"
+  apiBaseUrl: "/api"
+  backendServiceName: "oga-npqs-backend"
   idpBaseUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"
   idpClientId: "OGA_PORTAL_APP_NPQS"
-  appUrl: "https://oga-npqs-app-national-single-window-platform.apps.sovecloud.akaza.lk"
+  appUrl: "https://oga-npqs-national-single-window-platform.apps.sovecloud.akaza.lk"
 
 route:
-  host: oga-npqs-app-national-single-window-platform.apps.sovecloud.akaza.lk
+  host: oga-npqs-national-single-window-platform.apps.sovecloud.akaza.lk

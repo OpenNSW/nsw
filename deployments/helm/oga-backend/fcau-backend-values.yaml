@@ -11,13 +11,33 @@ resources:
     cpu: 100m
     memory: 128Mi
 
+image:
+  tag: latest
+imagePullSecrets:
+  - name: ghcr-secret
+
 # Isolated Database Configuration
 env:
-  - name: DB_NAME
+  - name: OGA_DB_DRIVER
+    value: "postgres"
+  - name: OGA_DB_NAME
     value: "oga-backend-fcau" 
-  - name: DB_USERNAME
+  - name: OGA_DB_USER
     value: "oga_fcau_user"
-  - name: DB_PASSWORD
+  - name: OGA_DB_PASSWORD
     value: "oga_fcau_pw"
-  - name: DB_HOST
-    value: "nsw-db"            # Ensure this matches your 'oc get services' name
+  - name: OGA_DB_HOST
+    value: "nsw-db"
+  - name: OGA_ALLOWED_ORIGINS
+    value: "https://oga-fcau-national-single-window-platform.apps.sovecloud.akaza.lk"
+
+config:
+  port: 8081
+
+route:
+  enabled: true
+  host: oga-fcau-backend-national-single-window-platform.apps.sovecloud.akaza.lk
+  tls:
+    enabled: true
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

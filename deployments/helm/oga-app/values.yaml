@@ -20,7 +20,7 @@ service:
 
 config:
   instanceConfig: ""
-  apiBaseUrl: "https://nsw-api-national-single-window-platform.apps.sovecloud.akaza.lk/api/v1"
+  apiBaseUrl: "VITE_API_BASE_URL_PLACEHOLDER"
   idpBaseUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"
   idpClientId: ""
   appUrl: ""

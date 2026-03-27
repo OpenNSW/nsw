@@ -91,9 +91,9 @@ data:
       "handle": "OGA_PORTAL_APP_NPQS",
       "type": "spa",
       "settings": {
-        "redirectUris": ["https://oga-npqs-app-national-single-window-platform.apps.sovecloud.akaza.lk"],
-        "postLogoutRedirectUris": ["https://oga-npqs-app-national-single-window-platform.apps.sovecloud.akaza.lk"],
-        "allowedOrigins": ["https://oga-npqs-app-national-single-window-platform.apps.sovecloud.akaza.lk"]
+        "redirectUris": ["https://oga-npqs-national-single-window-platform.apps.sovecloud.akaza.lk"],
+        "postLogoutRedirectUris": ["https://oga-npqs-national-single-window-platform.apps.sovecloud.akaza.lk"],
+        "allowedOrigins": ["https://oga-npqs-national-single-window-platform.apps.sovecloud.akaza.lk"]
       },
       "inbound_auth_config": [{
         "type": "oauth2",
@@ -104,7 +104,7 @@ data:
           "grant_types": ["authorization_code"],
           "response_types": ["code"],
           "token_endpoint_auth_method": "none",
-          "redirect_uris": ["https://oga-npqs-app-national-single-window-platform.apps.sovecloud.akaza.lk"]
+          "redirect_uris": ["https://oga-npqs-national-single-window-platform.apps.sovecloud.akaza.lk"]
         }
       }]
     }'
@@ -115,9 +115,9 @@ data:
       "handle": "OGA_PORTAL_APP_FCAU",
       "type": "spa",
       "settings": {
-        "redirectUris": ["https://oga-fcau-app-national-single-window-platform.apps.sovecloud.akaza.lk"],
-        "postLogoutRedirectUris": ["https://oga-fcau-app-national-single-window-platform.apps.sovecloud.akaza.lk"],
-        "allowedOrigins": ["https://oga-fcau-app-national-single-window-platform.apps.sovecloud.akaza.lk"]
+        "redirectUris": ["https://oga-fcau-national-single-window-platform.apps.sovecloud.akaza.lk"],
+        "postLogoutRedirectUris": ["https://oga-fcau-national-single-window-platform.apps.sovecloud.akaza.lk"],
+        "allowedOrigins": ["https://oga-fcau-national-single-window-platform.apps.sovecloud.akaza.lk"]
       },
       "inbound_auth_config": [{
         "type": "oauth2",
@@ -128,7 +128,7 @@ data:
           "grant_types": ["authorization_code"],
           "response_types": ["code"],
           "token_endpoint_auth_method": "none",
-          "redirect_uris": ["https://oga-fcau-app-national-single-window-platform.apps.sovecloud.akaza.lk"]
+          "redirect_uris": ["https://oga-fcau-national-single-window-platform.apps.sovecloud.akaza.lk"]
         }
       }]
     }'
@@ -139,9 +139,9 @@ data:
       "handle": "OGA_PORTAL_APP_IRD",
       "type": "spa",
       "settings": {
-        "redirectUris": ["https://oga-ird-app-national-single-window-platform.apps.sovecloud.akaza.lk"],
-        "postLogoutRedirectUris": ["https://oga-ird-app-national-single-window-platform.apps.sovecloud.akaza.lk"],
-        "allowedOrigins": ["https://oga-ird-app-national-single-window-platform.apps.sovecloud.akaza.lk"]
+        "redirectUris": ["https://oga-ird-national-single-window-platform.apps.sovecloud.akaza.lk"],
+        "postLogoutRedirectUris": ["https://oga-ird-national-single-window-platform.apps.sovecloud.akaza.lk"],
+        "allowedOrigins": ["https://oga-ird-national-single-window-platform.apps.sovecloud.akaza.lk"]
       },
       "inbound_auth_config": [{
         "type": "oauth2",
@@ -152,7 +152,7 @@ data:
           "grant_types": ["authorization_code"],
           "response_types": ["code"],
           "token_endpoint_auth_method": "none",
-          "redirect_uris": ["https://oga-ird-app-national-single-window-platform.apps.sovecloud.akaza.lk"]
+          "redirect_uris": ["https://oga-ird-national-single-window-platform.apps.sovecloud.akaza.lk"]
         }
       }]
     }'

@@ -77,3 +77,21 @@ route:
     enabled: true
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
+
+# --- Database Migrations (init container) ---
+migrations:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "16-alpine"
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  ogaSubmissionUrls:
+    npqs: "http://oga-npqs-backend.national-single-window-platform.svc.cluster.local/api/oga/inject"
+    fcau: "http://oga-fcau-backend.national-single-window-platform.svc.cluster.local/api/oga/inject"
+    preconsignment: "http://oga-ird-backend.national-single-window-platform.svc.cluster.local/api/oga/inject"

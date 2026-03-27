@@ -6,10 +6,11 @@ fullnameOverride: oga-fcau-app
 
 config:
   instanceConfig: "fcau"
-  apiBaseUrl: "https://nsw-api-national-single-window-platform.apps.sovecloud.akaza.lk/api/v1"
+  apiBaseUrl: "/api"
+  backendServiceName: "oga-fcau-backend"
   idpBaseUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"
   idpClientId: "OGA_PORTAL_APP_FCAU"
-  appUrl: "https://oga-fcau-app-national-single-window-platform.apps.sovecloud.akaza.lk"
+  appUrl: "https://oga-fcau-national-single-window-platform.apps.sovecloud.akaza.lk"
 
 route:
-  host: oga-fcau-app-national-single-window-platform.apps.sovecloud.akaza.lk
+  host: oga-fcau-national-single-window-platform.apps.sovecloud.akaza.lk

@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "oga-backend.fullname" . }}
+  labels:
+    {{- include "oga-backend.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      {{- include "oga-backend.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "oga-backend.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml .Values.imagePullSecrets | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ if .Values.image }}{{ .Values.image.repository | default "ghcr.io/opennsw/oga-backend" }}{{ else }}ghcr.io/opennsw/oga-backend{{ end }}:{{ if .Values.image }}{{ .Values.image.tag | default .Chart.AppVersion }}{{ else }}{{ .Chart.AppVersion }}{{ end }}"
+          imagePullPolicy: {{ if .Values.image }}{{ .Values.image.pullPolicy | default "Always" }}{{ else }}Always{{ end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.config.port | default 8081 }}
+              protocol: TCP
+          env:
+            - name: OGA_PORT
+              value: {{ .Values.config.port | default 8081 | quote }}
+            {{- if .Values.env }}
+            {{- toYaml .Values.env | nindent 12 }}
+            {{- end }}
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]

@@ -66,7 +66,7 @@ This creates 3 distinct routes:
 
 ### OGA Backend Services (Generic Chart)
 
-The `oga-backend/` chart is a **single generic chart** reused for every OGA agency.
+The `oga-backend/` chart is a **single generic chart** (Deployment, Service, Route) reused for every OGA agency. It listens on port `8081` and exposes the `/api/oga/applications` endpoint.
 Each agency gets its own **release name** and a dedicated `-f` values file inside `oga-backend/`:
 
 ```bash
@@ -100,12 +100,82 @@ helm upgrade --install idp-thunder thunder/thunder \
 
 ---
 
-## 3. Database Initialization (PostgreSQL)
+## 3. Database Setup
 
-The platform uses a shared PostgreSQL instance (`nsw-db`). Each OGA needs an isolated database.
+The platform uses a shared PostgreSQL instance (`nsw-db`).
+
+### 3.1 Automatic Migrations (nsw-api Init Container)
+
+The `nsw-api` Helm chart includes an **init container** that automatically runs all idempotent migrations before the server starts. This handles:
+
+- Schema creation (`001_initial_schema.sql`)
+- All seed data (HS codes, forms, workflow templates, CHA entities, pre-consignment templates)
+- V2 workflow table and mappings (`002_workflow_tem_v2.sql`)
+
+**No manual steps needed** — migrations run automatically on every deploy.
+
+To **disable** the init container (e.g. for debugging):
+```bash
+helm upgrade --install nsw-api ./deployments/helm/nsw-api \
+  --set migrations.enabled=false --history-max 3
+```
+
+#### How It Works
+
+1. An init container (`copy-migrations`) copies `.sql` files from the nsw-api image to a shared volume
+2. A second init container (`run-migrations`) uses `postgres:16-alpine` to run each file via `psql`
+3. All seed INSERTs use `ON CONFLICT DO NOTHING` — safe to re-run on every restart
+
+#### OGA Submission URLs
+
+The init container injects OGA backend service URLs into workflow node template configs via psql variables.
+Configure in `values.yaml`:
+
+```yaml
+migrations:
+  ogaSubmissionUrls:
+    npqs: "http://oga-npqs-backend.<namespace>.svc.cluster.local/api/oga/inject"
+    fcau: "http://oga-fcau-backend.<namespace>.svc.cluster.local/api/oga/inject"
+    preconsignment: "http://oga-ird-backend.<namespace>.svc.cluster.local/api/oga/inject"
+```
+
+### 3.2 One-Time Destructive Migration
+
+The `002_workflow_table.sql` migration is **excluded** from the init container because it contains `ALTER TABLE DROP COLUMN` statements. Run it **once** on a fresh or upgrading DB:
 
 ```bash
-DB_POD=$(oc get pods -l app=nsw-db -o name)
+DB_POD=$(oc get pods -l deployment=nsw-db -o name | head -n 1)
+oc exec -i $DB_POD -- psql -U postgres -d nsw_db < \
+  backend/internal/database/migrations/002_workflow_table.sql
+```
+
+### 3.3 Manual Seeding (Emergency / Re-Seed)
+
+If you need to manually re-seed:
+
+```bash
+DB_POD=$(oc get pods -l deployment=nsw-db -o name | head -n 1)
+
+# Run individual seed files with psql variable substitution
+cat backend/internal/database/migrations/001_insert_seed_workflow_node_templates.sql | \
+  oc exec -i $DB_POD -- psql -U postgres -d nsw_db \
+    -v ON_ERROR_STOP=1 \
+    -v NPQS_OGA_SUBMISSION_URL="http://oga-npqs-backend.<namespace>.svc.cluster.local/api/oga/inject" \
+    -v FCAU_OGA_SUBMISSION_URL="http://oga-fcau-backend.<namespace>.svc.cluster.local/api/oga/inject"
+
+# Simple seed files (no psql variables)
+oc exec -i $DB_POD -- psql -U postgres -d nsw_db < \
+  backend/internal/database/migrations/001_insert_seed_hscodes.sql
+```
+
+> **Note:** The DB pod label is `deployment=nsw-db` (not `app=nsw-db`).
+
+### 3.4 OGA Backend Databases
+
+Each OGA backend needs an isolated database:
+
+```bash
+DB_POD=$(oc get pods -l deployment=nsw-db -o name | head -n 1)
 
 # Create roles
 oc exec $DB_POD -- psql -U postgres -c "CREATE ROLE oga_fcau_user WITH LOGIN PASSWORD 'oga_fcau_pw';"
@@ -118,12 +188,12 @@ oc exec $DB_POD -- psql -U postgres -c "CREATE DATABASE \"oga-backend-ird\"  OWN
 oc exec $DB_POD -- psql -U postgres -c "CREATE DATABASE \"oga-backend-npqs\" OWNER oga_npqs_user;"
 ```
 
-### 3.1 Thunder IDP Schema & App Registration
+### 3.5 Thunder IDP Schema & App Registration
 
 Since the official Thunder Helm setup hooks may be skipped or fail due to SCC quota constraints, you must manually initialize the Postgres schemas (`configdb`, `runtimedb`, `userdb`) and complete the bootstrap process to register `TRADER_PORTAL_APP` and `OGA_PORTAL_APP_NPQS`.
 
 ```bash
-DB_POD=$(oc get pods -l app=nsw-db -o name | head -n 1)
+DB_POD=$(oc get pods -l deployment=nsw-db -o name | head -n 1)
 
 # 1. Ensure the core IDP databases exist first
 oc exec $DB_POD -- psql -U postgres -c "CREATE DATABASE configdb;" || true
@@ -149,11 +219,34 @@ oc get job idp-manual-setup -n national-single-window-platform -w
 
 ---
 
-## 4. Verification & Troubleshooting
+## 4. Migration File Reference
+
+| File | Type | Idempotent | Auto-Run |
+|:---|:---|:---|:---|
+| `001_initial_schema.sql` | Schema DDL | ✅ `IF NOT EXISTS` | ✅ |
+| `001_insert_seed_hscodes.sql` | Seed data | ✅ `ON CONFLICT` | ✅ |
+| `001_insert_seed_form_templates.sql` | Seed data | ✅ `ON CONFLICT` | ✅ |
+| `001_insert_seed_workflow_node_templates.sql` | Seed data (needs psql vars) | ✅ `ON CONFLICT` | ✅ |
+| `001_insert_seed_workflow_templates.sql` | Seed data | ✅ `ON CONFLICT` | ✅ |
+| `001_insert_seed_workflow_hscode_map.sql` | Seed data | ✅ `ON CONFLICT` | ✅ |
+| `001_insert_seed_pre_consignment_template.sql` | Seed data (needs psql vars) | ✅ `ON CONFLICT` | ✅ |
+| `001_insert_cha_entity.sql` | Seed data | ✅ `ON CONFLICT` | ✅ |
+| `002_workflow_table.sql` | **Destructive** (DROP COLUMN) | ❌ | ❌ Manual |
+| `002_workflow_tem_v2.sql` | Schema + Seed | ✅ `IF NOT EXISTS` + `ON CONFLICT` | ✅ |
+
+---
+
+## 5. Verification & Troubleshooting
 
 ### Watch Pod Status
 ```bash
 oc get pods -w
+```
+
+### Verify Init Container Logs
+```bash
+oc logs deployment/nsw-api -c copy-migrations
+oc logs deployment/nsw-api -c run-migrations
 ```
 
 ### Common Failure Signatures
@@ -164,9 +257,14 @@ oc get pods -w
 | `Permission denied (signing.key)` | SCC `anyuid` not granted | `oc adm policy add-scc-to-user anyuid …` |
 | `Exec format error` | ARM image on AMD host | Rebuild with `--platform linux/amd64` |
 | `ImagePullBackOff` | Missing pull secret | Verify `oc get secret ghcr-secret` |
+| `record not found` (500 on consignment init) | Missing seed data in `workflow_template_maps` | Check init container logs; re-seed manually (§3.3) |
+| CORS preflight failure | Missing OGA portal origin in `nsw-api` CORS config | Update `cors.allowedOrigins` in `nsw-api/values.yaml` |
+| `OGA_DB_PASSWORD is required` | Missing env var in backend deployment | Verify `OGA_DB_PASSWORD` exists in backend values (§2) |
 
 ### Database Connectivity Check
 ```bash
+DB_POD=$(oc get pods -l deployment=nsw-db -o name | head -n 1)
+oc exec $DB_POD -- psql -U postgres -d nsw_db -c "\dt"
 oc exec $DB_POD -- psql -U thunder_user -d configdb -c "\dt"
 ```
 
@@ -174,6 +272,7 @@ oc exec $DB_POD -- psql -U thunder_user -d configdb -c "\dt"
 ```bash
 oc logs deployment/trader-app  | grep "listening on 0.0.0.0:8080"
 oc logs deployment/idp-thunder | grep "Server started"
+oc logs deployment/nsw-api -c run-migrations | grep "Migrations completed"
 ```
 
 ---
@@ -187,17 +286,22 @@ deployments/helm/
 │   ├── Chart.yaml
 │   ├── values.yaml
 │   └── templates/
+│       ├── _helpers.tpl
+│       ├── deployment.yaml      (includes migration init containers)
+│       ├── db-migrations-cm.yaml (migration runner script)
+│       ├── route.yaml
+│       └── service.yaml
 ├── trader-app/                 ← Trader portal frontend
 │   ├── Chart.yaml
 │   ├── values.yaml
 │   └── templates/
-└── oga-app/                    ← generic OGA portal frontend chart
-    ├── Chart.yaml
-    ├── values.yaml             ← generic base defaults
-    ├── fcau-app-values.yaml    ← FCAU portal override
-    ├── ird-app-values.yaml     ← IRD portal override
-    ├── npqs-app-values.yaml    ← NPQS portal override
-    └── templates/
+├── oga-app/                    ← generic OGA portal frontend chart
+│   ├── Chart.yaml
+│   ├── values.yaml             ← generic base defaults
+│   ├── fcau-app-values.yaml    ← FCAU portal override
+│   ├── ird-app-values.yaml     ← IRD portal override
+│   ├── npqs-app-values.yaml    ← NPQS portal override
+│   └── templates/
 └── oga-backend/                ← generic OGA backend chart
     ├── Chart.yaml
     ├── fcau-backend-values.yaml

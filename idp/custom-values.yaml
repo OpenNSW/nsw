@@ -13,10 +13,9 @@ configuration:
   cors:
     allowedOrigins:
       - "https://trader-app-national-single-window-platform.apps.sovecloud.akaza.lk"
-      - "https://oga-app-national-single-window-platform.apps.sovecloud.akaza.lk"
-      - "https://oga-fcau-app-national-single-window-platform.apps.sovecloud.akaza.lk"
-      - "https://oga-ird-app-national-single-window-platform.apps.sovecloud.akaza.lk"
-      - "https://oga-npqs-app-national-single-window-platform.apps.sovecloud.akaza.lk"
+      - "https://oga-fcau-national-single-window-platform.apps.sovecloud.akaza.lk"
+      - "https://oga-ird-national-single-window-platform.apps.sovecloud.akaza.lk"
+      - "https://oga-npqs-national-single-window-platform.apps.sovecloud.akaza.lk"
       - "https://nsw-api-national-single-window-platform.apps.sovecloud.akaza.lk"
 
   database:
@@ -59,7 +58,7 @@ deployment:
     tag: "latest"
   # This tells the deployment which secret to use to talk to GHCR
   imagePullSecrets:
-    - name: ghcr-pull-secret
+    - name: ghcr-secret
   container:
     port: 8090
     

@@ -10,6 +10,7 @@ spec:
   {{- if .Values.route.host }}
   host: {{ .Values.route.host | quote }}
   {{- end }}
+  path: "/"
   to:
     kind: Service
     name: {{ include "oga-app.fullname" . }}
@@ -21,4 +22,30 @@ spec:
     termination: {{ .Values.route.tls.termination | default "edge" | quote }}
     insecureEdgeTerminationPolicy: {{ .Values.route.tls.insecureEdgeTerminationPolicy | default "Redirect" | quote }}
   {{- end }}
+---
+{{- if .Values.config.backendServiceName }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "oga-app.fullname" . }}-api
+  labels:
+    app.kubernetes.io/name: {{ include "oga-app.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  {{- if .Values.route.host }}
+  host: {{ .Values.route.host | quote }}
+  {{- end }}
+  path: "/api/oga"
+  to:
+    kind: Service
+    name: {{ .Values.config.backendServiceName | quote }}
+    weight: 100
+  port:
+    targetPort: http
+  {{- if .Values.route.tls.enabled }}
+  tls:
+    termination: {{ .Values.route.tls.termination | default "edge" | quote }}
+    insecureEdgeTerminationPolicy: {{ .Values.route.tls.insecureEdgeTerminationPolicy | default "Redirect" | quote }}
+  {{- end }}
+{{- end }}
 {{- end }}

@@ -11,13 +11,33 @@ resources:
     cpu: 100m
     memory: 128Mi
 
+image:
+  tag: latest
+imagePullSecrets:
+  - name: ghcr-secret
+
 # Isolated Database Configuration
 env:
-  - name: DB_HOST
-    value: "nsw-db"                # Points to the shared DB service in the namespace
-  - name: DB_NAME
+  - name: OGA_DB_DRIVER
+    value: "postgres"
+  - name: OGA_DB_HOST
+    value: "nsw-db"
+  - name: OGA_DB_NAME
     value: "oga-backend-ird"  
-  - name: DB_USERNAME
+  - name: OGA_DB_USER
     value: "oga_ird_user"
-  - name: DB_PASSWORD
-    value: "oga_ird_pw"            # Ensure this matches the 'CREATE ROLE' password
+  - name: OGA_DB_PASSWORD
+    value: "oga_ird_pw"
+  - name: OGA_ALLOWED_ORIGINS
+    value: "https://oga-ird-national-single-window-platform.apps.sovecloud.akaza.lk"
+
+config:
+  port: 8081
+
+route:
+  enabled: true
+  host: oga-ird-backend-national-single-window-platform.apps.sovecloud.akaza.lk
+  tls:
+    enabled: true
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

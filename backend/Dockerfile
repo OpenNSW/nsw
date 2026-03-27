@@ -29,6 +29,7 @@ WORKDIR /app
 COPY --from=builder /out/server /app/server
 COPY --from=builder /app/configs /app/configs
 COPY --from=builder /app/bucket /app/bucket
+COPY --from=builder /app/internal/database/migrations /app/migrations
 
 # OPENSHIFT COMPLIANCE:
 # OpenShift runs as a random UID in Group 0. We must ensure Group 0 

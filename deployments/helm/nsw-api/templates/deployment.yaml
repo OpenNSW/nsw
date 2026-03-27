@@ -21,6 +21,67 @@ spec:
       imagePullSecrets:
         {{- toYaml .Values.imagePullSecrets | nindent 8 }}
       {{- end }}
+      {{- if .Values.migrations.enabled }}
+      volumes:
+        - name: migration-scripts
+          configMap:
+            name: {{ include "nsw-api.fullname" . }}-db-migrations
+            defaultMode: 0755
+        - name: migration-sql
+          emptyDir: {}
+      initContainers:
+        # Step 1: Copy SQL files from the nsw-api image to a shared volume
+        - name: copy-migrations
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["sh", "-c", "cp /app/migrations/*.sql /migrations/"]
+          volumeMounts:
+            - name: migration-sql
+              mountPath: /migrations
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.migrations.resources | nindent 12 }}
+        # Step 2: Run migrations via psql
+        - name: run-migrations
+          image: "{{ .Values.migrations.image.repository }}:{{ .Values.migrations.image.tag }}"
+          command: ["sh", "/scripts/run-migrations.sh"]
+          env:
+            - name: PGHOST
+              value: {{ .Values.config.database.host | quote }}
+            - name: PGPORT
+              value: {{ .Values.config.database.port | quote }}
+            - name: PGUSER
+              value: {{ .Values.config.database.username | quote }}
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nsw-db-credentials
+                  key: password
+            - name: PGDATABASE
+              value: {{ .Values.config.database.name | quote }}
+            - name: NPQS_OGA_SUBMISSION_URL
+              value: {{ .Values.migrations.ogaSubmissionUrls.npqs | quote }}
+            - name: FCAU_OGA_SUBMISSION_URL
+              value: {{ .Values.migrations.ogaSubmissionUrls.fcau | quote }}
+            - name: PRECONSIGNMENT_OGA_SUBMISSION_URL
+              value: {{ .Values.migrations.ogaSubmissionUrls.preconsignment | quote }}
+          volumeMounts:
+            - name: migration-scripts
+              mountPath: /scripts
+            - name: migration-sql
+              mountPath: /migrations
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.migrations.resources | nindent 12 }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"

@@ -7,6 +7,8 @@ spec:
   template:
     spec:
       serviceAccountName: thunder-service-account
+      imagePullSecrets:
+        - name: ghcr-secret
       restartPolicy: OnFailure
       containers:
         - name: setup
