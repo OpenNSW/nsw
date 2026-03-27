@@ -477,11 +477,10 @@ func TestNewTaskManager(t *testing.T) {
 	}), &gorm.Config{})
 	assert.NoError(t, err)
 
-	cfg := &config.Config{}
 	// Since NewTaskStore connects to DB and migrates (maybe?), or just returns struct
 	// Here persistence.NewTaskStore(db) likely just returns struct.
 
-	tm, err := NewTaskManager(gormDB, cfg, nil)
+	tm, err := NewTaskManager(gormDB, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, tm)
 }

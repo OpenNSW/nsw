@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	workflowManagerV2 "github.com/OpenNSW/go-temporal-workflow"
+	"github.com/OpenNSW/nsw/internal/task/plugin"
 
 	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/config"
@@ -134,7 +135,9 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	}
 
 	formService := form.NewFormService(db)
-	tm, err := taskManager.NewTaskManager(db, cfg, formService)
+
+	factory := plugin.NewTaskFactory(cfg, formService)
+	tm, err := taskManager.NewTaskManager(db, factory)
 	if err != nil {
 		_ = database.Close(db)
 		return nil, fmt.Errorf("failed to create task manager: %w", err)
