@@ -11,7 +11,7 @@
 |:---|:---|:---|
 | `nsw-api` | `./deployments/helm/nsw-api` | `values.yaml` (inline) |
 | `trader-app` | `./deployments/helm/trader-app` | `values.yaml` (inline) |
-| `oga-app` | `./deployments/helm/oga-app` | `values.yaml` + per-agency overrides (e.g. `oga-npqs-values.yaml`) |
+| `oga-app` | `./deployments/helm/oga-app` | `values.yaml` + per-agency overrides (e.g. `npqs-app-values.yaml`) |
 | `oga-<agency>-backend` | `./deployments/helm/oga-backend` *(generic)* | Per-agency values file (e.g. `fcau-backend-values.yaml`) |
 | `idp-thunder` | **Official Thunder chart** (`ghcr.io/asgardeo/helm-charts/thunder`) | `idp/custom-values.yaml` |
 
@@ -41,8 +41,28 @@ All commands are run from the **repository root**.
 ```bash
 helm upgrade --install nsw-api    ./deployments/helm/nsw-api    --history-max 3
 helm upgrade --install trader-app ./deployments/helm/trader-app --history-max 3
-helm upgrade --install oga-app    ./deployments/helm/oga-app    --history-max 3
 ```
+
+### OGA Portal Frontends (Generic Chart, 3 Distinct Releases)
+
+The `oga-app/` chart is a **generic chart** reused for every OGA portal.
+Each OGA gets its **own release name**, its own route, and a dedicated `-f` values file inside `oga-app/`:
+
+```bash
+helm upgrade --install oga-fcau-app ./deployments/helm/oga-app \
+  -f ./deployments/helm/oga-app/fcau-app-values.yaml --history-max 3
+
+helm upgrade --install oga-ird-app ./deployments/helm/oga-app \
+  -f ./deployments/helm/oga-app/ird-app-values.yaml --history-max 3
+
+helm upgrade --install oga-npqs-app ./deployments/helm/oga-app \
+  -f ./deployments/helm/oga-app/npqs-app-values.yaml --history-max 3
+```
+
+This creates 3 distinct routes:
+- `oga-fcau-app-national-single-window-platform.apps.sovecloud.akaza.lk`
+- `oga-ird-app-national-single-window-platform.apps.sovecloud.akaza.lk`
+- `oga-npqs-app-national-single-window-platform.apps.sovecloud.akaza.lk`
 
 ### OGA Backend Services (Generic Chart)
 
@@ -171,11 +191,13 @@ deployments/helm/
 │   ├── Chart.yaml
 │   ├── values.yaml
 │   └── templates/
-├── oga-app/                    ← OGA portal frontend
-│   ├── Chart.yaml
-│   ├── values.yaml
-│   ├── oga-npqs-values.yaml    ← per-agency override example
-│   └── templates/
+└── oga-app/                    ← generic OGA portal frontend chart
+    ├── Chart.yaml
+    ├── values.yaml             ← generic base defaults
+    ├── fcau-app-values.yaml    ← FCAU portal override
+    ├── ird-app-values.yaml     ← IRD portal override
+    ├── npqs-app-values.yaml    ← NPQS portal override
+    └── templates/
 └── oga-backend/                ← generic OGA backend chart
     ├── Chart.yaml
     ├── fcau-backend-values.yaml

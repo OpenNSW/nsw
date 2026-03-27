@@ -1,6 +1,5 @@
 # Default values for oga-app.
-
-fullnameOverride: "oga-app"
+# This is a generic chart -- all OGA-specific identity is in per-agency values files.
 
 replicaCount: 1
 
@@ -20,18 +19,18 @@ service:
   targetPort: 8080
 
 config:
-  instanceConfig: "npqs"
+  instanceConfig: ""
   apiBaseUrl: "https://nsw-api-national-single-window-platform.apps.sovecloud.akaza.lk/api/v1"
   idpBaseUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"
-  idpClientId: "OGA_PORTAL_APP_NPQS"
-  appUrl: "https://oga-app-national-single-window-platform.apps.sovecloud.akaza.lk"
+  idpClientId: ""
+  appUrl: ""
   idpScopes: "openid,profile,email"
   idpPlatform: "AsgardeoV2"
 
 resources:
   limits:
     cpu: 200m
-    memory: 256Mi # Increased slightly; 128Mi can be tight for Nginx + sidecars
+    memory: 256Mi
   requests:
     cpu: 50m
     memory: 128Mi
