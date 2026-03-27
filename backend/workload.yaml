@@ -72,5 +72,3 @@ configurations:
       value: local
     - name: STORAGE_LOCAL_BASE_DIR
       value: /data/uploads
-    - name: STORAGE_LOCAL_PUBLIC_URL
-      value: /bucket

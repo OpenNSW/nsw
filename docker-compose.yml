@@ -238,7 +238,6 @@ services:
       AUTH_JWKS_INSECURE_SKIP_VERIFY: ${AUTH_JWKS_INSECURE_SKIP_VERIFY:-true}
       STORAGE_TYPE: ${STORAGE_TYPE:-local}
       STORAGE_LOCAL_BASE_DIR: ${STORAGE_LOCAL_BASE_DIR:-/app/bucket}
-      STORAGE_LOCAL_PUBLIC_URL: ${STORAGE_LOCAL_PUBLIC_URL:-/bucket}
 
   # ============================================================================
   # Trader Portal — core-net

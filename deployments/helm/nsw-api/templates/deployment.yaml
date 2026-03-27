@@ -79,8 +79,6 @@ spec:
             {{- if eq .Values.config.storage.type "local" }}
             - name: STORAGE_LOCAL_BASE_DIR
               value: {{ .Values.config.storage.localBaseDir | quote }}
-            - name: STORAGE_LOCAL_PUBLIC_URL
-              value: {{ .Values.config.storage.localPublicUrl | quote }}
             {{- end }}
             {{- if eq .Values.config.storage.type "s3" }}
             - name: STORAGE_S3_ENDPOINT

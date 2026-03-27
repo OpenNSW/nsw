@@ -74,7 +74,6 @@ docker run --rm --name nsw-backend \
   -e CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176 \
   -e STORAGE_TYPE=local \
   -e STORAGE_LOCAL_BASE_DIR=/data/uploads \
-  -e STORAGE_LOCAL_PUBLIC_URL=/bucket \
   -v nsw-backend-uploads:/data/uploads \
   nsw-backend:local
 ```
