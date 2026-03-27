@@ -1,5 +1,7 @@
 package model
 
+import wmv2 "github.com/OpenNSW/go-temporal-workflow"
+
 // ConsignmentFlow represents the flow type of a consignment.
 type ConsignmentFlow string
 
@@ -92,6 +94,7 @@ type ConsignmentDetailDTO struct {
 	CreatedAt     string                       `json:"createdAt"`     // Timestamp of consignment creation
 	UpdatedAt     string                       `json:"updatedAt"`     // Timestamp of last consignment update
 	WorkflowNodes []WorkflowNodeResponseDTO    `json:"workflowNodes"` // Associated workflow nodes with template details
+	Edges         []wmv2.Edge                  `json:"edges"`         // Edges between workflow nodes
 }
 
 // ConsignmentSummaryDTO represents the consignment data returned in list responses.
