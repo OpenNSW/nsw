@@ -1,0 +1,67 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: idp-manual-setup
+  namespace: national-single-window-platform
+spec:
+  template:
+    spec:
+      serviceAccountName: thunder-service-account
+      restartPolicy: OnFailure
+      containers:
+        - name: setup
+          image: ghcr.io/opennsw/idp:latest
+          command: ["./setup.sh"]
+          env:
+            - name: THUNDER_ADMIN_USERNAME
+              value: "admin"
+            - name: THUNDER_ADMIN_PASSWORD
+              value: "1234"
+            - name: THUNDER_SAMPLE_USER_PASSWORD
+              value: "1234"
+            - name: DB_CONFIG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nsw-db-credentials
+                  key: password
+            - name: DB_RUNTIME_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nsw-db-credentials
+                  key: password
+            - name: DB_USER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nsw-db-credentials
+                  key: password
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 200m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: deployment-yaml-volume
+              mountPath: /opt/thunder/repository/conf/deployment.yaml
+              subPath: deployment.yaml
+            - name: bootstrap-scripts
+              mountPath: /opt/thunder/bootstrap/30-nsw-apps.sh
+              subPath: 30-nsw-apps.sh
+      volumes:
+        - name: deployment-yaml-volume
+          configMap:
+            name: idp-thunder-config-map
+        - name: bootstrap-scripts
+          configMap:
+            name: idp-manual-bootstrap-cm
+            defaultMode: 0555
+      securityContext: {}

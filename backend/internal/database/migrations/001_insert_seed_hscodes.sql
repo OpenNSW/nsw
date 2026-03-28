@@ -131,4 +131,5 @@ VALUES
         '1404.90.50',
         'Coconut Husk Chips',
         'Non-Kernel'
-    );
+    )
+ON CONFLICT (id) DO NOTHING;

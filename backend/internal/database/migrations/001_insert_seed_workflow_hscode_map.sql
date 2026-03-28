@@ -12,4 +12,5 @@ VALUES
         '4bdfb1f0-2b71-4ddc-8b99-f31c3d7660bc',
         'EXPORT',
         'a7b8c9d0-0001-4000-c000-000000000002'
-    );
+    )
+ON CONFLICT (id) DO NOTHING;

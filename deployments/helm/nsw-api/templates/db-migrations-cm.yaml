@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nsw-api.fullname" . }}-db-migrations
+  labels:
+    app.kubernetes.io/name: {{ include "nsw-api.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+data:
+  run-migrations.sh: |
+    #!/bin/sh
+    set -e
+
+    echo "=== NSW DB Migration Runner ==="
+    echo "Host: $PGHOST | DB: $PGDATABASE"
+
+    # All idempotent migration files in dependency order.
+    # 002_workflow_table.sql is excluded — it is a one-time destructive migration.
+    MIGRATIONS="
+      001_initial_schema.sql
+      001_insert_seed_hscodes.sql
+      001_insert_seed_form_templates.sql
+      001_insert_seed_workflow_node_templates.sql
+      001_insert_seed_workflow_templates.sql
+      001_insert_seed_workflow_hscode_map.sql
+      001_insert_seed_pre_consignment_template.sql
+      001_insert_cha_entity.sql
+      002_workflow_tem_v2.sql
+    "
+
+    for FILE in $MIGRATIONS; do
+      FILEPATH="/migrations/$FILE"
+      if [ -f "$FILEPATH" ]; then
+        echo "-> Executing: $FILE"
+        psql \
+          -v ON_ERROR_STOP=1 \
+          -v NPQS_OGA_SUBMISSION_URL="$NPQS_OGA_SUBMISSION_URL" \
+          -v FCAU_OGA_SUBMISSION_URL="$FCAU_OGA_SUBMISSION_URL" \
+          -v PRECONSIGNMENT_OGA_SUBMISSION_URL="$PRECONSIGNMENT_OGA_SUBMISSION_URL" \
+          -f "$FILEPATH"
+      else
+        echo "!! WARNING: $FILE not found, skipping."
+      fi
+    done
+
+    echo "=== Migrations completed ==="

@@ -1,0 +1,158 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: idp-manual-bootstrap-cm
+  namespace: national-single-window-platform
+data:
+  30-nsw-apps.sh: |
+    #!/bin/bash
+    set -e
+    # Source common functions provided by the official Thunder setup environment
+    SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]:-$0}")"
+    source "${SCRIPT_DIR}/common.sh"
+
+    function register_or_update_app() {
+      APP_JSON="$1"
+      APP_NAME=$(echo "$APP_JSON" | grep -o '"name": *"[^"]*"' | head -1 | cut -d'"' -f4)
+      APP_HANDLE=$(echo "$APP_JSON" | grep -o '"handle": *"[^"]*"' | head -1 | cut -d'"' -f4)
+      
+      log_info "Processing application: ${APP_NAME} (${APP_HANDLE})..."
+      
+      RESPONSE=$(thunder_api_call POST "/applications" "$APP_JSON")
+      HTTP_CODE="${RESPONSE: -3}"
+      
+      if [[ "$HTTP_CODE" == "201" ]]; then
+        log_success "Application '${APP_NAME}' created successfully."
+      elif [[ "$HTTP_CODE" == "400" ]] || [[ "$HTTP_CODE" == "409" ]]; then
+        log_warning "Application already exists, attempting update..."
+        
+        # Get all applications
+        LIST_RESPONSE=$(thunder_api_call GET "/applications")
+        LIST_BODY="${LIST_RESPONSE%???}"
+        
+        # Robust ID extraction using awk:
+        # Note: The IDP returns the handle in the 'client_id' field in the list response.
+        # 1. Extract all id, handle, and client_id fields in order, one per line
+        # 2. Use awk to find the line with the handle (or client_id) and return the ID (which comes before it)
+        echo "$LIST_BODY" | grep -oE '"id":"[^"]*"|"handle":"[^"]*"|"client_id":"[^"]*"' > /tmp/ids_handles.txt
+        
+        APP_ID=$(awk "/:\"${APP_HANDLE}\"/ {print prev} {prev=\$0}" /tmp/ids_handles.txt | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+        
+        if [[ -n "$APP_ID" ]]; then
+          log_info "Found existing ID: ${APP_ID}. Updating..."
+          UPDATE_RESPONSE=$(thunder_api_call PUT "/applications/${APP_ID}" "$APP_JSON")
+          UPDATE_CODE="${UPDATE_RESPONSE: -3}"
+          if [[ "$UPDATE_CODE" == "200" ]]; then
+            log_success "Application '${APP_NAME}' updated successfully."
+          else
+            log_error "Failed to update application '${APP_NAME}' (HTTP ${UPDATE_CODE})."
+            exit 1
+          fi
+        else
+          log_error "Could not find ID for existing application '${APP_HANDLE}'."
+          exit 1
+        fi
+      else
+        log_error "Failed to process application '${APP_NAME}' (HTTP ${HTTP_CODE})."
+        echo "Response: ${RESPONSE%???}"
+        exit 1
+      fi
+    }
+
+    log_info "Registering NSW Portal Applications..."
+
+    # Register Trader Portal App
+    register_or_update_app '{
+      "name": "Trader Portal",
+      "handle": "TRADER_PORTAL_APP",
+      "type": "spa",
+      "settings": {
+        "redirectUris": ["https://trader-app-national-single-window-platform.apps.sovecloud.akaza.lk"],
+        "postLogoutRedirectUris": ["https://trader-app-national-single-window-platform.apps.sovecloud.akaza.lk"],
+        "allowedOrigins": ["https://trader-app-national-single-window-platform.apps.sovecloud.akaza.lk"]
+      },
+      "inbound_auth_config": [{
+        "type": "oauth2",
+        "config": {
+          "client_id": "TRADER_PORTAL_APP",
+          "public_client": true,
+          "pkce_required": true,
+          "grant_types": ["authorization_code"],
+          "response_types": ["code"],
+          "token_endpoint_auth_method": "none",
+          "redirect_uris": ["https://trader-app-national-single-window-platform.apps.sovecloud.akaza.lk"]
+        }
+      }]
+    }'
+
+    # Register OGA Portal App (NPQS)
+    register_or_update_app '{
+      "name": "OGA Portal (NPQS)",
+      "handle": "OGA_PORTAL_APP_NPQS",
+      "type": "spa",
+      "settings": {
+        "redirectUris": ["https://oga-npqs-app-national-single-window-platform.apps.sovecloud.akaza.lk"],
+        "postLogoutRedirectUris": ["https://oga-npqs-app-national-single-window-platform.apps.sovecloud.akaza.lk"],
+        "allowedOrigins": ["https://oga-npqs-app-national-single-window-platform.apps.sovecloud.akaza.lk"]
+      },
+      "inbound_auth_config": [{
+        "type": "oauth2",
+        "config": {
+          "client_id": "OGA_PORTAL_APP_NPQS",
+          "public_client": true,
+          "pkce_required": true,
+          "grant_types": ["authorization_code"],
+          "response_types": ["code"],
+          "token_endpoint_auth_method": "none",
+          "redirect_uris": ["https://oga-npqs-app-national-single-window-platform.apps.sovecloud.akaza.lk"]
+        }
+      }]
+    }'
+
+    # Register OGA Portal App (FCAU)
+    register_or_update_app '{
+      "name": "OGA Portal (FCAU)",
+      "handle": "OGA_PORTAL_APP_FCAU",
+      "type": "spa",
+      "settings": {
+        "redirectUris": ["https://oga-fcau-app-national-single-window-platform.apps.sovecloud.akaza.lk"],
+        "postLogoutRedirectUris": ["https://oga-fcau-app-national-single-window-platform.apps.sovecloud.akaza.lk"],
+        "allowedOrigins": ["https://oga-fcau-app-national-single-window-platform.apps.sovecloud.akaza.lk"]
+      },
+      "inbound_auth_config": [{
+        "type": "oauth2",
+        "config": {
+          "client_id": "OGA_PORTAL_APP_FCAU",
+          "public_client": true,
+          "pkce_required": true,
+          "grant_types": ["authorization_code"],
+          "response_types": ["code"],
+          "token_endpoint_auth_method": "none",
+          "redirect_uris": ["https://oga-fcau-app-national-single-window-platform.apps.sovecloud.akaza.lk"]
+        }
+      }]
+    }'
+
+    # Register OGA Portal App (IRD)
+    register_or_update_app '{
+      "name": "OGA Portal (IRD)",
+      "handle": "OGA_PORTAL_APP_IRD",
+      "type": "spa",
+      "settings": {
+        "redirectUris": ["https://oga-ird-app-national-single-window-platform.apps.sovecloud.akaza.lk"],
+        "postLogoutRedirectUris": ["https://oga-ird-app-national-single-window-platform.apps.sovecloud.akaza.lk"],
+        "allowedOrigins": ["https://oga-ird-app-national-single-window-platform.apps.sovecloud.akaza.lk"]
+      },
+      "inbound_auth_config": [{
+        "type": "oauth2",
+        "config": {
+          "client_id": "OGA_PORTAL_APP_IRD",
+          "public_client": true,
+          "pkce_required": true,
+          "grant_types": ["authorization_code"],
+          "response_types": ["code"],
+          "token_endpoint_auth_method": "none",
+          "redirect_uris": ["https://oga-ird-app-national-single-window-platform.apps.sovecloud.akaza.lk"]
+        }
+      }]
+    }'

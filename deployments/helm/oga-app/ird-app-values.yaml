@@ -1,0 +1,15 @@
+# OGA-IRD Portal Values
+# Usage: helm upgrade --install oga-ird-app ./deployments/helm/oga-app -f deployments/helm/oga-app/ird-app-values.yaml --history-max 3
+
+nameOverride: oga-ird-app
+fullnameOverride: oga-ird-app
+
+config:
+  instanceConfig: "ird"
+  apiBaseUrl: "https://oga-ird-backend-national-single-window-platform.apps.sovecloud.akaza.lk/api"
+  idpBaseUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"
+  idpClientId: "OGA_PORTAL_APP_IRD"
+  appUrl: "https://oga-ird-app-national-single-window-platform.apps.sovecloud.akaza.lk"
+
+route:
+  host: oga-ird-app-national-single-window-platform.apps.sovecloud.akaza.lk

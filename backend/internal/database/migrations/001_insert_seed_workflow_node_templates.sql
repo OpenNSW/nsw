@@ -296,5 +296,6 @@ VALUES
         '{}',
         '[]',
         NULL
-    );
+    )
+ON CONFLICT (id) DO NOTHING;
 

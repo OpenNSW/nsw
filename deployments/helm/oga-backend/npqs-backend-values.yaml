@@ -1,0 +1,37 @@
+# OGA-NPQS Backend Values
+nameOverride: oga-npqs-backend
+fullnameOverride: oga-npqs-backend
+
+# Resource Management (Akaza Quotas)
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Isolated Database Configuration
+env:
+  - name: OGA_DB_DRIVER
+    value: "postgres"
+  - name: OGA_DB_HOST
+    value: "nsw-db"
+  - name: OGA_DB_NAME
+    value: "oga-backend-npqs"     
+  - name: OGA_DB_USER
+    value: "oga_npqs_user"
+  - name: OGA_DB_PASSWORD
+    value: "oga_npqs_pw"
+  - name: OGA_ALLOWED_ORIGINS
+    value: "https://oga-npqs-app-national-single-window-platform.apps.sovecloud.akaza.lk"
+
+config:
+  port: 8081
+
+route:
+  enabled: true
+  host: oga-npqs-backend-national-single-window-platform.apps.sovecloud.akaza.lk
+  tls:
+    enabled: true
+    termination: edge

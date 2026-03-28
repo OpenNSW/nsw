@@ -1,0 +1,37 @@
+# OGA-FCAU Backend Values
+nameOverride: oga-fcau-backend
+fullnameOverride: oga-fcau-backend
+
+# Resource Management (Akaza Quotas)
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Isolated Database Configuration
+env:
+  - name: OGA_DB_DRIVER
+    value: "postgres"
+  - name: OGA_DB_NAME
+    value: "oga-backend-fcau" 
+  - name: OGA_DB_USER
+    value: "oga_fcau_user"
+  - name: OGA_DB_PASSWORD
+    value: "oga_fcau_pw"
+  - name: OGA_DB_HOST
+    value: "nsw-db"
+  - name: OGA_ALLOWED_ORIGINS
+    value: "https://oga-fcau-app-national-single-window-platform.apps.sovecloud.akaza.lk"
+
+config:
+  port: 8081
+
+route:
+  enabled: true
+  host: oga-fcau-backend-national-single-window-platform.apps.sovecloud.akaza.lk
+  tls:
+    enabled: true
+    termination: edge

@@ -1,0 +1,15 @@
+# OGA-NPQS Portal Values
+# Usage: helm upgrade --install oga-npqs-app ./deployments/helm/oga-app -f deployments/helm/oga-app/npqs-app-values.yaml --history-max 3
+
+nameOverride: oga-npqs-app
+fullnameOverride: oga-npqs-app
+
+config:
+  instanceConfig: "npqs"
+  apiBaseUrl: "https://oga-npqs-backend-national-single-window-platform.apps.sovecloud.akaza.lk/api"
+  idpBaseUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"
+  idpClientId: "OGA_PORTAL_APP_NPQS"
+  appUrl: "https://oga-npqs-app-national-single-window-platform.apps.sovecloud.akaza.lk"
+
+route:
+  host: oga-npqs-app-national-single-window-platform.apps.sovecloud.akaza.lk

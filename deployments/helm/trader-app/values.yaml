@@ -1,25 +1,29 @@
 # Default values for trader-app.
 
+fullnameOverride: "trader-app"
+
 replicaCount: 1
 
 image:
   repository: ghcr.io/opennsw/trader-app
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
   tag: latest
 
 imagePullSecrets:
-  - name: ghcr-pull-secret
+  - name: ghcr-secret
 
 service:
   type: ClusterIP
+  # External port
   port: 80
-  targetPort: 80
+  # Internal port: Must match Nginx listening on 8080 (unprivileged)
+  targetPort: 8080
 
 config:
-  apiBaseUrl: "https://nsw-api-national-single-window-platform.lgc.gov.lk/api/v1"
-  idpBaseUrl: "https://idp-route.national-single-window-platform.lgc.gov.lk"
+  apiBaseUrl: "https://nsw-api-national-single-window-platform.apps.sovecloud.akaza.lk/api/v1"
+  idpBaseUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"
   idpClientId: "TRADER_PORTAL_APP"
-  appUrl: "https://trader-portal-national-single-window-platform.lgc.gov.lk"
+  appUrl: "https://trader-app-national-single-window-platform.apps.sovecloud.akaza.lk"
   idpScopes: "openid,profile,email"
   idpPlatform: "AsgardeoV2"
   showAutofillButton: "false"
@@ -27,14 +31,15 @@ config:
 resources:
   limits:
     cpu: 200m
-    memory: 128Mi
+    # Increased to 256Mi to prevent OOMKills during runtime-env script execution
+    memory: 256Mi
   requests:
     cpu: 50m
-    memory: 64Mi
+    memory: 128Mi
 
 route:
   enabled: true
-  host: trader-portal-national-single-window-platform.lgc.gov.lk
+  host: "" 
   tls:
     enabled: true
     termination: edge

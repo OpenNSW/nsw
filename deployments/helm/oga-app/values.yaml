@@ -1,41 +1,43 @@
 # Default values for oga-app.
-# Override with per-instance values files (e.g. oga-npqs-values.yaml).
+# This is a generic chart -- all OGA-specific identity is in per-agency values files.
 
 replicaCount: 1
 
 image:
   repository: ghcr.io/opennsw/oga-app
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
   tag: latest
 
 imagePullSecrets:
-  - name: ghcr-pull-secret
+  - name: ghcr-secret
 
 service:
   type: ClusterIP
+  # The external port the service exposes
   port: 80
-  targetPort: 80
+  # Must match the Nginx 'listen' port (8080 for non-root)
+  targetPort: 8080
 
 config:
-  instanceConfig: "npqs"
-  apiBaseUrl: "https://nsw-api-national-single-window-platform.lgc.gov.lk/api/v1"
-  idpBaseUrl: "https://idp-route.national-single-window-platform.lgc.gov.lk"
-  idpClientId: "OGA_PORTAL_APP_NPQS"
-  appUrl: "https://npqs-portal-national-single-window-platform.lgc.gov.lk"
+  instanceConfig: ""
+  apiBaseUrl: "VITE_API_BASE_URL_PLACEHOLDER"
+  idpBaseUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"
+  idpClientId: ""
+  appUrl: ""
   idpScopes: "openid,profile,email"
   idpPlatform: "AsgardeoV2"
 
 resources:
   limits:
     cpu: 200m
-    memory: 128Mi
+    memory: 256Mi
   requests:
     cpu: 50m
-    memory: 64Mi
+    memory: 128Mi
 
 route:
   enabled: true
-  host: npqs-portal-national-single-window-platform.lgc.gov.lk
+  host: ""
   tls:
     enabled: true
     termination: edge

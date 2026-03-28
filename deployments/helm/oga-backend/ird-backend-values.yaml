@@ -1,0 +1,37 @@
+# OGA-IRD Backend Values
+nameOverride: oga-ird-backend
+fullnameOverride: oga-ird-backend
+
+# Resource Management (Akaza Quotas)
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Isolated Database Configuration
+env:
+  - name: OGA_DB_DRIVER
+    value: "postgres"
+  - name: OGA_DB_HOST
+    value: "nsw-db"
+  - name: OGA_DB_NAME
+    value: "oga-backend-ird"  
+  - name: OGA_DB_USER
+    value: "oga_ird_user"
+  - name: OGA_DB_PASSWORD
+    value: "oga_ird_pw"
+  - name: OGA_ALLOWED_ORIGINS
+    value: "https://oga-ird-app-national-single-window-platform.apps.sovecloud.akaza.lk"
+
+config:
+  port: 8081
+
+route:
+  enabled: true
+  host: oga-ird-backend-national-single-window-platform.apps.sovecloud.akaza.lk
+  tls:
+    enabled: true
+    termination: edge
