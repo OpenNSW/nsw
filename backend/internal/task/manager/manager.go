@@ -9,7 +9,6 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/OpenNSW/nsw/internal/config"
 	"github.com/OpenNSW/nsw/internal/task/container"
 	"github.com/OpenNSW/nsw/internal/task/persistence"
 	"github.com/OpenNSW/nsw/internal/task/plugin"
@@ -85,7 +84,6 @@ type taskManager struct {
 	store                 persistence.TaskStoreInterface // Storage for task executions
 	workflowUpdateHandler WorkflowUpdateHandler          // Handler used to notify Workflow Manager of task updates
 	workflowDoneHandler   WorkflowDoneHandler            // Handler used to notify Workflow Manager of task completions
-	config                *config.Config                 // Application configuration
 	containerCache        *containerCache                // LRU cache for active containers
 	containerBuildMu      sync.Mutex                     // Protects container creation to prevent duplicates
 	useWorkflowManagerV2  bool                           // Are we using the  workflow manager v2. This is a temporary flag during the migration.
