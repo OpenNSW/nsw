@@ -35,6 +35,7 @@ jobs:
           version: v2.4.0
           working-directory: ./oga
           args: --timeout=5m
+          verify: false
 
   # STAGE 2: Heavy Logic.
   # Depends on quality-gate passing.

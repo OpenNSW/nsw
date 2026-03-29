@@ -14,6 +14,7 @@ import (
 	"github.com/OpenNSW/nsw/internal/database"
 	"github.com/OpenNSW/nsw/internal/form"
 	"github.com/OpenNSW/nsw/internal/middleware"
+	"github.com/OpenNSW/nsw/internal/payments"
 	taskManager "github.com/OpenNSW/nsw/internal/task/manager"
 	"github.com/OpenNSW/nsw/internal/uploads"
 	"github.com/OpenNSW/nsw/internal/uploads/drivers"
@@ -194,6 +195,10 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	uploadService := uploads.NewUploadService(storageDriver)
 	uploadHandler := uploads.NewHTTPHandler(uploadService)
 
+	paymentRepo := payments.NewPaymentRepository(db)
+	paymentService := payments.NewPaymentService(paymentRepo)
+	paymentHandler := payments.NewHTTPHandler(paymentService)
+
 	authManager, err := auth.NewManager(db, cfg.Auth)
 	if err != nil {
 		_ = database.Close(db)
@@ -260,6 +265,11 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	mux.Handle("POST /api/v1/uploads", withAuth(http.HandlerFunc(uploadHandler.Upload)))
 	mux.Handle("GET /api/v1/uploads/{key}", withAuth(http.HandlerFunc(uploadHandler.Download)))
 	mux.Handle("DELETE /api/v1/uploads/{key}", withAuth(http.HandlerFunc(uploadHandler.Delete)))
+
+	// External Webhooks bypass standard JWT auth.
+	// They should use webhook signatures, implemented in the handler directly or via specialized middleware.
+	mux.Handle("POST /api/v1/payments/webhook", http.HandlerFunc(paymentHandler.HandleWebhook))
+	mux.Handle("POST /api/v1/payments/validate", http.HandlerFunc(paymentHandler.HandleValidateReference))
 
 	// When using local storage, this endpoint serves the actual file bytes.
 	// It's made public since it's the equivalent of a presigned URL when using S3.
