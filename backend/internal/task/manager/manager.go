@@ -9,8 +9,6 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/OpenNSW/nsw/internal/config"
-	"github.com/OpenNSW/nsw/internal/form"
 	"github.com/OpenNSW/nsw/internal/task/container"
 	"github.com/OpenNSW/nsw/internal/task/persistence"
 	"github.com/OpenNSW/nsw/internal/task/plugin"
@@ -86,16 +84,13 @@ type taskManager struct {
 	store                 persistence.TaskStoreInterface // Storage for task executions
 	workflowUpdateHandler WorkflowUpdateHandler          // Handler used to notify Workflow Manager of task updates
 	workflowDoneHandler   WorkflowDoneHandler            // Handler used to notify Workflow Manager of task completions
-	config                *config.Config                 // Application configuration
 	containerCache        *containerCache                // LRU cache for active containers
 	containerBuildMu      sync.Mutex                     // Protects container creation to prevent duplicates
 	useWorkflowManagerV2  bool                           // Are we using the  workflow manager v2. This is a temporary flag during the migration.
 }
 
 // NewTaskManager creates a new TaskManager instance with persistence data store.
-// db is the shared database connection
-// NewTaskManager creates a new TaskManager instance with persistence data store.
-func NewTaskManager(db *gorm.DB, cfg *config.Config, formService form.FormService) (TaskManager, error) {
+func NewTaskManager(db *gorm.DB, factory plugin.TaskFactory) (TaskManager, error) {
 	store, err := persistence.NewTaskStore(db)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create task store: %w", err)
@@ -105,9 +100,8 @@ func NewTaskManager(db *gorm.DB, cfg *config.Config, formService form.FormServic
 	cache := newContainerCache(100)
 
 	return &taskManager{
-		factory:        plugin.NewTaskFactory(cfg, formService),
+		factory:        factory,
 		store:          store,
-		config:         cfg,
 		containerCache: cache,
 	}, nil
 }

@@ -13,7 +13,6 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	"github.com/OpenNSW/nsw/internal/config"
 	"github.com/OpenNSW/nsw/internal/task/container"
 	"github.com/OpenNSW/nsw/internal/task/persistence"
 	"github.com/OpenNSW/nsw/internal/task/plugin"
@@ -139,12 +138,10 @@ func setupTest(t *testing.T) (*taskManager, *MockTaskFactory, *MockTaskStore, *M
 	mockFactory := new(MockTaskFactory)
 	mockStore := new(MockTaskStore)
 	mockPlugin := new(MockPlugin)
-	cfg := &config.Config{}
 
 	tm := &taskManager{
 		factory:        mockFactory,
 		store:          mockStore,
-		config:         cfg,
 		containerCache: newContainerCache(10),
 	}
 
@@ -168,8 +165,8 @@ func TestInitTask(t *testing.T) {
 		// Pre-populate cache
 		mockPlugin.On("Init", mock.Anything).Return().Once()
 
-		container := container.NewContainer(taskID, uuid.NewString(), uuid.NewString(), plugin.InProgress, nil, nil, nil, mockPlugin, nil)
-		tm.containerCache.Set(taskID, container)
+		newContainer := container.NewContainer(taskID, uuid.NewString(), uuid.NewString(), plugin.InProgress, nil, nil, nil, mockPlugin, nil)
+		tm.containerCache.Set(taskID, newContainer)
 
 		// Expect Start to be called on the *existing* container's plugin
 		state := plugin.InProgress
@@ -412,13 +409,13 @@ func TestGetTask_CacheRebuild(t *testing.T) {
 		mockPlugin.On("Init", mock.Anything).Return().Once()
 
 		// Pre-populate cache
-		container := container.NewContainer(taskID, uuid.NewString(), uuid.NewString(), plugin.InProgress, nil, nil, nil, mockPlugin, nil)
-		tm.containerCache.Set(taskID, container)
+		newContainer := container.NewContainer(taskID, uuid.NewString(), uuid.NewString(), plugin.InProgress, nil, nil, nil, mockPlugin, nil)
+		tm.containerCache.Set(taskID, newContainer)
 
 		// Act
 		result, err := tm.getTask(context.Background(), taskID)
 		assert.NoError(t, err)
-		assert.Equal(t, container, result)
+		assert.Equal(t, newContainer, result)
 	})
 
 	t.Run("Cache Miss Rebuild Success", func(t *testing.T) {
@@ -477,13 +474,19 @@ func TestNewTaskManager(t *testing.T) {
 	}), &gorm.Config{})
 	assert.NoError(t, err)
 
-	cfg := &config.Config{}
 	// Since NewTaskStore connects to DB and migrates (maybe?), or just returns struct
 	// Here persistence.NewTaskStore(db) likely just returns struct.
 
-	tm, err := NewTaskManager(gormDB, cfg, nil)
+	mockFactory := &MockTaskFactory{}
+	tm, err := NewTaskManager(gormDB, mockFactory)
 	assert.NoError(t, err)
 	assert.NotNil(t, tm)
+
+	taskManagerImpl, ok := tm.(*taskManager)
+	assert.True(t, ok, "tm should be of type *taskManager")
+	assert.Equal(t, mockFactory, taskManagerImpl.factory)
+	assert.NotNil(t, taskManagerImpl.store)
+	assert.NotNil(t, taskManagerImpl.containerCache)
 }
 
 func TestContainerCache(t *testing.T) {
