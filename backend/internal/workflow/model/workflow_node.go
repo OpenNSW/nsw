@@ -78,11 +78,11 @@ type WorkflowNodeResponseDTO struct {
 	DependsOn            []string                        `json:"depends_on"`              // Array of workflow node IDs this node depends on
 }
 
-type EdgeResponseDTO struct {
-	ID        string  `json:"id"`
-	SourceID  string  `json:"source_id"`
-	TargetID  string  `json:"target_id"`
-	Condition *string `json:"condition,omitempty"`
+type WorkflowEdgeResponseDTO struct {
+	ID        string `json:"id"`
+	SourceID  string `json:"source_id"`
+	TargetID  string `json:"target_id"`
+	Condition string `json:"condition,omitempty"` // Optional condition for the edge (used for conditional unlocks)
 }
 
 // WorkflowNodeTemplateResponseDTO represents workflow node template details in the response.

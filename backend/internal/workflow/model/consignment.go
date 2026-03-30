@@ -92,7 +92,7 @@ type ConsignmentDetailDTO struct {
 	CreatedAt     string                       `json:"createdAt"`     // Timestamp of consignment creation
 	UpdatedAt     string                       `json:"updatedAt"`     // Timestamp of last consignment update
 	WorkflowNodes []WorkflowNodeResponseDTO    `json:"workflowNodes"` // Associated workflow nodes with template details
-	Edges         []EdgeResponseDTO            `json:"edges"`         // Edges between workflow nodes
+	Edges         []WorkflowEdgeResponseDTO    `json:"edges"`         // Edges between workflow nodes
 }
 
 // ConsignmentSummaryDTO represents the consignment data returned in list responses.

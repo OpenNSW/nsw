@@ -660,15 +660,15 @@ func (s *ConsignmentService) buildConsignmentDetailDTO(
 		nodeResponseDTOs = []model.WorkflowNodeResponseDTO{}
 	}
 
-	edges := make([]model.EdgeResponseDTO, 0)
+	edges := make([]model.WorkflowEdgeResponseDTO, 0)
 
 	if workflowV2 != nil {
 		for _, edge := range workflowV2.Edges {
-			edges = append(edges, model.EdgeResponseDTO{
+			edges = append(edges, model.WorkflowEdgeResponseDTO{
 				ID:        edge.ID,
 				SourceID:  edge.SourceID,
 				TargetID:  edge.TargetID,
-				Condition: &edge.Condition,
+				Condition: edge.Condition,
 			})
 		}
 	}
