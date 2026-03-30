@@ -1,14 +1,14 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "nsw-api.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
+{{- define "temporal.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Create a default fully qualified app name.
 */}}
-{{- define "nsw-api.fullname" -}}
+{{- define "temporal.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -24,16 +24,16 @@ Create a default fully qualified app name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "nsw-api.chart" -}}
+{{- define "temporal.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "nsw-api.labels" -}}
-helm.sh/chart: {{ include "nsw-api.chart" . }}
-{{ include "nsw-api.selectorLabels" . }}
+{{- define "temporal.labels" -}}
+helm.sh/chart: {{ include "temporal.chart" . }}
+{{ include "temporal.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -43,7 +43,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "nsw-api.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "nsw-api.name" . }}
+{{- define "temporal.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "temporal.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}

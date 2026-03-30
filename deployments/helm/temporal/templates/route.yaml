@@ -1,0 +1,17 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: temporal-ui
+  labels:
+    {{- include "temporal.labels" . | nindent 4 }}
+spec:
+  host: temporal-ui-national-single-window-platform.apps.sovecloud.akaza.lk
+  to:
+    kind: Service
+    name: temporal-server
+    weight: 100
+  port:
+    targetPort: ui
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

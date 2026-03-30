@@ -14,6 +14,7 @@
 | `oga-app` | `./deployments/helm/oga-app` | `values.yaml` + per-agency overrides (e.g. `npqs-app-values.yaml`) |
 | `oga-<agency>-backend` | `./deployments/helm/oga-backend` *(generic)* | Per-agency values file (e.g. `fcau-backend-values.yaml`) |
 | `idp-thunder` | **Official Thunder chart** (`ghcr.io/asgardeo/helm-charts/thunder`) | `idp/custom-values.yaml` |
+| `temporal` | `./deployments/helm/temporal` | `values.yaml` (unified server/ui) |
 
 ---
 
@@ -28,6 +29,19 @@ docker buildx build --platform linux/amd64 -t ghcr.io/opennsw/trader-app:latest 
 docker buildx build --platform linux/amd64 -t ghcr.io/opennsw/oga-app:latest     -f portals/apps/oga-app/Dockerfile ./portals --push
 docker buildx build --platform linux/amd64 -t ghcr.io/opennsw/oga-backend:latest -f oga/Dockerfile ./oga --push
 docker buildx build --platform linux/amd64 -t ghcr.io/opennsw/idp:latest         -f idp/Dockerfile . --push
+```
+
+### 1.1 Temporal Image Mirroring (Manual)
+
+Due to Docker Hub rate limits on OpenShift, the Temporal `auto-setup` image must be mirrored to GHCR:
+
+```bash
+# Pull the amd64 variant (OpenShift is x86_64)
+docker pull --platform linux/amd64 temporalio/auto-setup:1.28.3
+
+# Tag and Push to your GHCR
+docker tag temporalio/auto-setup:1.28.3 ghcr.io/opennsw/temporal-auto-setup:1.28.3
+docker push ghcr.io/opennsw/temporal-auto-setup:1.28.3
 ```
 
 ---
@@ -97,6 +111,14 @@ helm upgrade --install idp-thunder thunder/thunder \
 ```
 
 > **Note:** The custom `idp/Dockerfile` wraps the official Thunder image to fix group permissions for OpenShift's random UID policy. The image is pushed as `ghcr.io/opennsw/idp` and referenced in `idp/custom-values.yaml`.
+
+### 2.4 Temporal (Unified Server & UI)
+
+Temporal is deployed as an "All-in-One" service. It uses an `emptyDir` mount at `/etc/temporal/config` to allow the `auto-setup` script to generate configuration on OpenShift's read-only filesystem.
+
+```bash
+helm upgrade --install temporal ./deployments/helm/temporal --history-max 3
+```
 
 ---
 
@@ -258,8 +280,10 @@ oc logs deployment/nsw-api -c run-migrations
 | `Exec format error` | ARM image on AMD host | Rebuild with `--platform linux/amd64` |
 | `ImagePullBackOff` | Missing pull secret | Verify `oc get secret ghcr-secret` |
 | `record not found` (500 on consignment init) | Missing seed data in `workflow_template_maps` | Check init container logs; re-seed manually (§3.3) |
-| CORS preflight failure | Missing OGA portal origin in `nsw-api` CORS config | Update `cors.allowedOrigins` in `nsw-api/values.yaml` |
+| `CORS preflight failure` | Missing OGA portal origin in `nsw-api` CORS config | Update `cors.allowedOrigins` in `nsw-api/values.yaml` |
 | `OGA_DB_PASSWORD is required` | Missing env var in backend deployment | Verify `OGA_DB_PASSWORD` exists in backend values (§2) |
+| `unable to create open ... permission denied` | Temporal auto-setup cannot write config | Ensure `emptyDir` is mounted to `/etc/temporal/config` |
+| `manifest unknown` (Temporal) | Incorrect mirrored tag in GHCR | Verify `ghcr.io/opennsw/temporal-auto-setup:1.28.3` exists |
 
 ### Database Connectivity Check
 ```bash
@@ -308,6 +332,10 @@ deployments/helm/
     ├── ird-backend-values.yaml
     ├── npqs-backend-values.yaml
     └── templates/
+├── temporal/                   ← Temporal unified server/ui chart
+│   ├── Chart.yaml
+│   ├── values.yaml
+│   └── templates/
 
 idp/
 ├── custom-values.yaml          ← overrides for official Thunder Helm chart

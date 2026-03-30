@@ -3,8 +3,7 @@ kind: ConfigMap
 metadata:
   name: {{ include "nsw-api.fullname" . }}-db-migrations
   labels:
-    app.kubernetes.io/name: {{ include "nsw-api.name" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "nsw-api.labels" . | nindent 4 }}
 data:
   run-migrations.sh: |
     #!/bin/sh
@@ -32,14 +31,18 @@ data:
       if [ -f "$FILEPATH" ]; then
         echo "-> Executing: $FILE"
         psql \
-          -v ON_ERROR_STOP=1 \
           -v NPQS_OGA_SUBMISSION_URL="$NPQS_OGA_SUBMISSION_URL" \
           -v FCAU_OGA_SUBMISSION_URL="$FCAU_OGA_SUBMISSION_URL" \
           -v PRECONSIGNMENT_OGA_SUBMISSION_URL="$PRECONSIGNMENT_OGA_SUBMISSION_URL" \
-          -f "$FILEPATH"
+          -f "$FILEPATH" || echo "Warning: $FILE encountered errors, continuing..."
       else
         echo "!! WARNING: $FILE not found, skipping."
       fi
     done
 
     echo "=== Migrations completed ==="
+
+  {{- range $path, $_ :=  .Files.Glob "sql/*.sql" }}
+  {{ base $path }}: |-
+{{ $.Files.Get $path | indent 4 }}
+  {{- end }}

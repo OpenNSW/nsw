@@ -1,0 +1,58 @@
+# temporal values for auto-setup
+
+image:
+  repository: ghcr.io/opennsw/temporal-auto-setup
+  tag: "1.28.3"
+  pullPolicy: Always
+
+ui:
+  image:
+    repository: ghcr.io/opennsw/temporal-ui
+    tag: "2.48.0"
+    pullPolicy: Always
+
+imagePullSecrets:
+  - name: ghcr-secret
+
+service:
+  type: ClusterIP
+  port: 7233
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1024Mi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+persistence:
+  enabled: false
+
+# Temporal "auto-setup" environment variables
+env:
+  - name: DB
+    value: "postgres12"
+  - name: DB_NAME
+    value: "temporal"
+  - name: POSTGRES_SEEDS
+    value: "nsw-db"
+  - name: DB_PORT
+    value: "5432"
+  - name: POSTGRES_USER
+    value: "postgres"
+  - name: POSTGRES_PWD
+    valueFrom:
+      secretKeyRef:
+        name: nsw-db-credentials
+        key: password
+  - name: SKIP_SCHEMA_SETUP
+    value: "false"
+  - name: SKIP_DB_CREATE
+    value: "false"
+  - name: HOME
+    value: "/tmp"
+  - name: BIND_ON_IP
+    value: "0.0.0.0"
+  - name: TEMPORAL_ADDRESS
+    value: "127.0.0.1:7233"
