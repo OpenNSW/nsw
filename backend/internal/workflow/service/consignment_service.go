@@ -581,7 +581,9 @@ func (s *ConsignmentService) buildConsignmentDetailDTO(
 		return nil, err
 	}
 
-	var nodeResponseDTOs []model.WorkflowNodeResponseDTO
+	nodeResponseDTOs := make([]model.WorkflowNodeResponseDTO, 0)
+	edgeResponseDTOs := make([]model.WorkflowEdgeResponseDTO, 0)
+
 	if workflowV1 != nil {
 		nodeResponseDTOs = make([]model.WorkflowNodeResponseDTO, 0, len(workflowV1.WorkflowNodes))
 		for _, node := range workflowV1.WorkflowNodes {
@@ -656,15 +658,10 @@ func (s *ConsignmentService) buildConsignmentDetailDTO(
 			})
 		}
 	}
-	if nodeResponseDTOs == nil {
-		nodeResponseDTOs = []model.WorkflowNodeResponseDTO{}
-	}
-
-	edges := make([]model.WorkflowEdgeResponseDTO, 0)
 
 	if workflowV2 != nil {
 		for _, edge := range workflowV2.Edges {
-			edges = append(edges, model.WorkflowEdgeResponseDTO{
+			edgeResponseDTOs = append(edgeResponseDTOs, model.WorkflowEdgeResponseDTO{
 				ID:        edge.ID,
 				SourceID:  edge.SourceID,
 				TargetID:  edge.TargetID,
@@ -683,7 +680,7 @@ func (s *ConsignmentService) buildConsignmentDetailDTO(
 		CreatedAt:     consignment.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:     consignment.UpdatedAt.Format(time.RFC3339),
 		WorkflowNodes: nodeResponseDTOs,
-		Edges:         edges,
+		Edges:         edgeResponseDTOs,
 	}, nil
 }
 
