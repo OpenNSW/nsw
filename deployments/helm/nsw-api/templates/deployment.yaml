@@ -34,7 +34,7 @@ spec:
         - name: copy-migrations
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["sh", "-c", "cp /app/migrations/*.sql /migrations/"]
+          command: ["sh", "-c", "MIG_DIR=$(find /app -name 001_initial_schema.sql | head -n 1 | xargs dirname); if [ -z \"$MIG_DIR\" ]; then echo \"FATAL: migrations not found\"; exit 1; fi; cp -r $MIG_DIR/. /migrations/"]
           volumeMounts:
             - name: migration-sql
               mountPath: /migrations

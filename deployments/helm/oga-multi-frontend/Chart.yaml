@@ -1,0 +1,6 @@
+apiVersion: v2
+name: oga-multi-frontend
+description: Consolidated OGA Frontend Portals in a single Pod
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
