@@ -9,6 +9,7 @@ import (
 	"github.com/OpenNSW/nsw/internal/config"
 	"github.com/OpenNSW/nsw/internal/form"
 	"github.com/OpenNSW/nsw/pkg/remote"
+	"gorm.io/gorm"
 )
 
 // Executor bundles a Plugin with its corresponding FSM.
@@ -30,7 +31,7 @@ type taskFactory struct {
 }
 
 // NewTaskFactory creates a new TaskFactory instance and initializes the remote services manager.
-func NewTaskFactory(cfg *config.Config, formService form.FormService) TaskFactory {
+func NewTaskFactory(cfg *config.Config, db *gorm.DB) TaskFactory {
 	rm := remote.NewManager()
 	if err := rm.LoadServices(cfg.Server.ServicesConfigPath); err != nil {
 		slog.Warn("factory: failed to load external services configuration",
@@ -43,8 +44,8 @@ func NewTaskFactory(cfg *config.Config, formService form.FormService) TaskFactor
 
 	return &taskFactory{
 		config:        cfg,
-		formService:   formService,
 		remoteManager: rm,
+		formService:   form.NewFormService(db),
 	}
 }
 

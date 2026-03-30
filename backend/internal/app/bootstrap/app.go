@@ -13,7 +13,6 @@ import (
 	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/config"
 	"github.com/OpenNSW/nsw/internal/database"
-	"github.com/OpenNSW/nsw/internal/form"
 	"github.com/OpenNSW/nsw/internal/middleware"
 	taskManager "github.com/OpenNSW/nsw/internal/task/manager"
 	"github.com/OpenNSW/nsw/internal/uploads"
@@ -134,9 +133,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("database health check failed: %w", err)
 	}
 
-	formService := form.NewFormService(db)
-
-	factory := plugin.NewTaskFactory(cfg, formService)
+	factory := plugin.NewTaskFactory(cfg, db)
 	tm, err := taskManager.NewTaskManager(db, factory)
 	if err != nil {
 		_ = database.Close(db)
