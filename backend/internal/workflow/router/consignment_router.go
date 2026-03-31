@@ -77,12 +77,8 @@ func (c *ConsignmentRouter) HandleGetConsignments(w http.ResponseWriter, r *http
 	}
 
 	// RBAC: Authorize the requested role against the token's groups
-	isAuthorized := false
-	if role == auth.RoleQueryTrader && authCtx.HasGroup(c.cfg.TraderGroup) {
-		isAuthorized = true
-	} else if role == auth.RoleQueryCHA && authCtx.HasGroup(c.cfg.CHAGroup) {
-		isAuthorized = true
-	}
+	isAuthorized := (role == auth.RoleQueryTrader && authCtx.HasGroup(c.cfg.TraderGroup)) ||
+		(role == auth.RoleQueryCHA && authCtx.HasGroup(c.cfg.CHAGroup))
 
 	if !isAuthorized {
 		http.Error(w, "Forbidden: Insufficient privileges for requested role", http.StatusForbidden)
@@ -242,10 +238,7 @@ func (c *ConsignmentRouter) HandleGetConsignmentByID(w http.ResponseWriter, r *h
 	}
 
 	// Ownership verification: ensure the user is either the Trader owner or the assigned CHA
-	isAuthorized := false
-	if authCtx.HasGroup(c.cfg.TraderGroup) && consignment.TraderID == *authCtx.UserID {
-		isAuthorized = true
-	}
+	isAuthorized := authCtx.HasGroup(c.cfg.TraderGroup) && consignment.TraderID == *authCtx.UserID
 	if !isAuthorized && authCtx.HasGroup(c.cfg.CHAGroup) {
 		userCHA, err := c.cha.GetCHAByEmail(r.Context(), *authCtx.UserID)
 		if err == nil && consignment.ChaID == userCHA.ID {
