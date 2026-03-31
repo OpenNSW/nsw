@@ -15,48 +15,52 @@ func (t *UserContext) TableName() string {
 	return "user_contexts"
 }
 
-// AuthContext is the transient authentication context injected into each request
-// by the auth middleware. UserID is always set (from the JWT sub claim).
-// UserContext is nullable — CHAs and other non-trader roles may not have a DB entry.
+type ContextKey string
+
+const AuthContextKey ContextKey = "auth_context"
+
 type AuthContext struct {
-	UserID      string       `json:"userId"`
-	Email       string       `json:"email"`
-	OUHandle    string       `json:"ouHandle"`
-	UserContext *UserContext `json:"userContext,omitempty"`
+	UserID      *string      // nil if M2M
+	Email       string       // optional/empty for M2M
+	OUHandle    string       // optional/empty for M2M
+	ClientID    string       // Always present
+	Groups      []string     // e.g., ["Trader", "CHA"]
+	IsM2M       bool         // True if Client Credentials grant
+	UserContext *UserContext // Extended internal nsw database record
 }
 
-// GetUserContextMap returns the stored user context as a map.
-// Returns an empty map when no context is available.
-func (ac *AuthContext) GetUserContextMap() (map[string]any, error) {
+func (c *AuthContext) HasGroup(group string) bool {
+	if c == nil {
+		return false
+	}
+	for _, g := range c.Groups {
+		if g == group {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *AuthContext) GetUserContextMap() (map[string]any, error) {
 	m := make(map[string]any)
-	if ac == nil || ac.UserContext == nil || len(ac.UserContext.UserContext) == 0 {
+	if c == nil || c.UserContext == nil || len(c.UserContext.UserContext) == 0 {
 		return m, nil
 	}
-	if err := json.Unmarshal(ac.UserContext.UserContext, &m); err != nil {
+	if err := json.Unmarshal(c.UserContext.UserContext, &m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-// ContextKey is a custom type for context keys to avoid collisions.
-type ContextKey string
-
-const AuthContextKey ContextKey = "authContext"
-
-// GetAuthContext extracts the AuthContext from a request context.
-// Returns nil if no auth context is available (request had no valid token).
-//
-// Usage in handlers:
-//
-//	authCtx := auth.GetAuthContext(r.Context())
-//	if authCtx == nil {
-//	    // Handle unauthorized request
-//	}
-//	userID := authCtx.UserID
 func GetAuthContext(ctx context.Context) *AuthContext {
 	authCtx, ok := ctx.Value(AuthContextKey).(*AuthContext)
 	if !ok {
 		return nil
 	}
 	return authCtx
+}
+
+func FromContext(ctx context.Context) (*AuthContext, bool) {
+	authCtx, ok := ctx.Value(AuthContextKey).(*AuthContext)
+	return authCtx, ok
 }

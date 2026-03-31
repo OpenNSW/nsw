@@ -40,7 +40,7 @@ func TestTokenExtractor_ExtractClaimsFromHeader(t *testing.T) {
 	}))
 	defer jwksServer.Close()
 
-	extractor, err := NewTokenExtractor(jwksServer.URL, "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", "TRADER_PORTAL_APP")
+	extractor, err := NewTokenExtractor(jwksServer.URL, "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", "TRADER_PORTAL_APP", "INTERNAL_CLIENT")
 	if err != nil {
 		t.Fatalf("failed to create token extractor: %v", err)
 	}
@@ -233,8 +233,8 @@ func TestTokenExtractor_ExtractClaimsFromHeader(t *testing.T) {
 				return
 			}
 			got := ""
-			if claims != nil {
-				got = claims.UserID
+			if claims != nil && claims.UserID != nil {
+				got = *claims.UserID
 			}
 			if got != tt.want {
 				t.Errorf("ExtractClaimsFromHeader() got UserID = %v, want %v", got, tt.want)
@@ -289,12 +289,13 @@ func TestAuthContextCreation(t *testing.T) {
 		UserContext: contextJSON,
 	}
 
+	userID := "TRADER-TEST"
 	authCtx := &AuthContext{
-		UserID:      "TRADER-TEST",
+		UserID:      &userID,
 		UserContext: uc,
 	}
 
-	if authCtx.UserID != "TRADER-TEST" {
+	if authCtx.UserID == nil || *authCtx.UserID != "TRADER-TEST" {
 		t.Errorf("AuthContext.UserID got = %v, want TRADER-TEST", authCtx.UserID)
 	}
 
@@ -342,7 +343,7 @@ func BenchmarkTokenExtraction(b *testing.B) {
 		b.Fatalf("failed to sign token: %v", err)
 	}
 
-	extractor, err := NewTokenExtractor(jwksServer.URL, "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", "TRADER_PORTAL_APP")
+	extractor, err := NewTokenExtractor(jwksServer.URL, "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", "TRADER_PORTAL_APP", "INTERNAL_CLIENT")
 	if err != nil {
 		b.Fatalf("failed to create token extractor: %v", err)
 	}
@@ -396,7 +397,7 @@ func TestTokenExtractor_JWKSIsCached(t *testing.T) {
 		t.Fatalf("failed to sign token: %v", err)
 	}
 
-	extractor, err := NewTokenExtractor(jwksServer.URL, "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", "TRADER_PORTAL_APP")
+	extractor, err := NewTokenExtractor(jwksServer.URL, "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", "TRADER_PORTAL_APP", "INTERNAL_CLIENT")
 	if err != nil {
 		t.Fatalf("failed to create token extractor: %v", err)
 	}
@@ -480,7 +481,7 @@ func TestTokenExtractor_RefreshesJWKSOnUnknownKid(t *testing.T) {
 		t.Fatalf("failed to sign new token: %v", err)
 	}
 
-	extractor, err := NewTokenExtractor(jwksServer.URL, "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", "TRADER_PORTAL_APP")
+	extractor, err := NewTokenExtractor(jwksServer.URL, "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", "TRADER_PORTAL_APP", "INTERNAL_CLIENT")
 	if err != nil {
 		t.Fatalf("failed to create token extractor: %v", err)
 	}
@@ -514,7 +515,7 @@ func TestNewTokenExtractor_InvalidConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			extractor, err := NewTokenExtractor(tt.jwksURL, tt.issuer, tt.audience, tt.expectedClientID)
+			extractor, err := NewTokenExtractor(tt.jwksURL, tt.issuer, tt.audience, tt.expectedClientID, "INTERNAL_CLIENT")
 			if err == nil {
 				t.Fatalf("expected constructor error, got extractor: %#v", extractor)
 			}

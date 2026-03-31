@@ -64,21 +64,26 @@ func Middleware(authService *AuthService, tokenExtractor *TokenExtractor) func(h
 				UserID:   claims.UserID,
 				Email:    claims.Email,
 				OUHandle: claims.OUHandle,
+				Groups:   claims.Groups,
+				ClientID: claims.ClientID,
+				IsM2M:    claims.IsM2M,
 			}
 
-			userCtx, err := authService.GetUserContext(claims.UserID)
-			if err != nil {
-				if errors.Is(err, gorm.ErrRecordNotFound) {
-					slog.Debug("no stored user context, proceeding with nil UserContext",
-						"user_id", claims.UserID)
+			if !claims.IsM2M && claims.UserID != nil {
+				userCtx, err := authService.GetUserContext(*claims.UserID)
+				if err != nil {
+					if errors.Is(err, gorm.ErrRecordNotFound) {
+						slog.Debug("no stored user context, proceeding with nil UserContext",
+							"user_id", *claims.UserID)
+					} else {
+						slog.Warn("failed to get user context from database",
+							"user_id", *claims.UserID, "error", err)
+						next.ServeHTTP(w, r)
+						return
+					}
 				} else {
-					slog.Warn("failed to get user context from database",
-						"user_id", claims.UserID, "error", err)
-					next.ServeHTTP(w, r)
-					return
+					authCtx.UserContext = userCtx
 				}
-			} else {
-				authCtx.UserContext = userCtx
 			}
 
 			ctx := context.WithValue(r.Context(), AuthContextKey, authCtx)
