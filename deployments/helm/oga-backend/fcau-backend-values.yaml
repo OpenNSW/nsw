@@ -30,6 +30,8 @@ env:
     value: "nsw-db"
   - name: OGA_ALLOWED_ORIGINS
     value: "https://oga-fcau-national-single-window-platform.apps.sovecloud.akaza.lk"
+  - name: NSW_API_BASE_URL
+    value: "http://nsw-api.national-single-window-platform.svc.cluster.local/api/v1"
 
 config:
   port: 8081

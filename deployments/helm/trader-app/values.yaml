@@ -26,7 +26,7 @@ config:
   appUrl: "https://trader-app-national-single-window-platform.apps.sovecloud.akaza.lk"
   idpScopes: "openid,profile,email"
   idpPlatform: "AsgardeoV2"
-  showAutofillButton: "false"
+  showAutofillButton: "true"
 
 resources:
   limits:
