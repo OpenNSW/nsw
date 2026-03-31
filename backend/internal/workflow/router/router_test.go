@@ -19,6 +19,7 @@ import (
 	"gorm.io/gorm/logger"
 
 	"github.com/OpenNSW/nsw/internal/auth"
+	"github.com/OpenNSW/nsw/internal/config"
 	taskManager "github.com/OpenNSW/nsw/internal/task/manager"
 	workflowManagerV1 "github.com/OpenNSW/nsw/internal/workflow/manager"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
@@ -149,13 +150,22 @@ func setupRouterTestDB(t *testing.T) (*gorm.DB, sqlmock.Sqlmock) {
 	return db, sqlMock
 }
 
-func withAuthContext(ctx context.Context, userID string) context.Context {
+func withAuthContext(ctx context.Context, userID string, groups ...string) context.Context {
 	authCtx := &auth.AuthContext{
-		UserID: userID,
+		UserID: &userID,
+		Groups: groups,
 		UserContext: &auth.UserContext{
 			UserID:      userID,
 			UserContext: json.RawMessage(`{}`),
 		},
+	}
+	return context.WithValue(ctx, auth.AuthContextKey, authCtx)
+}
+
+func withM2MContext(ctx context.Context, clientID string) context.Context {
+	authCtx := &auth.AuthContext{
+		ClientID: clientID,
+		IsM2M:    true,
 	}
 	return context.WithValue(ctx, auth.AuthContextKey, authCtx)
 }
@@ -166,7 +176,7 @@ func TestConsignmentRouter_HandleGetConsignmentByID(t *testing.T) {
 	// TODO: Add tests for workflow manager v2
 	// MockWMV2 := new(MockWMV2)
 	svc := service.NewConsignmentService(db, nil, mockWM, nil)
-	r := NewConsignmentRouter(svc, nil)
+	r := NewConsignmentRouter(svc, nil, &config.AuthConfig{TraderGroup: "Trader", CHAGroup: "CHA"})
 
 	consignmentID := uuid.NewString()
 	sqlMock.MatchExpectationsInOrder(false)
@@ -182,6 +192,7 @@ func TestConsignmentRouter_HandleGetConsignmentByID(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/api/v1/consignments/"+consignmentID, nil)
 	req.SetPathValue("id", consignmentID)
+	req = req.WithContext(withAuthContext(req.Context(), "trader1", "Trader"))
 
 	w := httptest.NewRecorder()
 	r.HandleGetConsignmentByID(w, req)
@@ -191,7 +202,7 @@ func TestConsignmentRouter_HandleGetConsignmentByID(t *testing.T) {
 func TestConsignmentRouter_HandleGetConsignments(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
 	svc := service.NewConsignmentService(db, nil, nil, nil)
-	r := NewConsignmentRouter(svc, nil)
+	r := NewConsignmentRouter(svc, nil, &config.AuthConfig{TraderGroup: "Trader", CHAGroup: "CHA"})
 
 	traderID := "trader1"
 	sqlMock.MatchExpectationsInOrder(false)
@@ -201,7 +212,7 @@ func TestConsignmentRouter_HandleGetConsignments(t *testing.T) {
 	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"workflows\"").WillReturnRows(sqlmock.NewRows([]string{"id", "end_node_id"}))
 
 	req, _ := http.NewRequest("GET", "/api/v1/consignments?role=trader", nil)
-	req = req.WithContext(withAuthContext(req.Context(), traderID))
+	req = req.WithContext(withAuthContext(req.Context(), traderID, "Trader"))
 	w := httptest.NewRecorder()
 	r.HandleGetConsignments(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -210,7 +221,7 @@ func TestConsignmentRouter_HandleGetConsignments(t *testing.T) {
 func TestConsignmentRouter_HandleCreateConsignment(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
 	svc := service.NewConsignmentService(db, nil, nil, nil)
-	r := NewConsignmentRouter(svc, nil)
+	r := NewConsignmentRouter(svc, nil, &config.AuthConfig{TraderGroup: "Trader", CHAGroup: "CHA"})
 
 	traderID := "trader1"
 	chaID := uuid.NewString()
@@ -234,7 +245,7 @@ func TestConsignmentRouter_HandleCreateConsignment(t *testing.T) {
 	)
 
 	req, _ := http.NewRequest("POST", "/api/v1/consignments", bytes.NewBuffer(body))
-	req = req.WithContext(withAuthContext(req.Context(), traderID))
+	req = req.WithContext(withAuthContext(req.Context(), traderID, "Trader"))
 	w := httptest.NewRecorder()
 	r.HandleCreateConsignment(w, req)
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -360,7 +371,7 @@ func TestPreConsignmentRouter_HandleCreatePreConsignment(t *testing.T) {
 	}, nil)
 
 	req, _ := http.NewRequest("POST", "/api/v1/pre-consignments", bytes.NewBuffer(body))
-	req = req.WithContext(withAuthContext(req.Context(), traderID))
+	req = req.WithContext(withAuthContext(req.Context(), traderID, "Trader"))
 	w := httptest.NewRecorder()
 	r.HandleCreatePreConsignment(w, req)
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -372,7 +383,7 @@ func TestPreConsignmentRouter_HandleCreatePreConsignment_InvalidPayload(t *testi
 	r := NewPreConsignmentRouter(svc)
 
 	req, _ := http.NewRequest("POST", "/api/v1/pre-consignments", bytes.NewBufferString("invalid json"))
-	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
+	req = req.WithContext(withAuthContext(req.Context(), "trader1", "Trader"))
 	w := httptest.NewRecorder()
 	r.HandleCreatePreConsignment(w, req)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -381,7 +392,7 @@ func TestPreConsignmentRouter_HandleCreatePreConsignment_InvalidPayload(t *testi
 func TestConsignmentRouter_HandleGetConsignmentByID_InvalidID(t *testing.T) {
 	db, _ := setupRouterTestDB(t)
 	svc := service.NewConsignmentService(db, nil, nil, nil)
-	r := NewConsignmentRouter(svc, nil)
+	r := NewConsignmentRouter(svc, nil, &config.AuthConfig{TraderGroup: "Trader", CHAGroup: "CHA"})
 
 	req, _ := http.NewRequest("GET", "/api/v1/consignments/invalid-uuid", nil)
 	req.SetPathValue("id", "invalid-uuid")
@@ -393,10 +404,10 @@ func TestConsignmentRouter_HandleGetConsignmentByID_InvalidID(t *testing.T) {
 func TestConsignmentRouter_HandleGetConsignments_PaginationError(t *testing.T) {
 	db, _ := setupRouterTestDB(t)
 	svc := service.NewConsignmentService(db, nil, nil, nil)
-	r := NewConsignmentRouter(svc, nil)
+	r := NewConsignmentRouter(svc, nil, &config.AuthConfig{TraderGroup: "Trader", CHAGroup: "CHA"})
 
 	req, _ := http.NewRequest("GET", "/api/v1/consignments?limit=invalid", nil)
-	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
+	req = req.WithContext(withAuthContext(req.Context(), "trader1", "Trader"))
 
 	w := httptest.NewRecorder()
 	r.HandleGetConsignments(w, req)
@@ -407,7 +418,7 @@ func TestConsignmentRouter_HandleGetConsignments_PaginationError(t *testing.T) {
 func TestConsignmentRouter_HandleGetConsignmentByID_ServiceError(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
 	svc := service.NewConsignmentService(db, nil, nil, nil)
-	r := NewConsignmentRouter(svc, nil)
+	r := NewConsignmentRouter(svc, nil, &config.AuthConfig{TraderGroup: "Trader", CHAGroup: "CHA"})
 
 	id := uuid.NewString()
 	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"consignments\"").WillReturnError(fmt.Errorf("db error"))
@@ -426,7 +437,7 @@ func TestPreConsignmentRouter_HandleGetTraderPreConsignments_PaginationError(t *
 	r := NewPreConsignmentRouter(svc)
 
 	req, _ := http.NewRequest("GET", "/api/v1/pre-consignments/templates?limit=invalid", nil)
-	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
+	req = req.WithContext(withAuthContext(req.Context(), "trader1", "Trader"))
 
 	w := httptest.NewRecorder()
 	r.HandleGetTraderPreConsignments(w, req)
@@ -450,12 +461,12 @@ func TestHSCodeRouter_HandleGetAllHSCodes_ServiceError(t *testing.T) {
 func TestConsignmentRouter_HandleGetConsignments_ServiceError(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
 	svc := service.NewConsignmentService(db, nil, nil, nil)
-	r := NewConsignmentRouter(svc, nil)
+	r := NewConsignmentRouter(svc, nil, &config.AuthConfig{TraderGroup: "Trader", CHAGroup: "CHA"})
 
 	sqlMock.ExpectQuery("(?i)SELECT count").WillReturnError(fmt.Errorf("db error"))
 
 	req, _ := http.NewRequest("GET", "/api/v1/consignments", nil)
-	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
+	req = req.WithContext(withAuthContext(req.Context(), "trader1", "Trader"))
 	w := httptest.NewRecorder()
 	r.HandleGetConsignments(w, req)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -463,10 +474,10 @@ func TestConsignmentRouter_HandleGetConsignments_ServiceError(t *testing.T) {
 
 func TestConsignmentRouter_HandleCreateConsignment_InvalidPayload(t *testing.T) {
 	db, _ := setupRouterTestDB(t)
-	r := NewConsignmentRouter(service.NewConsignmentService(db, nil, nil, nil), nil)
+	r := NewConsignmentRouter(service.NewConsignmentService(db, nil, nil, nil), nil, nil)
 
 	req, _ := http.NewRequest("POST", "/api/v1/consignments", bytes.NewBufferString("invalid json"))
-	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
+	req = req.WithContext(withAuthContext(req.Context(), "trader1", "Trader"))
 	w := httptest.NewRecorder()
 	r.HandleCreateConsignment(w, req)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -480,7 +491,7 @@ func TestPreConsignmentRouter_HandleGetTraderPreConsignments_ServiceError(t *tes
 	sqlMock.ExpectQuery("(?i)SELECT count").WillReturnError(fmt.Errorf("db error"))
 
 	req, _ := http.NewRequest("GET", "/api/v1/pre-consignments/templates", nil)
-	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
+	req = req.WithContext(withAuthContext(req.Context(), "trader1", "Trader"))
 	w := httptest.NewRecorder()
 	r.HandleGetTraderPreConsignments(w, req)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -536,4 +547,32 @@ func TestPreConsignmentRouter_HandleCreatePreConsignment_ServiceError(t *testing
 	w := httptest.NewRecorder()
 	r.HandleCreatePreConsignment(w, req)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+func TestConsignmentRouter_RBAC_RoleMismatch(t *testing.T) {
+	db, _ := setupRouterTestDB(t)
+	svc := service.NewConsignmentService(db, nil, nil, nil)
+	r := NewConsignmentRouter(svc, nil, &config.AuthConfig{TraderGroup: "Trader", CHAGroup: "CHA"})
+
+	// CHA user trying to list as trader
+	chaID := "cha-001"
+	req, _ := http.NewRequest("GET", "/api/v1/consignments?role=trader", nil)
+	req = req.WithContext(withAuthContext(req.Context(), chaID, "CHA"))
+
+	w := httptest.NewRecorder()
+	r.HandleGetConsignments(w, req)
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func TestConsignmentRouter_RBAC_HumanOnly(t *testing.T) {
+	db, _ := setupRouterTestDB(t)
+	svc := service.NewConsignmentService(db, nil, nil, nil)
+	r := NewConsignmentRouter(svc, nil, &config.AuthConfig{TraderGroup: "Trader", CHAGroup: "CHA"})
+
+	// M2M token trying to list consignments
+	req, _ := http.NewRequest("GET", "/api/v1/consignments?role=trader", nil)
+	req = req.WithContext(withM2MContext(req.Context(), "m2m-client"))
+
+	w := httptest.NewRecorder()
+	r.HandleGetConsignments(w, req)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
