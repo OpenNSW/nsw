@@ -158,7 +158,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		}
 
 		consignmentService := service.NewConsignmentService(db, templateService, nil, wmV2)
-		consignmentRouter = router.NewConsignmentRouter(consignmentService, chaService)
+		consignmentRouter = router.NewConsignmentRouter(consignmentService, chaService, &cfg.Auth)
 
 		// TODO: Pre-Consignment is commented out in new workflow for now
 		// preConsignmentService := service.NewPreConsignmentService(db, templateService, wmV2)
@@ -179,7 +179,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		consignmentService := service.NewConsignmentService(db, templateService, wm, nil)
 		preConsignmentService := service.NewPreConsignmentService(db, templateService, wm)
 
-		consignmentRouter = router.NewConsignmentRouter(consignmentService, chaService)
+		consignmentRouter = router.NewConsignmentRouter(consignmentService, chaService, &cfg.Auth)
 		preConsignmentRouter = router.NewPreConsignmentRouter(preConsignmentService)
 	}
 
@@ -192,7 +192,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to initialize storage: %w", err)
 	}
 	uploadService := uploads.NewUploadService(storageDriver)
-	uploadHandler := uploads.NewHTTPHandler(uploadService)
+	uploadHandler := uploads.NewHTTPHandler(uploadService, &cfg.Auth)
 
 	authManager, err := auth.NewManager(db, cfg.Auth)
 	if err != nil {
@@ -206,7 +206,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("auth system health check failed: %w", err)
 	}
 
-	tmHandler := taskManager.NewHTTPHandler(tm)
+	tmHandler := taskManager.NewHTTPHandler(tm, &cfg.Auth)
 
 	// withAuth wraps an individual handler with the authentication middleware.
 	withAuth := authManager.Middleware()

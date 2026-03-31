@@ -28,12 +28,12 @@ func NewConsignmentRouter(cs *service.ConsignmentService, cha *service.CHAServic
 func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *http.Request) {
 	authCtx := auth.GetAuthContext(r.Context())
 	if authCtx == nil || authCtx.IsM2M || authCtx.UserID == nil {
-		http.Error(w, "Unauthorized: Human context required", http.StatusUnauthorized)
+		http.Error(w, "Forbidden: User context required", http.StatusForbidden)
 		return
 	}
 
 	// RBAC: Only Traders can create consignments
-	if c.cfg != nil && !authCtx.HasGroup(c.cfg.TraderGroup) {
+	if c.cfg == nil || !authCtx.HasGroup(c.cfg.TraderGroup) {
 		http.Error(w, "Forbidden: Only Traders can create consignments", http.StatusForbidden)
 		return
 	}
@@ -67,26 +67,26 @@ func (c *ConsignmentRouter) HandleGetConsignments(w http.ResponseWriter, r *http
 	ctx := r.Context()
 	authCtx := auth.GetAuthContext(ctx)
 	if authCtx == nil || authCtx.IsM2M || authCtx.UserID == nil {
-		http.Error(w, "Unauthorized: Human context required", http.StatusUnauthorized)
+		http.Error(w, "Forbidden: User context required", http.StatusForbidden)
 		return
 	}
 
 	role := r.URL.Query().Get("role")
 	if role == "" {
-		role = "trader"
+		role = auth.RoleQueryTrader
 	}
 
 	// RBAC: Authorize the requested role against the token's groups
 	isAuthorized := false
 	if c.cfg != nil {
-		if role == "trader" && authCtx.HasGroup(c.cfg.TraderGroup) {
+		if role == auth.RoleQueryTrader && authCtx.HasGroup(c.cfg.TraderGroup) {
 			isAuthorized = true
-		} else if role == "cha" && authCtx.HasGroup(c.cfg.CHAGroup) {
+		} else if role == auth.RoleQueryCHA && authCtx.HasGroup(c.cfg.CHAGroup) {
 			isAuthorized = true
 		}
 	} else {
-		// If config is missing, default to lenient for now (or strict if preferred)
-		isAuthorized = true
+		// If config is missing
+		isAuthorized = false
 	}
 
 	if !isAuthorized {
@@ -115,7 +115,7 @@ func (c *ConsignmentRouter) HandleGetConsignments(w http.ResponseWriter, r *http
 
 	// Role-Based Identity Resolution
 	switch role {
-	case "cha":
+	case auth.RoleQueryCHA:
 		// Check if UI sent a specific ID to filter by
 		if chaIDStr := r.URL.Query().Get("cha_id"); chaIDStr != "" {
 			filter.ChaID = &chaIDStr
@@ -128,7 +128,7 @@ func (c *ConsignmentRouter) HandleGetConsignments(w http.ResponseWriter, r *http
 			}
 			filter.ChaID = &cha.ID
 		}
-	case "trader":
+	case auth.RoleQueryTrader:
 		filter.TraderID = authCtx.UserID
 	default:
 		http.Error(w, "query param role must be trader or cha", http.StatusBadRequest)
@@ -150,12 +150,12 @@ func (c *ConsignmentRouter) HandleGetConsignments(w http.ResponseWriter, r *http
 func (c *ConsignmentRouter) HandleInitializeConsignment(w http.ResponseWriter, r *http.Request) {
 	authCtx := auth.GetAuthContext(r.Context())
 	if authCtx == nil || authCtx.IsM2M || authCtx.UserID == nil {
-		http.Error(w, "Unauthorized: Human context required", http.StatusUnauthorized)
+		http.Error(w, "Forbidden: User context required", http.StatusForbidden)
 		return
 	}
 
 	// RBAC: Only CHAs can initialize consignments
-	if c.cfg != nil && !authCtx.HasGroup(c.cfg.CHAGroup) {
+	if c.cfg == nil || !authCtx.HasGroup(c.cfg.CHAGroup) {
 		http.Error(w, "Forbidden: Only CHAs can initialize consignments", http.StatusForbidden)
 		return
 	}
@@ -220,6 +220,13 @@ func (c *ConsignmentRouter) HandleInitializeConsignment(w http.ResponseWriter, r
 // Path param: id (required)
 // Response: ConsignmentDetailDTO
 func (c *ConsignmentRouter) HandleGetConsignmentByID(w http.ResponseWriter, r *http.Request) {
+	// Require authentication
+	authCtx := auth.GetAuthContext(r.Context())
+	if authCtx == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	// Extract consignment ID from path
 	consignmentIDStr := r.PathValue("id")
 	if consignmentIDStr == "" {

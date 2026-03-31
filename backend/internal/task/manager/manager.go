@@ -70,6 +70,9 @@ type TaskManager interface {
 	RegisterUpstreamDoneCallback(callback WorkflowDoneHandler)
 	// RegisterUpstreamUpdateCallback registers the callback used when task state changes.
 	RegisterUpstreamUpdateCallback(callback WorkflowUpdateHandler)
+
+	// GetTaskWorkflowID retrieves the workflow ID (consignment ID) associated with a task
+	GetTaskWorkflowID(ctx context.Context, taskID string) (string, error)
 }
 
 // ExecuteTaskRequest represents the request body for task execution
@@ -142,6 +145,19 @@ func (tm *taskManager) GetTaskRenderInfo(ctx context.Context, taskID string) (*p
 	}
 
 	return result, nil
+}
+
+func (tm *taskManager) GetTaskWorkflowID(ctx context.Context, taskID string) (string, error) {
+	if taskID == "" {
+		return "", fmt.Errorf("taskID is required")
+	}
+
+	execution, err := tm.store.GetByID(taskID)
+	if err != nil {
+		return "", err
+	}
+
+	return execution.WorkflowID, nil
 }
 
 // ExecuteTask is the core logic for executing a task

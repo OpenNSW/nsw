@@ -243,6 +243,47 @@ func TestTokenExtractor_ExtractClaimsFromHeader(t *testing.T) {
 	}
 }
 
+// TestTokenExtractor_FailOpenPrevention verifies that empty expected client IDs do not cause a fail-open
+func TestTokenExtractor_FailOpenPrevention(t *testing.T) {
+	privateKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+	jwksServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"keys": []map[string]interface{}{{"kid": "test-kid", "kty": "RSA", "alg": "RS256", "use": "sig", "n": base64.RawURLEncoding.EncodeToString(privateKey.N.Bytes()), "e": base64.RawURLEncoding.EncodeToString(big.NewInt(int64(privateKey.PublicKey.E)).Bytes())}}})
+	}))
+	defer jwksServer.Close()
+
+	// Initialized with empty internal client ID
+	extractor, _ := NewTokenExtractor(jwksServer.URL, "iss", "aud", "human-client", "")
+
+	mintToken := func(clientID string) string {
+		token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
+			"sub":       "user",
+			"iss":       "iss",
+			"aud":       "aud",
+			"client_id": clientID,
+			"iat":       time.Now().Unix(),
+			"exp":       time.Now().Add(time.Hour).Unix(),
+		})
+		token.Header["kid"] = "test-kid"
+		s, _ := token.SignedString(privateKey)
+		return s
+	}
+
+	// Token with empty client_id should be REJECTED even though expectedInternalClientID is also empty
+	emptyClientIDToken := mintToken("")
+	_, err := extractor.ExtractClaimsFromHeader("Bearer " + emptyClientIDToken)
+	if err == nil {
+		t.Error("expected error for empty client_id claim when expectedInternalClientID is empty, but got nil")
+	}
+
+	// Token with correct client_id should be ACCEPTED
+	validToken := mintToken("human-client")
+	_, err = extractor.ExtractClaimsFromHeader("Bearer " + validToken)
+	if err != nil {
+		t.Errorf("expected success for valid client_id, but got error: %v", err)
+	}
+}
+
 // TestUserContextModel tests the UserContext model structure
 func TestUserContextModel(t *testing.T) {
 	tests := []struct {
@@ -501,21 +542,22 @@ func TestTokenExtractor_RefreshesJWKSOnUnknownKid(t *testing.T) {
 
 func TestNewTokenExtractor_InvalidConfig(t *testing.T) {
 	tests := []struct {
-		name             string
-		jwksURL          string
-		issuer           string
-		audience         string
-		expectedClientID string
+		name                     string
+		jwksURL                  string
+		issuer                   string
+		audience                 string
+		expectedClientID         string
+		expectedInternalClientID string
 	}{
-		{name: "missing jwks url", issuer: "iss", audience: "aud", expectedClientID: "client"},
-		{name: "missing issuer", jwksURL: "https://localhost/jwks", audience: "aud", expectedClientID: "client"},
-		{name: "missing audience", jwksURL: "https://localhost/jwks", issuer: "iss", expectedClientID: "client"},
-		{name: "missing client id", jwksURL: "https://localhost/jwks", issuer: "iss", audience: "aud"},
+		{name: "missing jwks url", issuer: "iss", audience: "aud", expectedClientID: "client", expectedInternalClientID: "internal"},
+		{name: "missing issuer", jwksURL: "https://localhost/jwks", audience: "aud", expectedClientID: "client", expectedInternalClientID: "internal"},
+		{name: "missing audience", jwksURL: "https://localhost/jwks", issuer: "iss", expectedClientID: "client", expectedInternalClientID: "internal"},
+		{name: "missing both client ids", jwksURL: "https://localhost/jwks", issuer: "iss", audience: "aud"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			extractor, err := NewTokenExtractor(tt.jwksURL, tt.issuer, tt.audience, tt.expectedClientID, "INTERNAL_CLIENT")
+			extractor, err := NewTokenExtractor(tt.jwksURL, tt.issuer, tt.audience, tt.expectedClientID, tt.expectedInternalClientID)
 			if err == nil {
 				t.Fatalf("expected constructor error, got extractor: %#v", extractor)
 			}

@@ -396,6 +396,7 @@ func TestConsignmentRouter_HandleGetConsignmentByID_InvalidID(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/api/v1/consignments/invalid-uuid", nil)
 	req.SetPathValue("id", "invalid-uuid")
+	req = req.WithContext(withAuthContext(req.Context(), "trader1", "Trader"))
 	w := httptest.NewRecorder()
 	r.HandleGetConsignmentByID(w, req)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -425,6 +426,7 @@ func TestConsignmentRouter_HandleGetConsignmentByID_ServiceError(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/api/v1/consignments/"+id, nil)
 	req.SetPathValue("id", id)
+	req = req.WithContext(withAuthContext(req.Context(), "trader1", "Trader"))
 
 	w := httptest.NewRecorder()
 	r.HandleGetConsignmentByID(w, req)
@@ -474,7 +476,7 @@ func TestConsignmentRouter_HandleGetConsignments_ServiceError(t *testing.T) {
 
 func TestConsignmentRouter_HandleCreateConsignment_InvalidPayload(t *testing.T) {
 	db, _ := setupRouterTestDB(t)
-	r := NewConsignmentRouter(service.NewConsignmentService(db, nil, nil, nil), nil, nil)
+	r := NewConsignmentRouter(service.NewConsignmentService(db, nil, nil, nil), nil, &config.AuthConfig{TraderGroup: "Trader", CHAGroup: "CHA"})
 
 	req, _ := http.NewRequest("POST", "/api/v1/consignments", bytes.NewBufferString("invalid json"))
 	req = req.WithContext(withAuthContext(req.Context(), "trader1", "Trader"))
@@ -574,5 +576,26 @@ func TestConsignmentRouter_RBAC_HumanOnly(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	r.HandleGetConsignments(w, req)
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+func TestPreConsignmentRouter_RBAC_HumanOnly(t *testing.T) {
+	r := NewPreConsignmentRouter(nil)
+
+	// M2M token trying to list pre-consignments
+	req, _ := http.NewRequest("GET", "/api/v1/pre-consignments", nil)
+	req = req.WithContext(withM2MContext(req.Context(), "m2m-client"))
+
+	w := httptest.NewRecorder()
+	r.HandleGetPreConsignmentsByTraderID(w, req)
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func TestConsignmentRouter_GetByID_AuthRequired(t *testing.T) {
+	r := NewConsignmentRouter(nil, nil, nil)
+
+	// No auth context
+	req, _ := http.NewRequest("GET", "/api/v1/consignments/123", nil)
+	w := httptest.NewRecorder()
+	r.HandleGetConsignmentByID(w, req)
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }

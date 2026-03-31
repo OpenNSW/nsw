@@ -5,20 +5,40 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+
+	"github.com/OpenNSW/nsw/internal/auth"
+	"github.com/OpenNSW/nsw/internal/config"
 )
 
 // HTTPHandler encapsulates the HTTP transport logic for TaskManager
 type HTTPHandler struct {
 	manager TaskManager
+	config  *config.AuthConfig
 }
 
 // NewHTTPHandler creates a new HTTPHandler for the task manager
-func NewHTTPHandler(manager TaskManager) *HTTPHandler {
-	return &HTTPHandler{manager: manager}
+func NewHTTPHandler(manager TaskManager, cfg *config.AuthConfig) *HTTPHandler {
+	return &HTTPHandler{manager: manager, config: cfg}
 }
 
 // HandleGetTask is an HTTP handler for fetching task information via GET request
 func (h *HTTPHandler) HandleGetTask(w http.ResponseWriter, r *http.Request) {
+	authCtx, ok := auth.FromContext(r.Context())
+	if !ok {
+		writeJSONError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	if !authCtx.IsM2M {
+		// For Phase 1, we allow Trader and CHA to view tasks
+		// If they don't have either group, they are forbidden.
+		if !authCtx.HasGroup(h.config.TraderGroup) && !authCtx.HasGroup(h.config.CHAGroup) {
+			writeJSONError(w, http.StatusForbidden, "Forbidden: Insufficient privileges")
+			return
+		}
+	}
+	// TODO (else): Implement granular M2M permission check (e.g. RequiredScope("tasks:read"))
+
 	taskId := r.PathValue("id")
 	if taskId == "" {
 		writeJSONError(w, http.StatusBadRequest, "taskId is required")
@@ -43,6 +63,22 @@ func (h *HTTPHandler) HandleGetTask(w http.ResponseWriter, r *http.Request) {
 
 // HandleExecuteTask is an HTTP handler for executing a task via POST request
 func (h *HTTPHandler) HandleExecuteTask(w http.ResponseWriter, r *http.Request) {
+	authCtx, ok := auth.FromContext(r.Context())
+	if !ok {
+		writeJSONError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	if !authCtx.IsM2M {
+		// For Phase 1, we only allow CHA to execute tasks
+		// (Assuming core workflow tasks are managed by CHAs)
+		if !authCtx.HasGroup(h.config.CHAGroup) {
+			writeJSONError(w, http.StatusForbidden, "Forbidden: Only CHAs or Systems can execute tasks")
+			return
+		}
+	}
+	// TODO (else): Implement granular M2M permission check (e.g. RequiredScope("tasks:execute"))
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return

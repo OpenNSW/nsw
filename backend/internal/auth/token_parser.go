@@ -154,27 +154,37 @@ func (te *TokenExtractor) ExtractClaimsFromHeader(authHeader string) (*Extracted
 		return nil, fmt.Errorf("invalid jwt token")
 	}
 
-	// Validate ClientID against whitelist
-	if claims.ClientID != te.expectedClientID && claims.ClientID != te.expectedInternalClientID {
+	// Validate ClientID against whitelist, only allow non-empty expected IDs to match
+	isAuthorizedClient := (te.expectedClientID != "" && claims.ClientID == te.expectedClientID) ||
+		(te.expectedInternalClientID != "" && claims.ClientID == te.expectedInternalClientID)
+
+	if !isAuthorizedClient {
 		return nil, fmt.Errorf("unauthorized client: %s", claims.ClientID)
 	}
 
 	// Detect M2M
-	// In WSO2 client credentials grant, `sub` is typically set to `client_id@tenant` or just `client_id` or is empty.
-	isM2M := claims.Subject == "" || claims.Subject == claims.ClientID || strings.HasPrefix(claims.Subject, claims.ClientID+"@")
+	// A token is M2M ONLY if it comes from the internal client and has a matching M2M subject pattern.
+	isM2M := false
+	if te.expectedInternalClientID != "" && claims.ClientID == te.expectedInternalClientID {
+		if claims.Subject == "" || claims.Subject == claims.ClientID || strings.HasPrefix(claims.Subject, claims.ClientID+"@") {
+			isM2M = true
+		}
+	}
+
+	if !isM2M && claims.Subject == "" {
+		return nil, fmt.Errorf("missing 'sub' claim in human token")
+	}
 
 	var userID *string
 	if !isM2M {
 		sub := claims.Subject
-		if sub != "" {
-			userID = &sub
-		}
+		userID = &sub
 	}
 
 	return &ExtractedClaims{
 		UserID:   userID,
-		Email:    claims.Email,
-		OUHandle: claims.OUHandle,
+		Email:    strings.TrimSpace(claims.Email),
+		OUHandle: strings.TrimSpace(claims.OUHandle),
 		ClientID: claims.ClientID,
 		Groups:   claims.Groups,
 		IsM2M:    isM2M,

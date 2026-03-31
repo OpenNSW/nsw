@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/OpenNSW/nsw/internal/auth"
+	"github.com/OpenNSW/nsw/internal/config"
 	"github.com/OpenNSW/nsw/internal/uploads/drivers"
 )
 
@@ -36,10 +37,11 @@ func isAllowedContentType(ct string) bool {
 
 type HTTPHandler struct {
 	Service *UploadService
+	Config  *config.AuthConfig
 }
 
-func NewHTTPHandler(service *UploadService) *HTTPHandler {
-	return &HTTPHandler{Service: service}
+func NewHTTPHandler(service *UploadService, cfg *config.AuthConfig) *HTTPHandler {
+	return &HTTPHandler{Service: service, Config: cfg}
 }
 
 // writeJSONError sets Content-Type: application/json and writes a consistent JSON error body.
@@ -50,11 +52,22 @@ func writeJSONError(w http.ResponseWriter, status int, message string) {
 }
 
 func (h *HTTPHandler) Upload(w http.ResponseWriter, r *http.Request) {
-	if auth.GetAuthContext(r.Context()) == nil {
+	authCtx, ok := auth.FromContext(r.Context())
+	if !ok {
 		slog.WarnContext(r.Context(), "authentication required but not provided for upload")
 		writeJSONError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
+
+	if !authCtx.IsM2M {
+		// Traders and CHAs can upload
+		if !authCtx.HasGroup(h.Config.TraderGroup) && !authCtx.HasGroup(h.Config.CHAGroup) {
+			writeJSONError(w, http.StatusForbidden, "Forbidden: Insufficient privileges")
+			return
+		}
+	}
+	// TODO (else): Implement granular M2M permission check (e.g. RequiredScope("uploads:write"))
+
 	r.Body = http.MaxBytesReader(w, r.Body, 32<<20)
 
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
@@ -106,12 +119,21 @@ func (h *HTTPHandler) Upload(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPHandler) Download(w http.ResponseWriter, r *http.Request) {
-	// TODO: Uncomment when M2M AUTH Implemented.
-	//if auth.GetAuthContext(r.Context()) == nil {
-	//	slog.WarnContext(r.Context(), "authentication required but not provided for download")
-	//	writeJSONError(w, http.StatusUnauthorized, "Unauthorized")
-	//	return
-	//}
+	authCtx, ok := auth.FromContext(r.Context())
+	if !ok {
+		slog.WarnContext(r.Context(), "authentication required but not provided for download")
+		writeJSONError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	if !authCtx.IsM2M {
+		// Traders and CHAs can download
+		if !authCtx.HasGroup(h.Config.TraderGroup) && !authCtx.HasGroup(h.Config.CHAGroup) {
+			writeJSONError(w, http.StatusForbidden, "Forbidden: Insufficient privileges")
+			return
+		}
+	}
+	// TODO (else): Implement granular M2M permission check (e.g. RequiredScope("uploads:read"))
 
 	key := r.PathValue("key")
 	if key == "" {
@@ -189,10 +211,19 @@ func (h *HTTPHandler) DownloadContent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	if auth.GetAuthContext(r.Context()) == nil {
+	authCtx, ok := auth.FromContext(r.Context())
+	if !ok {
 		slog.WarnContext(r.Context(), "authentication required but not provided for delete")
 		writeJSONError(w, http.StatusUnauthorized, "Unauthorized")
 		return
+	}
+
+	if !authCtx.IsM2M {
+		// For Phase 1, we allow both roles to attempt delete (business logic handles ownership if needed).
+		if !authCtx.HasGroup(h.Config.TraderGroup) && !authCtx.HasGroup(h.Config.CHAGroup) {
+			writeJSONError(w, http.StatusForbidden, "Forbidden: Insufficient privileges")
+			return
+		}
 	}
 	key := r.PathValue("key")
 	if key == "" {

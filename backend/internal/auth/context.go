@@ -19,14 +19,19 @@ type ContextKey string
 
 const AuthContextKey ContextKey = "auth_context"
 
+const (
+	RoleQueryTrader = "trader"
+	RoleQueryCHA    = "cha"
+)
+
 type AuthContext struct {
-	UserID      *string      // nil if M2M
-	Email       string       // optional/empty for M2M
-	OUHandle    string       // optional/empty for M2M
-	ClientID    string       // Always present
-	Groups      []string     // e.g., ["Trader", "CHA"]
-	IsM2M       bool         // True if Client Credentials grant
-	UserContext *UserContext // Extended internal nsw database record
+	UserID      *string      `json:"userId"`
+	Email       string       `json:"email"`
+	OUHandle    string       `json:"ouHandle"`
+	UserContext *UserContext `json:"userContext,omitempty"`
+	ClientID    string       `json:"clientId"`
+	Groups      []string     `json:"groups"` // e.g. ["Trader", "CHA"]
+	IsM2M       bool         `json:"isM2M"`  // True if Client Credentials grant
 }
 
 func (c *AuthContext) HasGroup(group string) bool {
@@ -52,6 +57,16 @@ func (c *AuthContext) GetUserContextMap() (map[string]any, error) {
 	return m, nil
 }
 
+// GetAuthContext extracts the AuthContext from a request context.
+// Returns nil if no auth context is available (request had no valid token).
+//
+// Usage in handlers:
+//
+//	authCtx := auth.GetAuthContext(r.Context())
+//	if authCtx == nil {
+//	    // Handle unauthorized request
+//	}
+//	userID := authCtx.UserID
 func GetAuthContext(ctx context.Context) *AuthContext {
 	authCtx, ok := ctx.Value(AuthContextKey).(*AuthContext)
 	if !ok {
