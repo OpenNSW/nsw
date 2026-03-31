@@ -165,22 +165,25 @@ VALUES
         'Health and safety certificate for food products',
         'SIMPLE_FORM',
         ('{
-            "agency": "EDB",
-            "formId": "33333333-3333-3333-3333-333333333333",
-            "service": "food-control-administration-unit",
-            "callback": {
-                "response": {
-                    "display": {
-                        "formId": "95d7e7fe-5be0-43cb-ac71-94bc70d3a01d"
-                    }
-                }
-            },
+            "agency": "FCAU",
+            "formId": "a1b2c3d4-0000-0000-0000-000000000000",
+            "service": "health-certificate",
+            "requiresOgaVerification": true,
             "submission": {
                 "url": ' || to_jsonb((:'FCAU_OGA_SUBMISSION_URL')::text)::text || ',
                 "request": {
                     "meta": {
                         "type": "consignment",
-                        "verificationId": "edb:fcau:health-certificate:001"
+                        "verificationId": "moh:fcau:health_cert:001"
+                    }
+                }
+            },
+            "callback": {
+                "response": {
+                    "mapping": {
+                        "reviewedAt": "gi:health_cert:meta:reviewedAt",
+                        "reviewerNotes": "gi:health_cert:meta:reviewNotes",
+                        "referenceNumber": "gi:health_cert:meta:referenceNumber"
                     }
                 }
             }
