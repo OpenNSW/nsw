@@ -136,3 +136,5 @@ spec:
         - name: services-config
           configMap:
             name: {{ include "nsw-api.fullname" . }}-services
+        - name: uploads-volume
+          emptyDir: {}

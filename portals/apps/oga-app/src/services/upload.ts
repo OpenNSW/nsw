@@ -3,8 +3,9 @@
  * when OGA moves to a separate repo, this file can target OGA-specific endpoints/S3 without touching shared UI.
  */
 import type { ApiClient } from '../api'
+import { getEnv } from '../runtimeConfig'
 
-const API_BASE_URL = (import.meta.env.VITE_OGA_API_BASE_URL as string | undefined) ?? 'http://localhost:8080/api/v1'
+const API_BASE_URL = getEnv('VITE_OGA_API_BASE_URL', 'http://localhost:8080/api/v1')!
 
 export interface UploadResponse {
   key: string

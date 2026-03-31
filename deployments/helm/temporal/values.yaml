@@ -32,7 +32,7 @@ persistence:
 # Temporal "auto-setup" environment variables
 env:
   - name: DB
-    value: "postgres12"
+    value: "postgresql"
   - name: DB_NAME
     value: "temporal"
   - name: POSTGRES_SEEDS

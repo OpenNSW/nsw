@@ -29,7 +29,7 @@ env:
   - name: OGA_DB_PASSWORD
     value: "oga_npqs_pw"
   - name: OGA_ALLOWED_ORIGINS
-    value: "https://oga-npqs-national-single-window-platform.apps.sovecloud.akaza.lk"
+    value: "https://oga-npqs-app-national-single-window-platform.apps.sovecloud.akaza.lk"
 
 config:
   port: 8081

@@ -52,3 +52,9 @@ probes:
   initialDelaySeconds: 5
   periodSeconds: 15
   failureThreshold: 3
+
+# Global configuration for all OGA portals
+config:
+  viteOgaApiBaseUrl: "https://nsw-api-national-single-window-platform.apps.sovecloud.akaza.lk/api/v1"
+  viteIdpScopes: "openid,profile,email"
+  viteIdpPlatform: "AsgardeoV2"
