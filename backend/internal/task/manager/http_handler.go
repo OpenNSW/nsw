@@ -29,6 +29,7 @@ func (h *HTTPHandler) HandleGetTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var requestorID string
 	if !authCtx.IsM2M {
 		// For Phase 1, we allow Trader and CHA to view tasks
 		// If they don't have either group, they are forbidden.
@@ -36,6 +37,12 @@ func (h *HTTPHandler) HandleGetTask(w http.ResponseWriter, r *http.Request) {
 			writeJSONError(w, http.StatusForbidden, "Forbidden: Insufficient privileges")
 			return
 		}
+		// Safely extract the UserID for human users
+		if authCtx.UserID == nil {
+			writeJSONError(w, http.StatusUnauthorized, "Unauthorized: Human context required")
+			return
+		}
+		requestorID = *authCtx.UserID
 	}
 	// TODO (else): Implement granular M2M permission check (e.g. RequiredScope("tasks:read"))
 
@@ -45,7 +52,7 @@ func (h *HTTPHandler) HandleGetTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.manager.GetTaskRenderInfo(r.Context(), taskId)
+	result, err := h.manager.GetTaskRenderInfo(r.Context(), taskId, requestorID, authCtx.IsM2M)
 	if err != nil {
 		// Differentiate between invalid ID/NotFound and internal errors, if necessary.
 		status := http.StatusInternalServerError
@@ -69,6 +76,7 @@ func (h *HTTPHandler) HandleExecuteTask(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	var requestorID string
 	if !authCtx.IsM2M {
 		// For Phase 1, we only allow CHA to execute tasks
 		// (Assuming core workflow tasks are managed by CHAs)
@@ -76,6 +84,12 @@ func (h *HTTPHandler) HandleExecuteTask(w http.ResponseWriter, r *http.Request) 
 			writeJSONError(w, http.StatusForbidden, "Forbidden: Only CHAs or Systems can execute tasks")
 			return
 		}
+		// Safely extract the UserID for human users
+		if authCtx.UserID == nil {
+			writeJSONError(w, http.StatusUnauthorized, "Unauthorized: Human context required")
+			return
+		}
+		requestorID = *authCtx.UserID
 	}
 	// TODO (else): Implement granular M2M permission check (e.g. RequiredScope("tasks:execute"))
 
@@ -89,6 +103,9 @@ func (h *HTTPHandler) HandleExecuteTask(w http.ResponseWriter, r *http.Request) 
 		writeJSONError(w, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
+
+	req.RequestorID = requestorID
+	req.IsSystem = authCtx.IsM2M
 
 	result, err := h.manager.ExecuteTask(r.Context(), req)
 	if err != nil {

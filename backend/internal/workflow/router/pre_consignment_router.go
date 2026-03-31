@@ -30,7 +30,7 @@ func (r *PreConsignmentRouter) HandleGetTraderPreConsignments(w http.ResponseWri
 	// Require authentication
 	authCtx := auth.GetAuthContext(req.Context())
 	if authCtx == nil || authCtx.UserID == nil {
-		http.Error(w, "Forbidden: User context required", http.StatusForbidden)
+		http.Error(w, "Unauthorized: Human context required", http.StatusUnauthorized)
 		return
 	}
 
@@ -61,7 +61,7 @@ func (r *PreConsignmentRouter) HandleCreatePreConsignment(w http.ResponseWriter,
 	// Require authentication
 	authCtx := auth.GetAuthContext(req.Context())
 	if authCtx == nil || authCtx.UserID == nil {
-		http.Error(w, "Forbidden: User context required", http.StatusForbidden)
+		http.Error(w, "Unauthorized: Human context required", http.StatusUnauthorized)
 		return
 	}
 
@@ -98,7 +98,7 @@ func (r *PreConsignmentRouter) HandleGetPreConsignmentsByTraderID(w http.Respons
 	// Require authentication
 	authCtx := auth.GetAuthContext(req.Context())
 	if authCtx == nil || authCtx.UserID == nil {
-		http.Error(w, "Forbidden: User context required", http.StatusForbidden)
+		http.Error(w, "Unauthorized: Human context required", http.StatusUnauthorized)
 		return
 	}
 

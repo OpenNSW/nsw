@@ -179,8 +179,9 @@ func TestConsignmentRouter_HandleGetConsignmentByID(t *testing.T) {
 	r := NewConsignmentRouter(svc, nil, &config.AuthConfig{TraderGroup: "Trader", CHAGroup: "CHA"})
 
 	consignmentID := uuid.NewString()
+	traderID := "trader1"
 	sqlMock.MatchExpectationsInOrder(false)
-	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"consignments\"").WillReturnRows(sqlmock.NewRows([]string{"id", "state"}).AddRow(consignmentID, "IN_PROGRESS"))
+	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"consignments\"").WillReturnRows(sqlmock.NewRows([]string{"id", "trader_id", "state"}).AddRow(consignmentID, traderID, "IN_PROGRESS"))
 
 	mockWM.On("GetWorkflowInstance", mock.Anything, consignmentID).Return(&model.Workflow{
 		BaseModel:     model.BaseModel{ID: consignmentID},
@@ -192,11 +193,67 @@ func TestConsignmentRouter_HandleGetConsignmentByID(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/api/v1/consignments/"+consignmentID, nil)
 	req.SetPathValue("id", consignmentID)
-	req = req.WithContext(withAuthContext(req.Context(), "trader1", "Trader"))
+	req = req.WithContext(withAuthContext(req.Context(), traderID, "Trader"))
 
 	w := httptest.NewRecorder()
 	r.HandleGetConsignmentByID(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestConsignmentRouter_HandleGetConsignmentByID_IDOR(t *testing.T) {
+	consignmentID := uuid.NewString()
+	traderOwner := "trader1"
+	attackerTrader := "trader2"
+	chaEmail := "cha@example.com"
+	chaID := "cha-001"
+
+	t.Run("Trader forbidden access to other's consignment", func(t *testing.T) {
+		db, sqlMock := setupRouterTestDB(t)
+		mockWM := new(MockWorkflowManager)
+		svc := service.NewConsignmentService(db, nil, mockWM, nil)
+		r := NewConsignmentRouter(svc, nil, &config.AuthConfig{TraderGroup: "Trader", CHAGroup: "CHA"})
+		sqlMock.ExpectQuery("(?i)SELECT .* FROM \"consignments\"").WillReturnRows(
+			sqlmock.NewRows([]string{"id", "trader_id", "state", "items", "cha_id", "flow"}).
+				AddRow(consignmentID, traderOwner, "IN_PROGRESS", []byte("[]"), "", "IMPORT"),
+		)
+		mockWM.On("GetWorkflowInstance", mock.Anything, consignmentID).Return(&model.Workflow{BaseModel: model.BaseModel{ID: consignmentID}}, nil)
+		// HS code query won't be triggered if items list is empty
+
+		req, _ := http.NewRequest("GET", "/api/v1/consignments/"+consignmentID, nil)
+		req.SetPathValue("id", consignmentID)
+		req = req.WithContext(withAuthContext(req.Context(), attackerTrader, "Trader"))
+
+		w := httptest.NewRecorder()
+		r.HandleGetConsignmentByID(w, req)
+		assert.Equal(t, http.StatusForbidden, w.Code)
+		assert.NoError(t, sqlMock.ExpectationsWereMet())
+	})
+
+	t.Run("CHA allowed access to assigned consignment", func(t *testing.T) {
+		db, sqlMock := setupRouterTestDB(t)
+		mockWM := new(MockWorkflowManager)
+		chaSvc := service.NewCHAService(db)
+		svc := service.NewConsignmentService(db, nil, mockWM, nil)
+		r := NewConsignmentRouter(svc, chaSvc, &config.AuthConfig{TraderGroup: "Trader", CHAGroup: "CHA"})
+
+		sqlMock.ExpectQuery("(?i)SELECT .* FROM \"consignments\"").WillReturnRows(
+			sqlmock.NewRows([]string{"id", "trader_id", "cha_id", "state", "items", "flow"}).
+				AddRow(consignmentID, traderOwner, chaID, "IN_PROGRESS", []byte("[]"), "IMPORT"),
+		)
+		mockWM.On("GetWorkflowInstance", mock.Anything, consignmentID).Return(&model.Workflow{BaseModel: model.BaseModel{ID: consignmentID}}, nil)
+		sqlMock.ExpectQuery("(?i)SELECT .* FROM \"customs_house_agents\"").WillReturnRows(
+			sqlmock.NewRows([]string{"id", "email"}).AddRow(chaID, chaEmail),
+		)
+
+		req, _ := http.NewRequest("GET", "/api/v1/consignments/"+consignmentID, nil)
+		req.SetPathValue("id", consignmentID)
+		req = req.WithContext(withAuthContext(req.Context(), chaEmail, "CHA"))
+
+		w := httptest.NewRecorder()
+		r.HandleGetConsignmentByID(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.NoError(t, sqlMock.ExpectationsWereMet())
+	})
 }
 
 func TestConsignmentRouter_HandleGetConsignments(t *testing.T) {
@@ -216,6 +273,26 @@ func TestConsignmentRouter_HandleGetConsignments(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.HandleGetConsignments(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestConsignmentRouter_HandleGetConsignments_IDOR(t *testing.T) {
+	db, sqlMock := setupRouterTestDB(t)
+	chaSvc := service.NewCHAService(db)
+	svc := service.NewConsignmentService(db, nil, nil, nil)
+	r := NewConsignmentRouter(svc, chaSvc, &config.AuthConfig{TraderGroup: "Trader", CHAGroup: "CHA"})
+
+	chaEmail := "cha@example.com"
+	chaID := "cha-001"
+	attackerChaID := "cha-002"
+
+	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"customs_house_agents\"").WillReturnRows(sqlmock.NewRows([]string{"id", "email"}).AddRow(chaID, chaEmail))
+
+	req, _ := http.NewRequest("GET", "/api/v1/consignments?role=cha&cha_id="+attackerChaID, nil)
+	req = req.WithContext(withAuthContext(req.Context(), chaEmail, "CHA"))
+
+	w := httptest.NewRecorder()
+	r.HandleGetConsignments(w, req)
+	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
 func TestConsignmentRouter_HandleCreateConsignment(t *testing.T) {
@@ -576,7 +653,7 @@ func TestConsignmentRouter_RBAC_HumanOnly(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	r.HandleGetConsignments(w, req)
-	assert.Equal(t, http.StatusForbidden, w.Code)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 func TestPreConsignmentRouter_RBAC_HumanOnly(t *testing.T) {
 	r := NewPreConsignmentRouter(nil)
@@ -587,7 +664,7 @@ func TestPreConsignmentRouter_RBAC_HumanOnly(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	r.HandleGetPreConsignmentsByTraderID(w, req)
-	assert.Equal(t, http.StatusForbidden, w.Code)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
 func TestConsignmentRouter_GetByID_AuthRequired(t *testing.T) {
