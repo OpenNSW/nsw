@@ -49,6 +49,10 @@ func (m *MockTaskStore) GetByID(id string) (*persistence.TaskInfo, error) {
 	return args.Get(0).(*persistence.TaskInfo), args.Error(1)
 }
 
+func (m *MockTaskStore) CheckOwnership(id string, requestorID string) (bool, error) {
+	return true, nil // Always true for tests unless explicitly tested
+}
+
 func (m *MockTaskStore) UpdateStatus(id string, status *plugin.State) error {
 	args := m.Called(id, status)
 	return args.Error(0)
