@@ -13,7 +13,6 @@ data:
     echo "Host: $PGHOST | DB: $PGDATABASE"
 
     # All idempotent migration files in dependency order.
-    # 002_workflow_table.sql is excluded — it is a one-time destructive migration.
     MIGRATIONS="
       001_initial_schema.sql
       001_insert_seed_hscodes.sql
@@ -23,6 +22,7 @@ data:
       001_insert_seed_workflow_hscode_map.sql
       001_insert_seed_pre_consignment_template.sql
       001_insert_cha_entity.sql
+      002_workflow_table.sql
       002_workflow_tem_v2.sql
     "
 

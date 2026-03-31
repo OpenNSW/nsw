@@ -41,3 +41,6 @@ route:
     enabled: true
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
+
+seeding:
+  enabled: true

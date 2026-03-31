@@ -52,15 +52,12 @@ configuration:
 
 deployment:
   replicaCount: 1
-  image:
-    registry: ghcr.io
-    repository: opennsw/idp
-    tag: "latest"
-  # This tells the deployment which secret to use to talk to GHCR
-  imagePullSecrets:
-    - name: ghcr-secret
   container:
     port: 8090
+
+global:
+  imagePullSecrets:
+    - name: ghcr-secret
     
   securityContext:
     runAsNonRoot: true

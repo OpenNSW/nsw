@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nsw-api.fullname" . }}-services
+data:
+  services.json: |
+    {
+      "version": "1.0",
+      "services": [
+        {
+          "id": "npqs",
+          "url": "http://oga-npqs-backend.national-single-window-platform.svc.cluster.local",
+          "timeout": "30s"
+        },
+        {
+          "id": "fcau",
+          "url": "http://oga-fcau-backend.national-single-window-platform.svc.cluster.local",
+          "timeout": "30s"
+        },
+        {
+          "id": "ird",
+          "url": "http://oga-ird-backend.national-single-window-platform.svc.cluster.local",
+          "timeout": "30s"
+        },
+        {
+          "id": "customs-asycuda",
+          "url": "https://7b0eb5f0-1ee3-4a0c-8946-82a893cb60c2.mock.pstmn.io",
+          "timeout": "10s"
+        },
+        {
+          "id": "customs-app",
+          "url": "http://customs-app.national-single-window-platform.svc.cluster.local",
+          "timeout": "5s"
+        }
+      ]
+    }

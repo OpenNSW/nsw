@@ -40,6 +40,7 @@ config:
     insecureSkipTlsVerify: true
 
   serviceUrl: "https://nsw-api-national-single-window-platform.apps.sovecloud.akaza.lk"
+  internalServiceUrl: "http://nsw-api.national-single-window-platform.svc.cluster.local"
 
   cors:
     allowedOrigins:
@@ -71,8 +72,7 @@ resources:
 
 route:
   enabled: true
-  # Leave empty to let OpenShift auto-assign; set explicitly only if your user has permission.
-  host: ""
+  host: "nsw-api-national-single-window-platform.apps.sovecloud.akaza.lk"
   tls:
     enabled: true
     termination: edge
@@ -82,8 +82,9 @@ route:
 migrations:
   enabled: true
   image:
-    repository: postgres
-    tag: "16-alpine"
+    repository: registry.redhat.io/rhel8/postgresql-12@sha256:fd7b47517df99487c02d86f57b0b6722c32551bcf89ce61018d6a5e355c7c212
+    tag: ""
+    pullPolicy: IfNotPresent
   resources:
     limits:
       cpu: 200m

@@ -1,7 +1,7 @@
 # NSW Platform — Helm Deployment Guide
 
 > **Target:** OpenShift (Akaza GovCloud)  
-> **Constraint:** Always pass `--history-max 3` to stay within the 20-secret quota.
+> **Constraint:** Always pass `--history-max 1` to stay within the 20-secret quota limit for multiple OGA pods.
 
 ---
 
@@ -11,8 +11,8 @@
 |:---|:---|:---|
 | `nsw-api` | `./deployments/helm/nsw-api` | `values.yaml` (inline) |
 | `trader-app` | `./deployments/helm/trader-app` | `values.yaml` (inline) |
-| `oga-app` | `./deployments/helm/oga-app` | `values.yaml` + per-agency overrides (e.g. `npqs-app-values.yaml`) |
-| `oga-<agency>-backend` | `./deployments/helm/oga-backend` *(generic)* | Per-agency values file (e.g. `fcau-backend-values.yaml`) |
+| `oga-multi-frontend` | `./deployments/helm/oga-multi-frontend` | Unified Generic Frontend for all agencies. |
+| `oga-<agency>-backend` | `./deployments/helm/oga-backend` | Per-agency values file (e.g. `fcau-backend-values.yaml`) |
 | `idp-thunder` | **Official Thunder chart** (`ghcr.io/asgardeo/helm-charts/thunder`) | `idp/custom-values.yaml` |
 | `temporal` | `./deployments/helm/temporal` | `values.yaml` (unified server/ui) |
 
@@ -26,7 +26,7 @@ Build with `linux/amd64` when on Apple Silicon:
 # From the repository root
 docker buildx build --platform linux/amd64 -t ghcr.io/opennsw/nsw-api:latest    -f backend/Dockerfile ./backend --push
 docker buildx build --platform linux/amd64 -t ghcr.io/opennsw/trader-app:latest  -f portals/apps/trader-app/Dockerfile ./portals --push
-docker buildx build --platform linux/amd64 -t ghcr.io/opennsw/oga-app:latest     -f portals/apps/oga-app/Dockerfile ./portals --push
+docker buildx build --platform linux/amd64 -t ghcr.io/opennsw/oga-multi-frontend:latest -f deployments/helm/oga-multi-frontend/Dockerfile . --push
 docker buildx build --platform linux/amd64 -t ghcr.io/opennsw/oga-backend:latest -f oga/Dockerfile ./oga --push
 docker buildx build --platform linux/amd64 -t ghcr.io/opennsw/idp:latest         -f idp/Dockerfile . --push
 ```
@@ -48,32 +48,25 @@ docker push ghcr.io/opennsw/temporal-auto-setup:1.28.3
 
 ## 2. Deploy / Upgrade Helm Charts
 
-All commands are run from the **repository root**.
+All deployments are executed automatically using the wrapper script from the **repository root**. This script securely synchronizes database migrations before configuring the OpenShift clusters.
+
+```bash
+./scripts/deploy-helm.sh
+```
 
 ### Core NSW Services
 
-```bash
-helm upgrade --install nsw-api    ./deployments/helm/nsw-api    --history-max 3
-helm upgrade --install trader-app ./deployments/helm/trader-app --history-max 3
-```
+The deploy script automatically manages memory quotas and service routes for the core backend and trader portal.
 
-### OGA Portal Frontends (Generic Chart, 3 Distinct Releases)
+### OGA Portal Frontends (Consolidated Chart)
 
-The `oga-app/` chart is a **generic chart** reused for every OGA portal.
-Each OGA gets its **own release name**, its own route, and a dedicated `-f` values file inside `oga-app/`:
+The `oga-multi-frontend/` chart is a single consolidated deployment that dynamically routes all OGA portal requests based on the host header.
 
 ```bash
-helm upgrade --install oga-fcau-app ./deployments/helm/oga-app \
-  -f ./deployments/helm/oga-app/fcau-app-values.yaml --history-max 3
-
-helm upgrade --install oga-ird-app ./deployments/helm/oga-app \
-  -f ./deployments/helm/oga-app/ird-app-values.yaml --history-max 3
-
-helm upgrade --install oga-npqs-app ./deployments/helm/oga-app \
-  -f ./deployments/helm/oga-app/npqs-app-values.yaml --history-max 3
+helm upgrade --install oga-multi-frontend ./deployments/helm/oga-multi-frontend --history-max 1
 ```
 
-This creates 3 distinct routes:
+This single deployment serves the 3 distinct routes seamlessly:
 - `oga-fcau-app-national-single-window-platform.apps.sovecloud.akaza.lk`
 - `oga-ird-app-national-single-window-platform.apps.sovecloud.akaza.lk`
 - `oga-npqs-app-national-single-window-platform.apps.sovecloud.akaza.lk`
@@ -98,19 +91,14 @@ To **add a new OGA**, create a new `<agency>-backend-values.yaml` in `oga-backen
 
 ### Identity Provider (Thunder — Official Helm Chart)
 
-Thunder uses the **official Asgardeo Helm chart** as a dependency. We only maintain a single override file at `idp/custom-values.yaml`.
+Thunder officially hosts its Helm Charts on the GitHub Container Registry. We deploy it remotely via OCI and inject our `custom-values.yaml`.
 
 ```bash
-# 1. Add / update the Thunder chart repo
-helm repo add thunder https://asgardeo.github.io/helm-charts
-helm repo update
-
-# 2. Deploy with our custom overrides
-helm upgrade --install idp-thunder thunder/thunder \
-  -f ./idp/custom-values.yaml --history-max 3
+helm upgrade --install idp-thunder oci://ghcr.io/asgardeo/helm-charts/thunder \
+  --version 0.29.0 -f ./idp/custom-values.yaml --history-max 1
 ```
 
-> **Note:** The custom `idp/Dockerfile` wraps the official Thunder image to fix group permissions for OpenShift's random UID policy. The image is pushed as `ghcr.io/opennsw/idp` and referenced in `idp/custom-values.yaml`.
+> **Note:** We are using the official Thunder image (`ghcr.io/asgardeo/thunder:0.29.0`) to avoid permissions and ImagePullBackOff issues. The `custom-values.yaml` handles database connections and environment settings.
 
 ### 2.4 Temporal (Unified Server & UI)
 
