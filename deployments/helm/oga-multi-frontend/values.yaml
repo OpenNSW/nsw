@@ -58,3 +58,4 @@ config:
   viteOgaApiBaseUrl: "https://nsw-api-national-single-window-platform.apps.sovecloud.akaza.lk/api/v1"
   viteIdpScopes: "openid,profile,email"
   viteIdpPlatform: "AsgardeoV2"
+  viteShowAutofillButton: "true"
