@@ -10,7 +10,7 @@ COPY . .
 
 # Ensure the bucket exists and we build for the correct cluster architecture
 RUN mkdir -p /app/bucket && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/server ./cmd/server
+    CGO_ENABLED=0 GOOS=linux go build -o /out/server ./cmd/server
 
 FROM debian:bookworm-slim
 
@@ -19,7 +19,7 @@ LABEL org.opencontainers.image.description="NSW Backend Service"
 
 # Install certs and create a non-root user
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates wget \
+    && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     && useradd -r -u 1001 -g 0 -s /bin/false -d /app appuser
 
@@ -43,7 +43,5 @@ USER 1001
 
 EXPOSE 8080
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget -qO- http://localhost:${SERVER_PORT:-8080}/health || exit 1
 
 CMD ["/app/server"]

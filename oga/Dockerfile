@@ -14,7 +14,7 @@ LABEL org.opencontainers.image.source="https://github.com/OpenNSW/nsw"
 LABEL org.opencontainers.image.description="NSW OGA Backend Service"
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates wget \
+  && apt-get install -y --no-install-recommends ca-certificates \
   && rm -rf /var/lib/apt/lists/* \
   && useradd -r -s /bin/false -d /app appuser \
   && mkdir -p /app /data \
@@ -31,7 +31,5 @@ USER appuser
 # Default port (override via OGA_PORT env var)
 EXPOSE 8081
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget -qO- http://localhost:${OGA_PORT:-8081}/health || exit 1
 
 CMD ["/app/oga"]
