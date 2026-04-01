@@ -8,7 +8,7 @@ data:
   {{- range $key, $agency := .Values.agencies }}
   nginx-{{ $key }}.conf: |
     server {
-      listen {{ $agency.port }};
+      listen {{ $agency.containerPort }};
       server_name _;
 
       root /usr/share/nginx/html;

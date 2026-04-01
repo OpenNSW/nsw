@@ -10,8 +10,8 @@ spec:
     {{- range $key, $agency := .Values.agencies }}
     {{- if $agency.enabled }}
     - name: {{ $key }}
-      port: {{ if eq $key "fcau" }}80{{ else if eq $key "ird" }}81{{ else }}82{{ end }}
-      targetPort: {{ $key }}-http
+      port: {{ $agency.servicePort }}
+      targetPort: {{ $agency.containerPort }}
       protocol: TCP
     {{- end }}
     {{- end }}

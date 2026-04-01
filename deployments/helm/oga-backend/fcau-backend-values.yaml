@@ -2,6 +2,8 @@
 nameOverride: oga-fcau-backend
 fullnameOverride: oga-fcau-backend
 
+port: 80
+
 # Resource Management (Akaza Quotas)
 resources:
   limits:
@@ -22,14 +24,10 @@ env:
     value: "postgres"
   - name: OGA_DB_NAME
     value: "oga-backend-fcau" 
-  - name: OGA_DB_USER
-    value: "oga_fcau_user"
-  - name: OGA_DB_PASSWORD
-    value: "oga_fcau_pw"
   - name: OGA_DB_HOST
     value: "nsw-db"
   - name: OGA_ALLOWED_ORIGINS
-    value: "https://oga-fcau-national-single-window-platform.apps.sovecloud.akaza.lk"
+    value: "https://oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk"
   - name: NSW_API_BASE_URL
     value: "http://nsw-api.national-single-window-platform.svc.cluster.local/api/v1"
 
@@ -38,11 +36,164 @@ config:
 
 route:
   enabled: true
-  host: oga-fcau-backend-national-single-window-platform.apps.sovecloud.akaza.lk
+  host: oga-fcau-backend-national-single-window-platform.apps.sovecloud1.akaza.lk
   tls:
     enabled: true
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
 
 seeding:
-  enabled: true
+  enabled: false
+
+forms:
+  "default.json": |-
+    {
+      "schema": {
+        "type": "object",
+        "required": [
+          "decision"
+        ],
+        "properties": {
+          "decision": {
+            "type": "string",
+            "title": "Decision",
+            "oneOf": [
+              {
+                "const": "APPROVED",
+                "title": "Approved"
+              },
+              {
+                "const": "REJECTED",
+                "title": "Rejected"
+              }
+            ]
+          },
+          "remarks": {
+            "type": "string",
+            "title": "Remarks"
+          }
+        }
+      },
+      "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/decision"
+          },
+          {
+            "type": "Control",
+            "scope": "#/properties/remarks",
+            "options": {
+              "multi": true
+            }
+          }
+        ]
+      }
+    }
+  "consignment:edb:fcau:health-certificate:001.view.json": |-
+    {
+        "title": "Health Certificate (Submitted)",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "consigneeName": {
+                    "type": "string",
+                    "title": "Consignee Name",
+                    "readOnly": true
+                },
+                "consigneeAddress": {
+                    "type": "string",
+                    "title": "Consignee Address",
+                    "readOnly": true
+                },
+                "productDescription": {
+                    "type": "string",
+                    "title": "Product Description",
+                    "readOnly": true
+                },
+                "batchLotNumbers": {
+                    "type": "string",
+                    "title": "Batch / Lot Numbers",
+                    "readOnly": true
+                },
+                "productionExpiryDates": {
+                    "type": "string",
+                    "title": "Production & Expiry Dates",
+                    "readOnly": true
+                },
+                "microbiologicalTestReportId": {
+                    "type": "string",
+                    "title": "Microbiological Test Report ID",
+                    "readOnly": true
+                },
+                "processingPlantRegistrationNo": {
+                    "type": "string",
+                    "title": "Processing Plant Registration No.",
+                    "readOnly": true
+                },
+                "supportingDocuments": {
+                    "type": "string",
+                    "title": "Supporting Documents",
+                    "format": "file",
+                    "readOnly": true
+                }
+            }
+        },
+        "uiSchema": {
+            "type": "VerticalLayout",
+            "elements": [
+                {
+                    "type": "Label",
+                    "text": "Health Certificate"
+                },
+                {
+                    "type": "HorizontalLayout",
+                    "elements": [
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/consigneeName"
+                        },
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/consigneeAddress"
+                        }
+                    ]
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/productDescription"
+                },
+                {
+                    "type": "HorizontalLayout",
+                    "elements": [
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/batchLotNumbers"
+                        },
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/productionExpiryDates"
+                        }
+                    ]
+                },
+                {
+                    "type": "HorizontalLayout",
+                    "elements": [
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/microbiologicalTestReportId"
+                        },
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/processingPlantRegistrationNo"
+                        }
+                    ]
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/supportingDocuments"
+                }
+            ]
+        }
+    }

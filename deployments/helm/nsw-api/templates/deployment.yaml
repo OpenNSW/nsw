@@ -114,6 +114,32 @@ spec:
             {{- end }}
             {{- end }}
 
+            # --- Temporal ---
+            - name: TEMPORAL_MTLS_CERT
+              valueFrom:
+                secretKeyRef:
+                  name: temporal-certs
+                  key: cert
+            - name: TEMPORAL_MTLS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: temporal-certs
+                  key: key
+
+            # --- SMS ---
+            - name: GOV_SMS_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sms-secret
+                  key: apiKey
+
+            # --- IDP Secret ---
+            - name: AUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: idp-client-secret
+                  key: clientSecret
+
           livenessProbe:
             tcpSocket:
               port: http

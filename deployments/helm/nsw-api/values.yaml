@@ -33,21 +33,18 @@ config:
   auth:
     # Use the internal service name and port 8090
     jwksUrl: "http://idp-thunder-service.national-single-window-platform.svc.cluster.local:8090/oauth2/jwks"
-    issuer: "https://idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"
+    issuer: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"
     audience: "TRADER_PORTAL_APP"
     clientId: "TRADER_PORTAL_APP"
     # Set to true if the IDP is using a self-signed cert internally (common in GovCloud)
     insecureSkipTlsVerify: true
 
-  serviceUrl: "https://nsw-api-national-single-window-platform.apps.sovecloud.akaza.lk"
+  serviceUrl: "https://nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk"
   internalServiceUrl: "http://nsw-api.national-single-window-platform.svc.cluster.local"
 
   cors:
     allowedOrigins:
-      - "https://trader-app-national-single-window-platform.apps.sovecloud.akaza.lk"
-      - "https://oga-fcau-app-national-single-window-platform.apps.sovecloud.akaza.lk"
-      - "https://oga-ird-app-national-single-window-platform.apps.sovecloud.akaza.lk"
-      - "https://oga-npqs-app-national-single-window-platform.apps.sovecloud.akaza.lk"
+      - "https://trader-app-national-single-window-platform.apps.sovecloud1.akaza.lk"
 
   storage:
     type: "local"
@@ -57,8 +54,6 @@ config:
     s3Endpoint: ""
     s3Bucket: "nsw-uploads"
     s3Region: "us-east-1"
-    s3AccessKey: ""
-    s3SecretKey: ""
     s3UseSsl: true
     s3PublicUrl: ""
 
@@ -72,7 +67,7 @@ resources:
 
 route:
   enabled: true
-  host: "nsw-api-national-single-window-platform.apps.sovecloud.akaza.lk"
+  host: "nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk"
   tls:
     enabled: true
     termination: edge
@@ -95,4 +90,4 @@ migrations:
   ogaSubmissionUrls:
     npqs: "http://oga-npqs-backend.national-single-window-platform.svc.cluster.local/api/oga/inject"
     fcau: "http://oga-fcau-backend.national-single-window-platform.svc.cluster.local/api/oga/inject"
-    preconsignment: "http://oga-ird-backend.national-single-window-platform.svc.cluster.local/api/oga/inject"
+    ird: "http://oga-ird-backend.national-single-window-platform.svc.cluster.local/api/oga/inject"

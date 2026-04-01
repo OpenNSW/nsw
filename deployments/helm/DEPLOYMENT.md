@@ -67,9 +67,9 @@ helm upgrade --install oga-multi-frontend ./deployments/helm/oga-multi-frontend 
 ```
 
 This single deployment serves the 3 distinct routes seamlessly:
-- `oga-fcau-app-national-single-window-platform.apps.sovecloud.akaza.lk`
-- `oga-ird-app-national-single-window-platform.apps.sovecloud.akaza.lk`
-- `oga-npqs-app-national-single-window-platform.apps.sovecloud.akaza.lk`
+- `oga-fcau-app-national-single-window-platform.apps.sovecloud1.akaza.lk`
+- `oga-ird-app-national-single-window-platform.apps.sovecloud1.akaza.lk`
+- `oga-npqs-app-national-single-window-platform.apps.sovecloud1.akaza.lk`
 
 ### OGA Backend Services (Generic Chart)
 
@@ -146,7 +146,7 @@ migrations:
   ogaSubmissionUrls:
     npqs: "http://oga-npqs-backend.<namespace>.svc.cluster.local/api/oga/inject"
     fcau: "http://oga-fcau-backend.<namespace>.svc.cluster.local/api/oga/inject"
-    preconsignment: "http://oga-ird-backend.<namespace>.svc.cluster.local/api/oga/inject"
+    ird: "http://oga-ird-backend.<namespace>.svc.cluster.local/api/oga/inject"
 ```
 
 ### 3.2 One-Time Destructive Migration

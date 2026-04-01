@@ -20,7 +20,7 @@ configurations:
     - name: OGA_DEFAULT_FORM_ID
       value: default
     - name: OGA_ALLOWED_ORIGINS
-      value: http://localhost:5174,http://localhost:5175,http://localhost:5176
+      value: https://oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk,https://oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk,https://oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk,https://trader-app-national-single-window-platform.apps.sovecloud1.akaza.lk
     - name: OGA_DB_DRIVER
       value: "postgres"
     - name: OGA_DB_HOST
