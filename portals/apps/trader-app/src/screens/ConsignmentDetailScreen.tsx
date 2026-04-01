@@ -23,6 +23,8 @@ export function ConsignmentDetailScreen() {
   const [initializing, setInitializing] = useState(false)
   const [viewMode, setViewMode] = useState<'list' | 'graph'>('list')
 
+  const { role } = useRole()
+
   const fetchConsignment = useCallback(async () => {
     if (!consignmentId) {
       setError('Consignment ID is required')
@@ -110,7 +112,6 @@ export function ConsignmentDetailScreen() {
   const completedSteps = workflowNodes.filter(n => n.state === 'COMPLETED').length
   const totalSteps = workflowNodes.length
   const progressPercentage = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0
-  const { role } = useRole()
   const isChaView = role === 'nsw-cha'
   const canSelectHsCode = isChaView && consignment.state === 'INITIALIZED'
 
