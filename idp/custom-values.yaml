@@ -2,21 +2,27 @@
 configuration:
   server:
     port: 8090
-    publicUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"
+    publicUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"
     httpOnly: true
     
+  # The crypto settings belong under 'security' in the Asgardeo config model
+  security:
+    crypto:
+      publicKeyPath: "/opt/thunder/repository/resources/security/signing.cert"
+      privateKeyPath: "/opt/thunder/repository/resources/security/signing.key"
+    
   gateClient:
-    hostname: "idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"
+    hostname: "idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"
     port: 443
     scheme: "https"
     
   cors:
     allowedOrigins:
-      - "https://trader-app-national-single-window-platform.apps.sovecloud.akaza.lk"
-      - "https://oga-fcau-national-single-window-platform.apps.sovecloud.akaza.lk"
-      - "https://oga-ird-national-single-window-platform.apps.sovecloud.akaza.lk"
-      - "https://oga-npqs-national-single-window-platform.apps.sovecloud.akaza.lk"
-      - "https://nsw-api-national-single-window-platform.apps.sovecloud.akaza.lk"
+      - "https://trader-app-national-single-window-platform.apps.sovecloud1.akaza.lk"
+      - "https://oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk"
+      - "https://oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk"
+      - "https://oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk"
+      - "https://nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk"
 
   database:
     config:
@@ -54,6 +60,18 @@ deployment:
   replicaCount: 1
   container:
     port: 8090
+    extraEnv:
+      - name: THUNDER_SKIP_SECURITY
+        value: "true"
+
+# Resources for the main deployment container
+resources:
+  limits:
+    cpu: 500m
+    memory: 1Gi
+  requests:
+    cpu: 10m
+    memory: 64Mi
 
 global:
   imagePullSecrets:
@@ -61,23 +79,18 @@ global:
     
   securityContext:
     runAsNonRoot: true
-    enableRunAsUser: false   # Allow OpenShift to assign random UID
-    enableRunAsGroup: false  # Allow OpenShift to assign random GID
-    enableFsGroup: false     # Do not attempt to change volume ownership
+    enableRunAsUser: true
+    runAsUser: 1001570000
+    enableRunAsGroup: true
+    runAsGroup: 1001570000
+    enableFsGroup: true
+    fsGroup: 1001570000
     readOnlyRootFilesystem: false # Required for some internal Thunder operations
     seccompProfile:
       type: RuntimeDefault
     capabilities:
       drop:
         - ALL
-
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 200m
-      memory: 256Mi
 
   volumeMounts:
     - name: thunder-signing-keys-volume
@@ -98,25 +111,26 @@ setup:
       cpu: 500m
       memory: 512Mi
     requests:
-      cpu: 200m
-      memory: 256Mi
+      cpu: 10m
+      memory: 64Mi
 
 # Mandatory: Fixes the "failed quota" for init containers (init-db, etc)
 initResources:
   limits:
     cpu: 200m
-    memory: 128Mi
+    memory: 256Mi
   requests:
-    cpu: 100m
+    cpu: 10m
     memory: 64Mi
 
 serviceAccount:
   create: true
   name: "thunder-service-account"
 
+
 ingress:
   enabled: true
   className: "" 
-  hostname: "idp-thunder-national-single-window-platform.apps.sovecloud.akaza.lk"
+  hostname: "idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"
   customAnnotations:
     route.openshift.io/termination: edge

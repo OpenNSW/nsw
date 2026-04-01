@@ -12,7 +12,8 @@ imagePullSecrets:
 agencies:
   fcau:
     enabled: true
-    port: 8080
+    servicePort: 80
+    containerPort: 8080
     viteInstanceConfig: "fcau"
     viteApiBaseUrl: "/api"
     viteIdpBaseUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"
@@ -21,7 +22,8 @@ agencies:
     routeHost: "oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk"
   ird:
     enabled: true
-    port: 8081
+    servicePort: 81
+    containerPort: 8081
     viteInstanceConfig: "ird"
     viteApiBaseUrl: "/api"
     viteIdpBaseUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"
@@ -30,7 +32,8 @@ agencies:
     routeHost: "oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk"
   npqs:
     enabled: true
-    port: 8082
+    servicePort: 82
+    containerPort: 8082
     viteInstanceConfig: "npqs"
     viteApiBaseUrl: "/api"
     viteIdpBaseUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"

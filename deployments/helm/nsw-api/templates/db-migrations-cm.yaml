@@ -4,6 +4,10 @@ metadata:
   name: {{ include "nsw-api.fullname" . }}-db-migrations
   labels:
     {{- include "nsw-api.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "0" 
+    "helm.sh/hook-delete-policy": before-hook-creation
 data:
   run-migrations.sh: |
     #!/bin/sh
@@ -16,7 +20,7 @@ data:
     MIGRATIONS="
       001_initial_schema.sql
       001_insert_seed_hscodes.sql
-      001_insert_seed_form_templates.sql
+    001_insert_seed_form_templates.sql
       001_insert_seed_workflow_node_templates.sql
       001_insert_seed_workflow_templates.sql
       001_insert_seed_workflow_hscode_map.sql
@@ -24,6 +28,9 @@ data:
       001_insert_cha_entity.sql
       002_workflow_table.sql
       002_workflow_tem_v2.sql
+      003_add_payment_task_type.sql
+      004_reseed_trader_preconsignments.sql
+      005_add_workflow_type.sql
     "
 
     for FILE in $MIGRATIONS; do

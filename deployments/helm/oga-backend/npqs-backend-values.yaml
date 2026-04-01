@@ -2,6 +2,8 @@
 nameOverride: oga-npqs-backend
 fullnameOverride: oga-npqs-backend
 
+port: 82
+
 # Resource Management (Akaza Quotas)
 resources:
   limits:
@@ -24,12 +26,8 @@ env:
     value: "nsw-db"
   - name: OGA_DB_NAME
     value: "oga-backend-npqs"     
-  - name: OGA_DB_USER
-    value: "oga_npqs_user"
-  - name: OGA_DB_PASSWORD
-    value: "oga_npqs_pw"
   - name: OGA_ALLOWED_ORIGINS
-    value: "https://oga-npqs-app-national-single-window-platform.apps.sovecloud.akaza.lk"
+    value: "https://oga-npqs-app-national-single-window-platform.apps.sovecloud1.akaza.lk"
   - name: NSW_API_BASE_URL
     value: "http://nsw-api.national-single-window-platform.svc.cluster.local/api/v1"
 
@@ -38,11 +36,127 @@ config:
 
 route:
   enabled: true
-  host: oga-npqs-backend-national-single-window-platform.apps.sovecloud.akaza.lk
+  host: oga-npqs-backend-national-single-window-platform.apps.sovecloud1.akaza.lk
   tls:
     enabled: true
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
 
 seeding:
-  enabled: true
+  enabled: false
+
+forms:
+  "default.json": |-
+    {
+      "schema": {
+        "type": "object",
+        "required": [
+          "decision"
+        ],
+        "properties": {
+          "decision": {
+            "type": "string",
+            "title": "Decision",
+            "oneOf": [
+              {
+                "const": "APPROVED",
+                "title": "Approved"
+              },
+              {
+                "const": "REJECTED",
+                "title": "Rejected"
+              }
+            ]
+          },
+          "remarks": {
+            "type": "string",
+            "title": "Remarks"
+          }
+        }
+      },
+      "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/decision"
+          },
+          {
+            "type": "Control",
+            "scope": "#/properties/remarks",
+            "options": {
+              "multi": true
+            }
+          }
+        ]
+      }
+    }
+  "preconsignment:npqs:phytosanitary-certificate:001.view.json": |-
+    {
+        "title": "Phytosanitary Certificate (Submitted)",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "countryOfOrigin": {
+                    "type": "string",
+                    "title": "Country of Origin",
+                    "readOnly": true
+                },
+                "countryOfDestination": {
+                    "type": "string",
+                    "title": "Country of Destination",
+                    "readOnly": true
+                },
+                "distinguishingMarks": {
+                    "type": "string",
+                    "title": "Distinguishing Marks",
+                    "readOnly": true
+                },
+                "disinfestationTreatment": {
+                    "type": "string",
+                    "title": "Disinfestation Treatment",
+                    "readOnly": true
+                },
+                "supportingDocuments": {
+                    "type": "string",
+                    "title": "Supporting Documents",
+                    "format": "file",
+                    "readOnly": true
+                }
+            }
+        },
+        "uiSchema": {
+            "type": "VerticalLayout",
+            "elements": [
+                {
+                    "type": "Label",
+                    "text": "Phytosanitary Certificate"
+                },
+                {
+                    "type": "HorizontalLayout",
+                    "elements": [
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/countryOfOrigin"
+                        },
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/countryOfDestination"
+                        }
+                    ]
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/distinguishingMarks"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/disinfestationTreatment"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/supportingDocuments"
+                }
+            ]
+        }
+    }

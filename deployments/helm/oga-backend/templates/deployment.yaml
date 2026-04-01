@@ -24,14 +24,27 @@ spec:
           imagePullPolicy: {{ if .Values.image }}{{ .Values.image.pullPolicy | default "Always" }}{{ else }}Always{{ end }}
           ports:
             - name: http
-              containerPort: {{ .Values.config.port | default 8081 }}
+              containerPort: {{ .Values.config.port }}
               protocol: TCP
           env:
-            - name: OGA_PORT
-              value: {{ .Values.config.port | default 8081 | quote }}
             {{- if .Values.env }}
             {{- toYaml .Values.env | nindent 12 }}
             {{- end }}
+            - name: OGA_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-db-credentials
+                  key: username
+            - name: OGA_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-db-credentials
+                  key: password
+            - name: OGA_FORMS_PATH
+              value: "/opt/oga/data/forms"
+          volumeMounts:
+            - name: forms-volume
+              mountPath: /opt/oga/data/forms
           livenessProbe:
             tcpSocket:
               port: http
@@ -49,3 +62,7 @@ spec:
             runAsNonRoot: true
             capabilities:
               drop: ["ALL"]
+      volumes:
+        - name: forms-volume
+          configMap:
+            name: {{ .Release.Name }}-forms
