@@ -1,8 +1,52 @@
-import { BellIcon, MagnifyingGlassIcon } from '@radix-ui/react-icons'
-import { SignedIn, SignedOut, SignInButton, UserDropdown, useAsgardeo } from '@asgardeo/react'
+import {BellIcon, BackpackIcon, IdCardIcon} from '@radix-ui/react-icons'
+import {SignedIn, SignedOut, SignInButton, UserDropdown, useAsgardeo} from '@asgardeo/react'
+import {Select, Flex, Text, Box} from '@radix-ui/themes'
+import {useRole, type Role} from '../../services/RoleContext'
+import type {ReactNode} from "react";
+
+const ROLE_CONFIG: Record<Role, {
+  label: string;
+  description: string;
+  dropdownDescription: string;
+  icon: ReactNode
+}> = {
+  'nsw-trader': {
+    label: 'NSW Trader',
+    description: 'Managing consignments',
+    dropdownDescription: 'Create and manage your own consignments',
+    icon: <BackpackIcon className="text-blue-600"/>,
+  },
+  'nsw-cha': {
+    label: 'NSW CHA',
+    description: 'Handling Customs Clearances',
+    dropdownDescription: 'Handle customs clearances on behalf of traders',
+    icon: <IdCardIcon className="text-orange-600"/>,
+  },
+}
+
+function RoleDisplay({role, showPrimaryLabel}: { role: Role; showPrimaryLabel: boolean }) {
+  const {label, description, icon} = ROLE_CONFIG[role]
+  return (
+    <Flex align="center" gap="3" className="w-60 text-left">
+      <Box className="p-1.5 bg-white rounded-md shadow-sm border border-gray-100">
+        {icon}
+      </Box>
+      <Box className="flex-1">
+        <Flex align="center" gap="1">
+          <Text size="1" weight="bold" className="block leading-none">{label}</Text>
+          {showPrimaryLabel && (
+            <Text size="1" color="gray" className="font-normal">(Primary)</Text>
+          )}
+        </Flex>
+        <Text size="1" color="gray" className="block leading-tight mt-0.5">{description}</Text>
+      </Box>
+    </Flex>
+  )
+}
 
 export function TopBar() {
-  const { signOut } = useAsgardeo()
+  const {signOut} = useAsgardeo()
+  const {role, setRole, availableRoles, isLoading} = useRole()
 
   const handleSignOut = async () => {
     try {
@@ -20,8 +64,10 @@ export function TopBar() {
     }
   }
 
+  const showSwitcher = availableRoles.length > 1
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
+    <header
+      className="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
       {/* Logo */}
       <div className="flex items-center">
         <span className="text-xl font-bold text-gray-900">Trader Portal</span>
@@ -29,29 +75,60 @@ export function TopBar() {
 
       {/* Right Side Actions */}
       <div className="flex items-center gap-4">
-        {/* Search */}
-        <div className="relative">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search..."
-            className="w-64 pl-9 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
+        {/* Role Switcher (Dynamic based on user permissions) */}
+        <Box className="flex-1 max-w-md px-8">
+          {!isLoading ? (
+            <Box className="w-full h-full">
+              <Select.Root
+                value={role}
+                onValueChange={(val) => setRole(val as Role)}
+                disabled={!showSwitcher}
+              >
+                <Select.Trigger
+                  variant="soft"
+                  className={`w-full h-20 p-4 transition-all ${showSwitcher ? 'cursor-pointer hover:bg-gray-100' : 'cursor-default'}`}
+                >
+                  <RoleDisplay role={role} showPrimaryLabel={!showSwitcher}/>
+                </Select.Trigger>
 
+                {showSwitcher && (
+                  <Select.Content position="popper" className="w-full min-w-[320px]">
+                    {availableRoles.map((r) => {
+                      const {label, dropdownDescription, icon} = ROLE_CONFIG[r]
+                      return (
+                        <Select.Item key={r} value={r}>
+                          <Flex direction="column" py="1">
+                            <Flex align="center" gap="2">
+                              {icon}
+                              <Text weight="bold" size="1">{label}</Text>
+                            </Flex>
+                            <Text size="1" color="gray">{dropdownDescription}</Text>
+                          </Flex>
+                        </Select.Item>
+                      )
+                    })}
+                  </Select.Content>
+                )}
+              </Select.Root>
+            </Box>
+          ) : (
+            <Box className="w-full h-11 bg-gray-50 animate-pulse rounded-lg border border-gray-100"/>
+          )}
+        </Box>
         {/* Notifications */}
-        <button className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-          <BellIcon className="w-5 h-5" />
+        <button
+          className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+          <BellIcon className="w-5 h-5"/>
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
         </button>
 
         {/* User */}
         <div className="flex items-center gap-3 pl-3 border-l border-gray-200">
           <SignedIn>
-            <UserDropdown onSignOut={handleSignOut} />
+            <UserDropdown onSignOut={handleSignOut}/>
           </SignedIn>
           <SignedOut>
-            <SignInButton />
+            <SignInButton/>
           </SignedOut>
         </div>
       </div>

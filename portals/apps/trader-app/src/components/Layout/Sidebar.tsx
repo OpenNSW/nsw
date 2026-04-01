@@ -1,28 +1,28 @@
 import { Link, useLocation } from 'react-router-dom'
-import {
-  DashboardIcon, FileTextIcon,
-  ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon,
-} from '@radix-ui/react-icons'
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { DashboardIcon, FileTextIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from '@radix-ui/react-icons'
+import { type ReactNode, useEffect, useRef, useState, useMemo } from "react";
+import { useRole, type Role } from '../../services/RoleContext'
 
 interface NavItem {
   name: string
   path: string
   icon: ReactNode
+  roles?: Role[]
 }
-
-const navStructure: NavItemOrGroup[] = [
-  { name: 'Consignments', path: '/consignments', icon: <DashboardIcon className="w-5 h-5" /> },
-  { name: 'Verified Docs', path: '/pre-consignments', icon: <FileTextIcon className="w-5 h-5" /> },
-]
 
 interface NavGroup {
   name: string;
   icon: React.ReactNode;
   items: NavItem[];
+  roles?: Role[]
 }
 
 type NavItemOrGroup = NavItem | NavGroup;
+
+const navStructure: NavItemOrGroup[] = [
+  { name: 'Consignments', path: '/consignments', icon: <DashboardIcon className="w-5 h-5" /> },
+  { name: 'Verified Docs', path: '/pre-consignments', icon: <FileTextIcon className="w-5 h-5" />, roles: ['nsw-trader'] },
+]
 
 function isNavGroup(item: NavItemOrGroup): item is NavGroup {
   return 'items' in item;
@@ -35,9 +35,34 @@ interface SidebarProps {
 
 export function Sidebar({ isExpanded, onToggle }: SidebarProps) {
   const location = useLocation();
+  const { role } = useRole();
   const [isHovered, setIsHovered] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const previousPathRef = useRef<string>(location.pathname);
+
+  const filteredNavStructure = useMemo(() => {
+    return navStructure
+      .filter((item) => {
+        // If item has roles defined, check if current role is included
+        return !(item.roles && !item.roles.includes(role));
+
+      })
+      .map((item) => {
+        // If it's a group, also filter its nested items
+        if (isNavGroup(item)) {
+          return {
+            ...item,
+            items: item.items.filter((child) => !child.roles || child.roles.includes(role)),
+          };
+        }
+        return item;
+      })
+      .filter((item) => {
+        // If a group has no items left after filtering, hide the group itself
+        return !(isNavGroup(item) && item.items.length === 0);
+
+      });
+  }, [role]);
 
   // Determine if sidebar should show expanded content
   const showExpanded = isExpanded || (!isExpanded && isHovered);
@@ -47,7 +72,7 @@ export function Sidebar({ isExpanded, onToggle }: SidebarProps) {
     if (previousPathRef.current !== location.pathname) {
       previousPathRef.current = location.pathname;
       const groupsToExpand = new Set<string>();
-      navStructure.forEach((item) => {
+      filteredNavStructure.forEach((item) => {
         if (isNavGroup(item)) {
           const hasActivePath = item.items.some((child) => child.path === location.pathname);
           if (hasActivePath) {
@@ -58,7 +83,7 @@ export function Sidebar({ isExpanded, onToggle }: SidebarProps) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setExpandedGroups(groupsToExpand);
     }
-  }, [location.pathname]);
+  }, [location.pathname, filteredNavStructure]);
 
   const toggleGroup = (groupName: string) => {
     setExpandedGroups((prev) => {
@@ -191,7 +216,7 @@ export function Sidebar({ isExpanded, onToggle }: SidebarProps) {
     >
       {/* Navigation */}
       <nav className="flex-1 p-3 flex flex-col gap-1 overflow-y-auto">
-        {navStructure.map((item) => {
+        {filteredNavStructure.map((item) => {
           if (isNavGroup(item)) {
             return renderNavGroup(item);
           }

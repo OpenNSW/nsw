@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useLocation, useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { Button, Badge, Spinner, Text, Progress, Flex, IconButton, Tooltip as RadixTooltip } from '@radix-ui/themes'
 import { ArrowLeftIcon, ListBulletIcon, ViewGridIcon, InfoCircledIcon, CheckCircledIcon, ClockIcon } from '@radix-ui/react-icons'
 import { WorkflowViewer, ActionListView } from '../components/WorkflowViewer'
 import type { ConsignmentDetail } from "../services/types/consignment.ts"
 import { getConsignment, initializeConsignment } from "../services/consignment.ts"
 import { useApi } from '../services/ApiContext'
+import { useRole } from '../services/RoleContext'
 import { getStateColor, formatState, formatDateTime } from '../utils/consignmentUtils'
 import { HSCodePicker } from '../components/HSCodePicker'
 import type { HSCode } from '../services/types/hsCode'
@@ -13,7 +14,6 @@ import type { HSCode } from '../services/types/hsCode'
 export function ConsignmentDetailScreen() {
   const { consignmentId } = useParams<{ consignmentId: string }>()
   const navigate = useNavigate()
-  const location = useLocation()
   const api = useApi()
   const [consignment, setConsignment] = useState<ConsignmentDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -110,8 +110,8 @@ export function ConsignmentDetailScreen() {
   const completedSteps = workflowNodes.filter(n => n.state === 'COMPLETED').length
   const totalSteps = workflowNodes.length
   const progressPercentage = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0
-  const searchParams = new URLSearchParams(location.search)
-  const isChaView = searchParams.get('view') === 'cha'
+  const { role } = useRole()
+  const isChaView = role === 'nsw-cha'
   const canSelectHsCode = isChaView && consignment.state === 'INITIALIZED'
 
   const handleSelectHSCode = async (hsCode: HSCode) => {
