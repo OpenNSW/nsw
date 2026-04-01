@@ -7,9 +7,37 @@ import (
 	"testing"
 	"time"
 
+	"github.com/OpenNSW/nsw/internal/payments"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
+
+// MockPaymentService is a mock implementation of the payments.PaymentService interface
+type MockPaymentService struct {
+	mock.Mock
+}
+
+func (m *MockPaymentService) CreateCheckoutSession(ctx context.Context, req payments.CreateCheckoutRequest) (*payments.CreateCheckoutResponse, error) {
+	args := m.Called(ctx, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*payments.CreateCheckoutResponse), args.Error(1)
+}
+
+func (m *MockPaymentService) ValidateReference(ctx context.Context, req payments.ValidateReferenceRequest) (*payments.ValidateReferenceResponse, error) {
+	args := m.Called(ctx, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*payments.ValidateReferenceResponse), args.Error(1)
+}
+
+func (m *MockPaymentService) ProcessWebhook(ctx context.Context, payload payments.WebhookPayload) error {
+	args := m.Called(ctx, payload)
+	return args.Error(0)
+}
 
 // ── FSM Tests ─────────────────────────────────────────────────────────────────
 
@@ -55,18 +83,20 @@ func TestNewPaymentFSM(t *testing.T) {
 // ── Constructor Tests ─────────────────────────────────────────────────────────
 
 func TestNewPaymentTask(t *testing.T) {
+	mockSvc := new(MockPaymentService)
 	t.Run("ValidConfig", func(t *testing.T) {
-		cfg := `{"amount": 100.50, "currency": "USD", "gateway": "https://pay.example.com", "ttl": 300}`
-		task, err := NewPaymentTask(json.RawMessage(cfg))
+		cfg := `{"currency": "USD", "ttl": 300, "orgId": "CUSTOMS", "breakdown": [{"description": "Fee", "category": "ADDITION", "type": "FIXED", "unitPrice": "100.50"}]}`
+		task, err := NewPaymentTask(json.RawMessage(cfg), mockSvc)
 		assert.NoError(t, err)
-		assert.Equal(t, 100.50, task.config.Amount)
 		assert.Equal(t, "USD", task.config.Currency)
-		assert.Equal(t, "https://pay.example.com", task.config.Gateway)
 		assert.Equal(t, 300, task.config.TTL)
+		assert.Equal(t, "CUSTOMS", task.config.OrgID)
+		assert.Len(t, task.config.Breakdown, 1)
+		assert.Equal(t, "100.50", task.config.Breakdown[0].UnitPrice)
 	})
 
 	t.Run("InvalidJSON", func(t *testing.T) {
-		_, err := NewPaymentTask(json.RawMessage(`{invalid`))
+		_, err := NewPaymentTask(json.RawMessage(`{invalid`), mockSvc)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid config")
 	})
@@ -77,7 +107,8 @@ func TestNewPaymentTask(t *testing.T) {
 func TestPaymentStart(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		mockAPI.On("CanTransition", FSMActionStart).Return(true).Once()
@@ -102,7 +133,8 @@ func TestPaymentStart(t *testing.T) {
 
 	t.Run("AlreadyStarted", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		mockAPI.On("CanTransition", FSMActionStart).Return(false).Once()
@@ -117,7 +149,8 @@ func TestPaymentStart(t *testing.T) {
 
 	t.Run("PersistInitialSessionError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		mockAPI.On("CanTransition", FSMActionStart).Return(true).Once()
@@ -134,7 +167,8 @@ func TestPaymentStart(t *testing.T) {
 
 	t.Run("TransitionError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		mockAPI.On("CanTransition", FSMActionStart).Return(true).Once()
@@ -155,7 +189,8 @@ func TestPaymentStart(t *testing.T) {
 
 func TestPaymentGetRenderInfo_IDLE(t *testing.T) {
 	mockAPI := new(MockAPI)
-	task := newTestPaymentTask()
+	mockSvc := new(MockPaymentService)
+	task := newTestPaymentTask(mockSvc)
 	task.Init(mockAPI)
 
 	session := PaymentSession{
@@ -177,9 +212,7 @@ func TestPaymentGetRenderInfo_IDLE(t *testing.T) {
 	assert.Equal(t, "IDLE", data.PluginState)
 
 	content := data.Content.(PaymentRenderContent)
-	assert.Contains(t, content.GatewayURL, "txn-123")
-	assert.Contains(t, content.GatewayURL, "https://pay.example.com")
-	assert.Equal(t, 100.0, content.Amount)
+	assert.True(t, decimal.NewFromFloat(100.0).Equal(content.TotalAmount))
 	assert.Equal(t, "USD", content.Currency)
 
 	mockAPI.AssertExpectations(t)
@@ -187,7 +220,8 @@ func TestPaymentGetRenderInfo_IDLE(t *testing.T) {
 
 func TestPaymentGetRenderInfo_Completed(t *testing.T) {
 	mockAPI := new(MockAPI)
-	task := newTestPaymentTask()
+	mockSvc := new(MockPaymentService)
+	task := newTestPaymentTask(mockSvc)
 	task.Init(mockAPI)
 
 	mockAPI.On("GetPluginState").Return("COMPLETED")
@@ -200,7 +234,7 @@ func TestPaymentGetRenderInfo_Completed(t *testing.T) {
 
 	data := resp.Data.(GetRenderInfoResponse)
 	content := data.Content.(PaymentRenderContent)
-	assert.Equal(t, 100.0, content.Amount)
+	assert.True(t, decimal.NewFromFloat(100.0).Equal(content.TotalAmount))
 	assert.Equal(t, "USD", content.Currency)
 	assert.Equal(t, "COMPLETED", data.PluginState)
 
@@ -209,7 +243,8 @@ func TestPaymentGetRenderInfo_Completed(t *testing.T) {
 
 func TestPaymentGetRenderInfo_SessionRotation(t *testing.T) {
 	mockAPI := new(MockAPI)
-	task := newTestPaymentTask()
+	mockSvc := new(MockPaymentService)
+	task := newTestPaymentTask(mockSvc)
 	task.Init(mockAPI)
 
 	// Session generated 10 minutes ago — well past the 5-minute TTL.
@@ -231,7 +266,7 @@ func TestPaymentGetRenderInfo_SessionRotation(t *testing.T) {
 	data := resp.Data.(GetRenderInfoResponse)
 	content := data.Content.(PaymentRenderContent)
 	// The rotated session should have a new transaction ID, not the old one.
-	assert.NotContains(t, content.GatewayURL, "old-txn")
+	assert.NotContains(t, content.ReferenceNumber, "old-txn")
 
 	mockAPI.AssertExpectations(t)
 }
@@ -239,7 +274,8 @@ func TestPaymentGetRenderInfo_SessionRotation(t *testing.T) {
 func TestPaymentGetRenderInfo_TimeoutTransition(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		// Session initiated 10 minutes ago — well past TTL (5m) + Threshold (30s).
@@ -271,14 +307,14 @@ func TestPaymentGetRenderInfo_TimeoutTransition(t *testing.T) {
 
 		data := resp.Data.(GetRenderInfoResponse)
 		assert.Equal(t, "IDLE", data.PluginState)
-		assert.NotContains(t, data.Content.(PaymentRenderContent).GatewayURL, "stale-txn")
 
 		mockAPI.AssertExpectations(t)
 	})
 
 	t.Run("TransitionError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		initiatedAt := time.Now().Add(-10 * time.Minute)
@@ -305,7 +341,8 @@ func TestPaymentGetRenderInfo_TimeoutTransition(t *testing.T) {
 
 	t.Run("RecordTimeoutError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		initiatedAt := time.Now().Add(-10 * time.Minute)
@@ -334,7 +371,8 @@ func TestPaymentGetRenderInfo_TimeoutTransition(t *testing.T) {
 func TestPaymentExecute_InitiatePayment(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		session := PaymentSession{
@@ -344,6 +382,16 @@ func TestPaymentExecute_InitiatePayment(t *testing.T) {
 
 		mockAPI.On("CanTransition", PaymentActionInitiate).Return(true).Once()
 		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(session, nil).Once()
+		mockAPI.On("GetTaskID").Return("task-123").Once()
+		mockAPI.On("GetPluginState").Return("IDLE").Once()
+
+		mockSvc.On("CreateCheckoutSession", mock.Anything, mock.MatchedBy(func(req payments.CreateCheckoutRequest) bool {
+			return req.Amount.Equal(decimal.NewFromFloat(100.0)) && req.Currency == "USD"
+		})).Return(&payments.CreateCheckoutResponse{
+			SessionID:   "sess-123",
+			CheckoutURL: "https://pay.example.com/sess-123",
+		}, nil).Once()
+
 		var capturedSession *PaymentSession
 		mockAPI.On("WriteToLocalStore", paymentStoreSession, mock.AnythingOfType("*plugin.PaymentSession")).
 			Run(func(args mock.Arguments) {
@@ -366,13 +414,16 @@ func TestPaymentExecute_InitiatePayment(t *testing.T) {
 
 		// Verify InitiatedAt was set on the session.
 		assert.NotNil(t, capturedSession.InitiatedAt)
+		assert.Equal(t, "https://pay.example.com/sess-123", capturedSession.CheckoutURL)
 
 		mockAPI.AssertExpectations(t)
+		mockSvc.AssertExpectations(t)
 	})
 
 	t.Run("ExpiredSession", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		expiredSession := PaymentSession{
@@ -401,7 +452,8 @@ func TestPaymentExecute_InitiatePayment(t *testing.T) {
 
 	t.Run("InvalidTransition", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		mockAPI.On("CanTransition", PaymentActionInitiate).Return(false).Once()
@@ -425,7 +477,8 @@ func TestPaymentExecute_InitiatePayment(t *testing.T) {
 func TestPaymentExecute_PaymentSuccess(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		mockAPI.On("CanTransition", PaymentActionSuccess).Return(true).Once()
@@ -444,7 +497,8 @@ func TestPaymentExecute_PaymentSuccess(t *testing.T) {
 
 	t.Run("InvalidTransition", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		mockAPI.On("CanTransition", PaymentActionSuccess).Return(false).Once()
@@ -462,7 +516,8 @@ func TestPaymentExecute_PaymentSuccess(t *testing.T) {
 
 	t.Run("TransitionError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		mockAPI.On("CanTransition", PaymentActionSuccess).Return(true).Once()
@@ -482,7 +537,8 @@ func TestPaymentExecute_PaymentSuccess(t *testing.T) {
 func TestPaymentExecute_PaymentFailed(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		initiatedAt := time.Now().Add(-2 * time.Minute)
@@ -526,7 +582,8 @@ func TestPaymentExecute_PaymentFailed(t *testing.T) {
 
 	t.Run("ReadHistoryError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		initiatedAt := time.Now().Add(-2 * time.Minute)
@@ -552,7 +609,8 @@ func TestPaymentExecute_PaymentFailed(t *testing.T) {
 
 	t.Run("PersistHistoryError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		initiatedAt := time.Now().Add(-2 * time.Minute)
@@ -579,7 +637,8 @@ func TestPaymentExecute_PaymentFailed(t *testing.T) {
 
 	t.Run("PersistNewSessionError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		initiatedAt := time.Now().Add(-2 * time.Minute)
@@ -607,7 +666,8 @@ func TestPaymentExecute_PaymentFailed(t *testing.T) {
 
 	t.Run("TransitionError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		initiatedAt := time.Now().Add(-2 * time.Minute)
@@ -638,7 +698,8 @@ func TestPaymentExecute_PaymentFailed(t *testing.T) {
 func TestPaymentHelpers_readSession(t *testing.T) {
 	t.Run("ReadError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(nil, errors.New("read failed")).Once()
@@ -652,7 +713,8 @@ func TestPaymentHelpers_readSession(t *testing.T) {
 
 	t.Run("NilSession", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(nil, nil).Once()
@@ -667,7 +729,8 @@ func TestPaymentHelpers_readSession(t *testing.T) {
 
 	t.Run("SlowPathSuccess", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		now := time.Now().UTC().Format(time.RFC3339)
@@ -688,7 +751,8 @@ func TestPaymentHelpers_readSession(t *testing.T) {
 
 	t.Run("SlowPathMarshalError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(map[string]any{"bad": func() {}}, nil).Once()
@@ -703,7 +767,8 @@ func TestPaymentHelpers_readSession(t *testing.T) {
 
 	t.Run("SlowPathUnmarshalError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		mockAPI.On("ReadFromLocalStore", paymentStoreSession).Return(map[string]any{
@@ -723,7 +788,8 @@ func TestPaymentHelpers_readSession(t *testing.T) {
 func TestPaymentHelpers_readTransactionHistory(t *testing.T) {
 	t.Run("ReadError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		mockAPI.On("ReadFromLocalStore", paymentStoreTransactions).Return(nil, errors.New("read failed")).Once()
@@ -737,7 +803,8 @@ func TestPaymentHelpers_readTransactionHistory(t *testing.T) {
 
 	t.Run("SlowPathSuccess", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		now := time.Now().UTC().Format(time.RFC3339)
@@ -761,7 +828,8 @@ func TestPaymentHelpers_readTransactionHistory(t *testing.T) {
 
 	t.Run("SlowPathMarshalError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		mockAPI.On("ReadFromLocalStore", paymentStoreTransactions).Return(map[string]any{"bad": func() {}}, nil).Once()
@@ -776,7 +844,8 @@ func TestPaymentHelpers_readTransactionHistory(t *testing.T) {
 
 	t.Run("SlowPathUnmarshalError", func(t *testing.T) {
 		mockAPI := new(MockAPI)
-		task := newTestPaymentTask()
+		mockSvc := new(MockPaymentService)
+		task := newTestPaymentTask(mockSvc)
 		task.Init(mockAPI)
 
 		mockAPI.On("ReadFromLocalStore", paymentStoreTransactions).Return([]any{
@@ -800,7 +869,8 @@ func TestPaymentHelpers_readTransactionHistory(t *testing.T) {
 
 func TestPaymentExecute_NilRequest(t *testing.T) {
 	mockAPI := new(MockAPI)
-	task := newTestPaymentTask()
+	mockSvc := new(MockPaymentService)
+	task := newTestPaymentTask(mockSvc)
 	task.Init(mockAPI)
 
 	resp, err := task.Execute(context.Background(), nil)
@@ -812,7 +882,8 @@ func TestPaymentExecute_NilRequest(t *testing.T) {
 
 func TestPaymentExecute_UnknownAction(t *testing.T) {
 	mockAPI := new(MockAPI)
-	task := newTestPaymentTask()
+	mockSvc := new(MockPaymentService)
+	task := newTestPaymentTask(mockSvc)
 	task.Init(mockAPI)
 
 	req := &ExecutionRequest{Action: "UNKNOWN"}
@@ -826,13 +897,21 @@ func TestPaymentExecute_UnknownAction(t *testing.T) {
 // ── Helper ────────────────────────────────────────────────────────────────────
 
 // newTestPaymentTask creates a PaymentTask with a standard test configuration.
-func newTestPaymentTask() *PaymentTask {
+func newTestPaymentTask(mockSvc payments.PaymentService) *PaymentTask {
 	return &PaymentTask{
 		config: PaymentConfig{
-			Amount:   100.0,
 			Currency: "USD",
-			Gateway:  "https://pay.example.com",
 			TTL:      300, // 5 minutes
+			OrgID:    "CUSTOMS",
+			Breakdown: []BreakdownItem{
+				{
+					Description: "Test Fee",
+					Category:    CategoryAddition,
+					Type:        TypeFixed,
+					UnitPrice:   "100.0",
+				},
+			},
 		},
+		paymentService: mockSvc,
 	}
 }

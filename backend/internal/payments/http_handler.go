@@ -2,6 +2,7 @@ package payments
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 )
 
@@ -27,6 +28,7 @@ func (h *HTTPHandler) HandleValidateReference(w http.ResponseWriter, r *http.Req
 	resp, err := h.service.ValidateReference(r.Context(), req)
 	if err != nil {
 		// Log the error in reality. Return generic 500 to caller.
+		slog.ErrorContext(r.Context(), "failed to validate reference", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
