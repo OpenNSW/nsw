@@ -5,14 +5,24 @@ import { Cross2Icon } from "@radix-ui/react-icons"
 import { useApi } from "../services/ApiContext"
 import { getTaskInfo, sendTaskAction, type TaskCommandResponse } from "../services/task"
 
+type BreakDown = {
+  description: string
+  category: string
+  type: string
+  quantity: number
+  unitPrice: number
+  amount: number
+}
+
 export type PaymentConfigs = {
   gatewayUrl: string
-  amount: number
+  totalAmount: number
   currency: string
+  breakdown: BreakDown[];
 }
 
 export default function Payment(props: {
-  configs: PaymentConfigs | null
+  configs: PaymentConfigs
   pluginState: string
   onTaskUpdated?: () => Promise<void>
 }) {
@@ -31,8 +41,6 @@ export default function Payment(props: {
   const workflowId = preConsignmentId || consignmentId
   const isCompleted = props.pluginState === "COMPLETED"
   const gatewayUrl = props.configs?.gatewayUrl ?? ""
-  const amount = props.configs?.amount ?? 0
-  const currency = props.configs?.currency ?? ""
 
   const refreshGatewaySession = async () => {
     if (!taskId) {
@@ -150,10 +158,53 @@ export default function Payment(props: {
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
+      {/* Payment Breakdown Table */}
+      <Box className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+          <Text size="2" weight="bold" color="gray">Payment Breakdown</Text>
+        </div>
+        <div className="p-0">
+          <table className="w-full text-left text-sm">
+            <thead>
+            <tr className="border-b border-gray-100 bg-gray-50/50">
+              <th className="px-4 py-2 font-semibold text-gray-600">Description</th>
+              <th className="px-4 py-2 font-semibold text-gray-600 text-right">Details</th>
+              <th className="px-4 py-2 font-semibold text-gray-600 text-right">Amount ({props.configs.currency})</th>
+            </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+            {props.configs.breakdown.map((item, idx) => (
+              <tr key={idx} className="hover:bg-gray-50/30 transition-colors">
+                <td className="px-4 py-3 text-gray-800 font-medium">{item.description}</td>
+                <td className="px-4 py-3 text-right text-gray-500 text-xs">
+                  {item.type === "FIXED" ? (
+                    <>{item.quantity} × {item.unitPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</>
+                  ) : (
+                    <span className="italic">Calculated based on running total</span>
+                  )}
+                </td>
+                <td className={`px-4 py-3 text-right font-mono ${item.category === 'DEDUCTION' ? 'text-red-600' : 'text-gray-900'}`}>
+                  {item.category === 'DEDUCTION' ? '-' : ''}
+                  {item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </td>
+              </tr>
+            ))}
+            </tbody>
+            <tfoot>
+            <tr className="bg-blue-50/50">
+              <td colSpan={2} className="px-4 py-4 text-right font-bold text-blue-900 uppercase tracking-wider">Total Payable</td>
+              <td className="px-4 py-4 text-right text-lg font-black text-blue-900 font-mono">
+                {props.configs.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} {props.configs.currency}
+              </td>
+            </tr>
+            </tfoot>
+          </table>
+        </div>
+      </Box>
       <h1 className="text-2xl font-bold text-gray-800">Payment</h1>
 
       <div className="text-sm text-gray-700">
-  		{isCompleted ? "Paid Amount" : "Amount"}: <span className="font-medium">{amount} {currency}</span>
+  		{isCompleted ? "Paid Amount" : "Amount"}: <span className="font-medium">{props.configs.totalAmount} {props.configs.currency}</span>
       </div>
 
       {!isCompleted && (
@@ -186,7 +237,7 @@ export default function Payment(props: {
 
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
               <Text size="2" color="gray">Amount</Text>
-              <p className="text-sm text-gray-900 mt-1">{amount} {currency}</p>
+              <p className="text-sm text-gray-900 mt-1">{props.configs.totalAmount} {props.configs.currency}</p>
             </div>
           </Box>
 
