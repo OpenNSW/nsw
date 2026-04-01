@@ -481,6 +481,8 @@ func (t *PaymentTask) resolveValue(val string, fallback decimal.Decimal) decimal
 			}
 		case int:
 			return decimal.NewFromInt(int64(v))
+		case int64:
+			return decimal.NewFromInt(v)
 		}
 		return fallback
 	}
