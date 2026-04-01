@@ -11,15 +11,15 @@ const ROLE_CONFIG: Record<Role, {
   icon: ReactNode
 }> = {
   'trader': {
-    label: 'NSW Trader',
+    label: 'Trader',
     description: 'Managing consignments',
-    dropdownDescription: 'Create and manage your own consignments',
+    dropdownDescription: 'Create and manage consignments',
     icon: <BackpackIcon className="text-blue-600"/>,
   },
   'cha': {
-    label: 'NSW CHA',
+    label: 'CHA',
     description: 'Handling Customs Clearances',
-    dropdownDescription: 'Handle customs clearances on behalf of traders',
+    dropdownDescription: 'Handle customs clearances',
     icon: <IdCardIcon className="text-orange-600"/>,
   },
 }
@@ -85,7 +85,7 @@ export function TopBar() {
                 disabled={!showSwitcher}
               >
                 <Select.Trigger
-                  variant="soft"
+                  variant="ghost"
                   className={`w-full h-12 p-4 transition-all ${showSwitcher ? 'cursor-pointer hover:bg-gray-100' : 'cursor-default'}`}
                 >
                   <RoleDisplay role={role} showPrimaryLabel={!showSwitcher}/>
@@ -96,11 +96,16 @@ export function TopBar() {
                     {availableRoles.map((r) => {
                       const {label, dropdownDescription, icon} = ROLE_CONFIG[r]
                       return (
-                        <Select.Item key={r} value={r}>
+                        <Select.Item 
+                          key={r} 
+                          value={r}
+                          className="py-2 focus:bg-gray-100 data-highlighted:bg-gray-100! data-highlighted:text-inherit! cursor-pointer transition-colors"
+                        >
+
                           <Flex direction="column" py="1">
                             <Flex align="center" gap="2">
                               {icon}
-                              <Text weight="bold" size="1">{label}</Text>
+                              <Text weight="bold" size="1" className="text-gray-900">{label}</Text>
                             </Flex>
                             <Text size="1" color="gray">{dropdownDescription}</Text>
                           </Flex>
@@ -112,7 +117,7 @@ export function TopBar() {
               </Select.Root>
             </Box>
           ) : (
-            <Box className="w-full h-11 bg-gray-50 animate-pulse rounded-lg border border-gray-100"/>
+            <Box className="w-full h-12 bg-gray-50 animate-pulse rounded-lg border border-gray-100"/>
           )}
         </Box>
         {/* Notifications */}
