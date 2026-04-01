@@ -8,6 +8,7 @@ import (
 
 	"github.com/OpenNSW/nsw/internal/config"
 	"github.com/OpenNSW/nsw/internal/form"
+	"github.com/OpenNSW/nsw/internal/payments"
 	"github.com/OpenNSW/nsw/pkg/remote"
 	"gorm.io/gorm"
 )
@@ -25,13 +26,14 @@ type TaskFactory interface {
 
 // taskFactory implements TaskFactory interface
 type taskFactory struct {
-	config        *config.Config
-	formService   form.FormService
-	remoteManager *remote.Manager
+	config         *config.Config
+	formService    form.FormService
+	paymentService payments.PaymentService
+	remoteManager  *remote.Manager
 }
 
 // NewTaskFactory creates a new TaskFactory instance and initializes the remote services manager.
-func NewTaskFactory(cfg *config.Config, db *gorm.DB) TaskFactory {
+func NewTaskFactory(cfg *config.Config, db *gorm.DB, paymentService payments.PaymentService) TaskFactory {
 	rm := remote.NewManager()
 	if err := rm.LoadServices(cfg.Server.ServicesConfigPath); err != nil {
 		slog.Warn("factory: failed to load external services configuration",
@@ -43,9 +45,10 @@ func NewTaskFactory(cfg *config.Config, db *gorm.DB) TaskFactory {
 	}
 
 	return &taskFactory{
-		config:        cfg,
-		remoteManager: rm,
-		formService:   form.NewFormService(db),
+		config:         cfg,
+		remoteManager:  rm,
+		formService:    form.NewFormService(db),
+		paymentService: paymentService,
 	}
 }
 
@@ -58,7 +61,7 @@ func (f *taskFactory) BuildExecutor(ctx context.Context, taskType Type, config j
 		p, err := NewWaitForEventTask(config, f.remoteManager)
 		return Executor{Plugin: p, FSM: NewWaitForEventFSM()}, err
 	case TaskTypePayment:
-		p, err := NewPaymentTask(config)
+		p, err := NewPaymentTask(config, f.paymentService)
 		return Executor{Plugin: p, FSM: NewPaymentFSM()}, err
 	default:
 		return Executor{}, fmt.Errorf("unknown task type: %s", taskType)

@@ -134,7 +134,10 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("database health check failed: %w", err)
 	}
 
-	factory := plugin.NewTaskFactory(cfg, db)
+	paymentRepo := payments.NewPaymentRepository(db)
+	paymentService := payments.NewPaymentService(paymentRepo)
+
+	factory := plugin.NewTaskFactory(cfg, db, paymentService)
 	tm, err := taskManager.NewTaskManager(db, factory)
 	if err != nil {
 		_ = database.Close(db)
@@ -195,8 +198,6 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	uploadService := uploads.NewUploadService(storageDriver)
 	uploadHandler := uploads.NewHTTPHandler(uploadService)
 
-	paymentRepo := payments.NewPaymentRepository(db)
-	paymentService := payments.NewPaymentService(paymentRepo)
 	paymentHandler := payments.NewHTTPHandler(paymentService)
 
 	authManager, err := auth.NewManager(db, cfg.Auth)
