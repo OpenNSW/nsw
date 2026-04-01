@@ -22,7 +22,6 @@ configuration:
       - "https://oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk"
       - "https://oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk"
       - "https://oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk"
-      - "https://nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk"
 
   database:
     config:
