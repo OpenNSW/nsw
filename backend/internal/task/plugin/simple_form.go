@@ -15,6 +15,8 @@ import (
 	"github.com/OpenNSW/nsw/pkg/remote"
 )
 
+const OutcomeEmitKeySimpleForm = "outcome_simple_form"
+
 // SimpleFormAction represents the action to perform on the form
 const (
 	SimpleFormActionDraft       = "SAVE_AS_DRAFT"
