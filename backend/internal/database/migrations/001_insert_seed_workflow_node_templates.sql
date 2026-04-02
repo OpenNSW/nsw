@@ -57,11 +57,39 @@ VALUES
         'Base payment step before customs declaration',
         'PAYMENT',
         '{
-            "amount": 100,
-            "currency": "USD",
-            "gateway": "https://example.com/payment",
-            "ttl": 300
-        }',
+                  "currency": "LKR",
+                  "ttl": 3600,
+                  "orgId": "CUSTOMS",
+                  "serviceType": "CUSTOMS DECLARATION",
+                  "breakdown": [
+                    {
+                      "description": "Levy Payment for {cusdec.id}",
+                      "category": "ADDITION",
+                      "type": "FIXED",
+                      "quantity": "{gx_quantity_levy:1}",
+                      "unitPrice": "{cusdec.cess:345}"
+                    },
+                    {
+                      "description": "Processing Fee",
+                      "category": "ADDITION",
+                      "type": "FIXED",
+                      "quantity": "1",
+                      "unitPrice": "500.00"
+                    },
+                    {
+                      "description": "Exemption",
+                      "category": "DEDUCTION",
+                      "type": "PERCENTAGE",
+                      "value": "5"
+                    },
+                    {
+                      "description": "VAT",
+                      "category": "ADDITION",
+                      "type": "PERCENTAGE",
+                      "value": "{vat_rate:15}"
+                    }
+                  ]
+                }',
         '[
             "c0000003-0003-0003-0003-000000000002"
         ]',
