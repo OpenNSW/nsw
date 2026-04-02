@@ -123,7 +123,6 @@ type PaymentRenderContent struct {
 	ReferenceNumber  string                  `json:"referenceNumber"`
 	Breakdown        []ResolvedBreakdownItem `json:"breakdown"`
 	OrgID            string                  `json:"orgId,omitempty"`
-	RegisteredName   string                  `json:"registeredName,omitempty"`
 	Service          any                     `json:"service,omitempty"`
 	SelectedMethodID string                  `json:"selectedMethodId,omitempty"`
 }
@@ -132,6 +131,15 @@ type PaymentRenderContent struct {
 
 // NewPaymentFSM returns the state graph for the payment plugin.
 // It allows INITIATE_PAYMENT from both IDLE and IN_PROGRESS to support method switching.
+//
+// State graph:
+//
+//	""              ──START────────────────► IDLE          [no task state change]
+//	IDLE            ──INITIATE_PAYMENT─────► IN_PROGRESS   [IN_PROGRESS]
+//	IN_PROGRESS     ──INITIATE_PAYMENT─────► IN_PROGRESS   [IN_PROGRESS]
+//	IN_PROGRESS     ──PAYMENT_SUCCESS──────► COMPLETED     [COMPLETED]
+//	IN_PROGRESS     ──PAYMENT_FAILED───────► IDLE          [IN_PROGRESS]
+//	IN_PROGRESS     ──PAYMENT_TIMEOUT──────► IDLE          [IN_PROGRESS]
 func NewPaymentFSM() *PluginFSM {
 	return NewPluginFSM(map[TransitionKey]TransitionOutcome{
 		{"", FSMActionStart}:                               {string(paymentIdle), ""},
@@ -197,11 +205,6 @@ func (t *PaymentTask) GetRenderInfo(ctx context.Context) (*ApiResponse, error) {
 		return nil, fmt.Errorf("payment: failed to calculate breakdown: %w", err)
 	}
 
-	registeredName := t.config.OrgID
-	if t.config.OrgID == "CUSTOMS" {
-		registeredName = "Sri Lanka Customs"
-	}
-
 	// Terminal state — nothing actionable to render.
 	if pluginState == string(paymentCompleted) {
 		return &ApiResponse{
@@ -211,12 +214,11 @@ func (t *PaymentTask) GetRenderInfo(ctx context.Context) (*ApiResponse, error) {
 				PluginState: pluginState,
 				State:       t.api.GetTaskState(),
 				Content: PaymentRenderContent{
-					TotalAmount:    totalAmount,
-					Currency:       t.config.Currency,
-					Breakdown:      resolvedBreakdown,
-					OrgID:          t.config.OrgID,
-					RegisteredName: registeredName,
-					Service:        t.config.ServiceType,
+					TotalAmount: totalAmount,
+					Currency:    t.config.Currency,
+					Breakdown:   resolvedBreakdown,
+					OrgID:       t.config.OrgID,
+					Service:     t.config.ServiceType,
 				},
 			},
 		}, nil
@@ -266,7 +268,6 @@ func (t *PaymentTask) GetRenderInfo(ctx context.Context) (*ApiResponse, error) {
 				ReferenceNumber:  session.ReferenceNumber,
 				Breakdown:        resolvedBreakdown,
 				OrgID:            t.config.OrgID,
-				RegisteredName:   registeredName,
 				Service:          t.config.ServiceType,
 				SelectedMethodID: session.SelectedMethodID,
 			},
