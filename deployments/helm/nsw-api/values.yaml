@@ -15,6 +15,8 @@ service:
   type: ClusterIP
   port: 80
   targetPort: 8080
+  useWorkflowManagerV2: true
+  temporalHost: "temporal-server:7233"
 
 config:
   server:
@@ -88,6 +90,6 @@ migrations:
       cpu: 50m
       memory: 64Mi
   ogaSubmissionUrls:
-    npqs: "http://oga-npqs-backend.national-single-window-platform.svc.cluster.local/api/oga/inject"
-    fcau: "http://oga-fcau-backend.national-single-window-platform.svc.cluster.local/api/oga/inject"
-    ird: "http://oga-ird-backend.national-single-window-platform.svc.cluster.local/api/oga/inject"
+    npqs: "http://oga-npqs-backend.national-single-window-platform.svc.cluster.local:8081/api/oga/inject"
+    fcau: "http://oga-fcau-backend.national-single-window-platform.svc.cluster.local:8081/api/oga/inject"
+    ird: "http://oga-ird-backend.national-single-window-platform.svc.cluster.local:8081/api/oga/inject"

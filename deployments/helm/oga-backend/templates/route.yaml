@@ -12,7 +12,7 @@ spec:
     name: {{ include "oga-backend.fullname" . }}
     weight: 100
   port:
-    targetPort: http
+    targetPort: {{ .Values.config.port | default 8081 }}
   tls:
     termination: {{ .Values.route.tls.termination | default "edge" }}
     insecureEdgeTerminationPolicy: {{ .Values.route.tls.insecureEdgeTerminationPolicy | default "Redirect" }}

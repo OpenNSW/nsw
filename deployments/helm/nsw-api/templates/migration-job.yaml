@@ -19,9 +19,21 @@ spec:
       imagePullSecrets:
         {{- toYaml .Values.imagePullSecrets | nindent 8 }}
       {{- end }}
+      # Pod-level security context for SCC compliance
+      securityContext:
+        runAsNonRoot: true
+        # runAsUser: 1001  # Implicitly handled by OpenShift, but good for local/EKS
+        seccompProfile:
+          type: RuntimeDefault
       restartPolicy: OnFailure
       containers:
         - name: run-migrations
+          # Re-ensure securityContext at container level
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           image: {{ .Values.migrations.image.repository }}{{ if .Values.migrations.image.tag }}:{{ .Values.migrations.image.tag }}{{ end }}
           command: ["sh", "/scripts/run-migrations.sh"]
           env:
@@ -43,7 +55,7 @@ spec:
               value: {{ .Values.migrations.ogaSubmissionUrls.npqs | quote }}
             - name: FCAU_OGA_SUBMISSION_URL
               value: {{ .Values.migrations.ogaSubmissionUrls.fcau | quote }}
-            - name: PRECONSIGNMENT_OGA_SUBMISSION_URL
+            - name: IRD_OGA_SUBMISSION_URL
               value: {{ .Values.migrations.ogaSubmissionUrls.preconsignment | quote }}
           volumeMounts:
             - name: migration-scripts

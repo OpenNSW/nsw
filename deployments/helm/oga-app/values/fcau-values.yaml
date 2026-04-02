@@ -1,0 +1,9 @@
+fullnameOverride: "oga-fcau-app"
+
+config:
+  instanceConfig: "fcau"
+  idpClientId: "OGA_PORTAL_APP_FCAU"
+  appUrl: "https://oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk"
+
+route:
+  host: oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk

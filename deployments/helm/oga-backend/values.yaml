@@ -1,0 +1,14 @@
+# Default values for oga-backend.
+# This is a base file for the three OGA agency deployments.
+
+config:
+  port: 8081
+  database:
+    driver: postgres
+    host: nsw-db
+    port: 5432
+    sslMode: disable
+  defaultFormId: default
+  nswApiBaseUrl: "http://nsw-api.national-single-window-platform.svc.cluster.local/api/v1"
+
+# The specific DB name and Allowed Origins should be overridden in agency values files.

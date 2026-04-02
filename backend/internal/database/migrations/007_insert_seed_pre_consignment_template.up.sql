@@ -231,8 +231,7 @@ VALUES
         }',
         '1.0',
         TRUE
-    )
-ON CONFLICT (id) DO NOTHING;
+    );
 
 -- ============================================================================
 -- Pre-Consignment Workflow 1: Basic Details (no dependencies)
@@ -248,8 +247,7 @@ VALUES
             "formId": "f0000002-0001-0001-0001-000000000004"
         }'::jsonb,
         '[]'::jsonb
-    )
-ON CONFLICT (id) DO NOTHING;
+    );
 
 INSERT INTO workflow_templates (id, name, description, version, nodes)
 VALUES
@@ -261,8 +259,7 @@ VALUES
         '[
             "d0000002-0001-0001-0001-000000000004"
         ]'::jsonb
-    )
-ON CONFLICT (id) DO NOTHING;
+    );
 
 INSERT INTO pre_consignment_templates (id, name, description, workflow_template_id, depends_on)
 VALUES
@@ -272,8 +269,7 @@ VALUES
         'Provide basic details about your business',
         'e0000002-0001-0001-0001-000000000004',
         '[]'::jsonb
-    )
-ON CONFLICT (id) DO NOTHING;
+    );
 
 -- ============================================================================
 -- Pre-Consignment Workflow 2: General Trader Verification (depends on Business Registration, TIN Registration, VAT Registration)
@@ -301,8 +297,7 @@ VALUES
             }
         }')::jsonb,
         '[]'::jsonb
-    )
-ON CONFLICT (id) DO NOTHING;
+    );
 
 INSERT INTO workflow_templates (id, name, description, version, nodes)
 VALUES
@@ -314,8 +309,7 @@ VALUES
         '[
             "d0000002-0001-0001-0001-000000000005"
         ]'::jsonb
-    )
-ON CONFLICT (id) DO NOTHING;
+    );
 
 INSERT INTO pre_consignment_templates (id, name, description, workflow_template_id, depends_on)
 VALUES
@@ -327,5 +321,4 @@ VALUES
         '[
             "0c000004-0001-0001-0001-000000000001"
         ]'::jsonb
-    )
-ON CONFLICT (id) DO NOTHING;
+    );

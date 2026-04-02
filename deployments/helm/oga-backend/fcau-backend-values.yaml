@@ -19,17 +19,11 @@ imagePullSecrets:
   - name: ghcr-secret
 
 # Isolated Database Configuration
-env:
-  - name: OGA_DB_DRIVER
-    value: "postgres"
-  - name: OGA_DB_NAME
-    value: "oga-backend-fcau" 
-  - name: OGA_DB_HOST
-    value: "nsw-db"
-  - name: OGA_ALLOWED_ORIGINS
-    value: "https://oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk"
-  - name: NSW_API_BASE_URL
-    value: "http://nsw-api.national-single-window-platform.svc.cluster.local/api/v1"
+config:
+  database:
+    name: "oga-backend-fcau"
+  allowedOrigins: "https://oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  nswApiBaseUrl: "http://nsw-api.national-single-window-platform.svc.cluster.local/api/v1"
 
 config:
   port: 8081
@@ -91,7 +85,7 @@ forms:
         ]
       }
     }
-  "consignment:edb:fcau:health-certificate:001.view.json": |-
+  "consignment.edb.fcau.health-certificate.001.view.json": |-
     {
         "title": "Health Certificate (Submitted)",
         "schema": {

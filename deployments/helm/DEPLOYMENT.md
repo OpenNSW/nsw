@@ -95,7 +95,7 @@ Thunder officially hosts its Helm Charts on the GitHub Container Registry. We de
 
 ```bash
 helm upgrade --install idp-thunder oci://ghcr.io/asgardeo/helm-charts/thunder \
-  --version 0.29.0 -f ./idp/custom-values.yaml --history-max 1
+  --version 0.29.0 -f ./deployments/helm/idp/custom-values.yaml --history-max 1
 ```
 
 > **Note:** We are using the official Thunder image (`ghcr.io/asgardeo/thunder:0.29.0`) to avoid permissions and ImagePullBackOff issues. The `custom-values.yaml` handles database connections and environment settings.
@@ -134,7 +134,7 @@ helm upgrade --install nsw-api ./deployments/helm/nsw-api \
 
 1. An init container (`copy-migrations`) copies `.sql` files from the nsw-api image to a shared volume
 2. A second init container (`run-migrations`) uses `postgres:16-alpine` to run each file via `psql`
-3. All seed INSERTs use `ON CONFLICT DO NOTHING` — safe to re-run on every restart
+3. All seed INSERTs now use `ON CONFLICT (id) DO UPDATE SET config = EXCLUDED.config` — this automatically synchronizes configuration changes between `values.yaml` and the database on every restart (eliminating manual SQL steps).
 
 #### OGA Submission URLs
 
@@ -235,14 +235,14 @@ oc get job idp-manual-setup -n national-single-window-platform -w
 |:---|:---|:---|:---|
 | `001_initial_schema.sql` | Schema DDL | ✅ `IF NOT EXISTS` | ✅ |
 | `001_insert_seed_hscodes.sql` | Seed data | ✅ `ON CONFLICT` | ✅ |
-| `001_insert_seed_form_templates.sql` | Seed data | ✅ `ON CONFLICT` | ✅ |
-| `001_insert_seed_workflow_node_templates.sql` | Seed data (needs psql vars) | ✅ `ON CONFLICT` | ✅ |
-| `001_insert_seed_workflow_templates.sql` | Seed data | ✅ `ON CONFLICT` | ✅ |
+| `001_insert_seed_form_templates.sql` | Seed data | ✅ `DO UPDATE` | ✅ |
+| `001_insert_seed_workflow_node_templates.sql` | Seed data | ✅ `DO UPDATE` | ✅ |
+| `001_insert_seed_workflow_templates.sql` | Seed data | ✅ `DO UPDATE` | ✅ |
 | `001_insert_seed_workflow_hscode_map.sql` | Seed data | ✅ `ON CONFLICT` | ✅ |
-| `001_insert_seed_pre_consignment_template.sql` | Seed data (needs psql vars) | ✅ `ON CONFLICT` | ✅ |
+| `001_insert_seed_pre_consignment_template.sql` | Seed data | ✅ `DO UPDATE` | ✅ |
 | `001_insert_cha_entity.sql` | Seed data | ✅ `ON CONFLICT` | ✅ |
 | `002_workflow_table.sql` | **Destructive** (DROP COLUMN) | ❌ | ❌ Manual |
-| `002_workflow_tem_v2.sql` | Schema + Seed | ✅ `IF NOT EXISTS` + `ON CONFLICT` | ✅ |
+| `002_workflow_tem_v2.sql` | Schema + Seed | ✅ `IF NOT EXISTS` | ✅ |
 
 ---
 
@@ -268,8 +268,9 @@ oc logs deployment/nsw-api -c run-migrations
 | `Exec format error` | ARM image on AMD host | Rebuild with `--platform linux/amd64` |
 | `ImagePullBackOff` | Missing pull secret | Verify `oc get secret ghcr-secret` |
 | `record not found` (500 on consignment init) | Missing seed data in `workflow_template_maps` | Check init container logs; re-seed manually (§3.3) |
-| `CORS preflight failure` | Missing OGA portal origin in `nsw-api` CORS config | Update `cors.allowedOrigins` in `nsw-api/values.yaml` |
-| `OGA_DB_PASSWORD is required` | Missing env var in backend deployment | Verify `OGA_DB_PASSWORD` exists in backend values (§2) |
+| `no registered service found` (500 on task submit) | Port mismatch between DB and Registry lookup | Ensure OGA URLs in `values.yaml` include ports (81, 82) to match `services-cm.yaml`. |
+| `CORS preflight failure` | Missing OGA portal origin in `nsw-api` CORS config | Update `cors.allowedOrigins` in `nsw-api/values.yaml`. Note: CORS is origin-sensitive (host + port). |
+| `OGA_DB_PASSWORD is required` | Missing env var in backend deployment | Verify Kubernetes Secret `nsw-db-credentials` exists and is referenced (§2) |
 | `unable to create open ... permission denied` | Temporal auto-setup cannot write config | Ensure `emptyDir` is mounted to `/etc/temporal/config` |
 | `manifest unknown` (Temporal) | Incorrect mirrored tag in GHCR | Verify `ghcr.io/opennsw/temporal-auto-setup:1.28.3` exists |
 
@@ -289,7 +290,18 @@ oc logs deployment/nsw-api -c run-migrations | grep "Migrations completed"
 
 ---
 
-## Directory Structure
+## 6. Production Security & Robustness Best Practices
+
+To comply with OpenShift `restricted-v2` Security Context Constraints (SCC) and ensure zero-manual-intervention migrations:
+
+1. **Numeric Ports**: Always use numeric `targetPort` (e.g., `8081`) in Services and Routes to avoid named port resolution issues.
+2. **Unprivileged UID**: All images must support running as any random high UID (UID 101/1000). Avoid `chown` in Dockerfiles; use `chmod -R g+w` for writable paths.
+3. **Secret-Driven Configuration**: NEVER put plaintext passwords in `values.yaml`. Use Kubernetes Secrets (`nsw-db-credentials`, `temporal-certs`, etc.) and mount them via `secretKeyRef`.
+4. **Automated Schema Sync**: All seed INSERTs must use `DO UPDATE SET config = EXCLUDED.config` to ensure that `values.yaml` updates are automatically reflected in the database.
+
+---
+
+## 7. Directory Structure
 
 ```
 deployments/helm/

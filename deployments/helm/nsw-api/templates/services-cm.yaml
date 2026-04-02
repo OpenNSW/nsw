@@ -9,7 +9,7 @@ data:
       "services": [
         {
           "id": "npqs",
-          "url": "http://oga-npqs-backend.national-single-window-platform.svc.cluster.local",
+          "url": "http://oga-npqs-backend.national-single-window-platform.svc.cluster.local:82",
           "timeout": "30s"
         },
         {
@@ -19,7 +19,7 @@ data:
         },
         {
           "id": "ird",
-          "url": "http://oga-ird-backend.national-single-window-platform.svc.cluster.local",
+          "url": "http://oga-ird-backend.national-single-window-platform.svc.cluster.local:81",
           "timeout": "30s"
         },
         {

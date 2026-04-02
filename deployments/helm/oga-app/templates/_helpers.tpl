@@ -1,9 +1,8 @@
-
-{{- define "oga-multi-frontend.name" -}}
+{{- define "oga-app.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
-{{- define "oga-multi-frontend.fullname" -}}
+{{- define "oga-app.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -16,27 +15,20 @@
 {{- end }}
 {{- end }}
 
-
-{{- define "oga-multi-frontend.chart" -}}
+{{- define "oga-app.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
-{{/*
-Common labels
-*/}}
-{{- define "oga-multi-frontend.labels" -}}
-helm.sh/chart: {{ include "oga-multi-frontend.chart" . }}
-{{ include "oga-multi-frontend.selectorLabels" . }}
+{{- define "oga-app.labels" -}}
+helm.sh/chart: {{ include "oga-app.chart" . }}
+{{ include "oga-app.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
-{{/*
-Selector labels
-*/}}
-{{- define "oga-multi-frontend.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "oga-multi-frontend.name" . }}
+{{- define "oga-app.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "oga-app.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}

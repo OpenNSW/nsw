@@ -19,20 +19,12 @@ imagePullSecrets:
   - name: ghcr-secret
 
 # Isolated Database Configuration
-env:
-  - name: OGA_DB_DRIVER
-    value: "postgres"
-  - name: OGA_DB_HOST
-    value: "nsw-db"
-  - name: OGA_DB_NAME
-    value: "oga-backend-ird"  
-  - name: OGA_ALLOWED_ORIGINS
-    value: "https://oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk"
-  - name: NSW_API_BASE_URL
-    value: "http://nsw-api.national-single-window-platform.svc.cluster.local/api/v1"
-
 config:
   port: 8081
+  database:
+    name: "oga-backend-ird"
+  allowedOrigins: "https://oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  nswApiBaseUrl: "http://nsw-api.national-single-window-platform.svc.cluster.local/api/v1"
 
 route:
   enabled: true
@@ -91,12 +83,29 @@ forms:
         ]
       }
     }
-  "preconsignment:ird:general-trader-verification:001.view.json": |-
+  "preconsignment.ird.general-trader-verification.001.view.json": |-
     {
         "title": "General Trader Verification (Submitted)",
         "schema": {
             "type": "object",
+            "required": [
+                "registrationNumber",
+                "tinNumber",
+                "tinCertificate",
+                "vatNumber",
+                "vatCertificate"
+            ],
             "properties": {
+                "tinNumber": {
+                    "type": "string",
+                    "title": "TIN Number",
+                    "readOnly": true
+                },
+                "vatNumber": {
+                    "type": "string",
+                    "title": "VAT Registration Number",
+                    "readOnly": true
+                },
                 "businessName": {
                     "type": "string",
                     "title": "Business Name",
@@ -105,6 +114,18 @@ forms:
                 "businessType": {
                     "type": "string",
                     "title": "Business Type",
+                    "readOnly": true
+                },
+                "tinCertificate": {
+                    "type": "string",
+                    "title": "TIN Registration Certificate",
+                    "format": "file",
+                    "readOnly": true
+                },
+                "vatCertificate": {
+                    "type": "string",
+                    "title": "VAT Registration Certificate",
+                    "format": "file",
                     "readOnly": true
                 },
                 "registeredAddress": {
@@ -116,28 +137,6 @@ forms:
                     "type": "string",
                     "title": "Business Registration Number",
                     "readOnly": true
-                },
-                "tinNumber": {
-                    "type": "string",
-                    "title": "TIN Number",
-                    "readOnly": true
-                },
-                "tinCertificate": {
-                    "type": "string",
-                    "title": "TIN Registration Certificate",
-                    "format": "file",
-                    "readOnly": true
-                },
-                "vatNumber": {
-                    "type": "string",
-                    "title": "VAT Registration Number",
-                    "readOnly": true
-                },
-                "vatCertificate": {
-                    "type": "string",
-                    "title": "VAT Registration Certificate",
-                    "format": "file",
-                    "readOnly": true
                 }
             }
         },
@@ -145,21 +144,16 @@ forms:
             "type": "VerticalLayout",
             "elements": [
                 {
-                    "type": "Label",
-                    "text": "General Trader Verification"
+                    "text": "General Trader Verification",
+                    "type": "Label"
                 },
                 {
-                    "type": "HorizontalLayout",
-                    "elements": [
-                        {
-                            "type": "Control",
-                            "scope": "#/properties/businessName"
-                        },
-                        {
-                            "type": "Control",
-                            "scope": "#/properties/businessType"
-                        }
-                    ]
+                    "type": "Control",
+                    "scope": "#/properties/businessName"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/businessType"
                 },
                 {
                     "type": "Control",

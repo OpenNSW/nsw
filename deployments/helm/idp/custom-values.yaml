@@ -62,15 +62,30 @@ deployment:
     extraEnv:
       - name: THUNDER_SKIP_SECURITY
         value: "true"
-
-# Resources for the main deployment container
-resources:
-  limits:
-    cpu: 500m
-    memory: 1Gi
-  requests:
-    cpu: 10m
-    memory: 64Mi
+      - name: HOME
+        value: "/tmp"
+    securityContext:
+      runAsNonRoot: true
+      enableRunAsUser: false
+      enableRunAsGroup: false
+      enableFsGroup: false
+      readOnlyRootFilesystem: false
+      seccompProfile:
+        type: RuntimeDefault
+      capabilities:
+        drop:
+          - ALL
+  securityContext:
+    runAsNonRoot: true
+    enableRunAsUser: false
+    enableRunAsGroup: false
+    enableFsGroup: false
+    readOnlyRootFilesystem: false
+    seccompProfile:
+      type: RuntimeDefault
+    capabilities:
+      drop:
+        - ALL
 
 global:
   imagePullSecrets:
@@ -78,13 +93,10 @@ global:
     
   securityContext:
     runAsNonRoot: true
-    enableRunAsUser: true
-    runAsUser: 1001570000
-    enableRunAsGroup: true
-    runAsGroup: 1001570000
-    enableFsGroup: true
-    fsGroup: 1001570000
-    readOnlyRootFilesystem: false # Required for some internal Thunder operations
+    enableRunAsUser: false
+    enableRunAsGroup: false
+    enableFsGroup: false
+    readOnlyRootFilesystem: false
     seccompProfile:
       type: RuntimeDefault
     capabilities:
@@ -93,7 +105,16 @@ global:
 
   volumeMounts:
     - name: thunder-signing-keys-volume
-      mountPath: "/opt/thunder/repository/resources/security"
+      mountPath: "/opt/thunder/repository/resources/security/signing.cert"
+      subPath: "signing.cert"
+      readOnly: true
+    - name: thunder-signing-keys-volume
+      mountPath: "/opt/thunder/repository/resources/security/signing.key"
+      subPath: "signing.key"
+      readOnly: true
+    - name: thunder-signing-keys-volume
+      mountPath: "/opt/thunder/repository/resources/security/crypto.key"
+      subPath: "crypto.key"
       readOnly: true
 
   volumes:
@@ -112,6 +133,34 @@ setup:
     requests:
       cpu: 10m
       memory: 64Mi
+  env:
+    - name: THUNDER_ADMIN_USERNAME
+      value: "admin"
+    - name: THUNDER_ADMIN_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: idp-admin-secrets
+          key: admin-password
+    - name: THUNDER_SAMPLE_USER_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: idp-admin-secrets
+          key: sample-user-password
+    - name: DB_CONFIG_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: nsw-db-credentials
+          key: password
+    - name: DB_RUNTIME_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: nsw-db-credentials
+          key: password
+    - name: DB_USER_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: nsw-db-credentials
+          key: password
 
 # Mandatory: Fixes the "failed quota" for init containers (init-db, etc)
 initResources:

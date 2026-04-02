@@ -1,0 +1,9 @@
+fullnameOverride: "oga-npqs-app"
+
+config:
+  instanceConfig: "npqs"
+  idpClientId: "OGA_PORTAL_APP_NPQS"
+  appUrl: "https://oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk"
+
+route:
+  host: oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk

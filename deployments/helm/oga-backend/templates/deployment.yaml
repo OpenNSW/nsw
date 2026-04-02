@@ -40,6 +40,24 @@ spec:
                 secretKeyRef:
                   name: {{ .Release.Name }}-db-credentials
                   key: password
+            - name: OGA_PORT
+              value: {{ .Values.config.port | default "8081" | quote }}
+            - name: OGA_DB_DRIVER
+              value: {{ .Values.config.database.driver | default "postgres" | quote }}
+            - name: OGA_DB_HOST
+              value: {{ .Values.config.database.host | default "nsw-db" | quote }}
+            - name: OGA_DB_PORT
+              value: {{ .Values.config.database.port | default "5432" | quote }}
+            - name: OGA_DB_NAME
+              value: {{ .Values.config.database.name | quote }}
+            - name: OGA_DB_SSLMODE
+              value: {{ .Values.config.database.sslMode | default "disable" | quote }}
+            - name: OGA_DEFAULT_FORM_ID
+              value: {{ .Values.config.defaultFormId | default "default" | quote }}
+            - name: OGA_ALLOWED_ORIGINS
+              value: {{ .Values.config.allowedOrigins | quote }}
+            - name: NSW_API_BASE_URL
+              value: {{ .Values.config.nswApiBaseUrl | quote }}
             - name: OGA_FORMS_PATH
               value: "/opt/oga/data/forms"
           volumeMounts:
