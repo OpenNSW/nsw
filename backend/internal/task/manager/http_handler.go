@@ -5,27 +5,54 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+
+	"github.com/OpenNSW/nsw/internal/auth"
+	"github.com/OpenNSW/nsw/internal/config"
 )
 
 // HTTPHandler encapsulates the HTTP transport logic for TaskManager
 type HTTPHandler struct {
 	manager TaskManager
+	config  *config.AuthConfig
 }
 
 // NewHTTPHandler creates a new HTTPHandler for the task manager
-func NewHTTPHandler(manager TaskManager) *HTTPHandler {
-	return &HTTPHandler{manager: manager}
+func NewHTTPHandler(manager TaskManager, cfg *config.AuthConfig) *HTTPHandler {
+	return &HTTPHandler{manager: manager, config: cfg}
 }
 
 // HandleGetTask is an HTTP handler for fetching task information via GET request
 func (h *HTTPHandler) HandleGetTask(w http.ResponseWriter, r *http.Request) {
+	authCtx, ok := auth.FromContext(r.Context())
+	if !ok {
+		writeJSONError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	var requestorID string
+	if !authCtx.IsM2M {
+		// For Phase 1, we allow Trader and CHA to view tasks
+		// If they don't have either group, they are forbidden.
+		if !authCtx.HasGroup(h.config.TraderGroup) && !authCtx.HasGroup(h.config.CHAGroup) {
+			writeJSONError(w, http.StatusForbidden, "Forbidden: Insufficient privileges")
+			return
+		}
+		// Safely extract the UserID for human users
+		if authCtx.UserID == nil {
+			writeJSONError(w, http.StatusUnauthorized, "Unauthorized: Human context required")
+			return
+		}
+		requestorID = *authCtx.UserID
+	}
+	// TODO (else): Implement granular M2M permission check (e.g. RequiredScope("tasks:read"))
+
 	taskId := r.PathValue("id")
 	if taskId == "" {
 		writeJSONError(w, http.StatusBadRequest, "taskId is required")
 		return
 	}
 
-	result, err := h.manager.GetTaskRenderInfo(r.Context(), taskId)
+	result, err := h.manager.GetTaskRenderInfo(r.Context(), taskId, requestorID, authCtx.IsM2M)
 	if err != nil {
 		// Differentiate between invalid ID/NotFound and internal errors, if necessary.
 		status := http.StatusInternalServerError
@@ -43,6 +70,29 @@ func (h *HTTPHandler) HandleGetTask(w http.ResponseWriter, r *http.Request) {
 
 // HandleExecuteTask is an HTTP handler for executing a task via POST request
 func (h *HTTPHandler) HandleExecuteTask(w http.ResponseWriter, r *http.Request) {
+	authCtx, ok := auth.FromContext(r.Context())
+	if !ok {
+		writeJSONError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	var requestorID string
+	if !authCtx.IsM2M {
+		// For Phase 1, we only allow CHA to execute tasks
+		// (Assuming core workflow tasks are managed by CHAs)
+		if !authCtx.HasGroup(h.config.CHAGroup) {
+			writeJSONError(w, http.StatusForbidden, "Forbidden: Only CHAs or Systems can execute tasks")
+			return
+		}
+		// Safely extract the UserID for human users
+		if authCtx.UserID == nil {
+			writeJSONError(w, http.StatusUnauthorized, "Unauthorized: Human context required")
+			return
+		}
+		requestorID = *authCtx.UserID
+	}
+	// TODO (else): Implement granular M2M permission check (e.g. RequiredScope("tasks:execute"))
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -53,6 +103,9 @@ func (h *HTTPHandler) HandleExecuteTask(w http.ResponseWriter, r *http.Request) 
 		writeJSONError(w, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
+
+	req.RequestorID = requestorID
+	req.IsSystem = authCtx.IsM2M
 
 	result, err := h.manager.ExecuteTask(r.Context(), req)
 	if err != nil {

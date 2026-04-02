@@ -51,7 +51,7 @@ func NewManager(db *gorm.DB, authConfig config.AuthConfig) (*Manager, error) {
 	}
 
 	tokenExtractor, err := NewTokenExtractorWithClient(
-		authConfig.JWKSURL, authConfig.Issuer, authConfig.Audience, authConfig.ClientID, httpClient,
+		authConfig.JWKSURL, authConfig.Issuer, authConfig.Audience, authConfig.ClientID, authConfig.InternalClientID, httpClient,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize token extractor: %w", err)
@@ -131,6 +131,9 @@ func (m *Manager) OptionalAuthMiddleware() func(http.Handler) http.Handler { ret
 //
 // For request-based operations, use auth.GetAuthContext(r.Context()) in handlers instead.
 func (m *Manager) GetUserContext(userID string) (*UserContext, error) {
+	if userID == "" {
+		return nil, nil // No context for empty/M2M ID
+	}
 	return m.service.GetUserContext(userID)
 }
 
@@ -145,6 +148,9 @@ func (m *Manager) GetUserContext(userID string) (*UserContext, error) {
 //
 // For request-based operations, use a handler with auth context instead.
 func (m *Manager) UpdateUserContext(userID string, ctx interface{}) error {
+	if userID == "" {
+		return fmt.Errorf("user id cannot be empty")
+	}
 	var data []byte
 	var err error
 	switch v := ctx.(type) {

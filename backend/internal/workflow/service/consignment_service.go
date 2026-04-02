@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	workflowManagerV2 "github.com/OpenNSW/go-temporal-workflow"
+	"github.com/OpenNSW/nsw/internal/auth"
 
 	workflowmanagerV1 "github.com/OpenNSW/nsw/internal/workflow/manager"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
@@ -249,6 +250,22 @@ func (s *ConsignmentService) GetConsignmentByID(ctx context.Context, consignment
 	}
 
 	return responseDTO, nil
+}
+
+// GetConsignments returns consignments filtered by trader or by CHA role.
+func (s *ConsignmentService) GetConsignments(ctx context.Context, userID string, requestedRole string) (*model.ConsignmentListResult, error) {
+	dbQuery := s.db.WithContext(ctx).Model(&model.Consignment{})
+	switch requestedRole {
+	case auth.RoleQueryTrader:
+		dbQuery = dbQuery.Where("trader_id = ?", userID)
+	case auth.RoleQueryCHA:
+		dbQuery = dbQuery.Where("cha_id = ?", userID)
+	default:
+		return nil, fmt.Errorf("invalid role: %s", requestedRole)
+	}
+
+	filter := model.ConsignmentFilter{}
+	return s.listConsignmentsWithBaseQuery(ctx, dbQuery, filter)
 }
 
 // ListConsignments returns consignments filtered by trader (role=trader) or by CHA (role=cha). Exactly one of filter.TraderID or filter.ChaID must be set.

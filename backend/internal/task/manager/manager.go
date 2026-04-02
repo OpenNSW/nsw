@@ -59,7 +59,7 @@ type TaskManager interface {
 
 	// Core Domain Methods
 	ExecuteTask(ctx context.Context, req ExecuteTaskRequest) (*plugin.ExecutionResponse, error)
-	GetTaskRenderInfo(ctx context.Context, taskID string) (*plugin.ApiResponse, error)
+	GetTaskRenderInfo(ctx context.Context, taskID string, requestorID string, isSystem bool) (*plugin.ApiResponse, error)
 
 	// Used by Old WorkflowManager
 	// RegisterUpstreamCallback registers the callback used for task updates.
@@ -70,13 +70,18 @@ type TaskManager interface {
 	RegisterUpstreamDoneCallback(callback WorkflowDoneHandler)
 	// RegisterUpstreamUpdateCallback registers the callback used when task state changes.
 	RegisterUpstreamUpdateCallback(callback WorkflowUpdateHandler)
+
+	// GetTaskWorkflowID retrieves the workflow ID (consignment ID) associated with a task
+	GetTaskWorkflowID(ctx context.Context, taskID string) (string, error)
 }
 
 // ExecuteTaskRequest represents the request body for task execution
 type ExecuteTaskRequest struct {
-	WorkflowID string                   `json:"workflow_id"`
-	TaskID     string                   `json:"task_id"`
-	Payload    *plugin.ExecutionRequest `json:"payload,omitempty"`
+	WorkflowID  string                   `json:"workflow_id"`
+	TaskID      string                   `json:"task_id"`
+	Payload     *plugin.ExecutionRequest `json:"payload,omitempty"`
+	RequestorID string                   `json:"-"`
+	IsSystem    bool                     `json:"-"`
 }
 
 type taskManager struct {
@@ -126,9 +131,19 @@ func (tm *taskManager) RegisterUpstreamDoneCallback(callback WorkflowDoneHandler
 }
 
 // GetTaskRenderInfo retrieves task rendering info (core logic)
-func (tm *taskManager) GetTaskRenderInfo(ctx context.Context, taskID string) (*plugin.ApiResponse, error) {
+func (tm *taskManager) GetTaskRenderInfo(ctx context.Context, taskID string, requestorID string, isSystem bool) (*plugin.ApiResponse, error) {
 	if taskID == "" {
 		return nil, fmt.Errorf("taskID is required")
+	}
+
+	if !isSystem {
+		hasAccess, err := tm.store.CheckOwnership(taskID, requestorID)
+		if err != nil {
+			return nil, fmt.Errorf("error checking ownership: %w", err)
+		}
+		if !hasAccess {
+			return nil, fmt.Errorf("task %s not found", taskID) // 404 to avoid leaking existence
+		}
 	}
 
 	activeTask, err := tm.getTask(ctx, taskID)
@@ -144,10 +159,33 @@ func (tm *taskManager) GetTaskRenderInfo(ctx context.Context, taskID string) (*p
 	return result, nil
 }
 
+func (tm *taskManager) GetTaskWorkflowID(ctx context.Context, taskID string) (string, error) {
+	if taskID == "" {
+		return "", fmt.Errorf("taskID is required")
+	}
+
+	execution, err := tm.store.GetByID(taskID)
+	if err != nil {
+		return "", err
+	}
+
+	return execution.WorkflowID, nil
+}
+
 // ExecuteTask is the core logic for executing a task
 func (tm *taskManager) ExecuteTask(ctx context.Context, req ExecuteTaskRequest) (*plugin.ExecutionResponse, error) {
 	if req.TaskID == "" {
 		return nil, fmt.Errorf("task_id is required")
+	}
+
+	if !req.IsSystem {
+		hasAccess, err := tm.store.CheckOwnership(req.TaskID, req.RequestorID)
+		if err != nil {
+			return nil, fmt.Errorf("error checking ownership: %w", err)
+		}
+		if !hasAccess {
+			return nil, fmt.Errorf("task %s not found", req.TaskID)
+		}
 	}
 
 	activeTask, err := tm.getTask(ctx, req.TaskID)

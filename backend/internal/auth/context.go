@@ -15,33 +15,47 @@ func (t *UserContext) TableName() string {
 	return "user_contexts"
 }
 
-// AuthContext is the transient authentication context injected into each request
-// by the auth middleware. UserID is always set (from the JWT sub claim).
-// UserContext is nullable — CHAs and other non-trader roles may not have a DB entry.
+type ContextKey string
+
+const AuthContextKey ContextKey = "auth_context"
+
+const (
+	RoleQueryTrader = "trader"
+	RoleQueryCHA    = "cha"
+)
+
 type AuthContext struct {
-	UserID      string       `json:"userId"`
+	UserID      *string      `json:"userId"`
 	Email       string       `json:"email"`
 	OUHandle    string       `json:"ouHandle"`
 	UserContext *UserContext `json:"userContext,omitempty"`
+	ClientID    string       `json:"clientId"`
+	Groups      []string     `json:"groups"` // e.g. ["Trader", "CHA"]
+	IsM2M       bool         `json:"isM2M"`  // True if Client Credentials grant
 }
 
-// GetUserContextMap returns the stored user context as a map.
-// Returns an empty map when no context is available.
-func (ac *AuthContext) GetUserContextMap() (map[string]any, error) {
+func (c *AuthContext) HasGroup(group string) bool {
+	if c == nil {
+		return false
+	}
+	for _, g := range c.Groups {
+		if g == group {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *AuthContext) GetUserContextMap() (map[string]any, error) {
 	m := make(map[string]any)
-	if ac == nil || ac.UserContext == nil || len(ac.UserContext.UserContext) == 0 {
+	if c == nil || c.UserContext == nil || len(c.UserContext.UserContext) == 0 {
 		return m, nil
 	}
-	if err := json.Unmarshal(ac.UserContext.UserContext, &m); err != nil {
+	if err := json.Unmarshal(c.UserContext.UserContext, &m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
-
-// ContextKey is a custom type for context keys to avoid collisions.
-type ContextKey string
-
-const AuthContextKey ContextKey = "authContext"
 
 // GetAuthContext extracts the AuthContext from a request context.
 // Returns nil if no auth context is available (request had no valid token).
@@ -59,4 +73,9 @@ func GetAuthContext(ctx context.Context) *AuthContext {
 		return nil
 	}
 	return authCtx
+}
+
+func FromContext(ctx context.Context) (*AuthContext, bool) {
+	authCtx, ok := ctx.Value(AuthContextKey).(*AuthContext)
+	return authCtx, ok
 }
