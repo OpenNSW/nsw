@@ -31,12 +31,24 @@ func NewClient(baseURL string, timeout time.Duration, auth Authenticator) *Clien
 
 // Do performs an HTTP request and applies authentication.
 func (c *Client) Do(req *http.Request) (*http.Response, error) {
-	if c.auth != nil {
+	if c.auth != nil && c.shouldAuthenticate(req) {
 		if err := c.auth.Authenticate(req); err != nil {
 			return nil, err
 		}
 	}
 	return c.httpClient.Do(req)
+}
+
+// shouldAuthenticate checks if the request URL aligns with the BaseURL.
+func (c *Client) shouldAuthenticate(req *http.Request) bool {
+	if c.BaseURL == "" {
+		return true
+	}
+	baseURL, err := url.Parse(c.BaseURL)
+	if err != nil {
+		return false
+	}
+	return req.URL.Host == baseURL.Host && req.URL.Scheme == baseURL.Scheme
 }
 
 // resolveURL joins the base URL with the provided path.

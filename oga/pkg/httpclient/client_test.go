@@ -192,3 +192,35 @@ func TestResolveURLError(t *testing.T) {
 		}
 	}
 }
+
+func TestAuthLeakPrevention(t *testing.T) {
+	apiKey := "secret-key"
+	auth := NewAPIKeyAuthenticator(apiKey, "")
+	baseURL := "https://api.trusted.com"
+	client := NewClient(baseURL, 5*time.Second, auth)
+
+	// Mock an external server
+	externalServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-API-Key") != "" {
+			t.Errorf("Security risk: Auth header leaked to external host!")
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer externalServer.Close()
+
+	// Perform a request to an external URL using the client configured for api.trusted.com
+	req, _ := http.NewRequest(http.MethodGet, externalServer.URL, nil)
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer resp.Body.Close()
+}
+
+func TestShouldAuthenticateInvalidBaseURL(t *testing.T) {
+	client := &Client{BaseURL: "http://a b.com"}
+	req, _ := http.NewRequest(http.MethodGet, "http://example.com", nil)
+	if client.shouldAuthenticate(req) {
+		t.Error("shouldAuthenticate should return false for invalid BaseURL")
+	}
+}
