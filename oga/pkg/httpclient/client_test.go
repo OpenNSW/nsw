@@ -15,7 +15,7 @@ func TestNoAuthenticator(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(5*time.Second, nil)
+	client := NewClient("", 5*time.Second, nil)
 
 	resp, err := client.Get(server.URL)
 	if err != nil {
@@ -47,7 +47,7 @@ func TestPost(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(5*time.Second, nil)
+	client := NewClient("", 5*time.Second, nil)
 	resp, err := client.Post(server.URL, expectedContentType, []byte(expectedBody))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -71,7 +71,7 @@ func (m *MockAuthenticator) Authenticate(req *http.Request) error {
 func TestDoAuthenticationFailure(t *testing.T) {
 	authErr := fmt.Errorf("auth failed")
 	auth := &MockAuthenticator{err: authErr}
-	client := NewClient(5*time.Second, auth)
+	client := NewClient("", 5*time.Second, auth)
 
 	req, _ := http.NewRequest(http.MethodGet, "http://example.com", nil)
 	resp, err := client.Do(req)
@@ -85,17 +85,110 @@ func TestDoAuthenticationFailure(t *testing.T) {
 }
 
 func TestGetInvalidURL(t *testing.T) {
-	client := NewClient(5*time.Second, nil)
+	client := NewClient("", 5*time.Second, nil)
 	_, err := client.Get(":") // Invalid URL
 	if err == nil {
 		t.Error("expected error for invalid URL in Get")
 	}
 }
 
+func TestGetResolveURLError(t *testing.T) {
+	client := &Client{BaseURL: "http://a b.com"}
+	_, err := client.Get("path")
+	if err == nil {
+		t.Error("expected error for invalid baseURL in Get")
+	}
+}
+
+func TestPostResolveURLError(t *testing.T) {
+	client := &Client{BaseURL: "http://a b.com"}
+	_, err := client.Post("path", "text/plain", nil)
+	if err == nil {
+		t.Error("expected error for invalid baseURL in Post")
+	}
+}
+
 func TestPostInvalidURL(t *testing.T) {
-	client := NewClient(5*time.Second, nil)
-	_, err := client.Post(":", "text/plain", nil) // Invalid URL
+	client := NewClient("", 5*time.Second, nil)
+	_, err := client.Post("http://[::1]:80%2g/", "text/plain", nil) // Invalid URL
 	if err == nil {
 		t.Error("expected error for invalid URL in Post")
+	}
+}
+
+func TestResolveURLPathError(t *testing.T) {
+	client := NewClient("http://example.com", 1*time.Second, nil)
+	// Triggering url.Parse error on path is hard, but let's try something with control characters
+	_, _ = client.resolveURL("http://[::1]:80%2g/")
+	// Wait, if path has http:// prefix it returns early.
+	// Let's try a path that is not absolute but has invalid characters
+	_, err := client.resolveURL("path\x7f")
+	if err == nil {
+		t.Error("expected error for invalid path in resolveURL")
+	}
+}
+
+func TestNewClientBaseURL(t *testing.T) {
+	tests := []struct {
+		baseURL  string
+		expected string
+	}{
+		{"http://example.com", "http://example.com/"},
+		{"http://example.com/", "http://example.com/"},
+		{"", ""},
+	}
+
+	for _, tc := range tests {
+		client := NewClient(tc.baseURL, 1*time.Second, nil)
+		if client.BaseURL != tc.expected {
+			t.Errorf("expected BaseURL %q, got %q", tc.expected, client.BaseURL)
+		}
+	}
+}
+
+func TestResolveURL(t *testing.T) {
+	tests := []struct {
+		baseURL  string
+		path     string
+		expected string
+	}{
+		{"http://api.com/", "v1/resource", "http://api.com/v1/resource"},
+		{"http://api.com/", "/v1/resource", "http://api.com/v1/resource"},
+		{"http://api.com", "v1/resource", "http://api.com/v1/resource"},
+		{"http://api.com", "/v1/resource", "http://api.com/v1/resource"},
+		{"", "http://other.com/api", "http://other.com/api"},
+		{"http://api.com/", "http://other.com/api", "http://other.com/api"},
+		{"http://api.com/", "https://other.com/api", "https://other.com/api"},
+	}
+
+	for _, tc := range tests {
+		client := NewClient(tc.baseURL, 1*time.Second, nil)
+		got, err := client.resolveURL(tc.path)
+		if err != nil {
+			t.Errorf("unexpected error for baseURL %q and path %q: %v", tc.baseURL, tc.path, err)
+			continue
+		}
+		if got != tc.expected {
+			t.Errorf("for baseURL %q and path %q: expected %q, got %q", tc.baseURL, tc.path, tc.expected, got)
+		}
+	}
+}
+
+func TestResolveURLError(t *testing.T) {
+	tests := []struct {
+		baseURL string
+		path    string
+	}{
+		{"http://a b.com", "path"}, // Invalid baseURL
+		// For path, url.Parse rarely fails unless it's a very specific invalid string
+		// Let's try to trigger the baseURL parse error
+	}
+
+	for _, tc := range tests {
+		client := &Client{BaseURL: tc.baseURL}
+		_, err := client.resolveURL(tc.path)
+		if err == nil {
+			t.Errorf("expected error for baseURL %q and path %q", tc.baseURL, tc.path)
+		}
 	}
 }

@@ -370,7 +370,7 @@ func (s *ogaService) GetDownloadURL(ctx context.Context, key string) (string, er
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch upload metadata: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		// Fallback for local development if the metadata endpoint fails (e.g. not implemented or not authenticated)

@@ -38,7 +38,7 @@ func TestOAuth2Authenticator(t *testing.T) {
 	defer apiServer.Close()
 
 	auth := NewOAuth2Authenticator(clientID, clientSecret, tokenServer.URL, nil)
-	client := NewClient(5*time.Second, auth)
+	client := NewClient("", 5*time.Second, auth)
 
 	resp, err := client.Get(apiServer.URL)
 	if err != nil {
@@ -48,5 +48,21 @@ func TestOAuth2Authenticator(t *testing.T) {
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("expected status OK, got %v", resp.Status)
+	}
+}
+
+func TestOAuth2AuthenticatorFailure(t *testing.T) {
+	// Mock token server that returns an error
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	defer tokenServer.Close()
+
+	auth := NewOAuth2Authenticator("id", "secret", tokenServer.URL, nil)
+	client := NewClient("", 5*time.Second, auth)
+
+	_, err := client.Get("http://example.com")
+	if err == nil {
+		t.Error("expected error on token fetch failure")
 	}
 }

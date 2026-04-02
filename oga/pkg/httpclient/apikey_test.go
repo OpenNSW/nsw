@@ -23,7 +23,7 @@ func TestAPIKeyAuthenticator(t *testing.T) {
 	defer server.Close()
 
 	auth := NewAPIKeyAuthenticator(apiKey, header)
-	client := NewClient(5*time.Second, auth)
+	client := NewClient("", 5*time.Second, auth)
 
 	resp, err := client.Get(server.URL)
 	if err != nil {
@@ -57,7 +57,7 @@ func TestAPIKeyAuthenticatorDefaultHeader(t *testing.T) {
 		t.Errorf("expected default header %q, got %q", defaultHeader, auth.Header)
 	}
 
-	client := NewClient(5*time.Second, auth)
+	client := NewClient("", 5*time.Second, auth)
 
 	resp, err := client.Get(server.URL)
 	if err != nil {
