@@ -4,7 +4,7 @@ ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 WORKDIR /workspace
 
-RUN corepack enable
+RUN corepack enable && pnpm config set store-dir /pnpm/store
 
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/trader-app/package.json apps/trader-app/package.json

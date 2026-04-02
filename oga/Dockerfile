@@ -32,4 +32,6 @@ USER appuser
 EXPOSE 8081
 
 
+USER 1001
+
 CMD ["/app/oga"]

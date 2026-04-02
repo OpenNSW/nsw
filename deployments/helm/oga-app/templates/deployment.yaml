@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "oga-app.fullname" . }}
+  labels:
+    {{- include "oga-app.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "oga-app.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "oga-app.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml .Values.imagePullSecrets | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: oga-app
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          env:
+            - name: VITE_INSTANCE_CONFIG
+              value: {{ .Values.config.instanceConfig | quote }}
+            - name: VITE_API_BASE_URL
+              value: "/api"
+            - name: VITE_IDP_BASE_URL
+              value: {{ .Values.config.idpBaseUrl | quote }}
+            - name: VITE_IDP_CLIENT_ID
+              value: {{ .Values.config.idpClientId | quote }}
+            - name: VITE_APP_URL
+              value: {{ .Values.config.appUrl | quote }}
+            - name: VITE_IDP_SCOPES
+              value: {{ .Values.config.idpScopes | quote }}
+            - name: VITE_IDP_PLATFORM
+              value: {{ .Values.config.idpPlatform | quote }}
+            - name: VITE_OGA_API_BASE_URL
+              value: {{ .Values.config.apiBaseUrl | quote }}
+            - name: VITE_SHOW_AUTOFILL_BUTTON
+              value: "true"
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]

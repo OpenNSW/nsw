@@ -20,7 +20,7 @@ data:
     MIGRATIONS="
       001_initial_schema.sql
       001_insert_seed_hscodes.sql
-    001_insert_seed_form_templates.sql
+      001_insert_seed_form_templates.sql
       001_insert_seed_workflow_node_templates.sql
       001_insert_seed_workflow_templates.sql
       001_insert_seed_workflow_hscode_map.sql
@@ -28,9 +28,6 @@ data:
       001_insert_cha_entity.sql
       002_workflow_table.sql
       002_workflow_tem_v2.sql
-      003_add_payment_task_type.sql
-      004_reseed_trader_preconsignments.sql
-      005_add_workflow_type.sql
     "
 
     for FILE in $MIGRATIONS; do
@@ -40,7 +37,7 @@ data:
         psql \
           -v NPQS_OGA_SUBMISSION_URL="$NPQS_OGA_SUBMISSION_URL" \
           -v FCAU_OGA_SUBMISSION_URL="$FCAU_OGA_SUBMISSION_URL" \
-          -v PRECONSIGNMENT_OGA_SUBMISSION_URL="$PRECONSIGNMENT_OGA_SUBMISSION_URL" \
+          -v IRD_OGA_SUBMISSION_URL="$IRD_OGA_SUBMISSION_URL" \
           -f "$FILEPATH" || echo "Warning: $FILE encountered errors, continuing..."
       else
         echo "!! WARNING: $FILE not found, skipping."

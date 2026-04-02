@@ -19,20 +19,12 @@ imagePullSecrets:
   - name: ghcr-secret
 
 # Isolated Database Configuration
-env:
-  - name: OGA_DB_DRIVER
-    value: "postgres"
-  - name: OGA_DB_HOST
-    value: "nsw-db"
-  - name: OGA_DB_NAME
-    value: "oga-backend-npqs"     
-  - name: OGA_ALLOWED_ORIGINS
-    value: "https://oga-npqs-app-national-single-window-platform.apps.sovecloud1.akaza.lk"
-  - name: NSW_API_BASE_URL
-    value: "http://nsw-api.national-single-window-platform.svc.cluster.local/api/v1"
-
 config:
   port: 8081
+  database:
+    name: "oga-backend-npqs"
+  allowedOrigins: "https://oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  nswApiBaseUrl: "http://nsw-api.national-single-window-platform.svc.cluster.local/api/v1"
 
 route:
   enabled: true
@@ -91,7 +83,7 @@ forms:
         ]
       }
     }
-  "preconsignment:npqs:phytosanitary-certificate:001.view.json": |-
+  "preconsignment.npqs.phytosanitary-certificate.001.view.json": |-
     {
         "title": "Phytosanitary Certificate (Submitted)",
         "schema": {

@@ -18,9 +18,15 @@ spec:
             - name: THUNDER_ADMIN_USERNAME
               value: "admin"
             - name: THUNDER_ADMIN_PASSWORD
-              value: "1234"
+              valueFrom:
+                secretKeyRef:
+                  name: idp-admin-secrets
+                  key: admin-password
             - name: THUNDER_SAMPLE_USER_PASSWORD
-              value: "1234"
+              valueFrom:
+                secretKeyRef:
+                  name: idp-admin-secrets
+                  key: sample-user-password
             - name: DB_CONFIG_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -58,6 +64,18 @@ spec:
             - name: bootstrap-scripts
               mountPath: /opt/thunder/bootstrap/30-nsw-apps.sh
               subPath: 30-nsw-apps.sh
+            - name: signing-keys
+              mountPath: /opt/thunder/repository/resources/security/signing.key
+              subPath: signing.key
+              readOnly: true
+            - name: signing-keys
+              mountPath: /opt/thunder/repository/resources/security/signing.cert
+              subPath: signing.cert
+              readOnly: true
+            - name: signing-keys
+              mountPath: /opt/thunder/repository/resources/security/crypto.key
+              subPath: crypto.key
+              readOnly: true
       volumes:
         - name: deployment-yaml-volume
           configMap:
@@ -66,4 +84,8 @@ spec:
           configMap:
             name: idp-manual-bootstrap-cm
             defaultMode: 0555
+        - name: signing-keys
+          secret:
+            secretName: thunder-signing-keys
+            defaultMode: 0444
       securityContext: {}

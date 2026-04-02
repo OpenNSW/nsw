@@ -32,15 +32,18 @@ persistence:
 # Temporal "auto-setup" environment variables
 env:
   - name: DB
-    value: "postgres12"
+    value: "postgresql"
   - name: DB_NAME
-    value: "temporal"
+    value: "temporal_db"
   - name: POSTGRES_SEEDS
     value: "nsw-db"
   - name: DB_PORT
     value: "5432"
   - name: POSTGRES_USER
-    value: "postgres"
+    valueFrom:
+      secretKeyRef:
+        name: nsw-db-credentials
+        key: username
   - name: POSTGRES_PWD
     valueFrom:
       secretKeyRef:

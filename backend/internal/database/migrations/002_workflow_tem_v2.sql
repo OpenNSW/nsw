@@ -64,8 +64,7 @@ VALUES
             { "id": "e_process_to_end", "source_id": "node_11_final_process", "target_id": "node_12_end" }
         ]
     }'::jsonb
-)
-ON CONFLICT (id) DO NOTHING;
+);
 
 -- ============================================================================
 -- Workflow mapping rules by HS code and flow
@@ -98,5 +97,4 @@ VALUES
         '4bdfb1f0-2b71-4ddc-8b99-f31c3d7660bc',
         'EXPORT',
         'trade-export-v1'
-    )
-ON CONFLICT (id) DO NOTHING;
+    );
