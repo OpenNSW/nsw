@@ -394,8 +394,8 @@ func (t *PaymentTask) initiateHandler(ctx context.Context, content any) (*Execut
 func (t *PaymentTask) calculateBreakdown(ctx context.Context) ([]ResolvedBreakdownItem, decimal.Decimal, error) {
 	var resolved []ResolvedBreakdownItem
 	subtotal := decimal.Zero
-	finalTotal := decimal.Zero
 
+	var finalTotal decimal.Decimal
 	// Phase 1: Fixed Items
 	for _, item := range t.config.Breakdown {
 		if item.Type != TypeFixed {

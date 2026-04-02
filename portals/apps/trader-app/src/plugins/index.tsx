@@ -14,7 +14,7 @@ export type RenderInfoTyped<Type extends TaskType, T> = {
 export type RenderInfo =
   | RenderInfoTyped<"SIMPLE_FORM", SimpleFormConfig>
   | RenderInfoTyped<"WAIT_FOR_EVENT", WaitForEventConfigs>
-  | RenderInfoTyped<"PAYMENT", PaymentConfigs | null>
+  | RenderInfoTyped<"PAYMENT", PaymentConfigs>
 
 // Renderer component
 export default function PluginRenderer({
