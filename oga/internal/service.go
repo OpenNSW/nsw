@@ -373,7 +373,6 @@ func (s *ogaService) GetDownloadURL(ctx context.Context, key string) (string, er
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		// Fallback for local development if the metadata endpoint fails (e.g. not implemented or not authenticated)
 		slog.WarnContext(ctx, "failed to fetch upload metadata, falling back to local content URL",
 			"key", key, "status", resp.Status)
 		return "", fmt.Errorf("failed to fetch upload metadata, status code: %d", resp.StatusCode)
@@ -390,7 +389,7 @@ func (s *ogaService) GetDownloadURL(ctx context.Context, key string) (string, er
 		return "", fmt.Errorf("metadata response missing download_url")
 	}
 
-	slog.InfoContext(ctx, "resolved upload URL from metadata", "key", key, "downloadURL", metadata.DownloadURL)
+	slog.InfoContext(ctx, "resolved download URL from metadata", "key", key, "downloadURL", metadata.DownloadURL)
 	return metadata.DownloadURL, nil
 }
 

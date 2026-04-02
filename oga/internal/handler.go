@@ -202,8 +202,8 @@ func (h *OGAHandler) HandleGetUploadURL(w http.ResponseWriter, r *http.Request) 
 
 	downloadURL, err := h.service.GetDownloadURL(r.Context(), key)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "failed to get upload URL from backend", "key", key, "error", err)
-		WriteJSONError(w, http.StatusInternalServerError, "failed to get upload URL")
+		slog.ErrorContext(r.Context(), "failed to get download URL from backend", "key", key, "error", err)
+		WriteJSONError(w, http.StatusInternalServerError, "failed to get download URL")
 		return
 	}
 
