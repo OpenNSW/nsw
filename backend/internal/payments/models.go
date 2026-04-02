@@ -3,19 +3,26 @@ package payments
 import (
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
+)
+
+type PaymentStatus string
+
+const (
+	PaymentStatusPending PaymentStatus = "PENDING"
+	PaymentStatusSuccess PaymentStatus = "SUCCESS"
+	PaymentStatusFailed  PaymentStatus = "FAILED"
 )
 
 // PaymentTransaction represents the internal state of a payment
 type PaymentTransaction struct {
-	ID              uuid.UUID         `json:"id" gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ID              string            `json:"id" gorm:"type:text;not null;primaryKey"`
 	ReferenceNumber string            `json:"reference_number" gorm:"uniqueIndex"` // e.g., NSW-PR-2026-X892J
 	TaskID          string            `json:"task_id" gorm:"index"`                // Links back to the FSM Task Node
 	SessionID       string            `json:"session_id"`                          // LankaPay session identifier
 	Amount          decimal.Decimal   `json:"amount"`
 	Currency        string            `json:"currency"`       // "LKR" or foreign currency
-	Status          string            `json:"status"`         // PENDING, SUCCESS, FAILED, EXPIRED
+	Status          PaymentStatus     `json:"status"`         // PENDING, SUCCESS, FAILED, EXPIRED
 	PaymentMethod   string            `json:"payment_method"` // CC, BANK_TRANSFER (populated on webhook)
 	ExpiryDate      time.Time         `json:"expiry_date"`
 	GatewayMetadata map[string]string `json:"gateway_metadata" gorm:"serializer:json"`
@@ -75,7 +82,7 @@ type WebhookPayload struct {
 	ReferenceNumber      string            `json:"reference_number"`
 	SessionID            string            `json:"session_id"`
 	GatewayTransactionID string            `json:"gateway_transaction_id"`
-	Status               string            `json:"status"`
+	Status               PaymentStatus     `json:"status"`
 	Amount               decimal.Decimal   `json:"amount"`
 	Currency             string            `json:"currency"`
 	PaymentMethod        string            `json:"payment_method"`
@@ -83,16 +90,18 @@ type WebhookPayload struct {
 	Metadata             map[string]string `json:"metadata"`
 }
 
+type EventData struct {
+	TaskID               string          `json:"task_id"`
+	ReferenceNumber      string          `json:"reference_number"`
+	GatewayTransactionID string          `json:"gateway_transaction_id"`
+	Status               PaymentStatus   `json:"status"`
+	AmountPaid           decimal.Decimal `json:"amount_paid"`
+	Currency             string          `json:"currency"`
+	ConfirmedAt          string          `json:"confirmed_at"`
+}
+
 // InternalPaymentEvent represents the internal event the Payment Service fires for the Task Engine.
 type InternalPaymentEvent struct {
-	EventType string `json:"event_type"`
-	Data      struct {
-		TaskID               string          `json:"task_id"`
-		ReferenceNumber      string          `json:"reference_number"`
-		GatewayTransactionID string          `json:"gateway_transaction_id"`
-		Status               string          `json:"status"`
-		AmountPaid           decimal.Decimal `json:"amount_paid"`
-		Currency             string          `json:"currency"`
-		ConfirmedAt          string          `json:"confirmed_at"`
-	} `json:"data"`
+	EventType string    `json:"event_type"`
+	Data      EventData `json:"data"`
 }

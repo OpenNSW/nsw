@@ -13,7 +13,7 @@ type PaymentRepository interface {
 	GetByReferenceNumber(ctx context.Context, referenceNumber string) (*PaymentTransaction, error)
 	GetByTaskID(ctx context.Context, taskID string) (*PaymentTransaction, error)
 	Update(ctx context.Context, tx *PaymentTransaction) error
-	UpdateStatus(ctx context.Context, referenceNumber string, status string) error
+	UpdateStatus(ctx context.Context, referenceNumber string, status PaymentStatus) error
 	WithTx(tx *gorm.DB) PaymentRepository
 }
 
@@ -66,6 +66,6 @@ func (r *paymentRepository) Update(ctx context.Context, ptx *PaymentTransaction)
 }
 
 // UpdateStatus updates only the status field of a PaymentTransaction.
-func (r *paymentRepository) UpdateStatus(ctx context.Context, referenceNumber string, status string) error {
+func (r *paymentRepository) UpdateStatus(ctx context.Context, referenceNumber string, status PaymentStatus) error {
 	return r.db.WithContext(ctx).Model(&PaymentTransaction{}).Where("reference_number = ?", referenceNumber).Updates(map[string]interface{}{"status": status}).Error
 }

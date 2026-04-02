@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS payment_transactions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id text NOT NULL PRIMARY KEY,
     reference_number VARCHAR(255) UNIQUE NOT NULL,
     task_id VARCHAR(255) NOT NULL,
     session_id VARCHAR(255),

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // PaymentService defines the business logic operations for Payments.
@@ -33,12 +35,13 @@ func (s *paymentService) CreateCheckoutSession(ctx context.Context, req CreateCh
 	}
 
 	tx := &PaymentTransaction{
+		ID:              uuid.NewString(),
 		ReferenceNumber: req.ReferenceNumber,
 		TaskID:          taskID,
 		SessionID:       sessionID,
 		Amount:          req.Amount,
 		Currency:        req.Currency,
-		Status:          "PENDING",
+		Status:          PaymentStatusPending,
 		ExpiryDate:      req.ExpiresAt,
 		GatewayMetadata: req.Metadata,
 	}
@@ -68,7 +71,7 @@ func (s *paymentService) ValidateReference(ctx context.Context, req ValidateRefe
 		return &ValidateReferenceResponse{IsPayable: false, Remarks: "Invalid reference number"}, nil
 	}
 
-	isPayable := tx.Status == "PENDING" && time.Now().Before(tx.ExpiryDate)
+	isPayable := tx.Status == PaymentStatusPending && time.Now().Before(tx.ExpiryDate)
 
 	return &ValidateReferenceResponse{
 		Amount:     tx.Amount,
@@ -94,7 +97,7 @@ func (s *paymentService) ProcessWebhook(ctx context.Context, payload WebhookPayl
 	}
 
 	// Idempotency: Ignore if we already recorded a final status
-	if tx.Status == payload.Status || tx.Status == "SUCCESS" {
+	if tx.Status == payload.Status || tx.Status == PaymentStatusSuccess {
 		slog.Info("webhook ignored (idempotent)", "reference", tx.ReferenceNumber, "current_status", tx.Status)
 		return nil
 	}

@@ -35,7 +35,7 @@ func (m *mockRepository) Update(ctx context.Context, tx *PaymentTransaction) err
 	return nil
 }
 
-func (m *mockRepository) UpdateStatus(ctx context.Context, ref string, status string) error {
+func (m *mockRepository) UpdateStatus(ctx context.Context, ref string, status PaymentStatus) error {
 	if tx, ok := m.txs[ref]; ok {
 		tx.Status = status
 	}
@@ -53,7 +53,7 @@ func TestProcessWebhook_Idempotency(t *testing.T) {
 	// Seed an existing pending transaction
 	txKey := "REF-123"
 	repo.txs[txKey] = &PaymentTransaction{
-		ID:              uuid.New(),
+		ID:              uuid.New().String(),
 		ReferenceNumber: txKey,
 		Status:          "PENDING",
 		Amount:          decimal.NewFromFloat(100.0),
