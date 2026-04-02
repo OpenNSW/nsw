@@ -427,7 +427,7 @@ func (s *ogaService) sendToService(ctx context.Context, serviceURL string, respo
 
 	// Note: We use the authenticated httpClient here too, in case the serviceURL requires it.
 	// If it shouldn't, we might need a separate client or use the raw http.Client inside.
-	resp, err := s.httpClient.Post(serviceURL, "application/json", bytes.NewBuffer(jsonData))
+	resp, err := s.httpClient.Post(serviceURL, "application/json", jsonData)
 	if err != nil {
 		return fmt.Errorf("failed to execute request: %w", err)
 	}
