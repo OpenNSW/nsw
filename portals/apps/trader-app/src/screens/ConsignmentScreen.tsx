@@ -5,6 +5,7 @@ import { MagnifyingGlassIcon, PlusIcon } from '@radix-ui/react-icons'
 import type { ConsignmentSummary, TradeFlow, ConsignmentState, CHA } from "../services/types/consignment.ts"
 import { createConsignment, getAllConsignments, getCHAs } from "../services/consignment.ts"
 import { useApi } from '../services/ApiContext'
+import { useRole } from '../services/RoleContext'
 import { getStateColor, formatState, formatDate } from '../utils/consignmentUtils'
 import { PaginationControl } from '../components/common/PaginationControl'
 import { Cross2Icon, ArrowRightIcon } from '@radix-ui/react-icons'
@@ -29,8 +30,7 @@ export function ConsignmentScreen() {
   const [stateFilter, setStateFilter] = useState<string>('all')
   const [tradeFlowFilter, setTradeFlowFilter] = useState<string>('all')
 
-  // Temporary role toggle (until roles come from IDP)
-  const [roleView, setRoleView] = useState<'trader' | 'cha'>('trader')
+  const { role } = useRole()
   const [chaId, setChaId] = useState<string>(() => {
     return window.localStorage.getItem('consignments.chaId') || ''
   })
@@ -72,8 +72,8 @@ export function ConsignmentScreen() {
           limit,
           stateFilter as ConsignmentState | 'all',
           tradeFlowFilter as TradeFlow | 'all',
-          roleView,
-          roleView === 'cha' ? chaId : undefined,
+          role,
+          role === 'cha' ? chaId : undefined,
           api
         )
         if (requestId !== listRequestIdRef.current) {
@@ -94,7 +94,7 @@ export function ConsignmentScreen() {
     }
 
     fetchConsignments()
-  }, [api, page, stateFilter, tradeFlowFilter, roleView, chaId])
+  }, [api, page, stateFilter, tradeFlowFilter, role, chaId])
 
   const resetNewConsignment = () => {
     setNewStep('trade-flow')
@@ -164,23 +164,7 @@ export function ConsignmentScreen() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold text-gray-900">Consignments</h1>
         <div className="flex gap-2">
-          <Select.Root
-            value={roleView}
-            onValueChange={(val: string) => {
-              const next = val === 'cha' ? 'cha' : 'trader'
-              setRoleView(next)
-              setPage(0)
-              setPickerOpen(false)
-            }}
-          >
-            <Select.Trigger placeholder="Role View" />
-            <Select.Content>
-              <Select.Item value="trader">Trader</Select.Item>
-              <Select.Item value="cha">CHA</Select.Item>
-            </Select.Content>
-          </Select.Root>
-
-          {roleView === 'cha' ? null : (
+          {role === 'cha' ? null : (
             <Button onClick={() => handleNewOpenChange(true)} disabled={creating}>
               <PlusIcon />
               {creating ? 'Creating...' : 'New Consignment'}
@@ -331,7 +315,7 @@ export function ConsignmentScreen() {
               </TextField.Root>
             </div>
             <div className="flex gap-3">
-              {roleView === 'cha' ? (
+              {role === 'cha' ? (
                 <Select.Root
                   value={chaId}
                   onValueChange={(val: string) => {
@@ -387,7 +371,7 @@ export function ConsignmentScreen() {
           <div className="p-12 text-center">
             <Text size="3" color="gray">
               {consignments.length === 0
-                ? roleView === 'cha'
+                ? role === 'cha'
                   ? 'No consignments yet.'
                   : 'No consignments yet. Click "New Consignment" to create your first one.'
                 : 'No consignments match your filters.'}
@@ -424,13 +408,7 @@ export function ConsignmentScreen() {
                   return (
                     <tr
                       key={consignment.id}
-                      onClick={() => {
-                        if (roleView === 'cha') {
-                          navigate(`/consignments/${consignment.id}?view=cha&cha_id=${encodeURIComponent(chaId)}`)
-                        } else {
-                          navigate(`/consignments/${consignment.id}`)
-                        }
-                      }}
+                      onClick={() => navigate(`/consignments/${consignment.id}`)}
                       className="hover:bg-gray-50 cursor-pointer transition-colors"
                     >
                       <td className="px-6 py-4 whitespace-nowrap">

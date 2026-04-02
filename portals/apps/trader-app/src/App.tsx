@@ -9,6 +9,7 @@ import {PreconsignmentScreen} from "./screens/PreconsignmentScreen.tsx"
 import {useAsgardeo, SignedOut} from '@asgardeo/react'
 import {LoginScreen} from "./screens/LoginScreen.tsx";
 import {ApiProvider, useApi} from './services/ApiContext'
+import { RoleProvider } from './services/RoleContext'
 import { UploadProvider } from '@opennsw/jsonforms-renderers'
 import { uploadFile, getDownloadUrl } from './services/upload'
 
@@ -29,11 +30,14 @@ function ProtectedLayout() {
 
   if (isLoading) return null
   if (!isSignedIn) return <Navigate to="/login" replace/>
+  
   return (
     <ApiProvider>
-      <UploadWrapper>
-        <Layout/>
-      </UploadWrapper>
+      <RoleProvider availableGroups={['trader', 'cha']} isLoading={isLoading}>
+        <UploadWrapper>
+          <Layout/>
+        </UploadWrapper>
+      </RoleProvider>
     </ApiProvider>
   )
 }
