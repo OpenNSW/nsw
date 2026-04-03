@@ -238,9 +238,15 @@ create_spa_application() {
                     "id_token": {
                         "validity_period": 3600,
                         "user_attributes": [
+                            "email",
                             "family_name",
                             "given_name",
-                            "email"
+                            "groups",
+                            "roles",
+                            "ouHandle",
+                            "ouId",
+                            "ouName",
+                            "username"
                         ]
                     }
                 },
