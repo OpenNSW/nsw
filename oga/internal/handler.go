@@ -79,8 +79,17 @@ func (h *OGAHandler) HandleGetApplications(w http.ResponseWriter, r *http.Reques
 	ctx := r.Context()
 	status := r.URL.Query().Get("status")
 	workflowID := r.URL.Query().Get("workflowId")
-	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	pageSize, _ := strconv.Atoi(r.URL.Query().Get("pageSize"))
+
+	page, err := strconv.Atoi(r.URL.Query().Get("page"))
+	if err != nil && r.URL.Query().Get("page") != "" {
+		WriteJSONError(w, http.StatusBadRequest, "Invalid page number")
+		return
+	}
+	pageSize, err := strconv.Atoi(r.URL.Query().Get("pageSize"))
+	if err != nil && r.URL.Query().Get("pageSize") != "" {
+		WriteJSONError(w, http.StatusBadRequest, "Invalid page size")
+		return
+	}
 
 	result, err := h.service.GetApplications(ctx, status, workflowID, page, pageSize)
 	if err != nil {
@@ -101,8 +110,17 @@ func (h *OGAHandler) HandleGetWorkflows(w http.ResponseWriter, r *http.Request) 
 	}
 
 	ctx := r.Context()
-	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	pageSize, _ := strconv.Atoi(r.URL.Query().Get("pageSize"))
+
+	page, err := strconv.Atoi(r.URL.Query().Get("page"))
+	if err != nil && r.URL.Query().Get("page") != "" {
+		WriteJSONError(w, http.StatusBadRequest, "Invalid page number")
+		return
+	}
+	pageSize, err := strconv.Atoi(r.URL.Query().Get("pageSize"))
+	if err != nil && r.URL.Query().Get("pageSize") != "" {
+		WriteJSONError(w, http.StatusBadRequest, "Invalid page size")
+		return
+	}
 
 	result, err := h.service.GetWorkflows(ctx, page, pageSize)
 	if err != nil {
