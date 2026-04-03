@@ -19,23 +19,21 @@ export function WorkflowListScreen() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   useEffect(() => {
-    async function fetchData() {
+    async function fetchData(isSilent = false) {
       try {
-        setLoading(true)
+        if (!isSilent) setLoading(true)
         const result = await fetchWorkflows(apiClient, { page, pageSize: PAGE_SIZE })
         setWorkflows(result.items)
         setTotal(result.total)
       } catch (error) {
         console.error('Failed to fetch workflows:', error)
       } finally {
-        setLoading(false)
+        if (!isSilent) setLoading(false)
       }
     }
-
     void fetchData()
-
     // Poll for new workflows every 15 seconds
-    const interval = setInterval(fetchData, 15000)
+    const interval = setInterval(() => void fetchData(true), 15000)
     return () => clearInterval(interval)
   }, [apiClient, page])
 
