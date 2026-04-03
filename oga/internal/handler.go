@@ -69,7 +69,7 @@ func (h *OGAHandler) HandleInjectData(w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleGetApplications handles GET /api/oga/applications
-// Returns all applications, optionally filtered by status query parameter
+// Returns all applications, optionally filtered by status or workflowId query parameter
 func (h *OGAHandler) HandleGetApplications(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		WriteJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
@@ -78,21 +78,36 @@ func (h *OGAHandler) HandleGetApplications(w http.ResponseWriter, r *http.Reques
 
 	ctx := r.Context()
 	status := r.URL.Query().Get("status")
-	page, err := strconv.Atoi(r.URL.Query().Get("page"))
-	if err != nil {
-		WriteJSONError(w, http.StatusBadRequest, "Invalid page number")
-		return
-	}
-	pageSize, err := strconv.Atoi(r.URL.Query().Get("pageSize"))
-	if err != nil {
-		WriteJSONError(w, http.StatusBadRequest, "Invalid page size")
-		return
-	}
+	workflowID := r.URL.Query().Get("workflowId")
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	pageSize, _ := strconv.Atoi(r.URL.Query().Get("pageSize"))
 
-	result, err := h.service.GetApplications(ctx, status, page, pageSize)
+	result, err := h.service.GetApplications(ctx, status, workflowID, page, pageSize)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get applications", "error", err)
 		WriteJSONError(w, http.StatusInternalServerError, "Failed to get applications")
+		return
+	}
+
+	WriteJSONResponse(w, http.StatusOK, result)
+}
+
+// HandleGetWorkflows handles GET /api/oga/workflows
+// Returns a paginated list of unique workflows with their latest status
+func (h *OGAHandler) HandleGetWorkflows(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		WriteJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	ctx := r.Context()
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	pageSize, _ := strconv.Atoi(r.URL.Query().Get("pageSize"))
+
+	result, err := h.service.GetWorkflows(ctx, page, pageSize)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to get workflows", "error", err)
+		WriteJSONError(w, http.StatusInternalServerError, "Failed to get workflows")
 		return
 	}
 

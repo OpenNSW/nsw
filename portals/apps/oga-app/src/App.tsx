@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { Layout } from './components/Layout'
 import { WorkflowListScreen } from './screens/WorkflowListScreen'
+import { WorkflowTasksScreen } from './screens/WorkflowTasksScreen'
 import { WorkflowDetailScreen } from './screens/WorkflowDetailScreen'
 import {appConfig} from "./config.ts";
 import {useEffect} from "react";
@@ -52,6 +53,7 @@ function App() {
       <Route element={<ProtectedLayout />}>
         <Route path="/" element={<Navigate to="/workflows" replace />} />
         <Route path="/workflows" element={<WorkflowListScreen />} />
+        <Route path="/workflows/:workflowId/tasks" element={<WorkflowTasksScreen />} />
         <Route path="/workflows/:workflowId" element={<WorkflowDetailScreen />} />
       </Route>
 

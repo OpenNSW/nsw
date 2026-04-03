@@ -1,39 +1,32 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Badge, Text, TextField, Spinner, Select, IconButton } from '@radix-ui/themes'
+import { Badge, Text, TextField, Spinner, IconButton } from '@radix-ui/themes'
 import { MagnifyingGlassIcon, ChevronLeftIcon, ChevronRightIcon } from '@radix-ui/react-icons'
-import { fetchApplications, type OGAApplication } from '../api'
+import { fetchWorkflows, type WorkflowSummary } from '../api'
 import { useApi } from '../services/useApi'
 
 const PAGE_SIZE = 20
 
-
-
 export function WorkflowListScreen() {
   const navigate = useNavigate()
   const apiClient = useApi()
-  const [applications, setApplications] = useState<OGAApplication[]>([])
+  const [workflows, setWorkflows] = useState<WorkflowSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('PENDING')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   useEffect(() => {
-    setPage(1)
-  }, [statusFilter])
-
-  useEffect(() => {
     async function fetchData() {
       try {
-        const filterStatus = statusFilter === 'all' ? undefined : statusFilter
-        const result = await fetchApplications(apiClient, { status: filterStatus, page, pageSize: PAGE_SIZE })
-        setApplications(result.items)
+        setLoading(true)
+        const result = await fetchWorkflows(apiClient, { page, pageSize: PAGE_SIZE })
+        setWorkflows(result.items)
         setTotal(result.total)
       } catch (error) {
-        console.error('Failed to fetch applications:', error)
+        console.error('Failed to fetch workflows:', error)
       } finally {
         setLoading(false)
       }
@@ -41,20 +34,19 @@ export function WorkflowListScreen() {
 
     void fetchData()
 
-    // Poll for new applications every 10 seconds
-    const interval = setInterval(fetchData, 10000)
+    // Poll for new workflows every 15 seconds
+    const interval = setInterval(fetchData, 15000)
     return () => clearInterval(interval)
-  }, [apiClient, statusFilter, page])
+  }, [apiClient, page])
 
-  const filteredApplications = applications.filter((app) => {
+  const filteredWorkflows = workflows.filter((wf) => {
     return searchQuery === '' ||
-      app.workflowId.toLowerCase().includes(searchQuery.toLowerCase())
+      wf.workflowId.toLowerCase().includes(searchQuery.toLowerCase())
   })
 
   // Format date: Jan 27, 2026
   const formatDateForTable = (dateString?: string) => {
     if (!dateString) return '-'
-    // Format: Jan 27, 2026
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -62,12 +54,12 @@ export function WorkflowListScreen() {
     })
   }
 
-  if (loading) {
+  if (loading && page === 1) {
     return (
       <div className="flex items-center justify-center py-12">
         <Spinner size="3" />
         <Text size="3" color="gray" className="ml-3">
-          Loading applications...
+          Loading consignments...
         </Text>
       </div>
     )
@@ -77,23 +69,23 @@ export function WorkflowListScreen() {
     <div className="animate-fade-in max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Workflows</h1>
-          <p className="text-gray-500 text-sm mt-1">Manage and review trader workflows</p>
+          <h1 className="text-2xl font-semibold text-gray-900">Consignments</h1>
+          <p className="text-gray-500 text-sm mt-1">Manage and review trader application groups</p>
         </div>
         <div className="flex items-center gap-4">
           <Badge color="blue" variant="soft" size="2">
-            {total} {statusFilter === 'all' ? 'Total' : statusFilter === 'PENDING' ? 'Pending Review' : statusFilter.charAt(0) + statusFilter.slice(1).toLowerCase()}
+            {total} Total Consignments
           </Badge>
         </div>
       </div>
 
       <div className="space-y-4">
-        {/* Search & Filter */}
+        {/* Search */}
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           <div className="flex-1">
             <TextField.Root
               size="2"
-              placeholder="Search by Workflow ID..."
+              placeholder="Search by Consignment ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             >
@@ -102,28 +94,16 @@ export function WorkflowListScreen() {
               </TextField.Slot>
             </TextField.Root>
           </div>
-          <div className="flex gap-3">
-            <Select.Root value={statusFilter} onValueChange={setStatusFilter}>
-              <Select.Trigger placeholder="Status" />
-              <Select.Content>
-                <Select.Item value="all">All Statuses</Select.Item>
-                <Select.Item value="PENDING">Pending</Select.Item>
-                <Select.Item value="FEEDBACK_REQUESTED">Feedback Requested</Select.Item>
-                <Select.Item value="APPROVED">Approved</Select.Item>
-                <Select.Item value="REJECTED">Rejected</Select.Item>
-              </Select.Content>
-            </Select.Root>
-          </div>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          {filteredApplications.length === 0 ? (
+          {filteredWorkflows.length === 0 ? (
             <div className="p-12 text-center">
               <div className="bg-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-gray-100">
                 <ArchiveIcon className="w-8 h-8 text-gray-300" />
               </div>
               <Text size="3" color="gray" weight="medium">
-                No workflows pending review at the moment.
+                No active consignments found.
               </Text>
             </div>
           ) : (
@@ -132,50 +112,50 @@ export function WorkflowListScreen() {
                 <thead>
                   <tr className="bg-gray-50/50 border-b border-gray-200 text-left">
                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Workflow ID
+                      Consignment ID
                     </th>
-
-                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Submitted
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center">
+                      Tasks
                     </th>
                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Last Updated
+                      Latest Status
+                    </th>
+                    <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Last Activity
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
-                  {filteredApplications.map((app) => (
+                  {filteredWorkflows.map((wf) => (
                     <tr
-                      key={app.taskId}
-                      onClick={() => { void navigate(`/workflows/${app.workflowId}?taskId=${app.taskId}`) }}
+                      key={wf.workflowId}
+                      onClick={() => { void navigate(`/workflows/${wf.workflowId}/tasks`) }}
                       className="hover:bg-blue-50/30 cursor-pointer transition-colors group text-sm"
                     >
                       <td className="px-6 py-4 break-all font-mono text-blue-600 font-medium hover:underline">
-                        {app.workflowId}
+                        {wf.workflowId}
+                      </td>
+
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                          {wf.taskCount}
                       </td>
 
                       <td className="px-6 py-4 whitespace-nowrap">
                         <Badge
                           size="1"
                           color={
-                            app.status === 'APPROVED' ? 'green' :
-                              app.status === 'REJECTED' ? 'red' :
-                                app.status === 'FEEDBACK_REQUESTED' ? 'amber' :
+                            wf.status === 'APPROVED' ? 'green' :
+                              wf.status === 'REJECTED' ? 'red' :
+                                wf.status === 'FEEDBACK_REQUESTED' ? 'amber' :
                                   'blue'
                           }
                           variant="surface"
                         >
-                          {app.status}
+                          {wf.status}
                         </Badge>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                        {formatDateForTable(app.createdAt)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                        {formatDateForTable(app.updatedAt)}
+                        {formatDateForTable(wf.updatedAt)}
                       </td>
                     </tr>
                   ))}

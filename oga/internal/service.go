@@ -23,8 +23,11 @@ type OGAService interface {
 	// CreateApplication creates a new application from injected data
 	CreateApplication(ctx context.Context, req *InjectRequest) error
 
-	// GetApplications returns a paginated list of applications (optionally filtered by status)
-	GetApplications(ctx context.Context, status string, page, pageSize int) (*PagedResponse[Application], error)
+	// GetApplications returns a paginated list of applications (optionally filtered by status or workflow)
+	GetApplications(ctx context.Context, status string, workflowID string, page, pageSize int) (*PagedResponse[Application], error)
+
+	// GetWorkflows returns a paginated list of unique workflows with their latest status
+	GetWorkflows(ctx context.Context, page, pageSize int) (*PagedResponse[WorkflowSummary], error)
 
 	// GetApplication returns a specific application by task ID
 	GetApplication(ctx context.Context, taskID string) (*Application, error)
@@ -184,8 +187,8 @@ func (s *ogaService) CreateApplication(ctx context.Context, req *InjectRequest) 
 	return nil
 }
 
-// GetApplications returns a paginated list of applications (optionally filtered by status)
-func (s *ogaService) GetApplications(ctx context.Context, status string, page, pageSize int) (*PagedResponse[Application], error) {
+// GetApplications returns a paginated list of applications (optionally filtered by status or workflow)
+func (s *ogaService) GetApplications(ctx context.Context, status string, workflowID string, page, pageSize int) (*PagedResponse[Application], error) {
 	if page < 1 {
 		page = 1
 	}
@@ -194,7 +197,7 @@ func (s *ogaService) GetApplications(ctx context.Context, status string, page, p
 	}
 
 	offset := (page - 1) * pageSize
-	records, total, err := s.store.List(ctx, status, offset, pageSize)
+	records, total, err := s.store.List(ctx, status, workflowID, offset, pageSize)
 	if err != nil {
 		return nil, err
 	}
@@ -217,6 +220,29 @@ func (s *ogaService) GetApplications(ctx context.Context, status string, page, p
 
 	return &PagedResponse[Application]{
 		Items:    applications,
+		Total:    total,
+		Page:     page,
+		PageSize: pageSize,
+	}, nil
+}
+
+// GetWorkflows returns a paginated list of unique workflows with their latest status
+func (s *ogaService) GetWorkflows(ctx context.Context, page, pageSize int) (*PagedResponse[WorkflowSummary], error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+
+	offset := (page - 1) * pageSize
+	summaries, total, err := s.store.ListWorkflows(ctx, offset, pageSize)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PagedResponse[WorkflowSummary]{
+		Items:    summaries,
 		Total:    total,
 		Page:     page,
 		PageSize: pageSize,

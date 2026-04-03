@@ -64,7 +64,9 @@ func main() {
 	// Endpoint for services to inject data
 	mux.HandleFunc("POST /api/oga/inject", handler.HandleInjectData)
 	// Endpoints for UI to fetch and manage applications
+	mux.HandleFunc("GET /api/oga/workflows", handler.HandleGetWorkflows)
 	mux.HandleFunc("GET /api/oga/applications", handler.HandleGetApplications)
+
 	mux.HandleFunc("GET /api/oga/applications/{taskId}", handler.HandleGetApplication)
 	mux.HandleFunc("POST /api/oga/applications/{taskId}/review", handler.HandleReviewApplication)
 	mux.HandleFunc("POST /api/oga/applications/{taskId}/feedback", feedbackHandler.HandleFeedback)

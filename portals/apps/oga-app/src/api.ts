@@ -134,6 +134,13 @@ export interface OGAApplication {
 }
 
 
+export interface WorkflowSummary {
+  workflowId: string;
+  updatedAt: string;
+  status: string;
+  taskCount: number;
+}
+
 export interface PaginatedResponse<T> {
   items: T[];
   total: number;
@@ -141,15 +148,31 @@ export interface PaginatedResponse<T> {
   pageSize: number;
 }
 
+export async function fetchWorkflows(
+  apiClient: ApiClient,
+  params?: { page?: number; pageSize?: number },
+  signal?: AbortSignal
+): Promise<PaginatedResponse<WorkflowSummary>> {
+  return apiClient.get<PaginatedResponse<WorkflowSummary>>(
+    '/api/oga/workflows',
+    {
+      page: params?.page,
+      pageSize: params?.pageSize,
+    },
+    signal
+  )
+}
+
 export async function fetchApplications(
   apiClient: ApiClient,
-  params?: { status?: string; page?: number; pageSize?: number },
+  params?: { status?: string; workflowId?: string; page?: number; pageSize?: number },
   signal?: AbortSignal
 ): Promise<PaginatedResponse<OGAApplication>> {
   return apiClient.get<PaginatedResponse<OGAApplication>>(
     '/api/oga/applications',
     {
       status: params?.status,
+      workflowId: params?.workflowId,
       page: params?.page,
       pageSize: params?.pageSize,
     },
