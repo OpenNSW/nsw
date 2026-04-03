@@ -4,6 +4,7 @@ config:
   instanceConfig: "npqs"
   idpClientId: "OGA_PORTAL_APP_NPQS"
   appUrl: "https://oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  ogaBackendUrl: "http://oga-npqs-backend:8081"
 
 route:
   host: oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk

@@ -58,6 +58,8 @@ spec:
               value: {{ .Values.config.allowedOrigins | quote }}
             - name: NSW_API_BASE_URL
               value: {{ .Values.config.nswApiBaseUrl | quote }}
+            - name: USE_WORKFLOW_MANAGER_V2
+              value: {{ .Values.config.useWorkflowManagerV2 | default "true" | quote }}
             - name: OGA_FORMS_PATH
               value: "/opt/oga/data/forms"
           volumeMounts:

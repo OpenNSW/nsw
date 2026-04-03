@@ -2,7 +2,7 @@
 nameOverride: oga-npqs-backend
 fullnameOverride: oga-npqs-backend
 
-port: 82
+port: 8081
 
 # Resource Management (Akaza Quotas)
 resources:

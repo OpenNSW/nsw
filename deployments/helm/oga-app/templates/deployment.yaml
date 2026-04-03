@@ -45,6 +45,8 @@ spec:
               value: {{ .Values.config.apiBaseUrl | quote }}
             - name: VITE_SHOW_AUTOFILL_BUTTON
               value: "true"
+            - name: OGA_BACKEND_URL
+              value: {{ .Values.config.ogaBackendUrl | quote }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           securityContext:

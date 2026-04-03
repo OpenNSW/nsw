@@ -8,7 +8,7 @@ replicaCount: 1
 
 image:
   repository: ghcr.io/opennsw/oga-app
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
   tag: latest
 
 imagePullSecrets:
@@ -25,6 +25,7 @@ config:
   instanceConfig: "" 
   idpClientId: ""
   appUrl: ""
+  ogaBackendUrl: ""
 
   # Shared Platform Specifics
   apiBaseUrl: "https://nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"

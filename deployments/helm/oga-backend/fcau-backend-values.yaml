@@ -2,7 +2,7 @@
 nameOverride: oga-fcau-backend
 fullnameOverride: oga-fcau-backend
 
-port: 80
+port: 8081
 
 # Resource Management (Akaza Quotas)
 resources:
@@ -24,8 +24,6 @@ config:
     name: "oga-backend-fcau"
   allowedOrigins: "https://oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk"
   nswApiBaseUrl: "http://nsw-api.national-single-window-platform.svc.cluster.local/api/v1"
-
-config:
   port: 8081
 
 route:

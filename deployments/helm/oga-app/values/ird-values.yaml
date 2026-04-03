@@ -4,6 +4,7 @@ config:
   instanceConfig: "ird"
   idpClientId: "OGA_PORTAL_APP_IRD"
   appUrl: "https://oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  ogaBackendUrl: "http://oga-ird-backend:8081"
 
 route:
   host: oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk

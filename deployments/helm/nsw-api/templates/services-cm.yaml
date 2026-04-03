@@ -9,17 +9,17 @@ data:
       "services": [
         {
           "id": "npqs",
-          "url": "http://oga-npqs-backend.national-single-window-platform.svc.cluster.local:82",
+          "url": "http://oga-npqs-backend.national-single-window-platform.svc.cluster.local:8081",
           "timeout": "30s"
         },
         {
           "id": "fcau",
-          "url": "http://oga-fcau-backend.national-single-window-platform.svc.cluster.local",
+          "url": "http://oga-fcau-backend.national-single-window-platform.svc.cluster.local:8081",
           "timeout": "30s"
         },
         {
           "id": "ird",
-          "url": "http://oga-ird-backend.national-single-window-platform.svc.cluster.local:81",
+          "url": "http://oga-ird-backend.national-single-window-platform.svc.cluster.local:8081",
           "timeout": "30s"
         },
         {
@@ -34,3 +34,4 @@ data:
         }
       ]
     }
+

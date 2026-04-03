@@ -11,6 +11,18 @@ image:
 imagePullSecrets:
   - name: ghcr-secret
 
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001570000
+  runAsGroup: 1001570000
+  fsGroup: 1001570000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
 service:
   type: ClusterIP
   port: 80

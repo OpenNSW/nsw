@@ -2,7 +2,7 @@
 nameOverride: oga-ird-backend
 fullnameOverride: oga-ird-backend
 
-port: 81
+port: 8081
 
 # Resource Management (Akaza Quotas)
 resources:
