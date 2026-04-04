@@ -24,6 +24,8 @@ function resolveRuntimeConfig(): RuntimeConfigMap {
   return window.__APP_CONFIG__ ?? {}
 }
 
+export function getEnv(name: string): string | undefined
+export function getEnv(name: string, fallback: string): string
 export function getEnv(name: string, fallback?: string): string | undefined {
   const runtimeValue = resolveRuntimeConfig()[name]
   if (runtimeValue && runtimeValue.trim() !== '') {
@@ -49,8 +51,7 @@ export function getBooleanEnv(name: string, fallback = false): boolean {
 
 export function getIdpRoleGroupConfig(): IdpRoleGroupConfig {
   return {
-    traderGroupName:
-      getEnv('VITE_IDP_TRADER_GROUP_NAME', DEFAULT_TRADER_GROUP_NAME) ?? DEFAULT_TRADER_GROUP_NAME,
-    chaGroupName: getEnv('VITE_IDP_CHA_GROUP_NAME', DEFAULT_CHA_GROUP_NAME) ?? DEFAULT_CHA_GROUP_NAME,
+    traderGroupName: getEnv('VITE_IDP_TRADER_GROUP_NAME', DEFAULT_TRADER_GROUP_NAME),
+    chaGroupName: getEnv('VITE_IDP_CHA_GROUP_NAME', DEFAULT_CHA_GROUP_NAME),
   }
 }

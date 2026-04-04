@@ -2,7 +2,7 @@ import {BellIcon, BackpackIcon, IdCardIcon} from '@radix-ui/react-icons'
 import {SignedIn, SignedOut, SignInButton, UserDropdown, useAsgardeo} from '@asgardeo/react'
 import {Select, Flex, Text, Box} from '@radix-ui/themes'
 import {useRole, type Role} from '../../services/RoleContext'
-import type {ReactNode} from "react";
+import {useCallback, type ReactNode} from 'react'
 
 const ROLE_CONFIG: Record<Role, {
   label: string;
@@ -47,7 +47,7 @@ function RoleDisplay({role, showPrimaryLabel}: { role: Role; showPrimaryLabel: b
 function useSignOutHandler(): () => void {
   const {signOut} = useAsgardeo()
 
-  return () => {
+  return useCallback(() => {
     void (async () => {
       try {
         const signOutResult = await signOut(undefined, (redirectUrl: string) => {
@@ -63,7 +63,7 @@ function useSignOutHandler(): () => void {
         // Let the SDK configuration drive sign-out redirects.
       }
     })()
-  }
+  }, [signOut])
 }
 
 function TopBarShell({ children }: { children: ReactNode }) {
