@@ -170,7 +170,8 @@ VALUES
                 "request": {
                     "meta": {
                         "type": "consignment",
-                        "verificationId": "moa:npqs:phytosanitary:001"
+                        "verificationId": "moa:npqs:phytosanitary:001",
+                        "templateKey": "npqs:phytosanitary:v1"
                     }
                 }
             }
@@ -208,7 +209,8 @@ VALUES
                 "request": {
                     "meta": {
                         "type": "consignment",
-                        "verificationId": "edb:fcau:health-certificate:001"
+                        "verificationId": "edb:fcau:health-certificate:001",
+                        "templateKey": "fcau:health_certificate:v1"
                     }
                 }
             }
@@ -242,7 +244,12 @@ VALUES
                 }
             },
             "submission": {
-                "url": ' || to_jsonb((:'NPQS_OGA_SUBMISSION_URL')::text)::text || '
+                "url": ' || to_jsonb((:'NPQS_OGA_SUBMISSION_URL')::text)::text || ',
+                "request": {
+                    "meta": {
+                        "templateKey": "npqs:manual_inspection:v1"
+                    }
+                }
             }
         }')::jsonb,
         '[
@@ -276,6 +283,13 @@ VALUES
                     "display": {
                         "title": "Waiting for ship to leave from port",
                         "description": "The task will be completed when the ship leaves the port. This is an external event that we are waiting for."
+                    },
+                    "submission": {
+                        "request": {
+                            "meta": {
+                                "templateKey": "port:vessel_departure:v1"
+                            }
+                        }
                     }
                 }',
         '[

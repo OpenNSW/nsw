@@ -74,8 +74,10 @@ type Config struct {
 }
 
 type Meta struct {
-	VerificationType string `json:"type"`
-	VerificationId   string `json:"verificationId"`
+	// TODO: After adapting to TemplateKey, VerificationType and VerificationId should be removed.
+	VerificationType string `json:"type,omitempty"`
+	VerificationId   string `json:"verificationId,omitempty"`
+	TemplateKey      string `json:"templateKey,omitempty"`
 }
 type Request struct {
 	Meta *Meta `json:"meta"`

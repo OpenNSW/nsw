@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/OpenNSW/nsw/pkg/remote"
 )
@@ -35,12 +36,14 @@ type WaitForEventConfig struct {
 	ServiceID          string               `json:"serviceId"`
 	ExternalServiceURL string               `json:"externalServiceUrl"`
 	Display            *WaitForEventDisplay `json:"display,omitempty"`
+	Submission         *SubmissionConfig    `json:"submission,omitempty"`
 }
 
 type WaitForEventTask struct {
-	api           API
-	config        WaitForEventConfig
-	remoteManager *remote.Manager
+	api            API
+	config         WaitForEventConfig
+	serviceBaseURL string
+	remoteManager  *remote.Manager
 }
 
 func (t *WaitForEventTask) GetRenderInfo(_ context.Context) (*ApiResponse, error) {
@@ -63,6 +66,8 @@ func (t *WaitForEventTask) Init(api API) {
 type ExternalServiceRequest struct {
 	WorkflowID string `json:"workflowId"`
 	TaskID     string `json:"taskId"`
+	ServiceURL string `json:"serviceUrl"`
+	Meta       *Meta  `json:"meta,omitempty"`
 }
 
 // NewWaitForEventFSM returns the state graph for WaitForEventTask.
@@ -90,12 +95,12 @@ func (t *WaitForEventTask) renderContent() map[string]any {
 	return content
 }
 
-func NewWaitForEventTask(raw json.RawMessage, remoteManager *remote.Manager) (*WaitForEventTask, error) {
+func NewWaitForEventTask(raw json.RawMessage, serviceBaseURL string, remoteManager *remote.Manager) (*WaitForEventTask, error) {
 	var cfg WaitForEventConfig
 	if err := json.Unmarshal(raw, &cfg); err != nil {
 		return nil, err
 	}
-	return &WaitForEventTask{config: cfg, remoteManager: remoteManager}, nil
+	return &WaitForEventTask{config: cfg, serviceBaseURL: serviceBaseURL, remoteManager: remoteManager}, nil
 }
 
 func (t *WaitForEventTask) Start(ctx context.Context) (*ExecutionResponse, error) {
@@ -171,14 +176,21 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID str
 		return fmt.Errorf("externalServiceUrl not configured")
 	}
 
+	extReq := ExternalServiceRequest{
+		WorkflowID: workflowID,
+		TaskID:     taskID,
+		ServiceURL: strings.TrimRight(t.serviceBaseURL, "/") + TasksAPIPath,
+	}
+
+	if t.config.Submission != nil && t.config.Submission.Request != nil {
+		extReq.Meta = t.config.Submission.Request.Meta
+	}
+
 	req := remote.Request{
 		Method: "POST",
 		Path:   target,
-		Body: ExternalServiceRequest{
-			WorkflowID: workflowID,
-			TaskID:     taskID,
-		},
-		Retry: &remote.DefaultRetryConfig,
+		Body:   extReq,
+		Retry:  &remote.DefaultRetryConfig,
 	}
 
 	// 1. Try to use the Manager if it's available.

@@ -58,7 +58,7 @@ func (f *taskFactory) BuildExecutor(ctx context.Context, taskType Type, config j
 		p, err := NewSimpleForm(config, f.config, f.formService, f.remoteManager)
 		return Executor{Plugin: p, FSM: NewSimpleFormFSM()}, err
 	case TaskTypeWaitForEvent:
-		p, err := NewWaitForEventTask(config, f.remoteManager)
+		p, err := NewWaitForEventTask(config, f.config.Server.ServiceURL, f.remoteManager)
 		return Executor{Plugin: p, FSM: NewWaitForEventFSM()}, err
 	case TaskTypePayment:
 		p, err := NewPaymentTask(config, f.paymentService)
