@@ -245,7 +245,7 @@ func TestApplicationStore_List_Pagination(t *testing.T) {
 	}
 
 	// List all
-	apps, total, err := store.List(ctx, "", "", 0, 10)
+	apps, total, err := store.List(ctx, "", "", "", 0, 10)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -257,7 +257,7 @@ func TestApplicationStore_List_Pagination(t *testing.T) {
 	}
 
 	// List with status filter
-	_, total, err = store.List(ctx, "APPROVED", "", 0, 10)
+	_, total, err = store.List(ctx, "APPROVED", "", "", 0, 10)
 	if err != nil {
 		t.Fatalf("List with status filter failed: %v", err)
 	}
@@ -266,7 +266,7 @@ func TestApplicationStore_List_Pagination(t *testing.T) {
 	}
 
 	// List with pagination
-	apps, _, err = store.List(ctx, "", "", 0, 2)
+	apps, _, err = store.List(ctx, "", "", "", 0, 2)
 	if err != nil {
 		t.Fatalf("List with limit failed: %v", err)
 	}
@@ -275,7 +275,7 @@ func TestApplicationStore_List_Pagination(t *testing.T) {
 	}
 
 	// List with offset
-	apps, _, err = store.List(ctx, "", "", 3, 10)
+	apps, _, err = store.List(ctx, "", "", "", 3, 10)
 	if err != nil {
 		t.Fatalf("List with offset failed: %v", err)
 	}
@@ -302,7 +302,7 @@ func TestApplicationStore_List_WorkflowFilter(t *testing.T) {
 	}
 
 	// Filter by wf-seed
-	apps, total, err := store.List(ctx, "", "wf-seed", 0, 10)
+	apps, total, err := store.List(ctx, "", "wf-seed", "", 0, 10)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -314,7 +314,7 @@ func TestApplicationStore_List_WorkflowFilter(t *testing.T) {
 	}
 
 	// Filter by wf-custom
-	_, total, err = store.List(ctx, "", "wf-custom", 0, 10)
+	_, total, err = store.List(ctx, "", "wf-custom", "", 0, 10)
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -340,7 +340,7 @@ func TestApplicationStore_ListWorkflows(t *testing.T) {
 	_ = store.CreateOrUpdate(&ApplicationRecord{TaskID: "wf3-t1", WorkflowID: "wf3", Status: "REJECTED"})
 
 	// List workflows
-	summaries, total, err := store.ListWorkflows(ctx, 0, 10)
+	summaries, total, err := store.ListWorkflows(ctx, "", 0, 10)
 	if err != nil {
 		t.Fatalf("ListWorkflows failed: %v", err)
 	}
@@ -364,6 +364,26 @@ func TestApplicationStore_ListWorkflows(t *testing.T) {
 	}
 	if !foundWF1 {
 		t.Error("wf1 not found in summaries")
+	}
+}
+
+func TestApplicationStore_ListWorkflows_Search(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	_ = store.CreateOrUpdate(&ApplicationRecord{TaskID: "t1", WorkflowID: "alpha-wf", Status: "PENDING"})
+	_ = store.CreateOrUpdate(&ApplicationRecord{TaskID: "t2", WorkflowID: "beta-wf", Status: "PENDING"})
+
+	summaries, total, err := store.ListWorkflows(ctx, "alpha", 0, 10)
+	if err != nil {
+		t.Fatalf("ListWorkflows failed: %v", err)
+	}
+
+	if total != 1 {
+		t.Errorf("expected total 1, got %d", total)
+	}
+	if summaries[0].WorkflowID != "alpha-wf" {
+		t.Errorf("expected alpha-wf, got %s", summaries[0].WorkflowID)
 	}
 }
 

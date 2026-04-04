@@ -69,7 +69,7 @@ func (h *OGAHandler) HandleInjectData(w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleGetApplications handles GET /api/oga/applications
-// Returns all applications, optionally filtered by status or workflowId query parameter
+// Returns all applications, optionally filtered by status, workflowId, or q query parameter
 func (h *OGAHandler) HandleGetApplications(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		WriteJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
@@ -79,6 +79,7 @@ func (h *OGAHandler) HandleGetApplications(w http.ResponseWriter, r *http.Reques
 	ctx := r.Context()
 	status := r.URL.Query().Get("status")
 	workflowID := r.URL.Query().Get("workflowId")
+	search := r.URL.Query().Get("q")
 
 	page, err := strconv.Atoi(r.URL.Query().Get("page"))
 	if err != nil && r.URL.Query().Get("page") != "" {
@@ -91,7 +92,7 @@ func (h *OGAHandler) HandleGetApplications(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	result, err := h.service.GetApplications(ctx, status, workflowID, page, pageSize)
+	result, err := h.service.GetApplications(ctx, status, workflowID, search, page, pageSize)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get applications", "error", err)
 		WriteJSONError(w, http.StatusInternalServerError, "Failed to get applications")
@@ -102,7 +103,7 @@ func (h *OGAHandler) HandleGetApplications(w http.ResponseWriter, r *http.Reques
 }
 
 // HandleGetWorkflows handles GET /api/oga/workflows
-// Returns a paginated list of unique workflows with their latest status
+// Returns a paginated list of unique workflows with their latest status, optionally filtered by q
 func (h *OGAHandler) HandleGetWorkflows(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		WriteJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
@@ -110,6 +111,7 @@ func (h *OGAHandler) HandleGetWorkflows(w http.ResponseWriter, r *http.Request) 
 	}
 
 	ctx := r.Context()
+	search := r.URL.Query().Get("q")
 
 	page, err := strconv.Atoi(r.URL.Query().Get("page"))
 	if err != nil && r.URL.Query().Get("page") != "" {
@@ -122,7 +124,7 @@ func (h *OGAHandler) HandleGetWorkflows(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	result, err := h.service.GetWorkflows(ctx, page, pageSize)
+	result, err := h.service.GetWorkflows(ctx, search, page, pageSize)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to get workflows", "error", err)
 		WriteJSONError(w, http.StatusInternalServerError, "Failed to get workflows")

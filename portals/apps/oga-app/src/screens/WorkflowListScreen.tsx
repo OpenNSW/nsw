@@ -22,7 +22,11 @@ export function WorkflowListScreen() {
     async function fetchData(isSilent = false) {
       try {
         if (!isSilent) setLoading(true)
-        const result = await fetchWorkflows(apiClient, { page, pageSize: PAGE_SIZE })
+        const result = await fetchWorkflows(apiClient, { 
+          page, 
+          pageSize: PAGE_SIZE,
+          q: searchQuery 
+        })
         setWorkflows(result.items)
         setTotal(result.total)
       } catch (error) {
@@ -35,12 +39,7 @@ export function WorkflowListScreen() {
     // Poll for new workflows every 15 seconds
     const interval = setInterval(() => void fetchData(true), 15000)
     return () => clearInterval(interval)
-  }, [apiClient, page])
-
-  const filteredWorkflows = workflows.filter((wf) => {
-    return searchQuery === '' ||
-      wf.workflowId.toLowerCase().includes(searchQuery.toLowerCase())
-  })
+  }, [apiClient, page, searchQuery])
 
   // Format date: Jan 27, 2026
   const formatDateForTable = (dateString?: string) => {
@@ -85,7 +84,10 @@ export function WorkflowListScreen() {
               size="2"
               placeholder="Search by Consignment ID..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value)
+                setPage(1)
+              }}
             >
               <TextField.Slot>
                 <MagnifyingGlassIcon height="16" width="16" />
@@ -95,7 +97,7 @@ export function WorkflowListScreen() {
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          {filteredWorkflows.length === 0 ? (
+          {workflows.length === 0 ? (
             <div className="p-12 text-center">
               <div className="bg-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-gray-100">
                 <ArchiveIcon className="w-8 h-8 text-gray-300" />
@@ -124,7 +126,7 @@ export function WorkflowListScreen() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
-                  {filteredWorkflows.map((wf) => (
+                  {workflows.map((wf) => (
                     <tr
                       key={wf.workflowId}
                       onClick={() => { void navigate(`/workflows/${wf.workflowId}/tasks`) }}

@@ -150,12 +150,13 @@ export interface PaginatedResponse<T> {
 
 export async function fetchWorkflows(
   apiClient: ApiClient,
-  params?: { page?: number; pageSize?: number },
+  params?: { q?: string; page?: number; pageSize?: number },
   signal?: AbortSignal
 ): Promise<PaginatedResponse<WorkflowSummary>> {
   return apiClient.get<PaginatedResponse<WorkflowSummary>>(
     '/api/oga/workflows',
     {
+      q: params?.q,
       page: params?.page,
       pageSize: params?.pageSize,
     },
@@ -165,7 +166,7 @@ export async function fetchWorkflows(
 
 export async function fetchApplications(
   apiClient: ApiClient,
-  params?: { status?: string; workflowId?: string; page?: number; pageSize?: number },
+  params?: { status?: string; workflowId?: string; q?: string; page?: number; pageSize?: number },
   signal?: AbortSignal
 ): Promise<PaginatedResponse<OGAApplication>> {
   return apiClient.get<PaginatedResponse<OGAApplication>>(
@@ -173,6 +174,7 @@ export async function fetchApplications(
     {
       status: params?.status,
       workflowId: params?.workflowId,
+      q: params?.q,
       page: params?.page,
       pageSize: params?.pageSize,
     },
