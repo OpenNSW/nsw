@@ -1,0 +1,184 @@
+# OGA-IRD Backend Values
+nameOverride: oga-ird-backend
+fullnameOverride: oga-ird-backend
+
+port: 8081
+
+# Resource Management (Akaza Quotas)
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+image:
+  tag: latest
+imagePullSecrets:
+  - name: ghcr-secret
+
+# Isolated Database Configuration
+config:
+  port: 8081
+  database:
+    name: "oga-backend-ird"
+  allowedOrigins: "https://oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  nswApiBaseUrl: "http://nsw-api.national-single-window-platform.svc.cluster.local/api/v1"
+
+route:
+  enabled: true
+  host: oga-ird-backend-national-single-window-platform.apps.sovecloud1.akaza.lk
+  tls:
+    enabled: true
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
+seeding:
+  enabled: false
+
+forms:
+  "default.json": |-
+    {
+      "schema": {
+        "type": "object",
+        "required": [
+          "decision"
+        ],
+        "properties": {
+          "decision": {
+            "type": "string",
+            "title": "Decision",
+            "oneOf": [
+              {
+                "const": "APPROVED",
+                "title": "Approved"
+              },
+              {
+                "const": "REJECTED",
+                "title": "Rejected"
+              }
+            ]
+          },
+          "remarks": {
+            "type": "string",
+            "title": "Remarks"
+          }
+        }
+      },
+      "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/decision"
+          },
+          {
+            "type": "Control",
+            "scope": "#/properties/remarks",
+            "options": {
+              "multi": true
+            }
+          }
+        ]
+      }
+    }
+  "preconsignment.ird.general-trader-verification.001.view.json": |-
+    {
+        "title": "General Trader Verification (Submitted)",
+        "schema": {
+            "type": "object",
+            "required": [
+                "registrationNumber",
+                "tinNumber",
+                "tinCertificate",
+                "vatNumber",
+                "vatCertificate"
+            ],
+            "properties": {
+                "tinNumber": {
+                    "type": "string",
+                    "title": "TIN Number",
+                    "readOnly": true
+                },
+                "vatNumber": {
+                    "type": "string",
+                    "title": "VAT Registration Number",
+                    "readOnly": true
+                },
+                "businessName": {
+                    "type": "string",
+                    "title": "Business Name",
+                    "readOnly": true
+                },
+                "businessType": {
+                    "type": "string",
+                    "title": "Business Type",
+                    "readOnly": true
+                },
+                "tinCertificate": {
+                    "type": "string",
+                    "title": "TIN Registration Certificate",
+                    "format": "file",
+                    "readOnly": true
+                },
+                "vatCertificate": {
+                    "type": "string",
+                    "title": "VAT Registration Certificate",
+                    "format": "file",
+                    "readOnly": true
+                },
+                "registeredAddress": {
+                    "type": "string",
+                    "title": "Registered Address",
+                    "readOnly": true
+                },
+                "registrationNumber": {
+                    "type": "string",
+                    "title": "Business Registration Number",
+                    "readOnly": true
+                }
+            }
+        },
+        "uiSchema": {
+            "type": "VerticalLayout",
+            "elements": [
+                {
+                    "text": "General Trader Verification",
+                    "type": "Label"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/businessName"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/businessType"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/registeredAddress"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/registrationNumber"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/tinNumber"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/tinCertificate"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/vatNumber"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/vatCertificate"
+                }
+            ]
+        }
+    }

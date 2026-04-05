@@ -146,7 +146,7 @@ services:
       DB_NAME: ${DB_NAME:-nsw_db}
       NPQS_OGA_SUBMISSION_URL: http://oga-npqs:${OGA_NPQS_PORT:-8081}/api/oga/inject
       FCAU_OGA_SUBMISSION_URL: http://oga-fcau:${OGA_FCAU_PORT:-8082}/api/oga/inject
-      PRECONSIGNMENT_OGA_SUBMISSION_URL: http://oga-ird:${OGA_IRD_PORT:-8083}/api/oga/inject
+      IRD_OGA_SUBMISSION_URL: http://oga-ird:${OGA_IRD_PORT:-8083}/api/oga/inject
     networks:
       - core-net
     depends_on:
@@ -181,7 +181,7 @@ services:
               -v ON_ERROR_STOP=1 \
               -v NPQS_OGA_SUBMISSION_URL="$${NPQS_OGA_SUBMISSION_URL}" \
               -v FCAU_OGA_SUBMISSION_URL="$${FCAU_OGA_SUBMISSION_URL}" \
-              -v PRECONSIGNMENT_OGA_SUBMISSION_URL="$${PRECONSIGNMENT_OGA_SUBMISSION_URL}" \
+              -v IRD_OGA_SUBMISSION_URL="$${IRD_OGA_SUBMISSION_URL}" \
               -h "$${DB_HOST}" -p "$${DB_PORT}" -U "$${DB_USERNAME}" -d "$${DB_NAME}" \
               -f "$$FILE"
           else
@@ -249,7 +249,7 @@ services:
       dockerfile: apps/trader-app/Dockerfile
     image: nsw-trader-portal:local
     ports:
-      - "${TRADER_APP_PORT:-5173}:80"
+      - "${TRADER_APP_PORT:-5173}:8080"
     networks:
       - core-net
     environment:
@@ -314,7 +314,7 @@ services:
       dockerfile: apps/oga-app/Dockerfile
     image: nsw-oga-portal:local
     ports:
-      - "${OGA_APP_NPQS_PORT:-5174}:80"
+      - "${OGA_APP_NPQS_PORT:-5174}:8080"
     networks:
       - oga-npqs-net
     environment:
@@ -350,7 +350,7 @@ services:
   oga-portal-fcau:
     image: nsw-oga-portal:local
     ports:
-      - "${OGA_APP_FCAU_PORT:-5175}:80"
+      - "${OGA_APP_FCAU_PORT:-5175}:8080"
     networks:
       - oga-fcau-net
     depends_on:
@@ -388,7 +388,7 @@ services:
   oga-portal-ird:
     image: nsw-oga-portal:local
     ports:
-      - "${OGA_APP_IRD_PORT:-5176}:80"
+      - "${OGA_APP_IRD_PORT:-5176}:8080"
     networks:
       - oga-ird-net
     depends_on:

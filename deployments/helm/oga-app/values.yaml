@@ -1,42 +1,49 @@
 # Default values for oga-app.
-# Override with per-instance values files (e.g. oga-npqs-values.yaml).
+# MUST override with per-instance values files (e.g. oga-fcau-values.yaml).
+
+# Explicitly allow renaming the deployment resources per agency
+fullnameOverride: ""
 
 replicaCount: 1
 
 image:
   repository: ghcr.io/opennsw/oga-app
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
   tag: latest
 
 imagePullSecrets:
-  - name: ghcr-pull-secret
-
+  - name: ghcr-secret
+  
 service:
   type: ClusterIP
   port: 80
-  targetPort: 80
+  targetPort: 8080 # CRITICAL: Unprivileged port for OpenShift Nginx
 
+# --- Shared configuration ---
 config:
-  instanceConfig: "npqs"
-  apiBaseUrl: "https://nsw-api-national-single-window-platform.lgc.gov.lk/api/v1"
-  idpBaseUrl: "https://idp-route.national-single-window-platform.lgc.gov.lk"
-  idpClientId: "OGA_PORTAL_APP_NPQS"
-  appUrl: "https://npqs-portal-national-single-window-platform.lgc.gov.lk"
+  # Agency Specifics: Intentionally left blank to FORCE overrides
+  instanceConfig: "" 
+  idpClientId: ""
+  appUrl: ""
+  ogaBackendUrl: ""
+
+  # Shared Platform Specifics
+  apiBaseUrl: "https://nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"
+  idpBaseUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"
   idpScopes: "openid,profile,email"
   idpPlatform: "AsgardeoV2"
 
 resources:
   limits:
     cpu: 200m
-    memory: 128Mi
+    memory: 256Mi
   requests:
     cpu: 50m
-    memory: 64Mi
+    memory: 128Mi
 
 route:
   enabled: true
-  host: npqs-portal-national-single-window-platform.lgc.gov.lk
+  host: "" # Must override in agency values file
   tls:
-    enabled: true
     termination: edge
     insecureEdgeTerminationPolicy: Redirect

@@ -1,9 +1,14 @@
 
-{{- define "nsw-api.name" -}}
-{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
+{{- define "oga-backend.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
-{{- define "nsw-api.fullname" -}}
+{{/*
+Create a default fully qualified app name.
+We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
+If release name contains chart name it will be used as a full name.
+*/}}
+{{- define "oga-backend.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -17,16 +22,16 @@
 {{- end }}
 
 
-{{- define "nsw-api.chart" -}}
+{{- define "oga-backend.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "nsw-api.labels" -}}
-helm.sh/chart: {{ include "nsw-api.chart" . }}
-{{ include "nsw-api.selectorLabels" . }}
+{{- define "oga-backend.labels" -}}
+helm.sh/chart: {{ include "oga-backend.chart" . }}
+{{ include "oga-backend.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -36,7 +41,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "nsw-api.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "nsw-api.name" . }}
+{{- define "oga-backend.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "oga-backend.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}

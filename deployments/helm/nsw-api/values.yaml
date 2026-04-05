@@ -1,19 +1,34 @@
 # Default values for nsw-api.
 
+fullnameOverride: "nsw-api"
 replicaCount: 1
 
 image:
   repository: ghcr.io/opennsw/nsw-api
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
   tag: latest
 
 imagePullSecrets:
-  - name: ghcr-pull-secret
+  - name: ghcr-secret
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001570000
+  runAsGroup: 1001570000
+  fsGroup: 1001570000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
 
 service:
   type: ClusterIP
   port: 80
   targetPort: 8080
+  useWorkflowManagerV2: true
+  temporalHost: "temporal-server:7233"
 
 config:
   server:
@@ -30,18 +45,20 @@ config:
     sslMode: "disable"
 
   auth:
-    jwksUrl: "https://idp-route.national-single-window-platform.lgc.gov.lk/oauth2/jwks"
-    issuer: "https://idp-route.national-single-window-platform.lgc.gov.lk"
+    # Use the internal service name and port 8090
+    jwksUrl: "http://idp-thunder-service.national-single-window-platform.svc.cluster.local:8090/oauth2/jwks"
+    issuer: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"
     audience: "TRADER_PORTAL_APP"
     clientId: "TRADER_PORTAL_APP"
-    insecureSkipTlsVerify: false
+    # Set to true if the IDP is using a self-signed cert internally (common in GovCloud)
+    insecureSkipTlsVerify: true
 
-  serviceUrl: "https://nsw-api-national-single-window-platform.lgc.gov.lk"
+  serviceUrl: "https://nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  internalServiceUrl: "http://nsw-api.national-single-window-platform.svc.cluster.local"
 
   cors:
     allowedOrigins:
-      - "https://trader-portal-national-single-window-platform.lgc.gov.lk"
-      - "https://npqs-portal-national-single-window-platform.lgc.gov.lk"
+      - "https://trader-app-national-single-window-platform.apps.sovecloud1.akaza.lk"
 
   storage:
     type: "local"
@@ -51,8 +68,6 @@ config:
     s3Endpoint: ""
     s3Bucket: "nsw-uploads"
     s3Region: "us-east-1"
-    s3AccessKey: ""
-    s3SecretKey: ""
     s3UseSsl: true
     s3PublicUrl: ""
 
@@ -66,9 +81,27 @@ resources:
 
 route:
   enabled: true
-  # Leave empty to let OpenShift auto-assign; set explicitly only if your user has permission.
-  host: ""
+  host: "nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk"
   tls:
     enabled: true
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
+
+# --- Database Migrations (init container) ---
+migrations:
+  enabled: true
+  image:
+    repository: registry.redhat.io/rhel8/postgresql-12@sha256:fd7b47517df99487c02d86f57b0b6722c32551bcf89ce61018d6a5e355c7c212
+    tag: ""
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  ogaSubmissionUrls:
+    npqs: "http://oga-npqs-backend.national-single-window-platform.svc.cluster.local:8081/api/oga/inject"
+    fcau: "http://oga-fcau-backend.national-single-window-platform.svc.cluster.local:8081/api/oga/inject"
+    ird: "http://oga-ird-backend.national-single-window-platform.svc.cluster.local:8081/api/oga/inject"

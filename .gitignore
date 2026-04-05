@@ -31,3 +31,6 @@ backend/configs/*
 
 # Files uploaded by users to the server
 **/bucket/
+
+# Dynamically injected deployments
+deployments/helm/nsw-api/sql/

@@ -62,7 +62,9 @@ func setupWorkflowManagerV2(
 	templateService *service.TemplateService,
 ) (workflowManagerV2.TemporalManager, error) {
 	// 1. Connect to the local Temporal Server (Needed for Workflow Manager V2)
-	c, err := client.Dial(client.Options{})
+	c, err := client.Dial(client.Options{
+		HostPort: cfg.TemporalHost,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("error creating temporal client: %w", err)
 	}

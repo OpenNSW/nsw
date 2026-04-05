@@ -3,32 +3,40 @@ kind: Deployment
 metadata:
   name: {{ include "nsw-api.fullname" . }}
   labels:
-    app.kubernetes.io/name: {{ include "nsw-api.name" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "nsw-api.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "nsw-api.name" . }}
-      app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- include "nsw-api.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "nsw-api.name" . }}
-        app.kubernetes.io/instance: {{ .Release.Name }}
+        {{- include "nsw-api.selectorLabels" . | nindent 8 }}
     spec:
+      # Pod level security
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
       {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml .Values.imagePullSecrets | nindent 8 }}
       {{- end }}
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # Container level security (Standard for Production)
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
           ports:
             - name: http
               containerPort: {{ .Values.config.server.port }}
               protocol: TCP
+          volumeMounts:
+            - name: uploads-volume
+              mountPath: /app/bucket
+            - name: services-config
+              mountPath: /app/configs
           env:
             # --- Server ---
             - name: SERVER_PORT
@@ -64,6 +72,11 @@ spec:
               value: {{ .Values.config.auth.audience | quote }}
             - name: AUTH_CLIENT_ID
               value: {{ .Values.config.auth.clientId | quote }}
+            - name: AUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: idp-client-secret
+                  key: clientSecret
             - name: AUTH_JWKS_INSECURE_SKIP_VERIFY
               value: {{ .Values.config.auth.insecureSkipTlsVerify | quote }}
 
@@ -72,6 +85,8 @@ spec:
               value: {{ .Values.config.serviceUrl | quote }}
             - name: CORS_ALLOWED_ORIGINS
               value: {{ join "," .Values.config.cors.allowedOrigins | quote }}
+            - name: SERVICES_CONFIG_PATH
+              value: "/app/configs/services.json"
 
             # --- Storage ---
             - name: STORAGE_TYPE
@@ -99,24 +114,39 @@ spec:
                   key: secretKey
             - name: STORAGE_S3_USE_SSL
               value: {{ .Values.config.storage.s3UseSsl | quote }}
-            {{- if .Values.config.storage.s3PublicUrl }}
-            - name: STORAGE_S3_PUBLIC_URL
-              value: {{ .Values.config.storage.s3PublicUrl | quote }}
             {{- end }}
-            {{- end }}
+
+            # --- Temporal ---
+            - name: TEMPORAL_HOST
+              value: {{ .Values.service.temporalHost | quote }}
+            - name: USE_WORKFLOW_MANAGER_V2
+              value: {{ .Values.service.useWorkflowManagerV2 | quote }}
+            - name: TEMPORAL_MTLS_CERT
+              valueFrom:
+                secretKeyRef:
+                  name: temporal-certs
+                  key: cert
+            - name: TEMPORAL_MTLS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: temporal-certs
+                  key: key
 
           livenessProbe:
             tcpSocket:
               port: http
             initialDelaySeconds: 5
             periodSeconds: 15
-            failureThreshold: 3
           readinessProbe:
             tcpSocket:
               port: http
             initialDelaySeconds: 3
             periodSeconds: 10
-            failureThreshold: 3
-
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: services-config
+          configMap:
+            name: {{ include "nsw-api.fullname" . }}-services
+        - name: uploads-volume
+          emptyDir: {}
