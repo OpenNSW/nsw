@@ -396,23 +396,25 @@ VALUES
         '{
             "type": "object",
             "required": [
-                "decision",
-                "reviewedAt"
+                "decision"
             ],
             "properties": {
                 "decision": {
-                    "enum": [
-                        "APPROVED",
-                        "REJECTED"
-                    ],
-                    "type": "string"
-                },
-                "reviewedAt": {
                     "type": "string",
-                    "format": "date-time"
+                    "title": "Review Decision",
+                    "oneOf": [
+                        { "const": "APPROVED", "title": "Approve" },
+                        { "const": "REJECTED", "title": "Reject" },
+                        { "const": "FEEDBACK_REQUESTED", "title": "Needs More Info" }
+                    ]
                 },
-                "reviewerNotes": {
-                    "type": "string"
+                "referenceNumber": {
+                    "type": "string",
+                    "title": "Approval Reference Number"
+                },
+                "remarks": {
+                    "type": "string",
+                    "title": "Officer Remarks / Required Info"
                 }
             }
         }',
@@ -428,14 +430,21 @@ VALUES
                 },
                 {
                     "type": "Control",
-                    "scope": "#/properties/reviewerNotes",
-                    "options": {
-                        "multi": true
+                    "scope": "#/properties/referenceNumber",
+                    "rule": {
+                        "effect": "SHOW",
+                        "condition": {
+                            "scope": "#/properties/decision",
+                            "schema": { "const": "APPROVED" }
+                        }
                     }
                 },
                 {
                     "type": "Control",
-                    "scope": "#/properties/reviewedAt"
+                    "scope": "#/properties/remarks",
+                    "options": {
+                        "multi": true
+                    }
                 }
             ]
         }',
@@ -673,6 +682,104 @@ VALUES
                 {
                     "type": "Control",
                     "scope": "#/properties/reviewedAt"
+                }
+            ]
+        }',
+        '1.0',
+        TRUE
+    ),
+    -- FCAU Health Certificate Trader Form
+    (
+        'a1b2c3d4-0000-0000-0000-000000000000',
+        'FCAU Health Certificate',
+        'Application for Health Certificate from FCAU',
+        '{
+            "type": "object",
+            "properties": {
+                "applicantName": { "type": "string", "title": "Name of Applicant" },
+                "applicantAddress": { "type": "string", "title": "Address of Applicant" },
+                "consigneeName": { 
+                    "type": "string", 
+                    "title": "Name of Consignee", 
+                    "readOnly": true, 
+                    "x-globalContext": { 
+                        "readFrom": "gi:consignee:consignee_name" 
+                    } 
+                },
+                "consigneeAddress": { 
+                    "type": "string", 
+                    "title": "Address of Consignee", 
+                    "readOnly": true, 
+                    "x-globalContext": { 
+                        "readFrom": "gi:consignee:address" 
+                    } 
+                },
+                "consignmentDescription": { "type": "string", "title": "Description of consignment and quantity" },
+                "exportDate": { "type": "string", "format": "date", "title": "Date of intended export" },
+                "lcNumber": { "type": "string", "title": "L/C No" },
+                "containerNumbers": { "type": "string", "title": "Container Numbers (attach list if necessary)" },
+                "vesselName": { "type": "string", "title": "Name of Vessel/ Number" },
+                "storageAddress": { "type": "string", "title": "Address where consignment is stored" },
+                "packageDetails": { "type": "string", "title": "Type of Package, Batch Codes and Total weight" },
+                "ingredientDetails": { "type": "string", "title": "Details of ingredients used in product" },
+                "qualityMonitoring": { "type": "string", "title": "Details of in-house quality monitoring" },
+                "analysisCertificates": { 
+                    "type": "string", 
+                    "format": "file", 
+                    "title": "Raw materials and product analysis certificates (Attach)" 
+                },
+                "otherDeclarations": { "type": "string", "title": "Any other Declarations" }
+            },
+            "required": [
+                "applicantName", "applicantAddress", "consigneeName", "consigneeAddress", 
+                "consignmentDescription", "exportDate", "lcNumber", "containerNumbers", 
+                "vesselName", "storageAddress", "packageDetails", "ingredientDetails", 
+                "qualityMonitoring", "analysisCertificates"
+            ]
+        }',
+        '{
+            "type": "VerticalLayout",
+            "elements": [
+                {
+                    "type": "Group",
+                    "label": "Consignment Information",
+                    "elements": [
+                        { "type": "Control", "scope": "#/properties/applicantName" },
+                        { "type": "Control", "scope": "#/properties/applicantAddress", "options": { "multi": true } },
+                        { 
+                            "type": "Control", 
+                            "scope": "#/properties/consigneeName",
+                            "options": { "readOnly": true }
+                        },
+                        { 
+                            "type": "Control", 
+                            "scope": "#/properties/consigneeAddress", 
+                            "options": { "multi": true, "readOnly": true } 
+                        },
+                        { "type": "Control", "scope": "#/properties/exportDate" },
+                        { "type": "Control", "scope": "#/properties/lcNumber" },
+                        { "type": "Control", "scope": "#/properties/containerNumbers" }
+                    ]
+                },
+                {
+                    "type": "Group",
+                    "label": "Transport",
+                    "elements": [
+                        { "type": "Control", "scope": "#/properties/vesselName" }
+                    ]
+                },
+                {
+                    "type": "Group",
+                    "label": "Items & Technical Details",
+                    "elements": [
+                        { "type": "Control", "scope": "#/properties/consignmentDescription" },
+                        { "type": "Control", "scope": "#/properties/storageAddress" },
+                        { "type": "Control", "scope": "#/properties/packageDetails" },
+                        { "type": "Control", "scope": "#/properties/ingredientDetails" },
+                        { "type": "Control", "scope": "#/properties/qualityMonitoring" },
+                        { "type": "Control", "scope": "#/properties/analysisCertificates" },
+                        { "type": "Control", "scope": "#/properties/otherDeclarations" }
+                    ]
                 }
             ]
         }',
