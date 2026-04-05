@@ -12,6 +12,8 @@ import {ApiProvider, useApi} from './services/ApiContext'
 import { RoleProvider } from './services/RoleContext'
 import { UploadProvider } from '@opennsw/jsonforms-renderers'
 import { uploadFile, getDownloadUrl } from './services/upload'
+import { useResolvedRoles } from './hooks/useResolvedRoles'
+import { NoRolesAssigned } from './components/common/NoRolesAssigned'
 
 function UploadWrapper({ children }: { children: ReactNode }) {
   const api = useApi()
@@ -27,17 +29,24 @@ function UploadWrapper({ children }: { children: ReactNode }) {
 
 function ProtectedLayout() {
   const {isSignedIn, isLoading} = useAsgardeo()
+  const {availableRoles, isResolvingRoles} = useResolvedRoles(isSignedIn)
 
-  if (isLoading) return null
+  if (isLoading || (isSignedIn && (isResolvingRoles || availableRoles === null))) return null
   if (!isSignedIn) return <Navigate to="/login" replace/>
   
   return (
     <ApiProvider>
-      <RoleProvider availableGroups={['trader', 'cha']} isLoading={isLoading}>
-        <UploadWrapper>
-          <Layout/>
-        </UploadWrapper>
-      </RoleProvider>
+      {!availableRoles || availableRoles.length === 0 ? (
+        <Layout showSidebar={false} topBarMode="user-only">
+          <NoRolesAssigned/>
+        </Layout>
+      ) : (
+        <RoleProvider availableGroups={availableRoles} isLoading={isResolvingRoles}>
+          <UploadWrapper>
+            <Layout/>
+          </UploadWrapper>
+        </RoleProvider>
+      )}
     </ApiProvider>
   )
 }

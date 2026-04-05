@@ -2,7 +2,7 @@ import {BellIcon, BackpackIcon, IdCardIcon} from '@radix-ui/react-icons'
 import {SignedIn, SignedOut, SignInButton, UserDropdown, useAsgardeo} from '@asgardeo/react'
 import {Select, Flex, Text, Box} from '@radix-ui/themes'
 import {useRole, type Role} from '../../services/RoleContext'
-import type {ReactNode} from "react";
+import {useCallback, type ReactNode} from 'react'
 
 const ROLE_CONFIG: Record<Role, {
   label: string;
@@ -44,37 +44,73 @@ function RoleDisplay({role, showPrimaryLabel}: { role: Role; showPrimaryLabel: b
   )
 }
 
-export function TopBar() {
+function useSignOutHandler(): () => void {
   const {signOut} = useAsgardeo()
-  const {role, setRole, availableRoles, isLoading} = useRole()
 
-  const handleSignOut = async () => {
-    try {
-      const signOutResult = await signOut(undefined, (redirectUrl: string) => {
-        if (redirectUrl) {
-          window.location.assign(redirectUrl)
+  return useCallback(() => {
+    void (async () => {
+      try {
+        const signOutResult = await signOut(undefined, (redirectUrl: string) => {
+          if (redirectUrl) {
+            window.location.assign(redirectUrl)
+          }
+        })
+
+        if (typeof signOutResult === 'string' && signOutResult) {
+          window.location.assign(signOutResult)
         }
-      })
-
-      if (typeof signOutResult === 'string' && signOutResult) {
-        window.location.assign(signOutResult)
+      } catch {
+        // Let the SDK configuration drive sign-out redirects.
       }
-    } catch {
-      // Let the SDK configuration drive sign-out redirects.
-    }
-  }
+    })()
+  }, [signOut])
+}
 
-  const showSwitcher = availableRoles.length > 1
+function TopBarShell({ children }: { children: ReactNode }) {
   return (
     <header
       className="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
-      {/* Logo */}
       <div className="flex items-center">
         <span className="text-xl font-bold text-gray-900">Trader Portal</span>
       </div>
 
-      {/* Right Side Actions */}
       <div className="flex items-center gap-4">
+        {children}
+      </div>
+    </header>
+  )
+}
+
+function TopBarUserActions({ onSignOut, withDivider = true }: { onSignOut: () => void; withDivider?: boolean }) {
+  return (
+    <div className={`flex items-center gap-3 ${withDivider ? 'pl-3 border-l border-gray-200' : ''}`}>
+      <SignedIn>
+        <UserDropdown onSignOut={onSignOut}/>
+      </SignedIn>
+      <SignedOut>
+        <SignInButton/>
+      </SignedOut>
+    </div>
+  )
+}
+
+export function UserOnlyTopBar() {
+  const handleSignOut = useSignOutHandler()
+
+  return (
+    <TopBarShell>
+      <TopBarUserActions onSignOut={handleSignOut} withDivider={false}/>
+    </TopBarShell>
+  )
+}
+
+export function TopBar() {
+  const handleSignOut = useSignOutHandler()
+  const {role, setRole, availableRoles, isLoading} = useRole()
+
+  const showSwitcher = availableRoles.length > 1
+  return (
+    <TopBarShell>
         {/* Role Switcher (Dynamic based on user permissions) */}
         <Box className="flex-1 max-w-md px-8">
           {!isLoading ? (
@@ -127,16 +163,7 @@ export function TopBar() {
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
         </button>
 
-        {/* User */}
-        <div className="flex items-center gap-3 pl-3 border-l border-gray-200">
-          <SignedIn>
-            <UserDropdown onSignOut={handleSignOut}/>
-          </SignedIn>
-          <SignedOut>
-            <SignInButton/>
-          </SignedOut>
-        </div>
-      </div>
-    </header>
+        <TopBarUserActions onSignOut={handleSignOut}/>
+    </TopBarShell>
   )
 }
