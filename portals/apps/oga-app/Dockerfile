@@ -27,7 +27,7 @@ FROM nginxinc/nginx-unprivileged:1.27-alpine
 LABEL org.opencontainers.image.source="https://github.com/OpenNSW/nsw"
 LABEL org.opencontainers.image.description="NSW OGA Officer Portal Frontend"
 
-COPY apps/oga-app/nginx.conf /etc/nginx/conf.d/default.conf
+COPY apps/oga-app/nginx.conf /etc/nginx/templates/default.conf.template
 COPY --from=builder /workspace/apps/oga-app/dist /usr/share/nginx/html
 
 # OpenShift Compliance: Fix permissions for random UID (Group 0)
