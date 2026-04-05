@@ -17,6 +17,7 @@ type Config struct {
 	Storage              StorageConfig
 	Auth                 AuthConfig
 	UseWorkflowManagerV2 bool
+	TemporalHost         string
 }
 
 // DatabaseConfig holds database connection configuration
@@ -132,6 +133,7 @@ func Load() (*Config, error) {
 			InsecureSkipTLSVerify: getBoolOrDefault("AUTH_JWKS_INSECURE_SKIP_VERIFY", defaultInsecureJWKS),
 		},
 		UseWorkflowManagerV2: getBoolOrDefault("USE_WORKFLOW_MANAGER_V2", false),
+		TemporalHost:         getEnvOrDefault("TEMPORAL_HOST", "localhost:7233"),
 	}
 
 	// Validate required fields
