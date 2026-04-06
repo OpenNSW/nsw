@@ -1,0 +1,39 @@
+# Staging Overrides for nsw-api
+
+global:
+  clusterDomain: "apps.sovecloud1.akaza.lk"
+  namespace: "national-single-window-platform"
+
+replicaCount: 2
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1024Mi
+  requests:
+    cpu: 200m
+    memory: 512Mi
+
+config:
+  serviceUrl: "https://staging-api.national-single-window-platform.apps.sovecloud1.akaza.lk"
+  database:
+    host: "nsw-db"
+    name: "nsw_staging"
+    user: "postgres"
+    credentialsSecretName: "nsw-db-credentials"
+  auth:
+    issuer: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"
+    jwksUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk/oauth2/jwks"
+    clientId: "nsw-staging-client"
+    clientSecret: "nsw-staging-secret"
+  cors:
+    allowedOrigins:
+      - "https://staging-trader.national-single-window-platform.apps.sovecloud1.akaza.lk"
+
+service:
+  temporalHost: "staging-temporal-server:7233"
+  temporalNamespace: "nsw-staging"
+
+route:
+  enabled: true
+  host: "staging-api.national-single-window-platform.apps.sovecloud1.akaza.lk"

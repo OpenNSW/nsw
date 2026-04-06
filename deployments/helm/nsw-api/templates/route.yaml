@@ -2,17 +2,15 @@
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: {{ include "nsw-api.fullname" . }}
+  name: {{ .Release.Name }}
   labels:
     app.kubernetes.io/name: {{ include "nsw-api.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
-  {{- if .Values.route.host }}
-  host: {{ .Values.route.host | quote }}
-  {{- end }}
+  host: {{ if .Values.route.host }}{{ .Values.route.host }}{{ else }}{{ include "nsw-api.fullname" . }}.{{ .Values.global.namespace }}.{{ .Values.global.clusterDomain }}{{ end }}
   to:
     kind: Service
-    name: {{ include "nsw-api.fullname" . }}
+    name: {{ .Release.Name }}
     weight: 100
   port:
     targetPort: http

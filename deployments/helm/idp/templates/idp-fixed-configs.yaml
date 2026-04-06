@@ -1,0 +1,201 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: idp-thunder-config-map
+  namespace: national-single-window-platform
+data:
+  deployment.yaml: |
+    server:
+      hostname: "0.0.0.0"
+      port: 8090
+      http_only: true
+      public_url: "https://{{ .Values.ingress.hostname }}"
+    gate_client:
+      hostname: "{{ .Values.ingress.hostname }}"
+      port: 443
+      scheme: "https"
+      login_path: ""
+      error_path: ""
+    tls:
+      min_version: "1.3"
+      cert_file: "repository/certs/server.cert"
+      key_file: "repository/certs/server.key"
+    crypto:
+      encryption:
+        key: "file://repository/certs/crypto.key"
+      password_hashing:
+        algorithm: "PBKDF2"
+        parameters:
+          iterations: 600000
+          key_size: 32
+          salt_size: 16
+      keys:
+        - id: "default-key"
+          cert_file: "repository/certs/signing.cert"
+          key_file: "repository/certs/signing.key"
+    database:
+      config:
+        type: "postgres"
+        hostname: "nsw-db"
+        port: 5432
+        name: "configdb"
+        username: "postgres"
+        password: "postgres"
+        sslmode: "disable"
+      runtime:
+        type: "postgres"
+        hostname: "nsw-db"
+        port: 5432
+        name: "runtimedb"
+        username: "postgres"
+        password: "postgres"
+        sslmode: "disable"
+      user:
+        type: "postgres"
+        hostname: "nsw-db"
+        port: 5432
+        name: "userdb"
+        username: "postgres"
+        password: "postgres"
+        sslmode: "disable"
+    cache:
+      disabled: true
+      type: "inmemory"
+      size: 1000
+      ttl: 3600
+      eviction_policy: "LRU"
+      cleanup_interval: 300
+    jwt:
+      issuer: "https://{{ .Values.ingress.hostname }}"
+      validity_period: 3600
+      audience: "application"
+      preferred_key_id: "default-key"
+    oauth:
+      refresh_token:
+        renew_on_grant: false
+        validity_period: 86400
+      authorization_code:
+        validity_period: 600
+      dcr:
+        insecure: false
+    flow:
+      default_auth_flow_handle: "default-basic-flow"
+      max_version_history: 3
+      auto_infer_registration: true
+    cors:
+      allowed_origins:
+{{- range .Values.cors.allowedOrigins }}
+        - {{ . | quote }}
+{{- end }}
+    passkey:
+      allowed_origins:
+        - "https://localhost:8090"
+    consent:
+      enabled: false
+      base_url: ""
+      timeout: 5
+      max_retries: 3
+      
+  gate-config.js: |
+    window.__THUNDER_RUNTIME_CONFIG__ = { client: { base: "/gate" }, server: { hostname: "0.0.0.0", port: 8090, http_only: true, public_url: "https://{{ .Values.ingress.hostname }}" } };
+    
+  console-config.js: |
+    window.__THUNDER_RUNTIME_CONFIG__ = { client: { base: "/console", client_id: "CONSOLE", scopes: ['openid', 'profile', 'email', 'ou', 'system', 'system:user', 'system:group', 'system:ou:view', 'system:userschema:view'] }, server: { hostname: "0.0.0.0", port: 8090, http_only: true, public_url: "https://{{ .Values.ingress.hostname }}" } };
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: idp-thunder-setup-config-map
+  namespace: national-single-window-platform
+data:
+  deployment.yaml: |
+    server:
+      hostname: "0.0.0.0"
+      port: 8090
+      http_only: true
+      public_url: "https://{{ .Values.ingress.hostname }}"
+    gate_client:
+      hostname: "{{ .Values.ingress.hostname }}"
+      port: 443
+      scheme: "https"
+      login_path: ""
+      error_path: ""
+    tls:
+      min_version: "1.3"
+      cert_file: "repository/certs/server.cert"
+      key_file: "repository/certs/server.key"
+    crypto:
+      encryption:
+        key: "file://repository/certs/crypto.key"
+      password_hashing:
+        algorithm: "PBKDF2"
+        parameters:
+          iterations: 600000
+          key_size: 32
+          salt_size: 16
+      keys:
+        - id: "default-key"
+          cert_file: "repository/certs/signing.cert"
+          key_file: "repository/certs/signing.key"
+    database:
+      config:
+        type: "postgres"
+        hostname: "nsw-db"
+        port: 5432
+        name: "configdb"
+        username: "postgres"
+        password: "postgres"
+        sslmode: "disable"
+      runtime:
+        type: "postgres"
+        hostname: "nsw-db"
+        port: 5432
+        name: "runtimedb"
+        username: "postgres"
+        password: "postgres"
+        sslmode: "disable"
+      user:
+        type: "postgres"
+        hostname: "nsw-db"
+        port: 5432
+        name: "userdb"
+        username: "postgres"
+        password: "postgres"
+        sslmode: "disable"
+    cache:
+      disabled: true
+      type: "inmemory"
+      size: 1000
+      ttl: 3600
+      eviction_policy: "LRU"
+      cleanup_interval: 300
+    jwt:
+      issuer: "https://{{ .Values.ingress.hostname }}"
+      validity_period: 3600
+      audience: "application"
+      preferred_key_id: "default-key"
+    oauth:
+      refresh_token:
+        renew_on_grant: false
+        validity_period: 86400
+      authorization_code:
+        validity_period: 600
+      dcr:
+        insecure: false
+    flow:
+      default_auth_flow_handle: "default-basic-flow"
+      max_version_history: 3
+      auto_infer_registration: true
+    cors:
+      allowed_origins:
+{{- range .Values.cors.allowedOrigins }}
+        - {{ . | quote }}
+{{- end }}
+    passkey:
+      allowed_origins:
+        - "https://localhost:8090"
+    consent:
+      enabled: false
+      base_url: ""
+      timeout: 5
+      max_retries: 3

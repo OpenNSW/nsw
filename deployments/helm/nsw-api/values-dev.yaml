@@ -1,0 +1,31 @@
+# Dev Overrides for nsw-api
+
+global:
+  clusterDomain: "apps.sovecloud1.akaza.lk"
+  namespace: "national-single-window-platform"
+
+replicaCount: 1
+
+config:
+  serviceUrl: "https://dev-api.national-single-window-platform.apps.sovecloud1.akaza.lk"
+  database:
+    host: "nsw-db"
+    name: "nsw_dev"
+    user: "postgres"
+    credentialsSecretName: "nsw-db-credentials"
+  auth:
+    issuer: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"
+    jwksUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk/oauth2/jwks"
+    clientId: "nsw-dev-client"
+    clientSecret: "nsw-dev-secret"
+  cors:
+    allowedOrigins:
+      - "https://dev-trader-app.national-single-window-platform.apps.sovecloud1.akaza.lk"
+
+service:
+  temporalHost: "dev-temporal-server:7233"
+  temporalNamespace: "nsw-dev"
+
+route:
+  enabled: true
+  host: "dev-api.national-single-window-platform.apps.sovecloud1.akaza.lk"

@@ -1,14 +1,14 @@
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: temporal-ui
+  name: {{ .Release.Name }}-ui
   labels:
     {{- include "temporal.labels" . | nindent 4 }}
 spec:
-  host: temporal-ui-national-single-window-platform.apps.sovecloud1.akaza.lk
+  host: {{ if .Values.ui.route.host }}{{ .Values.ui.route.host }}{{ else }}{{ .Release.Name }}-ui.{{ .Values.global.namespace }}.{{ .Values.global.clusterDomain }}{{ end }}
   to:
     kind: Service
-    name: temporal-server
+    name: {{ .Release.Name }}-server
     weight: 100
   port:
     targetPort: ui

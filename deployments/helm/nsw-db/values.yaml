@@ -1,0 +1,21 @@
+# Default values for nsw-db.
+
+image:
+  repository: registry.redhat.io/rhel8/postgresql-12
+  tag: latest
+  pullPolicy: IfNotPresent
+
+persistence:
+  size: 10Gi
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+auth:
+  username: "postgres"
+  password: "postgres" # Default for Dev

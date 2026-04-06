@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "oga-app.fullname" . }}
+  name: {{ .Release.Name }}
   labels:
     {{- include "oga-app.labels" . | nindent 4 }}
 spec:

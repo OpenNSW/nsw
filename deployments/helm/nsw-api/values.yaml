@@ -1,6 +1,6 @@
 # Default values for nsw-api.
 
-fullnameOverride: "nsw-api"
+fullnameOverride: ""
 replicaCount: 1
 
 image:
@@ -13,9 +13,6 @@ imagePullSecrets:
 
 podSecurityContext:
   runAsNonRoot: true
-  runAsUser: 1001570000
-  runAsGroup: 1001570000
-  fsGroup: 1001570000
 
 securityContext:
   allowPrivilegeEscalation: false
@@ -29,6 +26,7 @@ service:
   targetPort: 8080
   useWorkflowManagerV2: true
   temporalHost: "temporal-server:7233"
+  temporalNamespace: "default"
 
 config:
   server:
@@ -53,12 +51,12 @@ config:
     # Set to true if the IDP is using a self-signed cert internally (common in GovCloud)
     insecureSkipTlsVerify: true
 
-  serviceUrl: "https://nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  serviceUrl: "https://{{ include \"nsw-api.fullname\" . }}.{{ .Values.global.namespace }}.{{ .Values.global.clusterDomain }}"
   internalServiceUrl: "http://nsw-api.national-single-window-platform.svc.cluster.local"
 
   cors:
     allowedOrigins:
-      - "https://trader-app-national-single-window-platform.apps.sovecloud1.akaza.lk"
+      - "https://trader-app.{{ .Values.global.namespace }}.{{ .Values.global.clusterDomain }}"
 
   storage:
     type: "local"
@@ -81,7 +79,6 @@ resources:
 
 route:
   enabled: true
-  host: "nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk"
   tls:
     enabled: true
     termination: edge

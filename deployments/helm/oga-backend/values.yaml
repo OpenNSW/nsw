@@ -12,3 +12,10 @@ config:
   nswApiBaseUrl: "http://nsw-api.national-single-window-platform.svc.cluster.local/api/v1"
 
 # The specific DB name and Allowed Origins should be overridden in agency values files.
+
+route:
+  enabled: true
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+

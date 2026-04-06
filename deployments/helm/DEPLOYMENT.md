@@ -13,7 +13,7 @@
 | `trader-app` | `./deployments/helm/trader-app` | Trader portal frontend (React) |
 | `oga-<agency>-app` | `./deployments/helm/oga-app` | Generic OGA portal frontend (React) |
 | `oga-<agency>-backend` | `./deployments/helm/oga-backend` | Generic OGA backend API (Go) |
-| `idp-thunder` | **Official Thunder chart** | Identity Provider (WSO2) |
+| `idp-thunder` | `./deployments/helm/idp` | Declarative Identity Provider (WSO2) Umbrella Chart |
 | `temporal` | `./deployments/helm/temporal` | Workflow Engine (Server + UI) |
 
 ---
@@ -24,11 +24,11 @@ Build with `linux/amd64` when on Apple Silicon:
 
 ```bash
 # From the repository root
-docker buildx build --platform linux/amd64 -t ghcr.io/opennsw/nsw-api:latest    -f backend/Dockerfile ./backend --push
-docker buildx build --platform linux/amd64 -t ghcr.io/opennsw/trader-app:latest  -f portals/apps/trader-app/Dockerfile ./portals --push
-docker buildx build --platform linux/amd64 -t ghcr.io/opennsw/oga-app:latest     -f portals/apps/oga-app/Dockerfile ./portals --push
+docker buildx build --platform linux/amd64 -t ghcr.io/opennsw/nsw-api:latest -f backend/Dockerfile ./backend --push
+docker buildx build --platform linux/amd64 -t ghcr.io/opennsw/trader-app:latest -f portals/apps/trader-app/Dockerfile ./portals --push
+docker buildx build --platform linux/amd64 -t ghcr.io/opennsw/oga-app:latest -f portals/apps/oga-app/Dockerfile ./portals --push
 docker buildx build --platform linux/amd64 -t ghcr.io/opennsw/oga-backend:latest -f oga/Dockerfile ./oga --push
-docker buildx build --platform linux/amd64 -t ghcr.io/opennsw/idp:latest         -f idp/Dockerfile . --push
+docker buildx build --platform linux/amd64 -t ghcr.io/opennsw/idp:latest -f deployments/helm/idp/Dockerfile ./deployments/helm/idp --push
 ```
 
 ### 1.1 Temporal Image Mirroring
@@ -41,35 +41,38 @@ docker push ghcr.io/opennsw/temporal-auto-setup:1.28.3
 
 ---
 
-## 2. Deploy / Upgrade Helm Charts
+## 2. Deploy / Upgrade Helm Charts (Multi-Environment)
 
-### Core NSW Services
+We utilize a hierarchical values approach (`values.yaml` + `values-dev.yaml`) and separate namespaces per environment to guarantee isolation without collisions. **Always explicitly execute Helm layering the environment values.**
+
+### Developer Initialization
 ```bash
-helm upgrade --install nsw-api ./deployments/helm/nsw-api --history-max 1
-helm upgrade --install trader-app ./deployments/helm/trader-app --history-max 1
+helm dependency build ./deployments/helm/idp
+helm dependency build ./deployments/helm/nsw-api
 ```
 
-### OGA Portal Frontends (Generic Chart)
-Each agency deployment uses the same `oga-app` chart with instance-specific values.
+### Option A: DEV Environment Deployments
 ```bash
-helm upgrade --install oga-fcau-app ./deployments/helm/oga-app -f ./deployments/helm/oga-app/values/fcau-values.yaml --history-max 1
-helm upgrade --install oga-ird-app  ./deployments/helm/oga-app -f ./deployments/helm/oga-app/values/ird-values.yaml  --history-max 1
-helm upgrade --install oga-npqs-app ./deployments/helm/oga-app -f ./deployments/helm/oga-app/values/npqs-values.yaml --history-max 1
+# Core Services
+helm upgrade --install dev-api ./deployments/helm/nsw-api -f ./deployments/helm/nsw-api/values.yaml -f ./deployments/helm/nsw-api/values-dev.yaml -n nsw-dev --create-namespace --history-max 1
+helm upgrade --install dev-trader-app ./deployments/helm/trader-app -f ./deployments/helm/trader-app/values.yaml -f ./deployments/helm/trader-app/values-dev.yaml -n nsw-dev --set fullnameOverride=trader-app,image.tag=latest --history-max 1
+helm upgrade --install dev-temporal ./deployments/helm/temporal -f ./deployments/helm/temporal/values-dev.yaml -n nsw-dev --history-max 1
+
+# IDP Umbrella Chart (with Kustomize Patching)
+kustomize build --enable-helm ./deployments/helm/idp | oc apply -n nsw-dev -f -
+
+# OGA Apps & Backends
+helm upgrade --install dev-oga-fcau-backend ./deployments/helm/oga-backend -f ./deployments/helm/oga-backend/values-dev.yaml -f ./deployments/helm/oga-backend/fcau-backend-values.yaml -n nsw-dev --history-max 1
+helm upgrade --install dev-oga-ird-backend ./deployments/helm/oga-backend -f ./deployments/helm/oga-backend/values-dev.yaml -f ./deployments/helm/oga-backend/ird-backend-values.yaml -n nsw-dev --history-max 1
+helm upgrade --install dev-oga-npqs-backend ./deployments/helm/oga-backend -f ./deployments/helm/oga-backend/values-dev.yaml -f ./deployments/helm/oga-backend/npqs-backend-values.yaml -n nsw-dev --history-max 1
+
+helm upgrade --install dev-oga-fcau-app ./deployments/helm/oga-app -f ./deployments/helm/oga-app/values-dev.yaml -f ./deployments/helm/oga-app/values/fcau-values.yaml -n nsw-dev --set fullnameOverride=dev-oga-fcau-app --history-max 1
+helm upgrade --install dev-oga-ird-app ./deployments/helm/oga-app -f ./deployments/helm/oga-app/values-dev.yaml -f ./deployments/helm/oga-app/values/ird-values.yaml -n nsw-dev --set fullnameOverride=dev-oga-ird-app --history-max 1
+helm upgrade --install dev-oga-npqs-app ./deployments/helm/oga-app -f ./deployments/helm/oga-app/values-dev.yaml -f ./deployments/helm/oga-app/values/npqs-values.yaml -n nsw-dev --set fullnameOverride=dev-oga-npqs-app --history-max 1
 ```
 
-### OGA Backend Services (Generic Chart)
-Standardized on **port 8081** for all internal communication.
-```bash
-helm upgrade --install oga-fcau-backend ./deployments/helm/oga-backend -f ./deployments/helm/oga-backend/fcau-backend-values.yaml --history-max 1
-helm upgrade --install oga-ird-backend  ./deployments/helm/oga-backend -f ./deployments/helm/oga-backend/ird-backend-values.yaml  --history-max 1
-helm upgrade --install oga-npqs-backend ./deployments/helm/oga-backend -f ./deployments/helm/oga-backend/npqs-backend-values.yaml --history-max 1
-```
-
-### External Services
-```bash
-helm upgrade --install idp-thunder oci://ghcr.io/asgardeo/helm-charts/thunder --version 0.29.0 -f ./deployments/helm/idp/custom-values.yaml --history-max 1
-helm upgrade --install temporal ./deployments/helm/temporal --history-max 1
-```
+### Option B: STAGING Environment Deployments
+Use the exact same pattern with `-f values-staging.yaml` overrides and `-n nsw-staging` namespaces.
 
 ---
 
@@ -131,4 +134,5 @@ deployments/helm/
 │   └── values/        (Instance overrides)
 └── oga-backend/       (Generic OGA Backend)
     └── *-values.yaml  (Instance overrides)
+└── idp/               (Declarative IDP Umbrella Chart)
 ```

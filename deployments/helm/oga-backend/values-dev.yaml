@@ -1,0 +1,16 @@
+# Dev Overrides for oga-backend
+global:
+  clusterDomain: "apps.sovecloud1.akaza.lk"
+  namespace: "national-single-window-platform"
+
+replicaCount: 1
+
+config:
+  database:
+    host: "nsw-db"
+    credentialsSecretName: "nsw-db-credentials"
+  nswApiBaseUrl: "http://dev-api-nsw-api:8080/api/v1"
+  allowedOrigins: "https://{{ .Release.Name }}.{{ .Values.global.namespace }}.{{ .Values.global.clusterDomain }}"
+
+route:
+  enabled: true

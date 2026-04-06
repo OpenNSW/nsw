@@ -18,10 +18,10 @@ configuration:
     
   cors:
     allowedOrigins:
-      - "https://trader-app-national-single-window-platform.apps.sovecloud1.akaza.lk"
-      - "https://oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk"
-      - "https://oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk"
-      - "https://oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk"
+      - "https://dev-trader-app.national-single-window-platform.apps.sovecloud1.akaza.lk"
+      - "https://dev-oga-fcau.national-single-window-platform.apps.sovecloud1.akaza.lk"
+      - "https://dev-oga-ird.national-single-window-platform.apps.sovecloud1.akaza.lk"
+      - "https://dev-oga-npqs.national-single-window-platform.apps.sovecloud1.akaza.lk"
 
   database:
     config:
@@ -66,11 +66,11 @@ deployment:
 # Resources for the main deployment container
 resources:
   limits:
-    cpu: 500m
-    memory: 1Gi
+    cpu: 1000m
+    memory: 2Gi # Shared IDP needs enough RAM
   requests:
-    cpu: 10m
-    memory: 64Mi
+    cpu: 100m
+    memory: 512Mi
 
 global:
   imagePullSecrets:
@@ -78,12 +78,12 @@ global:
     
   securityContext:
     runAsNonRoot: true
-    enableRunAsUser: true
-    runAsUser: 1001570000
-    enableRunAsGroup: true
-    runAsGroup: 1001570000
-    enableFsGroup: true
-    fsGroup: 1001570000
+    # runAsUser: 1001570000 # Omit for OpenShift compliance
+    seccompProfile:
+      type: RuntimeDefault
+    capabilities:
+      drop:
+        - ALL
     readOnlyRootFilesystem: false # Required for some internal Thunder operations
     seccompProfile:
       type: RuntimeDefault

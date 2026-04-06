@@ -1,6 +1,6 @@
 # Default values for trader-app.
 
-fullnameOverride: "trader-app"
+fullnameOverride: ""
 
 replicaCount: 1
 

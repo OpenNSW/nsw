@@ -1,4 +1,7 @@
 # temporal values for auto-setup
+global:
+  namespace: "national-single-window-platform"
+  clusterDomain: "apps.sovecloud1.akaza.lk"
 
 image:
   repository: ghcr.io/opennsw/temporal-auto-setup
@@ -28,34 +31,10 @@ resources:
 
 persistence:
   enabled: false
+  host: "nsw-db"
+  credentialsSecretName: "nsw-db-credentials"
 
-# Temporal "auto-setup" environment variables
+# Temporal environment configuration
 env:
-  - name: DB
-    value: "postgres12"
-  - name: DB_NAME
-    value: "temporal_db"
-  - name: POSTGRES_SEEDS
-    value: "nsw-db"
-  - name: DB_PORT
-    value: "5432"
-  - name: POSTGRES_USER
-    valueFrom:
-      secretKeyRef:
-        name: nsw-db-credentials
-        key: username
-  - name: POSTGRES_PWD
-    valueFrom:
-      secretKeyRef:
-        name: nsw-db-credentials
-        key: password
-  - name: SKIP_SCHEMA_SETUP
-    value: "false"
-  - name: SKIP_DB_CREATE
-    value: "false"
-  - name: HOME
-    value: "/tmp"
-  - name: BIND_ON_IP
-    value: "0.0.0.0"
-  - name: TEMPORAL_ADDRESS
-    value: "127.0.0.1:7233"
+  dbName: "temporal_db"
+  extraEnv: []

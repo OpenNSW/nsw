@@ -1,0 +1,10 @@
+# Staging Overrides for temporal
+
+replicaCount: 1
+
+env:
+  dbName: "temporal_db_staging"
+
+persistence:
+  host: "nsw-db"
+  credentialsSecretName: "nsw-db-credentials"

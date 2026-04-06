@@ -32,11 +32,9 @@ COPY --from=builder /workspace/apps/oga-app/dist /usr/share/nginx/html
 
 # OpenShift Compliance: Fix permissions for random UID (Group 0)
 USER root
-COPY apps/oga-app/docker-entrypoint.sh /docker-entrypoint.d/40-runtime-env.sh
-
+COPY --chown=101:0 apps/oga-app/docker-entrypoint.sh /docker-entrypoint.d/40-runtime-env.sh
 RUN chmod +x /docker-entrypoint.d/40-runtime-env.sh && \
     chmod -R g+w /var/cache/nginx /var/run /var/log/nginx /etc/nginx/conf.d /usr/share/nginx/html
-
 USER 101
 EXPOSE 8080
 

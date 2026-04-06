@@ -1,0 +1,57 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: idp-thunder-db-init
+  labels:
+    app.kubernetes.io/name: thunder
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      name: idp-thunder-db-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: psql-init
+          image: registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-15.4-0
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 10m
+              memory: 64Mi
+          env:
+            - name: PGHOST
+              value: "nsw-db"
+            - name: PGPORT
+              value: "5432"
+            - name: PGDATABASE
+              value: "postgres"
+            - name: PGUSER
+              value: "postgres"
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nsw-db-credentials
+                  key: password
+            - name: PGSSLMODE
+              value: "disable"
+          command:
+            - /bin/bash
+            - -c
+            - |
+              echo "Starting IDP Database Initialization..."
+              
+              for db in configdb runtimedb userdb; do
+                echo "Checking if $db exists..."
+                if psql -tAc "SELECT 1 FROM pg_database WHERE datname='$db'" | grep -q 1; then
+                    echo "Database '$db' already exists. Skipping."
+                else
+                    echo "Creating database '$db'..."
+                    psql -c "CREATE DATABASE $db;"
+                    echo "Successfully created '$db'."
+                fi
+              done
+              
+              echo "Database initialization complete!"

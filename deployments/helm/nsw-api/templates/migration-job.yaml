@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "nsw-api.fullname" . }}-db-migration-{{ .Release.Revision }}
+  name: {{ .Release.Name }}-db-migration-{{ .Release.Revision }}
   labels:
     {{- include "nsw-api.labels" . | nindent 4 }}
   annotations:
@@ -13,7 +13,7 @@ metadata:
 spec:
   template:
     metadata:
-      name: {{ include "nsw-api.fullname" . }}-db-migration
+      name: {{ .Release.Name }}-db-migration
     spec:
       {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -46,7 +46,7 @@ spec:
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: nsw-db-credentials
+                  name: {{ .Values.config.database.credentialsSecretName | default (printf "%s-db-credentials" .Release.Name) }}
                   key: password
             - name: PGDATABASE
               value: {{ .Values.config.database.name | quote }}
@@ -72,7 +72,7 @@ spec:
       volumes:
         - name: migration-scripts
           configMap:
-            name: {{ include "nsw-api.fullname" . }}-db-migrations
+            name: {{ .Release.Name }}-db-migrations
             defaultMode: 0755
         - name: migration-sql
           configMap:

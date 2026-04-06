@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "temporal.fullname" . }}
+  name: {{ .Release.Name }}
   labels:
     {{- include "temporal.labels" . | nindent 4 }}
 spec:
@@ -50,8 +50,36 @@ spec:
             - name: server
               containerPort: 7233
           env:
-            {{- if .Values.env }}
-            {{- toYaml .Values.env | nindent 12 }}
+            - name: DB
+              value: "postgres12"
+            - name: DB_NAME
+              value: {{ .Values.env.dbName | default "temporal_db" | quote }}
+            - name: POSTGRES_SEEDS
+              value: {{ .Values.persistence.host | default (printf "%s-nsw-db" .Release.Name) | quote }}
+            - name: DB_PORT
+              value: "5432"
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.persistence.credentialsSecretName | default (printf "%s-db-credentials" .Release.Name) }}
+                  key: username
+            - name: POSTGRES_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.persistence.credentialsSecretName | default (printf "%s-db-credentials" .Release.Name) }}
+                  key: password
+            - name: SKIP_SCHEMA_SETUP
+              value: "false"
+            - name: SKIP_DB_CREATE
+              value: "false"
+            - name: HOME
+              value: "/tmp"
+            - name: BIND_ON_IP
+              value: "0.0.0.0"
+            - name: TEMPORAL_ADDRESS
+              value: "127.0.0.1:7233"
+            {{- if .Values.env.extraEnv }}
+            {{- toYaml .Values.env.extraEnv | nindent 12 }}
             {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}

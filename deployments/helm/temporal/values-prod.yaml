@@ -1,0 +1,15 @@
+# Temporal Production Overrides
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+  requests:
+    cpu: 1000m
+    memory: 1Gi
+
+env:
+  - name: DB_NAME
+    value: "temporal_db_prod"
+  - name: SCANNER_REPLICAS # Enable background scanning
+    value: "1"

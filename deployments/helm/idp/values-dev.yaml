@@ -1,0 +1,28 @@
+# Dev Overrides for idp-thunder umbrella
+thunder:
+  replicaCount: 1
+
+  configuration:
+    server:
+      publicUrl: "https://dev-idp.national-single-window-platform.apps.sovecloud1.akaza.lk"
+    gateClient:
+      hostname: "dev-idp-service"
+      port: 8090
+      scheme: "http"
+
+    database:
+      config:
+        host: "dev-nsw-db"
+        passwordRef:
+          name: "dev-nsw-db-credentials"
+      runtime:
+        host: "dev-nsw-db"
+        passwordRef:
+          name: "dev-nsw-db-credentials"
+      user:
+        host: "dev-nsw-db"
+        passwordRef:
+          name: "dev-nsw-db-credentials"
+
+  ingress:
+    hostname: "dev-idp.national-single-window-platform.apps.sovecloud1.akaza.lk"

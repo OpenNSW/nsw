@@ -1,0 +1,23 @@
+# NSW-API Production Overrides
+# Merge with: -f values.yaml -f values-prod.yaml
+
+replicaCount: 3
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 200m
+    memory: 512Mi
+
+config:
+  server:
+    debug: false
+    logLevel: "warn"
+  database:
+    name: "nsw_db_prod"
+
+# Ensure strict security in production
+securityContext:
+  readOnlyRootFilesystem: true

@@ -1,0 +1,37 @@
+# Staging Overrides for idp-thunder umbrella
+thunder:
+  configuration:
+    server:
+      publicUrl: "https://staging-idp.national-single-window-platform.apps.sovecloud1.akaza.lk"
+    gateClient:
+      hostname: "staging-idp-service"
+      port: 8090
+      scheme: "http"
+
+    database:
+      config:
+        host: "staging-nsw-db"
+        name: "configdb_staging"
+        passwordRef:
+          name: "staging-nsw-db-credentials"
+      runtime:
+        host: "staging-nsw-db"
+        name: "runtimedb_staging"
+        passwordRef:
+          name: "staging-nsw-db-credentials"
+      user:
+        host: "staging-nsw-db"
+        name: "userdb_staging"
+        passwordRef:
+          name: "staging-nsw-db-credentials"
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+  ingress:
+    hostname: "staging-idp.national-single-window-platform.apps.sovecloud1.akaza.lk"

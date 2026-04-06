@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "oga-backend.fullname" . }}
+  name: {{ .Release.Name }}
   labels:
     {{- include "oga-backend.labels" . | nindent 4 }}
 spec:
@@ -33,12 +33,12 @@ spec:
             - name: OGA_DB_USER
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Release.Name }}-db-credentials
-                  key: username
+                  name: {{ .Values.config.database.credentialsSecretName | default (printf "%s-db-credentials" .Release.Name) }}
+                  key: {{ .Values.config.database.userKey | default "user" }}
             - name: OGA_DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Release.Name }}-db-credentials
+                  name: {{ .Values.config.database.credentialsSecretName | default (printf "%s-db-credentials" .Release.Name) }}
                   key: password
             - name: OGA_PORT
               value: {{ .Values.config.port | default "8081" | quote }}

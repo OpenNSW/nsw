@@ -1,6 +1,6 @@
 # OGA-NPQS Backend Values
 nameOverride: oga-npqs-backend
-fullnameOverride: oga-npqs-backend
+fullnameOverride: ""
 
 port: 8081
 
@@ -23,12 +23,13 @@ config:
   port: 8081
   database:
     name: "oga-backend-npqs"
-  allowedOrigins: "https://oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk"
-  nswApiBaseUrl: "http://nsw-api.national-single-window-platform.svc.cluster.local/api/v1"
+    credentialsSecretName: "nsw-db-credentials"
+  allowedOrigins: "https://dev-oga-npqs.national-single-window-platform.apps.sovecloud1.akaza.lk"
+  nswApiBaseUrl: "https://dev-api.national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"
 
 route:
   enabled: true
-  host: oga-npqs-backend-national-single-window-platform.apps.sovecloud1.akaza.lk
+  host: dev-oga-npqs-backend.national-single-window-platform.apps.sovecloud1.akaza.lk
   tls:
     enabled: true
     termination: edge
