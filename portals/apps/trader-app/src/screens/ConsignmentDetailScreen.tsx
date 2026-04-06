@@ -170,7 +170,6 @@ export function ConsignmentDetailScreen() {
               </Badge>
             </div>
           </div>
-          {/* Header button removed for CHAs in INITIALIZED state in favor of the more prominent action block in the main content area */}
         </div>
 
         <div className="px-4 py-3 border-b border-gray-200 bg-gray-50/30">
@@ -257,7 +256,7 @@ export function ConsignmentDetailScreen() {
             </div>
           ) : consignment.state === 'INITIALIZED' ? (
             <div 
-              className={`flex-1 flex items-center justify-center bg-gray-50/50 rounded-xl border border-dashed m-2 transition-all duration-200 
+              className={`flex-1 flex items-center justify-center bg-gray-50/50 rounded-xl border border-dashed transition-all duration-200 
                 ${isChaView 
                   ? 'border-blue-300 hover:border-blue-500 hover:bg-blue-50/30 cursor-pointer group shadow-sm hover:shadow-md' 
                   : 'border-gray-300'}`}
@@ -275,17 +274,20 @@ export function ConsignmentDetailScreen() {
                       Initialize Workflow
                     </Text>
                     <Text size="2" color="gray" className="block mb-6">
-                      To begin the consignment process, you must first select the appropriate HS Code. <strong>Click anywhere in this area</strong> to pick an HS Code.
+                      To begin the consignment process, you must first select the appropriate HS Code for this consignment.
                     </Text>
-                    <Button 
-                      size="3" 
-                      variant="solid" 
-                      disabled={initializing}
-                      className="pointer-events-none group-hover:scale-105 transition-transform"
-                    >
-                      {initializing ? <Spinner size="1" /> : <MagnifyingGlassIcon />}
-                      {initializing ? 'Initializing...' : 'Pick HS Code'}
-                    </Button>
+                    <Flex align="center" justify="center" gap="2" className="text-blue-600 font-semibold group-hover:text-blue-700 transition-colors">
+                      {initializing ? (
+                        <Spinner size="1" />
+                      ) : (
+                        <div className="bg-blue-50 text-blue-600 p-1.5 rounded-full group-hover:bg-blue-100 transition-colors shadow-sm">
+                          <MagnifyingGlassIcon width="16" height="16" />
+                        </div>
+                      )}
+                      <Text size="3" className="group-hover:underline decoration-2 underline-offset-4">
+                        {initializing ? 'Initializing...' : 'Select HS Code'}
+                      </Text>
+                    </Flex>
                   </>
                 ) : (
                   <>
@@ -297,7 +299,7 @@ export function ConsignmentDetailScreen() {
                     <Text size="4" color="gray" weight="bold" className="block mb-2">
                       Awaiting HS Code Selection
                     </Text>
-                    <Text size="2" color="gray">
+                    <Text size="2" color="gray" className="block">
                       Your Customs House Agent (CHA) needs to select the HS Code for this consignment before the workflow steps can be generated.
                     </Text>
                   </>
