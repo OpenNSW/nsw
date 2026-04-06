@@ -256,22 +256,33 @@ export function ConsignmentDetailScreen() {
               )}
             </div>
           ) : consignment.state === 'INITIALIZED' ? (
-            <div className="flex-1 flex items-center justify-center bg-gray-50/50 rounded-xl border border-dashed border-gray-300 m-2">
+            <div 
+              className={`flex-1 flex items-center justify-center bg-gray-50/50 rounded-xl border border-dashed m-2 transition-all duration-200 
+                ${isChaView 
+                  ? 'border-blue-300 hover:border-blue-500 hover:bg-blue-50/30 cursor-pointer group shadow-sm hover:shadow-md' 
+                  : 'border-gray-300'}`}
+              onClick={isChaView && !initializing ? () => setHsPickerOpen(true) : undefined}
+            >
               <div className="text-center max-w-md p-6">
                 {isChaView ? (
                   <>
-                    <div className="mb-4 flex justify-center">
-                       <div className="p-3 bg-blue-50 rounded-full">
+                    <div className="mb-4 flex justify-center group-hover:scale-110 transition-transform duration-200">
+                       <div className="p-3 bg-blue-50 group-hover:bg-blue-100 rounded-full transition-colors">
                          <InfoCircledIcon width="32" height="32" className="text-blue-500" />
                        </div>
                     </div>
-                    <Text size="4" color="gray" weight="bold" className="block mb-2">
+                    <Text size="4" weight="bold" className="block mb-2 text-gray-700 group-hover:text-blue-600 transition-colors">
                       Initialize Workflow
                     </Text>
                     <Text size="2" color="gray" className="block mb-6">
-                      To begin the consignment process, you must first select the appropriate HS Code. This will generate the necessary workflow steps.
+                      To begin the consignment process, you must first select the appropriate HS Code. <strong>Click anywhere in this area</strong> to pick an HS Code.
                     </Text>
-                    <Button size="3" onClick={() => setHsPickerOpen(true)} disabled={initializing}>
+                    <Button 
+                      size="3" 
+                      variant="solid" 
+                      disabled={initializing}
+                      className="pointer-events-none group-hover:scale-105 transition-transform"
+                    >
                       {initializing ? <Spinner size="1" /> : <MagnifyingGlassIcon />}
                       {initializing ? 'Initializing...' : 'Pick HS Code'}
                     </Button>
