@@ -231,23 +231,31 @@ VALUES
         'e1a00001-0001-4000-b000-000000000007',
         'Manual Inspection',
         'Manual inspection task for high-risk phytosanitary cases',
-        'SIMPLE_FORM',
+        'WAIT_FOR_EVENT',
         ('{
-            "agency": "NPQS",
-            "formId": "f1a00001-0001-4000-c000-000000000001",
-            "service": "plant-quarantine-phytosanitary",
-            "callback": {
-                "response": {
-                    "display": {
-                        "formId": "f1a00001-0001-4000-c000-000000000002"
-                    }
-                }
+            "display": {
+                "title": "Awaiting Physical Inspection",
+                "description": "Consignment flagged for physical inspection. NPQS inspector will review the consignment on-site."
             },
             "submission": {
                 "url": ' || to_jsonb((:'NPQS_OGA_SUBMISSION_URL')::text)::text || ',
                 "request": {
                     "meta": {
                         "templateKey": "npqs:manual_inspection:v1"
+                    },
+                    "template": {
+                        "assesmentNo": "cusdec:assesmentNo",
+                        "consignmentId": "gi:consignmentId",
+                        "riskLevel": "npqs:phytosanitary:riskLevel"
+                    }
+                },
+                "response": {
+                    "display": {
+                        "formId": "f1a00001-0001-4000-c000-000000000002"
+                    },
+                    "mapping": {
+                        "inspectionDecision": "npqs:manual_inspection:decision",
+                        "inspectorRemarks": "npqs:manual_inspection:remarks"
                     }
                 }
             }
