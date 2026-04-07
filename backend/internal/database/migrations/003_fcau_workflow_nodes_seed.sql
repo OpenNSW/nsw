@@ -16,15 +16,14 @@ VALUES
                         "formId": "fcau-application-review-response"
                     },
                     "mapping": {
-                        "decision": "fcau:application_decision",
-                        "reviewer_comments": "fcau:reviewer_comments"
+                        "applicationId": "application_id"
                     }
                 },
                 "transition": {
                     "field": "decision",
-                    "default": "OGA_VERIFICATION_REJECTED",
+                    "default": "OGA_VERIFICATION_APPROVED",
                     "mapping": {
-                        "APPROVED": "OGA_VERIFICATION_APPROVED"
+                        "REJECTED": "OGA_VERIFICATION_REJECTED"
                     }
                 }
             },
@@ -44,32 +43,31 @@ VALUES
     -- FCAU Sample Drop Task
     (
         'fcau:sample_drop',
-        'Sample Drop-off',
-        'Task for applicants to confirm they have dropped off their sample at the designated location.',
+        'Sample Drop Off Confirmation',
+        'Task to confirm with the applicant if they have dropped off their sample for testing',
         'WAIT_FOR_EVENT',
         ('{
             "display": {
-                "title": "Awaiting Sample Drop-off Confirmation",
-                "description": "If you still have not dropped off your sample yet, please do so at your earliest convenience. Once you have dropped this work, we will notify you"
+                "title": "Drop off sample",
+                "description": "Please drop off your sample at the designated location"
             },
             "submission": {
                 "url": ' || to_jsonb((:'FCAU_OGA_SUBMISSION_URL')::text)::text || ',
                 "request": {
                     "meta": {
                         "type": "WAIT_FOR_EVENT",
-                        "templateKey": "npqs:sample_drop_ack:v1"
+                        "templateKey": "fcau:sample_drop_ack:v1"
                     },
                     "template": {
-                        "consignee_name": "abcde",
-                        "consigneeAddress": "123 Sample Street, Sample City, Country"
+                        "Application ID": "application_id"
                     }
                 },
                 "response": {
                     "display": {
-                        "formId": "npqs-sample-drop-ack-response"
+                        "formId": "fcau-sample-drop-ack-response"
                     },
                     "mapping": {
-                        "decision": "sample_drop_confirmed"
+                        "acknowledgement": "sample_drop_confirmed"
                     }
                 }
             }
@@ -80,32 +78,32 @@ VALUES
     -- FCAU Testing Requirement Task
     (
         'fcau:testing_requirement',
-        'Testing Requirement Assessment',
-        'Task to determine if the applicant requires lab testing based on their application details.',
+        'Analyze for Testing Requirement',
+        'Task to determine if the applicant requires lab testing based on the submitted information',
         'WAIT_FOR_EVENT',
         ('{
             "display": {
-                "title": "Testing Requirement",
-                "description": ""
+                "title": "Waiting on Testing Requirements",
+                "description": "Once the FCAU officer decides on the testing requirements, this task will get completed"
             },
             "submission": {
                 "url": ' || to_jsonb((:'FCAU_OGA_SUBMISSION_URL')::text)::text || ',
                 "request": {
                     "meta": {
                         "type": "WAIT_FOR_EVENT",
-                        "templateKey": "npqs:testing_requirement:v1"
+                        "templateKey": "fcau:testing_requirement:v1"
                     },
                     "template": {
-                        "consignee_name": "abcde",
-                        "consigneeAddress": "123 Sample Street, Sample City, Country"
+                        "Application ID": "application_id"
                     }
                 },
                 "response": {
                     "display": {
-                        "formId": "testing-requirement-response"
+                        "formId": "fcau-testing-requirement-response"
                     },
                     "mapping": {
-                        "decision": "requires_lab_test"
+                        "labTestingStatus": "lab_testing_status",
+                        "requiredTests": "required_tests"
                     }
                 }
             }
@@ -135,9 +133,9 @@ VALUES
                 },
                 "transition": {
                     "field": "decision",
-                    "default": "OGA_VERIFICATION_REJECTED",
+                    "default": "OGA_VERIFICATION_APPROVED",
                     "mapping": {
-                        "APPROVED": "OGA_VERIFICATION_APPROVED"
+                        "false" : "OGA_VERIFICATION_REJECTED"
                     }
                 }
             },
@@ -162,19 +160,19 @@ VALUES
         'WAIT_FOR_EVENT',
         ('{
             "display": {
-                "title": "Lab Results Review",
-                "description": ""
+                "title": " Waiting on Test Result Evaluation",
+                "description": "Once the FCAU officer reviews the lab test results, this task will be marked as complete"
             },
             "submission": {
                 "url": ' || to_jsonb((:'FCAU_OGA_SUBMISSION_URL')::text)::text || ',
                 "request": {
                     "meta": {
                         "type": "WAIT_FOR_EVENT",
-                        "templateKey": "npqs:lab_results_review:v1"
+                        "templateKey": "fcau:lab_results_review:v1"
                     },
                     "template": {
-                        "consignee_name": "abcde",
-                        "consigneeAddress": "123 Sample Street, Sample City, Country"
+                        "Application ID": "application_id",
+                        "Required Tests": "required_tests"
                     }
                 },
                 "response": {
@@ -237,32 +235,30 @@ VALUES
     (
         'fcau:certificate_issue',
         'Certificate Issuance',
-        'Task for issuing the certificate to the applicant upon successful completion of the process.',
+        'Task for issuing the certificate to the applicant upon successful completion of the process',
         'WAIT_FOR_EVENT',
         ('{
             "display": {
-                "title": "Certificate Issuance",
-                "description": ""
+                "title": "Waiting on Certificate Issuing",
+                "description": "Once the FCAU officer issues the certificate, you will be able to view it here"
             },
             "submission": {
                 "url": ' || to_jsonb((:'FCAU_OGA_SUBMISSION_URL')::text)::text || ',
                 "request": {
                     "meta": {
                         "type": "WAIT_FOR_EVENT",
-                        "templateKey": "npqs:manual_inspection:v1"
+                        "templateKey": "fcau:certificate_issue:v1"
                     },
                     "template": {
-                        "consignee_name": "abcde",
-                        "consigneeAddress": "123 Sample Street, Sample City, Country"
+                        "Application ID": "application_id"
                     }
                 },
                 "response": {
                     "display": {
-                        "formId": "f1a00001-0001-4000-c000-000000000002"
+                        "formId": "fcau-certificate-issue-response"
                     },
                     "mapping": {
-                        "inspectionDecision": "npqs:manual_inspection:decision",
-                        "inspectorRemarks": "npqs:manual_inspection:remarks"
+                        "certificate": "fcau:certificate"
                     }
                 }
             }

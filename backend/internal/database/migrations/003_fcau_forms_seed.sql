@@ -1,80 +1,216 @@
 INSERT INTO forms (id, name, description, schema, ui_schema, version, active)
 VALUES
+    -- FCAU APPLICATION FORM
     (
         'fcau-application-form',
         'FCAU Application Form',
         'Form for applicants to submit their application for the FCAU process.',
         '{
             "type": "object",
-            "required": [
-                "field1"
-            ],
             "properties": {
-                "field1": {
+                "nameOfApplicant": {
                     "type": "string",
-                    "title": "Field 1",
-                    "example": "Example value for field 1"
+                    "title": "Name of Applicant"
                 },
-                "supportingDocuments": {
+                "addressOfApplicant": {
                     "type": "string",
-                    "title": "Supporting Documents",
+                    "title": "Address of Applicant"
+                },
+                "nameOfConsignee": {
+                    "type": "string",
+                    "title": "Name of Consignee"
+                },
+                "addressOfConsignee": {
+                    "type": "string",
+                    "title": "Address of Consignee"
+                },
+                "descriptionOfConsignment": {
+                    "type": "string",
+                    "title": "Description of consignment and quantity"
+                },
+                "dateOfIntendedExport": {
+                    "type": "string",
+                    "format": "date",
+                    "title": "Date of intended export"
+                },
+                "lcNo": {
+                    "type": "string",
+                    "title": "L/C No"
+                },
+                "containerNumbers": {
+                    "type": "string",
+                    "title": "Upload Container Numbers",
                     "format": "file"
+                },
+                "nameOfVessel": {
+                    "type": "string",
+                    "title": "Name of Vessel/ Number"
+                },
+                "addressConsignmentStored": {
+                    "type": "string",
+                    "title": "Address where consignment is stored"
+                },
+                "packageDetails": {
+                    "type": "string",
+                    "title": "Type of Package, Batch Codes and Total weight"
+                },
+                "ingredientDetails": {
+                    "type": "string",
+                    "title": "Upload or Enter Details of ingredients used in product",
+                    "format": "file"
+                },
+                "qualityMonitoringDetails": {
+                    "type": "string",
+                    "title": "Details of in-house quality monitoring"
+                },
+                "analysisCertificates": {
+                    "type": "string",
+                    "title": "Upload Raw materials and product analysis certificates",
+                    "format": "file"
+                },
+                "otherDeclarations": {
+                    "type": "string",
+                    "title": "Any other Declarations"
                 }
-            }
+            },
+            "required": [
+                "nameOfApplicant",
+                "addressOfApplicant",
+                "nameOfConsignee",
+                "addressOfConsignee",
+                "descriptionOfConsignment",
+                "dateOfIntendedExport",
+                "lcNo",
+                "containerNumbers",
+                "nameOfVessel",
+                "addressConsignmentStored",
+                "packageDetails",
+                "ingredientDetails",
+                "qualityMonitoringDetails",
+                "analysisCertificates"
+            ]
         }',
         '{
-            "type": "VerticalLayout",
+            "type": "Categorization",
             "elements": [
                 {
-                    "text": "Application Form",
-                    "type": "Label"
+                    "type": "Category",
+                    "label": "Consignment",
+                    "elements": [
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/nameOfApplicant"
+                        },
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/addressOfApplicant"
+                        },
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/nameOfConsignee"
+                        },
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/addressOfConsignee"
+                        },
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/dateOfIntendedExport"
+                        },
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/lcNo"
+                        },
+                        {
+                            "type": "VerticalLayout",
+                            "elements": [
+                                {
+                                    "text": "Container Numbers (attach list if necessary)",
+                                    "type": "Label"
+                                },
+                                {
+                                    "type": "Control",
+                                    "scope": "#/properties/containerNumbers"
+                                }
+                            ]
+                        }
+                    ]
                 },
                 {
-                    "type": "Control",
-                    "scope": "#/properties/field1"
+                    "type": "Category",
+                    "label": "Transport",
+                    "elements": [
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/nameOfVessel"
+                        }
+                    ]
                 },
                 {
-                    "type": "Control",
-                    "scope": "#/properties/supportingDocuments"
+                    "type": "Category",
+                    "label": "Items",
+                    "elements": [
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/descriptionOfConsignment"
+                        },
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/addressConsignmentStored"
+                        },
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/packageDetails"
+                        },
+                        {
+                            "type": "VerticalLayout",
+                            "elements": [
+                                {
+                                    "text": "Details of ingredients used in product",
+                                    "type": "Label"
+                                },
+                                {
+                                    "type": "Control",
+                                    "scope": "#/properties/ingredientDetails"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/qualityMonitoringDetails",
+                            "options": {
+                                "multi": true
+                            }
+                        },
+                        {
+                            "type": "VerticalLayout",
+                            "elements": [
+                                {
+                                    "text": "Raw materials and product analysis certificates (Attach)",
+                                    "type": "Label"
+                                },
+                                {
+                                    "type": "Control",
+                                    "scope": "#/properties/analysisCertificates"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/otherDeclarations",
+                            "options": {
+                                "multi": true
+                            }
+                        }
+                    ]
                 }
             ]
         }',
         '1.0',
         TRUE
     ),
-    (
-        'fcau-lab-payment-form',
-        'FCAU Lab Payment Form',
-        'Form for applicants to upload proof of payment for lab testing.',
-        '{
-            "type": "object",
-            "required": [
-                "supportingDocuments"
-            ],
-            "properties": {
-                "supportingDocuments": {
-                    "type": "string",
-                    "title": "Upload Proof of Payment",
-                    "format": "file"
-                }
-            }
-        }',
-        '{
-            "type": "VerticalLayout",
-            "elements": [
-                {
-                    "text": "Upload Proof of Payment",
-                    "type": "Label"
-                },
-                {
-                    "type": "Control",
-                    "scope": "#/properties/supportingDocuments"
-                }
-            ]
-        }',
-        '1.0',
-        TRUE
-    ),
+
+    -- FCAU APPLICATION REVIEW RESPONSE FORM
     (
         'fcau-application-review-response',
         'FCAU Application Review Response Form',
@@ -82,38 +218,151 @@ VALUES
         '{
             "type": "object",
             "properties": {
-                "decision": {
+                "applicationId": {
                     "type": "string",
-                    "enum": ["APPROVED", "REJECTED"]
-                },
-                "reviewer_comments": {
-                    "type": "string"
+                    "title": "Application ID",
+                    "description": "Please enter Application ID"
                 }
             },
-            "required": ["decision"]
-        }'::jsonb,
-        '{}'::jsonb,
-        1,
-        true
+            "required": [
+                "applicationId"
+            ]
+        }',
+        '{
+            "type": "VerticalLayout",
+            "elements": [
+                {
+                    "type": "Control",
+                    "scope": "#/properties/applicationId"
+                }
+            ]
+        }',
+        '1.0',
+        TRUE
     ),
+
+    -- FCAU TESTING REQUIREMENT RESPONSE FORM
     (
-        'fcau-lab-payment-review-response',
-        'FCAU Lab Payment Review Response Form',
-        'Form for reviewers to provide their decision and comments on the lab payment.',
+        'fcau-testing-requirement-response',
+        'FCAU Testing Requirement Response Form',
+        'Form for reviewers to provide their decision and comments on the testing requirement.',
         '{
             "type": "object",
             "properties": {
-                "decision": {
+                "labTestingStatus": {
                     "type": "string",
-                    "enum": ["APPROVED", "REJECTED"]
+                    "title": "Are lab tests required?",
+                    "enum": [
+                        "Required",
+                        "Not Required"
+                    ]
                 },
-                "reviewer_comments": {
-                    "type": "string"
+                "requiredTests": {
+                    "type": "array",
+                    "title": "List Required Lab Tests",
+                    "description": "Add a new text box for each specific lab test required.",
+                    "items": {
+                        "type": "string",
+                        "title": "Test Name"
+                    }
                 }
             },
-            "required": ["decision"]
-         }'::jsonb,
-        '{}'::jsonb,
-        1,
-        true
+            "required": [
+                "labTestingStatus"
+            ]
+        }',
+        '{
+            "type": "VerticalLayout",
+            "elements": [
+                {
+                    "type": "Control",
+                    "scope": "#/properties/labTestingStatus",
+                    "options": {
+                        "format": "radio"
+                    }
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/requiredTests",
+                    "rule": {
+                        "effect": "SHOW",
+                        "condition": {
+                            "scope": "#/properties/labTestingStatus",
+                            "schema": {
+                                "const": "Required"
+                            }
+                        }
+                    }
+                }
+            ]
+        }',
+        '1.0',
+        TRUE
+    ),
+
+
+    -- FCAU LAB PAYMENT SLIP UPLOAD FORM
+    (
+        'fcau-lab-payment-form',
+        'FCAU Lab Payment Form',
+        'Form for applicants to upload proof of payment for lab testing.',
+        '{
+            "type": "object",
+            "properties": {
+                "labPaymentReceipt": {
+                    "type": "string",
+                    "title": "Payment Receipt",
+                    "format": "file"
+                }
+            },
+            "required": [
+                "labPaymentReceipt"
+            ]
+        }',
+        '{
+            "type": "VerticalLayout",
+            "elements": [
+                {
+                    "text": "Upload Lab Payment Receipt",
+                    "type": "Label"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/labPaymentReceipt"
+                }
+            ]
+        }',
+        '1.0',
+        TRUE
+    ),
+
+    -- FCAU CERTIFICATE VIEW
+    (
+        'fcau-certificate-issue-response',
+        'FCAU Certificate Issue Response Form',
+        'Form for reviewers to provide their decision and comments on the certificate issue.',
+        '{
+            "type": "object",
+            "required": [
+                "certificate"
+            ],
+            "properties": {
+                "certificate": {
+                    "type": "string",
+                    "title": "Upload Certificate",
+                    "format": "file"
+                }
+            }
+        }',
+        '{
+            "type": "VerticalLayout",
+            "elements": [
+                {
+                    "type": "Control",
+                    "scope": "#/properties/certificate"
+                }
+            ]
+        }',
+        '1.0',
+        TRUE
     );
