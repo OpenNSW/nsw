@@ -18,16 +18,6 @@ func NewWorkflowNodeService(db *gorm.DB) *WorkflowNodeService {
 	return &WorkflowNodeService{db: db}
 }
 
-// GetWorkflowNodeByID retrieves a workflow node by its ID.
-func (s *WorkflowNodeService) GetWorkflowNodeByID(ctx context.Context, nodeID string) (*model.WorkflowNode, error) {
-	var node model.WorkflowNode
-	result := s.db.WithContext(ctx).Where("id = ?", nodeID).First(&node)
-	if result.Error != nil {
-		return nil, fmt.Errorf("failed to retrieve workflow node: %w", result.Error)
-	}
-	return &node, nil
-}
-
 // GetWorkflowNodeByIDInTx retrieves a workflow node by its ID within a transaction.
 func (s *WorkflowNodeService) GetWorkflowNodeByIDInTx(ctx context.Context, tx *gorm.DB, nodeID string) (*model.WorkflowNode, error) {
 	var node model.WorkflowNode

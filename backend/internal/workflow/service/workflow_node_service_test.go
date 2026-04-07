@@ -198,17 +198,19 @@ func TestWorkflowNodeService_GetWorkflowNodesByWorkflowIDsInTx(t *testing.T) {
 	assert.Len(t, nodes, 2)
 }
 
-func TestWorkflowNodeService_GetWorkflowNodeByID(t *testing.T) {
+func TestWorkflowNodeService_GetWorkflowNodeByIDInTx_Success(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
 	service := NewWorkflowNodeService(db)
 	ctx := context.Background()
+	sqlMock.ExpectBegin()
+	tx := db.Begin()
 	id := uuid.NewString()
 
 	sqlMock.ExpectQuery(`SELECT \* FROM "workflow_nodes" WHERE id = \$1 ORDER BY "workflow_nodes"."id" LIMIT \$2`).
 		WithArgs(id, 1).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(id))
 
-	node, err := service.GetWorkflowNodeByID(ctx, id)
+	node, err := service.GetWorkflowNodeByIDInTx(ctx, tx, id)
 	assert.NoError(t, err)
 	assert.Equal(t, id, node.ID)
 }
@@ -234,10 +236,12 @@ func TestWorkflowNodeService_UpdateWorkflowNodesInTx_Failure(t *testing.T) {
 	})
 }
 
-func TestWorkflowNodeService_GetWorkflowNodeByID_Failure(t *testing.T) {
+func TestWorkflowNodeService_GetWorkflowNodeByIDInTx_Failure(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
 	service := NewWorkflowNodeService(db)
 	ctx := context.Background()
+	sqlMock.ExpectBegin()
+	tx := db.Begin()
 	id := uuid.NewString()
 
 	t.Run("Not Found", func(t *testing.T) {
@@ -245,7 +249,7 @@ func TestWorkflowNodeService_GetWorkflowNodeByID_Failure(t *testing.T) {
 			WithArgs(id, 1).
 			WillReturnError(gorm.ErrRecordNotFound)
 
-		node, err := service.GetWorkflowNodeByID(ctx, id)
+		node, err := service.GetWorkflowNodeByIDInTx(ctx, tx, id)
 		assert.Error(t, err)
 		assert.Nil(t, node)
 	})
