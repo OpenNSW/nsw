@@ -11,7 +11,7 @@ For full-stack orchestration and deployment architecture, see `docs/DEPLOYMENT.m
 | Component | Dockerfile | Image Tag (local) | Purpose |
 |---|---|---|---|
 | NSW Backend API | `backend/Dockerfile` | `nsw-backend:local` | Core backend service |
-| OGA Backend | `oga/Dockerfile` | `nsw-oga-backend:local` | OGA backend service (NPQS/FCAU/IRD instances) |
+| OGA Backend | `oga/Dockerfile` | `nsw-oga-backend:local` | OGA backend service (NPQS/FCAU/CDA instances) |
 | Trader Portal | `portals/apps/trader-app/Dockerfile` | `nsw-trader-portal:local` | Trader frontend |
 | OGA Portal | `portals/apps/oga-app/Dockerfile` | `nsw-oga-portal:local` | OGA frontend (instance-config driven) |
 

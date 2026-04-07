@@ -63,12 +63,12 @@ These scripts automatically configure Thunder on first startup:
   - **ABCD Traders Organization Unit** - child OU under Private Sector
   - **Private_User Type** - user schema for ABCD Traders users
   - **Government Organization Unit** - root OU for government entities
-  - **NPQS / FCAU / IRD Organization Units** - child OUs under Government Organization
+  - **NPQS / FCAU / CDA Organization Units** - child OUs under Government Organization
   - **Government_User Type** - shared user schema for government users
   - **Groups** - `Traders` and `CHA`
   - **Roles** - `Trader` and `CHA` (assigned to matching groups)
   - **Sample Users** - three private users in ABCD Traders and one user per government child OU
-  - **SPA Applications** - `TraderApp`, `NPQSPortalApp`, `FCAUPortalApp`, `IRDPortalApp`
+  - **SPA Applications** - `TraderApp`, `NPQSPortalApp`, `FCAUPortalApp`, `CDAPortalApp`
 
 ## Current Setup
 
@@ -77,13 +77,13 @@ The following resources are configured by bootstrap:
 - ✅ Default organization unit and default system resources
 - ✅ Private Sector organization unit
 - ✅ ABCD Traders child organization unit
-- ✅ Government Organization root unit with NPQS, FCAU, and IRD child units
+- ✅ Government Organization root unit with NPQS, FCAU, and CDA child units
 - ✅ Private_User and Government_User user types (schemas)
 - ✅ Traders and CHA groups
 - ✅ Trader and CHA roles assigned to corresponding groups
 - ✅ Three sample private users in ABCD Traders OU with group-based role inheritance
-- ✅ One government user in each of NPQS, FCAU, and IRD OUs
-- ✅ Four SPA apps with client IDs: `TRADER_PORTAL_APP`, `OGA_PORTAL_APP_NPQS`, `OGA_PORTAL_APP_FCAU`, `OGA_PORTAL_APP_IRD`
+- ✅ One government user in each of NPQS, FCAU, and CDA OUs
+- ✅ Four SPA apps with client IDs: `TRADER_PORTAL_APP`, `OGA_PORTAL_APP_NPQS`, `OGA_PORTAL_APP_FCAU`, `OGA_PORTAL_APP_CDA`
 
 ## Notes
 
@@ -95,5 +95,5 @@ The following resources are configured by bootstrap:
   - `TraderApp` -> `http://localhost:5173` (`TRADER_PORTAL_APP`)
   - `NPQSPortalApp` -> `http://localhost:5174` (`OGA_PORTAL_APP_NPQS`)
   - `FCAUPortalApp` -> `http://localhost:5175` (`OGA_PORTAL_APP_FCAU`)
-  - `IRDPortalApp` -> `http://localhost:5176` (`OGA_PORTAL_APP_IRD`)
+  - `CDAPortalApp` -> `http://localhost:5176` (`OGA_PORTAL_APP_CDA`)
 - All data is persisted in the `thunder-db` Docker volume

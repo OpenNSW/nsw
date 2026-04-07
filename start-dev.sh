@@ -56,10 +56,10 @@ BACKEND_PORT="${BACKEND_PORT:-8080}"
 TRADER_APP_PORT="${TRADER_APP_PORT:-5173}"
 OGA_NPQS_PORT="${OGA_NPQS_PORT:-8081}"
 OGA_FCAU_PORT="${OGA_FCAU_PORT:-8082}"
-OGA_IRD_PORT="${OGA_IRD_PORT:-8083}"
+OGA_CDA_PORT="${OGA_CDA_PORT:-8083}"
 OGA_APP_NPQS_PORT="${OGA_APP_NPQS_PORT:-5174}"
 OGA_APP_FCAU_PORT="${OGA_APP_FCAU_PORT:-5175}"
-OGA_APP_IRD_PORT="${OGA_APP_IRD_PORT:-5176}"
+OGA_APP_CDA_PORT="${OGA_APP_CDA_PORT:-5176}"
 
 
 if [[ "$RUN_MIGRATIONS" == "true" ]]; then
@@ -103,7 +103,7 @@ IDP_PUBLIC_URL="${IDP_PUBLIC_URL:-https://localhost:${IDP_PORT}}"
 TRADER_IDP_CLIENT_ID="${TRADER_IDP_CLIENT_ID:-TRADER_PORTAL_APP}"
 NPQS_IDP_CLIENT_ID="${NPQS_IDP_CLIENT_ID:-OGA_PORTAL_APP_NPQS}"
 FCAU_IDP_CLIENT_ID="${FCAU_IDP_CLIENT_ID:-OGA_PORTAL_APP_FCAU}"
-IRD_IDP_CLIENT_ID="${IRD_IDP_CLIENT_ID:-OGA_PORTAL_APP_IRD}"
+CDA_IDP_CLIENT_ID="${CDA_IDP_CLIENT_ID:-OGA_PORTAL_APP_CDA}"
 IDP_SCOPES="${IDP_SCOPES:-openid,profile,email}"
 IDP_PLATFORM="${IDP_PLATFORM:-AsgardeoV2}"
 SHOW_AUTOFILL_BUTTON="${SHOW_AUTOFILL_BUTTON:-true}"
@@ -122,10 +122,10 @@ OGA_DB_SSLMODE="${OGA_DB_SSLMODE:-disable}"
 
 OGA_NPQS_DB_PATH="${OGA_NPQS_DB_PATH:-./npqs.db}"
 OGA_FCAU_DB_PATH="${OGA_FCAU_DB_PATH:-./fcau.db}"
-OGA_IRD_DB_PATH="${OGA_IRD_DB_PATH:-./ird.db}"
+OGA_CDA_DB_PATH="${OGA_CDA_DB_PATH:-./cda.db}"
 OGA_APP_NPQS_INSTANCE_CONFIG="${OGA_APP_NPQS_INSTANCE_CONFIG:-npqs}"
 OGA_APP_FCAU_INSTANCE_CONFIG="${OGA_APP_FCAU_INSTANCE_CONFIG:-fcau}"
-OGA_APP_IRD_INSTANCE_CONFIG="${OGA_APP_IRD_INSTANCE_CONFIG:-ird}"
+OGA_APP_CDA_INSTANCE_CONFIG="${OGA_APP_CDA_INSTANCE_CONFIG:-cda}"
 
 pids=()
 names=()
@@ -210,10 +210,10 @@ start_service "oga-fcau" "$ROOT_DIR/oga" env \
   OGA_ALLOWED_ORIGINS="$OGA_ALLOWED_ORIGINS" \
   go run ./cmd/server
 
-start_service "oga-ird" "$ROOT_DIR/oga" env \
-  OGA_PORT="$OGA_IRD_PORT" \
+start_service "oga-cda" "$ROOT_DIR/oga" env \
+  OGA_PORT="$OGA_CDA_PORT" \
   OGA_DB_DRIVER="$OGA_DB_DRIVER" \
-  OGA_DB_PATH="$OGA_IRD_DB_PATH" \
+  OGA_DB_PATH="$OGA_CDA_DB_PATH" \
   OGA_DB_HOST="$OGA_DB_HOST" \
   OGA_DB_PORT="$OGA_DB_PORT" \
   OGA_DB_USER="$OGA_DB_USER" \
@@ -257,13 +257,13 @@ start_service "oga-app-fcau" "$ROOT_DIR/portals/apps/oga-app" env \
   VITE_IDP_PLATFORM="$IDP_PLATFORM" \
   pnpm run dev
 
-start_service "oga-app-ird" "$ROOT_DIR/portals/apps/oga-app" env \
-  VITE_PORT="$OGA_APP_IRD_PORT" \
-  VITE_INSTANCE_CONFIG="$OGA_APP_IRD_INSTANCE_CONFIG" \
-  VITE_API_BASE_URL="http://localhost:${OGA_IRD_PORT}" \
+start_service "oga-app-cda" "$ROOT_DIR/portals/apps/oga-app" env \
+  VITE_PORT="$OGA_APP_CDA_PORT" \
+  VITE_INSTANCE_CONFIG="$OGA_APP_CDA_INSTANCE_CONFIG" \
+  VITE_API_BASE_URL="http://localhost:${OGA_CDA_PORT}" \
   VITE_IDP_BASE_URL="$IDP_PUBLIC_URL" \
-  VITE_IDP_CLIENT_ID="$IRD_IDP_CLIENT_ID" \
-  VITE_APP_URL="http://localhost:${OGA_APP_IRD_PORT}" \
+  VITE_IDP_CLIENT_ID="$CDA_IDP_CLIENT_ID" \
+  VITE_APP_URL="http://localhost:${OGA_APP_CDA_PORT}" \
   VITE_IDP_SCOPES="$IDP_SCOPES" \
   VITE_IDP_PLATFORM="$IDP_PLATFORM" \
   pnpm run dev
@@ -275,10 +275,10 @@ Started local services:
   - trader-app    -> http://localhost:${TRADER_APP_PORT}
   - oga-npqs      -> http://localhost:${OGA_NPQS_PORT}
   - oga-fcau      -> http://localhost:${OGA_FCAU_PORT}
-  - oga-ird       -> http://localhost:${OGA_IRD_PORT}
+  - oga-cda       -> http://localhost:${OGA_CDA_PORT}
   - oga-app-npqs  -> http://localhost:${OGA_APP_NPQS_PORT}
   - oga-app-fcau  -> http://localhost:${OGA_APP_FCAU_PORT}
-  - oga-app-ird   -> http://localhost:${OGA_APP_IRD_PORT}
+  - oga-app-cda   -> http://localhost:${OGA_APP_CDA_PORT}
 
 IDP start: $RUN_IDP
 Migrations run: $RUN_MIGRATIONS
