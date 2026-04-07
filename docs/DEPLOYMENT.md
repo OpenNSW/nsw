@@ -30,9 +30,9 @@ A full NSW system deployment contains:
 - Identity Provider (Thunder)
 - PostgreSQL
 - NSW Backend API
-- OGA backends (NPQS, FCAU, IRD)
+- OGA backends (NPQS, FCAU, CDA)
 - Trader portal frontend
-- OGA portals (NPQS, FCAU, IRD)
+- OGA portals (NPQS, FCAU, CDA)
 - Database migration initializer
 
 ## 2) Architecture (Platform-Agnostic)
@@ -41,7 +41,7 @@ A full NSW system deployment contains:
 
 - Identity domain: Thunder bootstrap + Thunder runtime
 - Core domain: PostgreSQL, DB migration, backend, trader portal
-- OGA domains: separate NPQS/FCAU/IRD backend + portal pairs
+- OGA domains: separate NPQS/FCAU/CDA backend + portal pairs
 
 ### 2.2 Network/Isolation Model
 
@@ -144,7 +144,7 @@ Stop:
 
 - `idp-net`: Thunder services
 - `core-net`: PostgreSQL, migration, backend, trader portal
-- `oga-npqs-net`, `oga-fcau-net`, `oga-ird-net`: per-OGA isolation
+- `oga-npqs-net`, `oga-fcau-net`, `oga-cda-net`: per-OGA isolation
 
 ## 6) Option B — Individual Docker Image Deployment (Manual)
 
@@ -175,13 +175,13 @@ docker network create idp-net
 docker network create core-net
 docker network create oga-npqs-net
 docker network create oga-fcau-net
-docker network create oga-ird-net
+docker network create oga-cda-net
 
 docker volume create postgres-data
 docker volume create backend-uploads
 docker volume create oga-npqs-data
 docker volume create oga-fcau-data
-docker volume create oga-ird-data
+docker volume create oga-cda-data
 docker volume create thunder-db
 ```
 
@@ -229,10 +229,10 @@ This repository currently does not ship complete production-ready Kubernetes man
 - Trader portal: `http://localhost:5173`
 - OGA NPQS backend: `http://localhost:8081`
 - OGA FCAU backend: `http://localhost:8082`
-- OGA IRD backend: `http://localhost:8083`
+- OGA CDA backend: `http://localhost:8083`
 - OGA NPQS portal: `http://localhost:5174`
 - OGA FCAU portal: `http://localhost:5175`
-- OGA IRD portal: `http://localhost:5176`
+- OGA CDA portal: `http://localhost:5176`
 - IDP: `https://localhost:8090`
 - PostgreSQL: `localhost:55432`
 

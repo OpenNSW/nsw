@@ -18,11 +18,11 @@ USER456_PASSWORD="${THUNDER_SAMPLE_USER456_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
 USER789_PASSWORD="${THUNDER_SAMPLE_USER789_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
 NPQS_USER_PASSWORD="${THUNDER_SAMPLE_NPQS_USER_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
 FCAU_USER_PASSWORD="${THUNDER_SAMPLE_FCAU_USER_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
-IRD_USER_PASSWORD="${THUNDER_SAMPLE_IRD_USER_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
+CDA_USER_PASSWORD="${THUNDER_SAMPLE_CDA_USER_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
 M2M_CLIENT_SECRET="${THUNDER_M2M_CLIENT_SECRET:-1234}"
 NPQS_M2M_CLIENT_SECRET="${THUNDER_M2M_NPQS_SECRET:-${M2M_CLIENT_SECRET}}"
 FCAU_M2M_CLIENT_SECRET="${THUNDER_M2M_FCAU_SECRET:-${M2M_CLIENT_SECRET}}"
-IRD_M2M_CLIENT_SECRET="${THUNDER_M2M_IRD_SECRET:-${M2M_CLIENT_SECRET}}"
+CDA_M2M_CLIENT_SECRET="${THUNDER_M2M_CDA_SECRET:-${M2M_CLIENT_SECRET}}"
 
 log_info "Creating sample Thunder resources..."
 echo ""
@@ -548,7 +548,7 @@ echo ""
 GOVERNMENT_ORG_OU_HANDLE="government-organization"
 NPQS_OU_HANDLE="npqs"
 FCAU_OU_HANDLE="fcau"
-IRD_OU_HANDLE="ird"
+CDA_OU_HANDLE="cda"
 
 log_info "Creating Government Organization root organization unit..."
 
@@ -684,49 +684,49 @@ fi
 log_info "FCAU OU ID: $FCAU_OU_ID"
 
 echo ""
-log_info "Creating IRD organization unit..."
+log_info "Creating CDA organization unit..."
 
-read -r -d '' IRD_OU_PAYLOAD <<JSON || true
+read -r -d '' CDA_OU_PAYLOAD <<JSON || true
 {
-  "handle": "${IRD_OU_HANDLE}",
-  "name": "IRD",
+  "handle": "${CDA_OU_HANDLE}",
+  "name": "CDA",
   "description": "Inland Revenue Department",
   "parent": "${GOVERNMENT_ORG_OU_ID}"
 }
 JSON
 
-RESPONSE=$(thunder_api_call POST "/organization-units" "${IRD_OU_PAYLOAD}")
+RESPONSE=$(thunder_api_call POST "/organization-units" "${CDA_OU_PAYLOAD}")
 HTTP_CODE="${RESPONSE: -3}"
 BODY="${RESPONSE%???}"
 
 if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]]; then
-    log_success "IRD organization unit created successfully"
-    IRD_OU_ID=$(extract_first_id "$BODY")
+    log_success "CDA organization unit created successfully"
+    CDA_OU_ID=$(extract_first_id "$BODY")
 elif [[ "$HTTP_CODE" == "409" ]]; then
-    log_warning "IRD organization unit already exists, retrieving ID..."
-    RESPONSE=$(thunder_api_call GET "/organization-units/tree/${GOVERNMENT_ORG_OU_HANDLE}/${IRD_OU_HANDLE}")
+    log_warning "CDA organization unit already exists, retrieving ID..."
+    RESPONSE=$(thunder_api_call GET "/organization-units/tree/${GOVERNMENT_ORG_OU_HANDLE}/${CDA_OU_HANDLE}")
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
 
     if [[ "$HTTP_CODE" == "200" ]]; then
-        IRD_OU_ID=$(extract_first_id "$BODY")
+        CDA_OU_ID=$(extract_first_id "$BODY")
     else
-        log_error "Failed to fetch IRD OU (HTTP $HTTP_CODE)"
+        log_error "Failed to fetch CDA OU (HTTP $HTTP_CODE)"
         echo "Response: $BODY"
         exit 1
     fi
 else
-    log_error "Failed to create IRD organization unit (HTTP $HTTP_CODE)"
+    log_error "Failed to create CDA organization unit (HTTP $HTTP_CODE)"
     echo "Response: $BODY"
     exit 1
 fi
 
-if [[ -z "$IRD_OU_ID" ]]; then
-    log_error "Could not determine IRD organization unit ID"
+if [[ -z "$CDA_OU_ID" ]]; then
+    log_error "Could not determine CDA organization unit ID"
     exit 1
 fi
 
-log_info "IRD OU ID: $IRD_OU_ID"
+log_info "CDA OU ID: $CDA_OU_ID"
 
 echo ""
 
@@ -1028,8 +1028,8 @@ USER_NPQS_ID="$CREATED_USER_ID"
 create_user_in_ou "Government_User" "$FCAU_OU_ID" "fcau_user" "fcau_user@government.dev" "FCAU" "User" "$FCAU_USER_PASSWORD"
 USER_FCAU_ID="$CREATED_USER_ID"
 
-create_user_in_ou "Government_User" "$IRD_OU_ID" "ird_user" "ird_user@government.dev" "IRD" "User" "$IRD_USER_PASSWORD"
-USER_IRD_ID="$CREATED_USER_ID"
+create_user_in_ou "Government_User" "$CDA_OU_ID" "cda_user" "cda_user@government.dev" "CDA" "User" "$CDA_USER_PASSWORD"
+USER_CDA_ID="$CREATED_USER_ID"
 
 echo ""
 
@@ -1092,7 +1092,7 @@ echo ""
 create_spa_application "TraderApp" "Application for trader portal built with React" "TRADER_PORTAL_APP" "5173" "Private_User"
 create_spa_application "NPQSPortalApp" "Application for NPQS portal built with React" "OGA_PORTAL_APP_NPQS" "5174" "Government_User"
 create_spa_application "FCAUPortalApp" "Application for FCAU portal built with React" "OGA_PORTAL_APP_FCAU" "5175" "Government_User"
-create_spa_application "IRDPortalApp" "Application for IRD portal built with React" "OGA_PORTAL_APP_IRD" "5176" "Government_User"
+create_spa_application "CDAPortalApp" "Application for CDA portal built with React" "OGA_PORTAL_APP_CDA" "5176" "Government_User"
 
 echo ""
 
@@ -1134,8 +1134,8 @@ NPQS_TO_NSW_M2M_APP_ID="$CREATED_M2M_APP_ID"
 create_m2m_application "FCAU_TO_NSW_M2M" "Machine-to-machine integration for FCAU to NSW" "FCAU_TO_NSW" "${FCAU_M2M_CLIENT_SECRET}"
 FCAU_TO_NSW_M2M_APP_ID="$CREATED_M2M_APP_ID"
 
-create_m2m_application "IRD_TO_NSW_M2M" "Machine-to-machine integration for IRD to NSW" "IRD_TO_NSW" "${IRD_M2M_CLIENT_SECRET}"
-IRD_TO_NSW_M2M_APP_ID="$CREATED_M2M_APP_ID"
+create_m2m_application "CDA_TO_NSW_M2M" "Machine-to-machine integration for CDA to NSW" "CDA_TO_NSW" "${CDA_M2M_CLIENT_SECRET}"
+CDA_TO_NSW_M2M_APP_ID="$CREATED_M2M_APP_ID"
 
 echo ""
 
@@ -1147,7 +1147,7 @@ log_success "Sample resources setup completed successfully!"
 log_info "Private Sector OU path: ${PRIVATE_SECTOR_OU_HANDLE}"
 log_info "ABCD Traders OU path: ${ABCD_TRADERS_OU_PATH}"
 log_info "Government Organization OU path: ${GOVERNMENT_ORG_OU_HANDLE}"
-log_info "Government child OUs: ${NPQS_OU_HANDLE}, ${FCAU_OU_HANDLE}, ${IRD_OU_HANDLE}"
+log_info "Government child OUs: ${NPQS_OU_HANDLE}, ${FCAU_OU_HANDLE}, ${CDA_OU_HANDLE}"
 log_info "Private user type: Private_User"
 log_info "Government user type: Government_User"
 log_info "Traders group -> Trader role"
@@ -1155,8 +1155,8 @@ log_info "CHA group -> CHA role"
 log_info "both_roles_user in groups: Traders, CHA"
 log_info "cha_only_user in groups: CHA"
 log_info "trader_only_user in groups: Traders"
-log_info "Government users: npqs_user, fcau_user, ird_user"
-log_info "App client IDs: TRADER_PORTAL_APP, OGA_PORTAL_APP_NPQS, OGA_PORTAL_APP_FCAU, OGA_PORTAL_APP_IRD"
-log_info "M2M client IDs: NPQS_TO_NSW, FCAU_TO_NSW, IRD_TO_NSW"
+log_info "Government users: npqs_user, fcau_user, cda_user"
+log_info "App client IDs: TRADER_PORTAL_APP, OGA_PORTAL_APP_NPQS, OGA_PORTAL_APP_FCAU, OGA_PORTAL_APP_CDA"
+log_info "M2M client IDs: NPQS_TO_NSW, FCAU_TO_NSW, CDA_TO_NSW"
 log_info "M2M auth method: client_secret_basic"
 echo ""

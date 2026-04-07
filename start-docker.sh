@@ -142,13 +142,13 @@ BACKEND_PORT="${BACKEND_PORT:-8080}"
 TRADER_APP_PORT="${TRADER_APP_PORT:-5173}"
 OGA_NPQS_PORT="${OGA_NPQS_PORT:-8081}"
 OGA_FCAU_PORT="${OGA_FCAU_PORT:-8082}"
-OGA_IRD_PORT="${OGA_IRD_PORT:-8083}"
+OGA_CDA_PORT="${OGA_CDA_PORT:-8083}"
 OGA_APP_NPQS_PORT="${OGA_APP_NPQS_PORT:-5174}"
 OGA_APP_FCAU_PORT="${OGA_APP_FCAU_PORT:-5175}"
-OGA_APP_IRD_PORT="${OGA_APP_IRD_PORT:-5176}"
+OGA_APP_CDA_PORT="${OGA_APP_CDA_PORT:-5176}"
 OGA_NPQS_DB_DRIVER="${OGA_NPQS_DB_DRIVER:-postgres}"
 OGA_FCAU_DB_DRIVER="${OGA_FCAU_DB_DRIVER:-sqlite}"
-OGA_IRD_DB_DRIVER="${OGA_IRD_DB_DRIVER:-sqlite}"
+OGA_CDA_DB_DRIVER="${OGA_CDA_DB_DRIVER:-sqlite}"
 DB_PORT="${DB_PORT:-55432}"
 
 # --- Build --------------------------------------------------------------------
@@ -172,10 +172,10 @@ NSW Docker services:
   - trader-app     -> http://localhost:${TRADER_APP_PORT}
   - oga-npqs       -> http://localhost:${OGA_NPQS_PORT} (Driver: ${OGA_NPQS_DB_DRIVER})
   - oga-fcau       -> http://localhost:${OGA_FCAU_PORT} (Driver: ${OGA_FCAU_DB_DRIVER})
-  - oga-ird        -> http://localhost:${OGA_IRD_PORT} (Driver: ${OGA_IRD_DB_DRIVER})
+  - oga-cda        -> http://localhost:${OGA_CDA_PORT} (Driver: ${OGA_CDA_DB_DRIVER})
   - oga-app-npqs   -> http://localhost:${OGA_APP_NPQS_PORT}
   - oga-app-fcau   -> http://localhost:${OGA_APP_FCAU_PORT}
-  - oga-app-ird    -> http://localhost:${OGA_APP_IRD_PORT}
+  - oga-app-cda    -> http://localhost:${OGA_APP_CDA_PORT}
 
 Supporting services:
   - postgres       -> localhost:${DB_PORT}   $(if [[ "$RUN_POSTGRES" == "true" ]]; then echo "(enabled)"; else echo "(skipped)"; fi)

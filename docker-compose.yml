@@ -13,7 +13,7 @@
 #   core-net      — PostgreSQL, backend, trader portal
 #   oga-npqs-net  — OGA NPQS backend + portal
 #   oga-fcau-net  — OGA FCAU backend + portal
-#   oga-ird-net   — OGA IRD backend + portal
+#   oga-cda-net   — OGA CDA backend + portal
 #
 # The backend is multi-homed on all 5 networks (needs DB, IDP JWKS, OGA endpoints).
 # Portal frontends are browser-rendered SPAs — API calls go through localhost ports.
@@ -30,7 +30,7 @@ networks:
     driver: bridge
   oga-fcau-net:
     driver: bridge
-  oga-ird-net:
+  oga-cda-net:
     driver: bridge
 
 # ---- Volumes -----------------------------------------------------------------
@@ -42,7 +42,7 @@ volumes:
   backend-uploads:
   oga-npqs-data:
   oga-fcau-data:
-  oga-ird-data:
+  oga-cda-data:
 
 
 
@@ -75,7 +75,7 @@ services:
       THUNDER_M2M_CLIENT_SECRET: ${THUNDER_M2M_CLIENT_SECRET:-1234}
       THUNDER_M2M_NPQS_SECRET: ${THUNDER_M2M_NPQS_SECRET:-${THUNDER_M2M_CLIENT_SECRET:-1234}}
       THUNDER_M2M_FCAU_SECRET: ${THUNDER_M2M_FCAU_SECRET:-${THUNDER_M2M_CLIENT_SECRET:-1234}}
-      THUNDER_M2M_IRD_SECRET: ${THUNDER_M2M_IRD_SECRET:-${THUNDER_M2M_CLIENT_SECRET:-1234}}
+      THUNDER_M2M_CDA_SECRET: ${THUNDER_M2M_CDA_SECRET:-${THUNDER_M2M_CLIENT_SECRET:-1234}}
       THUNDER_API_BASE: ${THUNDER_API_BASE:-https://thunder:8090}
       THUNDER_PUBLIC_URL: ${IDP_PUBLIC_URL:-https://thunder:8090}
     volumes:
@@ -146,7 +146,7 @@ services:
       DB_NAME: ${DB_NAME:-nsw_db}
       NPQS_OGA_SUBMISSION_URL: http://oga-npqs:${OGA_NPQS_PORT:-8081}/api/oga/inject
       FCAU_OGA_SUBMISSION_URL: http://oga-fcau:${OGA_FCAU_PORT:-8082}/api/oga/inject
-      PRECONSIGNMENT_OGA_SUBMISSION_URL: http://oga-ird:${OGA_IRD_PORT:-8083}/api/oga/inject
+      PRECONSIGNMENT_OGA_SUBMISSION_URL: http://oga-cda:${OGA_CDA_PORT:-8083}/api/oga/inject
     networks:
       - core-net
     depends_on:
@@ -211,7 +211,7 @@ services:
       - idp-net
       - oga-npqs-net
       - oga-fcau-net
-      - oga-ird-net
+      - oga-cda-net
     depends_on:
       db-migration:
         condition: service_completed_successfully
@@ -365,39 +365,39 @@ services:
       VITE_IDP_PLATFORM: ${IDP_PLATFORM:-AsgardeoV2}
 
   # ============================================================================
-  # OGA IRD — oga-ird-net
+  # OGA CDA — oga-cda-net
   # ============================================================================
 
-  oga-ird:
+  oga-cda:
     image: nsw-oga-backend:local
     ports:
-      - "${OGA_IRD_PORT:-8083}:${OGA_IRD_PORT:-8083}"
+      - "${OGA_CDA_PORT:-8083}:${OGA_CDA_PORT:-8083}"
     volumes:
-      - oga-ird-data:/data
+      - oga-cda-data:/data
     networks:
-      - oga-ird-net
+      - oga-cda-net
     depends_on:
       - oga-npqs
     environment:
-      OGA_PORT: ${OGA_IRD_PORT:-8083}
-      OGA_DB_DRIVER: ${OGA_IRD_DB_DRIVER:-sqlite}
-      OGA_DB_PATH: ${OGA_IRD_DB_PATH:-/data/oga_applications.db}
-      OGA_DEFAULT_FORM_ID: ${OGA_IRD_DEFAULT_FORM_ID:-default}
-      OGA_ALLOWED_ORIGINS: ${OGA_IRD_ALLOWED_ORIGINS:-http://localhost:5176}
+      OGA_PORT: ${OGA_CDA_PORT:-8083}
+      OGA_DB_DRIVER: ${OGA_CDA_DB_DRIVER:-sqlite}
+      OGA_DB_PATH: ${OGA_CDA_DB_PATH:-/data/oga_applications.db}
+      OGA_DEFAULT_FORM_ID: ${OGA_CDA_DEFAULT_FORM_ID:-default}
+      OGA_ALLOWED_ORIGINS: ${OGA_CDA_ALLOWED_ORIGINS:-http://localhost:5176}
 
-  oga-portal-ird:
+  oga-portal-cda:
     image: nsw-oga-portal:local
     ports:
-      - "${OGA_APP_IRD_PORT:-5176}:80"
+      - "${OGA_APP_CDA_PORT:-5176}:80"
     networks:
-      - oga-ird-net
+      - oga-cda-net
     depends_on:
       - oga-portal-npqs
     environment:
-      VITE_INSTANCE_CONFIG: ${OGA_APP_IRD_INSTANCE_CONFIG:-ird}
-      VITE_API_BASE_URL: http://localhost:${OGA_IRD_PORT:-8083}
+      VITE_INSTANCE_CONFIG: ${OGA_APP_CDA_INSTANCE_CONFIG:-cda}
+      VITE_API_BASE_URL: http://localhost:${OGA_CDA_PORT:-8083}
       VITE_IDP_BASE_URL: ${IDP_PUBLIC_URL:-https://localhost:8090}
-      VITE_IDP_CLIENT_ID: ${IRD_IDP_CLIENT_ID:-OGA_PORTAL_APP_IRD}
-      VITE_APP_URL: http://localhost:${OGA_APP_IRD_PORT:-5176}
+      VITE_IDP_CLIENT_ID: ${CDA_IDP_CLIENT_ID:-OGA_PORTAL_APP_CDA}
+      VITE_APP_URL: http://localhost:${OGA_APP_CDA_PORT:-5176}
       VITE_IDP_SCOPES: ${IDP_SCOPES:-openid,profile,email}
       VITE_IDP_PLATFORM: ${IDP_PLATFORM:-AsgardeoV2}
