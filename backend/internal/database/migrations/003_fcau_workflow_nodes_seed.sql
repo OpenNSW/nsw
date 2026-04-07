@@ -48,8 +48,12 @@ VALUES
         'WAIT_FOR_EVENT',
         ('{
             "display": {
-                "title": "Drop off sample",
-                "description": "Please drop off your sample at the designated location"
+                "title_waiting": "Drop off sample",
+                "description_waiting": "Please drop off your sample at the designated location",
+                "title_failed": "Sample drop off not confirmed",
+                "description_failed": "We have not received confirmation of your sample drop off. Please confirm that you have dropped off your sample.",
+                "title_completed": "Sample drop off confirmed",
+                "description_completed": "We have received confirmation of your sample drop off. We will notify you once the test results are available."
             },
             "submission": {
                 "url": ' || to_jsonb((:'FCAU_OGA_SUBMISSION_URL')::text)::text || ',
@@ -83,8 +87,12 @@ VALUES
         'WAIT_FOR_EVENT',
         ('{
             "display": {
-                "title": "Waiting on Testing Requirements",
-                "description": "Once the FCAU officer decides on the testing requirements, this task will get completed"
+                "title_waiting": "Waiting on Testing Requirements",
+                "description_waiting": "Once the FCAU officer decides on the testing requirements, this task will get completed",
+                "title_failed": "Testing Requirement Analysis Failed",
+                "description_failed": "There was an issue determining the testing requirements. Please retry.",
+                "title_completed": "Testing Requirement Analysis Completed",
+                "description_completed": "The FCAU officer has determined the testing requirements based on your submission. If lab testing is required, you will see a new task to upload payment for the lab testing."
             },
             "submission": {
                 "url": ' || to_jsonb((:'FCAU_OGA_SUBMISSION_URL')::text)::text || ',
@@ -160,8 +168,12 @@ VALUES
         'WAIT_FOR_EVENT',
         ('{
             "display": {
-                "title": " Waiting on Test Result Evaluation",
-                "description": "Once the FCAU officer reviews the lab test results, this task will be marked as complete"
+                "title_waiting": " Waiting on Test Result Evaluation",
+                "description_waiting": "Once the FCAU officer reviews the lab test results, this task will be marked as complete",
+                "title_failed": "Test Result Evaluation Failed",
+                "description_failed": "There was an issue evaluating the test results. Please retry.",
+                "title_completed": "Test Result Evaluation Completed",
+                "description_completed": "The FCAU officer has reviewed the test results and made a decision. You can view the decision details by clicking on this task."
             },
             "submission": {
                 "url": ' || to_jsonb((:'FCAU_OGA_SUBMISSION_URL')::text)::text || ',
@@ -239,8 +251,12 @@ VALUES
         'WAIT_FOR_EVENT',
         ('{
             "display": {
-                "title": "Waiting on Certificate Issuing",
-                "description": "Once the FCAU officer issues the certificate, you will be able to view it here"
+                "title_waiting": "Waiting on Certificate Issuing",
+                "description_waiting": "Once the FCAU officer issues the certificate, you will be able to view it here",
+                "title_failed": "Certificate Issuance Failed",
+                "description_failed": "There was an issue issuing the certificate. Please retry.",
+                "title_completed": "Certificate Issued",
+                "description_completed": "Your certificate has been issued successfully. You can view it in the attachments section below."
             },
             "submission": {
                 "url": ' || to_jsonb((:'FCAU_OGA_SUBMISSION_URL')::text)::text || ',

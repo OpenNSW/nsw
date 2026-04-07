@@ -91,8 +91,12 @@ VALUES
         'WAIT_FOR_EVENT',
         ('{
             "display": {
-                "title": "Waiting on Certificate Issuing",
-                "description": "Once the CDA officer issues the certificate, you will be able to view it here"
+                "title_waiting": "Waiting on Certificate Issuing",
+                "description_waiting": "Once the CDA officer issues the certificate, you will be able to view it here",
+                "title_failed": "Certificate Issuance Failed",
+                "description_failed": "There was an issue issuing the certificate. Please retry.",
+                "title_completed": "Certificate Issued",
+                "description_completed": "Your certificate has been issued successfully. You can view it in the attachments section below."
             },
             "submission": {
                 "url": ' || to_jsonb((:'CDA_OGA_SUBMISSION_URL')::text)::text || ',

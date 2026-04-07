@@ -30,8 +30,12 @@ const (
 
 // WaitForEventDisplay holds optional UI display metadata for the portal
 type WaitForEventDisplay struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
+	TitleWaiting         string `json:"title_waiting,omitempty"`
+	DescriptionWaiting   string `json:"description_waiting,omitempty"`
+	TitleFailed          string `json:"title_failed,omitempty"`
+	DescriptionFailed    string `json:"description_failed,omitempty"`
+	TitleCompleted       string `json:"title_completed,omitempty"`
+	DescriptionCompleted string `json:"description_completed,omitempty"`
 }
 
 // WaitForEventConfig represents the configuration for a WAIT_FOR_EVENT task
