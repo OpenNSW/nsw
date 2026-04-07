@@ -58,17 +58,27 @@ helm upgrade --install dev-api ./deployments/helm/nsw-api -f ./deployments/helm/
 helm upgrade --install dev-trader-app ./deployments/helm/trader-app -f ./deployments/helm/trader-app/values.yaml -f ./deployments/helm/trader-app/values-dev.yaml -n nsw-dev --set fullnameOverride=trader-app,image.tag=latest --history-max 1
 helm upgrade --install dev-temporal ./deployments/helm/temporal -f ./deployments/helm/temporal/values-dev.yaml -n nsw-dev --history-max 1
 
-# IDP Umbrella Chart (with Kustomize Patching)
-kustomize build --enable-helm ./deployments/helm/idp | oc apply -n nsw-dev -f -
+# IDP Umbrella Chart (with Patched Deployment)
+# 1. Build dependencies
+helm dependency build ./deployments/helm/idp
+
+# 2. Render templates to raw YAML
+helm template idp-thunder ./deployments/helm/idp -n national-single-window-platform --values ./deployments/helm/idp/custom-values.yaml > /tmp/idp-raw.yaml
+
+# 3. Apply environment patches (Security Context, Volumes, Sign-in Redirects)
+python3 /tmp/patch_idp.py
+
+# 4. Apply patched manifests
+kubectl apply -n national-single-window-platform -f /tmp/idp-patched.yaml
 
 # OGA Apps & Backends
 helm upgrade --install dev-oga-fcau-backend ./deployments/helm/oga-backend -f ./deployments/helm/oga-backend/values-dev.yaml -f ./deployments/helm/oga-backend/fcau-backend-values.yaml -n nsw-dev --history-max 1
 helm upgrade --install dev-oga-ird-backend ./deployments/helm/oga-backend -f ./deployments/helm/oga-backend/values-dev.yaml -f ./deployments/helm/oga-backend/ird-backend-values.yaml -n nsw-dev --history-max 1
 helm upgrade --install dev-oga-npqs-backend ./deployments/helm/oga-backend -f ./deployments/helm/oga-backend/values-dev.yaml -f ./deployments/helm/oga-backend/npqs-backend-values.yaml -n nsw-dev --history-max 1
 
-helm upgrade --install dev-oga-fcau-app ./deployments/helm/oga-app -f ./deployments/helm/oga-app/values-dev.yaml -f ./deployments/helm/oga-app/values/fcau-values.yaml -n nsw-dev --set fullnameOverride=dev-oga-fcau-app --history-max 1
-helm upgrade --install dev-oga-ird-app ./deployments/helm/oga-app -f ./deployments/helm/oga-app/values-dev.yaml -f ./deployments/helm/oga-app/values/ird-values.yaml -n nsw-dev --set fullnameOverride=dev-oga-ird-app --history-max 1
-helm upgrade --install dev-oga-npqs-app ./deployments/helm/oga-app -f ./deployments/helm/oga-app/values-dev.yaml -f ./deployments/helm/oga-app/values/npqs-values.yaml -n nsw-dev --set fullnameOverride=dev-oga-npqs-app --history-max 1
+helm upgrade --install dev-oga-fcau ./deployments/helm/oga-app -f ./deployments/helm/oga-app/values-dev.yaml -f ./deployments/helm/oga-app/values/fcau-values.yaml -n nsw-dev --set fullnameOverride=dev-oga-fcau --history-max 1
+helm upgrade --install dev-oga-ird ./deployments/helm/oga-app -f ./deployments/helm/oga-app/values-dev.yaml -f ./deployments/helm/oga-app/values/ird-values.yaml -n nsw-dev --set fullnameOverride=dev-oga-ird --history-max 1
+helm upgrade --install dev-oga-npqs ./deployments/helm/oga-app -f ./deployments/helm/oga-app/values-dev.yaml -f ./deployments/helm/oga-app/values/npqs-values.yaml -n nsw-dev --set fullnameOverride=dev-oga-npqs --history-max 1
 ```
 
 ### Option B: STAGING Environment Deployments

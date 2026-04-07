@@ -17,12 +17,11 @@ thunder:
       port: 443
       scheme: "https"
       
-    cors:
       allowedOrigins:
-        - "https://dev-trader-app.national-single-window-platform.apps.sovecloud1.akaza.lk"
-        - "https://dev-oga-fcau.national-single-window-platform.apps.sovecloud1.akaza.lk"
-        - "https://dev-oga-ird.national-single-window-platform.apps.sovecloud1.akaza.lk"
-        - "https://dev-oga-npqs.national-single-window-platform.apps.sovecloud1.akaza.lk"
+        - "https://dev-trader-app-national-single-window-platform.apps.sovecloud1.akaza.lk"
+        - "https://dev-oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk"
+        - "https://dev-oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk"
+        - "https://dev-oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk"
   
     database:
       config:

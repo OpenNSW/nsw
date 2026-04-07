@@ -1,5 +1,8 @@
-# Default values for oga-app.
-# MUST override with per-instance values files (e.g. oga-fcau-values.yaml).
+# deployments/helm/oga-app/values.yaml (Base Schema)
+
+global:
+  clusterDomain: "apps.sovecloud1.akaza.lk"
+  namespace: "national-single-window-platform"
 
 # Explicitly allow renaming the deployment resources per agency
 fullnameOverride: ""
@@ -19,7 +22,6 @@ service:
   port: 80
   targetPort: 8080 # CRITICAL: Unprivileged port for OpenShift Nginx
 
-# --- Shared configuration ---
 config:
   # Agency Specifics: Intentionally left blank to FORCE overrides
   instanceConfig: "" 
@@ -28,8 +30,8 @@ config:
   ogaBackendUrl: ""
 
   # Shared Platform Specifics
-  apiBaseUrl: "https://nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"
-  idpBaseUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  apiBaseUrl: ""
+  idpBaseUrl: ""
   idpScopes: "openid,profile,email"
   idpPlatform: "AsgardeoV2"
 
@@ -43,7 +45,7 @@ resources:
 
 route:
   enabled: true
-  host: "" # Must override in agency values file
+  host: "" # Leave blank to let OpenShift auto-generate the hyphenated route
   tls:
     termination: edge
     insecureEdgeTerminationPolicy: Redirect

@@ -7,7 +7,9 @@ metadata:
     app.kubernetes.io/name: {{ include "trader-app.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
-  host: {{ if .Values.route.host }}{{ .Values.route.host }}{{ else }}{{ include "trader-app.fullname" . }}.{{ .Values.global.namespace }}.{{ .Values.global.clusterDomain }}{{ end }}
+  {{- if .Values.route.host }}
+  host: {{ .Values.route.host }}
+  {{- end }}
   to:
     kind: Service
     name: {{ include "trader-app.fullname" . }}

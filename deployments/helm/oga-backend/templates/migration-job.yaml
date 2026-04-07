@@ -2,9 +2,9 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ .Release.Name }}-db-migration-{{ .Release.Revision }}
+  name: {{ include "oga-backend.fullname" . }}-migration-{{ .Release.Revision }}
   labels:
-    {{- include "nsw-api.labels" . | nindent 4 }}
+    {{- include "oga-backend.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": pre-install,pre-upgrade
     "helm.sh/hook-weight": "1"
@@ -12,7 +12,7 @@ metadata:
 spec:
   template:
     metadata:
-      name: {{ .Release.Name }}-db-migration
+      name: {{ include "oga-backend.fullname" . }}-migration
     spec:
       {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -30,17 +30,15 @@ spec:
             capabilities:
               drop:
                 - ALL
-          # Declarative migration engine Docker image embedding Goose and SQL files
           image: "{{ .Values.migrations.image.repository }}{{ if .Values.migrations.image.tag }}:{{ .Values.migrations.image.tag }}{{ end }}"
           imagePullPolicy: {{ .Values.migrations.image.pullPolicy | default "Always" }}
-          command: ["sh", "/scripts/run-migrations.sh"]
           env:
             - name: PGHOST
               value: {{ .Values.config.database.host | quote }}
             - name: PGPORT
               value: {{ .Values.config.database.port | quote }}
             - name: PGUSER
-              value: {{ .Values.config.database.username | quote }}
+              value: {{ .Values.config.database.username | default "postgres" | quote }}
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
@@ -48,31 +46,6 @@ spec:
                   key: password
             - name: PGDATABASE
               value: {{ .Values.config.database.name | quote }}
-            - name: NPQS_OGA_SUBMISSION_URL
-              value: {{ .Values.migrations.ogaSubmissionUrls.npqs | quote }}
-            - name: FCAU_OGA_SUBMISSION_URL
-              value: {{ .Values.migrations.ogaSubmissionUrls.fcau | quote }}
-            - name: IRD_OGA_SUBMISSION_URL
-              value: {{ .Values.migrations.ogaSubmissionUrls.preconsignment | quote }}
           resources:
-            requests:
-              cpu: 50m
-              memory: 64Mi
-            limits:
-              cpu: 200m
-              memory: 128Mi
-          volumeMounts:
-            - name: migration-scripts
-              mountPath: /scripts
-            - name: migration-sql
-              mountPath: /migrations
-      volumes:
-        - name: migration-scripts
-          configMap:
-            name: nsw-api-db-migrations
-            defaultMode: 0755
-        - name: migration-sql
-          configMap:
-            name: nsw-api-db-migrations
-            defaultMode: 0644
+            {{- toYaml .Values.migrations.resources | nindent 12 }}
 {{- end }}

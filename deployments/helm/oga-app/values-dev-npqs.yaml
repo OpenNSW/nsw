@@ -1,0 +1,8 @@
+fullnameOverride: "dev-oga-npqs"
+config:
+  instanceConfig: "npqs"
+  idpClientId: "OGA_PORTAL_APP_NPQS"
+  appUrl: "https://dev-oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  
+  # The internal K8s DNS name for the Dev NPQS backend (No external route needed!)
+  ogaBackendUrl: "http://dev-oga-npqs-backend:8081"

@@ -1,4 +1,7 @@
 # configuration for official ghcr.io/asgardeo/helm-charts/thunder
+global:
+  clusterDomain: "apps.sovecloud1.akaza.lk"
+
 configuration:
   server:
     port: 8090
@@ -16,12 +19,12 @@ configuration:
     port: 443
     scheme: "https"
     
-  cors:
-    allowedOrigins:
-      - "https://dev-trader-app.national-single-window-platform.apps.sovecloud1.akaza.lk"
-      - "https://dev-oga-fcau.national-single-window-platform.apps.sovecloud1.akaza.lk"
-      - "https://dev-oga-ird.national-single-window-platform.apps.sovecloud1.akaza.lk"
-      - "https://dev-oga-npqs.national-single-window-platform.apps.sovecloud1.akaza.lk"
+cors:
+  allowedOrigins:
+    - "https://dev-trader-app-national-single-window-platform.apps.sovecloud1.akaza.lk"
+    - "https://dev-oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk"
+    - "https://dev-oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk"
+    - "https://dev-oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk"
 
   database:
     config:
@@ -55,13 +58,14 @@ configuration:
         name: "nsw-db-credentials"
         key: "password"
 
-deployment:
-  replicaCount: 1
-  container:
-    port: 8090
-    extraEnv:
-      - name: THUNDER_SKIP_SECURITY
-        value: "true"
+thunder:
+  deployment:
+    replicaCount: 1
+    container:
+      port: 8090
+      extraEnv:
+        - name: THUNDER_SKIP_SECURITY
+          value: "true"
 
 # Resources for the main deployment container
 resources:

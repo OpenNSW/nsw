@@ -1,4 +1,7 @@
 # Default values for nsw-api.
+global:
+  namespace: "national-single-window-platform"
+  clusterDomain: "apps.sovecloud1.akaza.lk"
 
 fullnameOverride: ""
 replicaCount: 1
@@ -44,19 +47,19 @@ config:
 
   auth:
     # Use the internal service name and port 8090
-    jwksUrl: "http://idp-thunder-service.national-single-window-platform.svc.cluster.local:8090/oauth2/jwks"
-    issuer: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"
+    jwksUrl: "http://idp-thunder-service.{{ .Release.Namespace }}.svc.cluster.local:8090/oauth2/jwks"
+    issuer: "https://idp-thunder-{{ .Release.Namespace }}.{{ .Values.global.clusterDomain }}"
     audience: "TRADER_PORTAL_APP"
     clientId: "TRADER_PORTAL_APP"
     # Set to true if the IDP is using a self-signed cert internally (common in GovCloud)
     insecureSkipTlsVerify: true
 
-  serviceUrl: "https://{{ include \"nsw-api.fullname\" . }}.{{ .Values.global.namespace }}.{{ .Values.global.clusterDomain }}"
-  internalServiceUrl: "http://nsw-api.national-single-window-platform.svc.cluster.local"
+  serviceUrl: "https://{{ include \"nsw-api.fullname\" . }}.{{ .Release.Namespace }}.{{ .Values.global.clusterDomain }}"
+  internalServiceUrl: "http://nsw-api.{{ .Release.Namespace }}.svc.cluster.local"
 
   cors:
     allowedOrigins:
-      - "https://trader-app.{{ .Values.global.namespace }}.{{ .Values.global.clusterDomain }}"
+      - "https://trader-app.{{ .Release.Namespace }}.{{ .Values.global.clusterDomain }}"
 
   storage:
     type: "local"
@@ -99,6 +102,16 @@ migrations:
       cpu: 50m
       memory: 64Mi
   ogaSubmissionUrls:
-    npqs: "http://oga-npqs-backend.national-single-window-platform.svc.cluster.local:8081/api/oga/inject"
-    fcau: "http://oga-fcau-backend.national-single-window-platform.svc.cluster.local:8081/api/oga/inject"
-    ird: "http://oga-ird-backend.national-single-window-platform.svc.cluster.local:8081/api/oga/inject"
+    npqs: "http://{{ .Values.config.servicePrefix }}oga-npqs-backend.{{ .Release.Namespace }}.svc.cluster.local:8081/api/oga/inject"
+    fcau: "http://{{ .Values.config.servicePrefix }}oga-fcau-backend.{{ .Release.Namespace }}.svc.cluster.local:8081/api/oga/inject"
+    ird: "http://{{ .Values.config.servicePrefix }}oga-ird-backend.{{ .Release.Namespace }}.svc.cluster.local:8081/api/oga/inject"
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1

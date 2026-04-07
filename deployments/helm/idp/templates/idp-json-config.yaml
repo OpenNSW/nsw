@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: idp-json-config
+  namespace: {{ .Release.Namespace }}
+binaryData:
+  config.json: {{ .Files.Get "files/config.json" | b64enc }}

@@ -1,4 +1,7 @@
 # Default values for oga-backend.
+global:
+  namespace: "national-single-window-platform"
+  clusterDomain: "apps.sovecloud1.akaza.lk"
 # This is a base file for the three OGA agency deployments.
 
 config:
@@ -18,4 +21,28 @@ route:
   tls:
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
+
+migrations:
+  enabled: true
+  image:
+    repository: registry.redhat.io/rhel8/postgresql-12@sha256:fd7b47517df99487c02d86f57b0b6722c32551bcf89ce61018d6a5e355c7c212
+    tag: ""
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
 

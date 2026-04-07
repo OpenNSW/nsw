@@ -2,7 +2,7 @@
 thunder:
   configuration:
     server:
-      publicUrl: "https://staging-idp.national-single-window-platform.apps.sovecloud1.akaza.lk"
+      publicUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"
     gateClient:
       hostname: "staging-idp-service"
       port: 8090
@@ -34,4 +34,4 @@ thunder:
       memory: 256Mi
 
   ingress:
-    hostname: "staging-idp.national-single-window-platform.apps.sovecloud1.akaza.lk"
+    hostname: "idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"

@@ -3,9 +3,12 @@ FROM ghcr.io/asgardeo/thunder:0.29.0
 # Switch to root temporarily to modify permissions
 USER root
 
-# Grant Group 0 ownership and mirror User permissions to the Group
-RUN chgrp -R 0 /opt/thunder/repository/resources/security && \
-    chmod -R g=u /opt/thunder/repository/resources/security
+# Replace the broken binary
+COPY ./fixed-binary /opt/thunder/bin/binary
+
+# Grant Group 0 ownership and arbitrary UID compliance across /opt/thunder
+RUN chgrp -R 0 /opt/thunder && \
+    chmod -R g+rwx /opt/thunder
 
 # Switch back to the default non-root user
-USER 1001
+USER 10001

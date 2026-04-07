@@ -1,0 +1,8 @@
+fullnameOverride: "dev-oga-ird"
+config:
+  instanceConfig: "ird"
+  idpClientId: "OGA_PORTAL_APP_IRD"
+  appUrl: "https://dev-oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  
+  # The internal K8s DNS name for the Dev IRD backend (No external route needed!)
+  ogaBackendUrl: "http://dev-oga-ird-backend:8081"

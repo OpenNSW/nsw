@@ -1,11 +1,13 @@
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: {{ .Release.Name }}-ui
+  name: {{ .Values.ui.route.name | default (printf "%s-ui" .Release.Name) }}
   labels:
     {{- include "temporal.labels" . | nindent 4 }}
 spec:
-  host: {{ if .Values.ui.route.host }}{{ .Values.ui.route.host }}{{ else }}{{ .Release.Name }}-ui.{{ .Values.global.namespace }}.{{ .Values.global.clusterDomain }}{{ end }}
+  {{- if .Values.ui.route.host }}
+  host: {{ .Values.ui.route.host }}
+  {{- end }}
   to:
     kind: Service
     name: {{ .Release.Name }}-server

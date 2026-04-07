@@ -6,7 +6,9 @@ metadata:
   labels:
     {{- include "oga-app.labels" . | nindent 4 }}
 spec:
-  host: {{ if .Values.route.host }}{{ .Values.route.host }}{{ else }}{{ include "oga-app.fullname" . }}.{{ .Values.global.namespace }}.{{ .Values.global.clusterDomain }}{{ end }}
+  {{- if .Values.route.host }}
+  host: {{ .Values.route.host }}
+  {{- end }}
   to:
     kind: Service
     name: {{ include "oga-app.fullname" . }}

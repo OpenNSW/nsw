@@ -3,7 +3,7 @@
 replicaCount: 1
 
 config:
-  apiBaseUrl: "https://dev-api.national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"
+  apiBaseUrl: "https://dev-api-national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"
   idpBaseUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"
   # Note: Instance-specific URLs (appUrl, ogaBackendUrl) are managed by the deployment script or values-dev-npqs.yaml
   # but we can provide a default pattern here.

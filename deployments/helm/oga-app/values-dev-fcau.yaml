@@ -1,0 +1,8 @@
+fullnameOverride: "dev-oga-fcau"
+config:
+  instanceConfig: "fcau"
+  idpClientId: "OGA_PORTAL_APP_FCAU"
+  appUrl: "https://dev-oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  
+  # The internal K8s DNS name for the Dev FCAU backend (No external route needed!)
+  ogaBackendUrl: "http://dev-oga-fcau-backend:8081"

@@ -3,9 +3,9 @@ fullnameOverride: ""
 config:
   instanceConfig: "ird"
   idpClientId: "OGA_PORTAL_APP_IRD"
-  appUrl: "https://dev-oga-ird.national-single-window-platform.apps.sovecloud1.akaza.lk"
+  appUrl: "https://dev-oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk"
   ogaBackendUrl: "http://dev-oga-ird-backend:8081"
 
 route:
   enabled: true
-  host: "dev-oga-ird.national-single-window-platform.apps.sovecloud1.akaza.lk"
+  host: ""

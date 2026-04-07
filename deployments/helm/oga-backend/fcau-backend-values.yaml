@@ -23,13 +23,13 @@ config:
   database:
     name: "oga-backend-fcau"
     credentialsSecretName: "nsw-db-credentials"
-  allowedOrigins: "https://dev-oga-fcau.national-single-window-platform.apps.sovecloud1.akaza.lk"
-  nswApiBaseUrl: "https://dev-api.national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"
+  allowedOrigins: "https://dev-oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  nswApiBaseUrl: "https://dev-api-national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"
   port: 8081
 
 route:
   enabled: true
-  host: dev-oga-fcau-backend.national-single-window-platform.apps.sovecloud1.akaza.lk
+  host: ""
   tls:
     enabled: true
     termination: edge
