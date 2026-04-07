@@ -244,9 +244,8 @@ VALUES
                         "templateKey": "npqs:manual_inspection:v1"
                     },
                     "template": {
-                        "assesmentNo": "cusdec:assesmentNo",
-                        "consignmentId": "gi:consignmentId",
-                        "riskLevel": "npqs:phytosanitary:riskLevel"
+                        "consignee_name": "consignee:consignee_name",
+                        "consigneeAddress": "consignee:address"
                     }
                 },
                 "response": {

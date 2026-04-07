@@ -35,7 +35,7 @@ VALUES
             { "id": "node_6_health", "type": "TASK", "task_template_id": "c0000003-0003-0003-0003-000000000004", "input_mapping": { "gi:consignee:consignee_name": "consignee:consignee_name", "gi:consignee:address": "consignee:address" } },
 
             { "id": "gw_7_exclusive_split", "type": "GATEWAY", "gateway_type": "EXCLUSIVE_SPLIT" },
-            { "id": "node_8_manual_inspect", "type": "TASK", "task_template_id": "e1a00001-0001-4000-b000-000000000007" },
+            { "id": "node_8_manual_inspect", "type": "TASK", "input_mapping": { "gi:consignee:consignee_name": "consignee:consignee_name", "gi:consignee:address": "consignee:address" }, "task_template_id": "e1a00001-0001-4000-b000-000000000007" },
             { "id": "gw_9_exclusive_join", "type": "GATEWAY", "gateway_type": "EXCLUSIVE_JOIN" },
 
             { "id": "gw_10_parallel_join", "type": "GATEWAY", "gateway_type": "PARALLEL_JOIN" },
