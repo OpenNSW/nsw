@@ -204,11 +204,16 @@ func TestWorkflowNodeService_GetWorkflowNodeByIDInTx_Success(t *testing.T) {
 	ctx := context.Background()
 	sqlMock.ExpectBegin()
 	tx := db.Begin()
+	assert.NoError(t, tx.Error)
+	defer func() {
+		assert.NoError(t, tx.Rollback().Error)
+	}()
 	id := uuid.NewString()
 
 	sqlMock.ExpectQuery(`SELECT \* FROM "workflow_nodes" WHERE id = \$1 ORDER BY "workflow_nodes"."id" LIMIT \$2`).
 		WithArgs(id, 1).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(id))
+	sqlMock.ExpectRollback()
 
 	node, err := service.GetWorkflowNodeByIDInTx(ctx, tx, id)
 	assert.NoError(t, err)
@@ -240,14 +245,20 @@ func TestWorkflowNodeService_GetWorkflowNodeByIDInTx_Failure(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
 	service := NewWorkflowNodeService(db)
 	ctx := context.Background()
-	sqlMock.ExpectBegin()
-	tx := db.Begin()
 	id := uuid.NewString()
 
 	t.Run("Not Found", func(t *testing.T) {
+		sqlMock.ExpectBegin()
+		tx := db.Begin()
+		assert.NoError(t, tx.Error)
+		defer func() {
+			assert.NoError(t, tx.Rollback().Error)
+		}()
+
 		sqlMock.ExpectQuery(`SELECT \* FROM "workflow_nodes" WHERE id = \$1 ORDER BY "workflow_nodes"."id" LIMIT \$2`).
 			WithArgs(id, 1).
 			WillReturnError(gorm.ErrRecordNotFound)
+		sqlMock.ExpectRollback()
 
 		node, err := service.GetWorkflowNodeByIDInTx(ctx, tx, id)
 		assert.Error(t, err)
