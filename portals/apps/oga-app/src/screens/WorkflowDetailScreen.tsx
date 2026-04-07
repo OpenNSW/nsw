@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button, Badge, Spinner, Text, Card, Flex, Box, Callout, Tabs } from '@radix-ui/themes'
 import { ArrowLeftIcon, CheckCircledIcon, ExclamationTriangleIcon, InfoCircledIcon, ChatBubbleIcon } from '@radix-ui/react-icons'
@@ -7,6 +7,12 @@ import { JsonForms } from '@jsonforms/react';
 import { radixRenderers } from '@opennsw/jsonforms-renderers';
 import type { JsonSchema, UISchemaElement } from '@jsonforms/core';
 import { useApi } from '../services/useApi'
+
+// Define which application types (meta.type) support specific actions.
+const SUPPORTED_TYPES = {
+  feedback: ['SIMPLE_FORM'], // Types that show the Comments tab and "Request Changes" button
+  actions: ['SIMPLE_FORM', 'WAIT_FOR_EVENT'],  // Types that show the "Submit Review" and "Request Changes" buttons
+};
 
 export function WorkflowDetailScreen() {
   const navigate = useNavigate()
@@ -29,6 +35,14 @@ export function WorkflowDetailScreen() {
   const [showFeedbackInput, setShowFeedbackInput] = useState(false)
   const [feedbackText, setFeedbackText] = useState('')
   const [isSendingFeedback, setIsSendingFeedback] = useState(false)
+
+  const { isFeedbackSupported, areActionsSupported } = useMemo(() => {
+    const type = application?.meta?.type || 'Standard'
+    return {
+      isFeedbackSupported: SUPPORTED_TYPES.feedback.includes(type),
+      areActionsSupported: SUPPORTED_TYPES.actions.includes(type),
+    }
+  }, [application])
 
   const handleSendFeedback = async () => {
     if (!taskId || !feedbackText.trim()) return
@@ -281,23 +295,25 @@ export function WorkflowDetailScreen() {
                     Review
                   </Flex>
                 </Tabs.Trigger>
-                <Tabs.Trigger value="comments">
-                  <Flex align="center" gap="2">
-                    <ChatBubbleIcon />
-                    Comments
-                    {feedbackCount > 0 && (
-                      <Badge color="amber" size="1" variant="solid" radius="full">
-                        {feedbackCount}
-                      </Badge>
-                    )}
-                  </Flex>
-                </Tabs.Trigger>
+                {isFeedbackSupported && (
+                  <Tabs.Trigger value="comments">
+                    <Flex align="center" gap="2">
+                      <ChatBubbleIcon />
+                      Comments
+                      {feedbackCount > 0 && (
+                        <Badge color="amber" size="1" variant="solid" radius="full">
+                          {feedbackCount}
+                        </Badge>
+                      )}
+                    </Flex>
+                  </Tabs.Trigger>
+                )}
               </Tabs.List>
 
               <Box pt="4">
                 {/* Review Tab */}
                 <Tabs.Content value="review">
-                  {formConfig && isActionable ? (
+                  {formConfig && isActionable && areActionsSupported ? (
                       <form onSubmit={(event) => {
                   void handleSubmit(event)
                 }} noValidate>
@@ -321,7 +337,7 @@ export function WorkflowDetailScreen() {
                           >
                             Cancel
                           </Button>
-                          {application.status !== 'FEEDBACK_REQUESTED' && (
+                          {isFeedbackSupported && application.status !== 'FEEDBACK_REQUESTED' && (
                             <Button
                               variant="soft"
                               color="amber"
@@ -357,94 +373,96 @@ export function WorkflowDetailScreen() {
                 </Tabs.Content>
 
                 {/* Comments Tab */}
-                <Tabs.Content value="comments">
-                  <div className="space-y-4">
-                    {feedbackCount > 0 ? (
-                      <div className="rounded-lg border border-amber-200 overflow-hidden">
-                        <div className="bg-amber-50 px-4 py-2 border-b border-amber-200">
-                          <Text size="1" weight="bold" className="uppercase tracking-wider text-amber-700">
-                            Feedback History
-                          </Text>
+                {isFeedbackSupported && (
+                  <Tabs.Content value="comments">
+                    <div className="space-y-4">
+                      {feedbackCount > 0 ? (
+                        <div className="rounded-lg border border-amber-200 overflow-hidden">
+                          <div className="bg-amber-50 px-4 py-2 border-b border-amber-200">
+                            <Text size="1" weight="bold" className="uppercase tracking-wider text-amber-700">
+                              Feedback History
+                            </Text>
+                          </div>
+                          <div className="divide-y divide-amber-100">
+                            {application.feedbackHistory!.map((entry) => (
+                              <div key={entry.round} className="bg-white px-4 py-3">
+                                <Flex justify="between" mb="1">
+                                  <Text size="1" weight="bold" color="amber">Round {entry.round}</Text>
+                                  <Text size="1" color="gray">{new Date(entry.timestamp).toLocaleString()}</Text>
+                                </Flex>
+                                <Text size="2" className="whitespace-pre-wrap">
+                                  {entry.content.feedback as string}
+                                </Text>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                        <div className="divide-y divide-amber-100">
-                          {application.feedbackHistory!.map((entry) => (
-                            <div key={entry.round} className="bg-white px-4 py-3">
-                              <Flex justify="between" mb="1">
-                                <Text size="1" weight="bold" color="amber">Round {entry.round}</Text>
-                                <Text size="1" color="gray">{new Date(entry.timestamp).toLocaleString()}</Text>
-                              </Flex>
-                              <Text size="2" className="whitespace-pre-wrap">
-                                {entry.content.feedback as string}
-                              </Text>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : !showFeedbackInput ? (
-                      <Text size="2" color="gray" className="italic text-center py-8">
-                        No comments yet.
-                      </Text>
-                    ) : null}
-
-                    {showFeedbackInput && (
-                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-                        <Text size="2" weight="bold" color="amber" as="div" mb="2">
-                          Request Changes
+                      ) : !showFeedbackInput ? (
+                        <Text size="2" color="gray" className="italic text-center py-8">
+                          No comments yet.
                         </Text>
-                        <textarea
-                          className="w-full rounded border border-amber-300 bg-white p-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-amber-400"
-                          rows={4}
-                          placeholder="Describe what the trader needs to correct..."
-                          value={feedbackText}
-                          onChange={(e) => setFeedbackText(e.target.value)}
-                        />
-                        <Flex gap="2" mt="2" justify="end">
+                      ) : null}
+
+                      {showFeedbackInput && (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                          <Text size="2" weight="bold" color="amber" as="div" mb="2">
+                            Request Changes
+                          </Text>
+                          <textarea
+                            className="w-full rounded border border-amber-300 bg-white p-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-amber-400"
+                            rows={4}
+                            placeholder="Describe what the trader needs to correct..."
+                            value={feedbackText}
+                            onChange={(e) => setFeedbackText(e.target.value)}
+                          />
+                          <Flex gap="2" mt="2" justify="end">
+                            <Button
+                              variant="soft"
+                              color="gray"
+                              size="2"
+                              type="button"
+                              onClick={() => { setShowFeedbackInput(false); setFeedbackText('') }}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              color="amber"
+                              size="2"
+                              type="button"
+                              disabled={isSendingFeedback || !feedbackText.trim()}
+                              onClick={() => { void handleSendFeedback() }}
+                            >
+                              {isSendingFeedback ? <Spinner size="1" /> : null}
+                              Send Feedback
+                            </Button>
+                          </Flex>
+                        </div>
+                      )}
+
+                      {application.status === 'PENDING' && !showFeedbackInput && (
+                        <Flex justify="end">
                           <Button
                             variant="soft"
-                            color="gray"
-                            size="2"
-                            type="button"
-                            onClick={() => { setShowFeedbackInput(false); setFeedbackText('') }}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
                             color="amber"
-                            size="2"
                             type="button"
-                            disabled={isSendingFeedback || !feedbackText.trim()}
-                            onClick={() => { void handleSendFeedback() }}
+                            onClick={() => setShowFeedbackInput(true)}
                           >
-                            {isSendingFeedback ? <Spinner size="1" /> : null}
-                            Send Feedback
+                            Request Changes
                           </Button>
                         </Flex>
-                      </div>
-                    )}
+                      )}
 
-                    {application.status === 'PENDING' && !showFeedbackInput && (
-                      <Flex justify="end">
-                        <Button
-                          variant="soft"
-                          color="amber"
-                          type="button"
-                          onClick={() => setShowFeedbackInput(true)}
-                        >
-                          Request Changes
-                        </Button>
-                      </Flex>
-                    )}
-
-                    {application.status === 'FEEDBACK_REQUESTED' && (
-                      <Callout.Root color="amber" variant="surface">
-                        <Callout.Icon><ChatBubbleIcon /></Callout.Icon>
-                        <Callout.Text>
-                          Feedback has been sent. Awaiting trader resubmission before further changes can be requested.
-                        </Callout.Text>
-                      </Callout.Root>
-                    )}
-                  </div>
-                </Tabs.Content>
+                      {application.status === 'FEEDBACK_REQUESTED' && (
+                        <Callout.Root color="amber" variant="surface">
+                          <Callout.Icon><ChatBubbleIcon /></Callout.Icon>
+                          <Callout.Text>
+                            Feedback has been sent. Awaiting trader resubmission before further changes can be requested.
+                          </Callout.Text>
+                        </Callout.Root>
+                      )}
+                    </div>
+                  </Tabs.Content>
+                )}
               </Box>
             </Tabs.Root>
           </Card>
