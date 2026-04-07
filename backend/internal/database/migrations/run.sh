@@ -54,6 +54,9 @@ MIGRATIONS=(
     "003_fcau_forms_seed.sql"
     "003_fcau_workflow_nodes_seed.sql"
     "003_fcau_workflow_seed.sql"
+    "003_cda_forms_seed.sql"
+    "003_cda_workflow_nodes_seed.sql"
+    "003_cda_workflow_seed.sql"
 )
 
 echo "Starting database migrations..."
