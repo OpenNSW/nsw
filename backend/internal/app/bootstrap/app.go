@@ -137,7 +137,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	paymentRepo := payments.NewPaymentRepository(db)
 	paymentService := payments.NewPaymentService(paymentRepo)
 
-	factory := plugin.NewTaskFactory(cfg, db, paymentService)
+	factory := plugin.NewTaskFactory(cfg, paymentService)
 	tm, err := taskManager.NewTaskManager(db, factory)
 	if err != nil {
 		_ = database.Close(db)

@@ -37,6 +37,7 @@ type ServerConfig struct {
 	Port               int
 	ServiceURL         string
 	ServicesConfigPath string
+	FormsConfigPath    string
 	Debug              bool
 	LogLevel           slog.Level
 }
@@ -102,6 +103,7 @@ func Load() (*Config, error) {
 			Port:               serverPort,
 			ServiceURL:         getEnvOrDefault("SERVICE_URL", fmt.Sprintf("http://localhost:%d", serverPort)),
 			ServicesConfigPath: getEnvOrDefault("SERVICES_CONFIG_PATH", "configs/services.json"),
+			FormsConfigPath:    getEnvOrDefault("FORMS_CONFIG_PATH", "configs/forms"),
 			Debug:              getBoolOrDefault("SERVER_DEBUG", true),
 			LogLevel:           parseLogLevel(getEnvOrDefault("SERVER_LOG_LEVEL", "info")),
 		},
