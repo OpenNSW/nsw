@@ -4,7 +4,7 @@
  */
 import type { ApiClient } from '../api'
 
-const API_BASE_URL = (import.meta.env.VITE_OGA_API_BASE_URL as string | undefined) ?? 'http://localhost:8080/api/v1'
+const API_BASE_URL = (import.meta.env.VITE_OGA_API_BASE_URL as string | undefined) ?? 'http://localhost:8081'
 
 export interface UploadResponse {
   key: string

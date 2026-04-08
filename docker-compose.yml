@@ -146,7 +146,7 @@ services:
       DB_NAME: ${DB_NAME:-nsw_db}
       NPQS_OGA_SUBMISSION_URL: http://oga-npqs:${OGA_NPQS_PORT:-8081}/api/oga/inject
       FCAU_OGA_SUBMISSION_URL: http://oga-fcau:${OGA_FCAU_PORT:-8082}/api/oga/inject
-      PRECONSIGNMENT_OGA_SUBMISSION_URL: http://oga-cda:${OGA_CDA_PORT:-8083}/api/oga/inject
+      CDA_OGA_SUBMISSION_URL: http://oga-cda:${OGA_CDA_PORT:-8083}/api/oga/inject
     networks:
       - core-net
     depends_on:
@@ -181,7 +181,7 @@ services:
               -v ON_ERROR_STOP=1 \
               -v NPQS_OGA_SUBMISSION_URL="$${NPQS_OGA_SUBMISSION_URL}" \
               -v FCAU_OGA_SUBMISSION_URL="$${FCAU_OGA_SUBMISSION_URL}" \
-              -v PRECONSIGNMENT_OGA_SUBMISSION_URL="$${PRECONSIGNMENT_OGA_SUBMISSION_URL}" \
+              -v CDA_OGA_SUBMISSION_URL="$${CDA_OGA_SUBMISSION_URL}" \
               -h "$${DB_HOST}" -p "$${DB_PORT}" -U "$${DB_USERNAME}" -d "$${DB_NAME}" \
               -f "$$FILE"
           else

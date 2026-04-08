@@ -287,7 +287,7 @@ VALUES
             "service": "inland-revenue",
             "requiresOgaVerification": true,
             "submission": {
-                "url": ' || to_jsonb((:'PRECONSIGNMENT_OGA_SUBMISSION_URL')::text)::text || ',
+                "url": ' || to_jsonb((:'CDA_OGA_SUBMISSION_URL')::text)::text || ',
                 "request": {
                     "meta": {
                         "type": "preconsignment",

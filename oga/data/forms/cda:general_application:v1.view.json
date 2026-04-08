@@ -1,0 +1,312 @@
+{
+    "schema": {
+        "type": "object",
+        "properties": {
+            "paymentDetails": {
+                "type": "string",
+                "title": "Upload Payment Details",
+                "format": "file"
+            },
+            "paymentCategory": {
+                "type": "string",
+                "enum": [
+                    "General",
+                    "SVAT",
+                    "Value Added DC/ LAW FAT"
+                ],
+                "description": "Payment Category"
+            },
+            "exporterNameAddressReg": {
+                "type": "string",
+                "enum": [
+                    "Exporter A",
+                    "Exporter B"
+                ],
+                "description": "Exporter Name, Address & Registration Number"
+            },
+            "paymentSlip": {
+                "type": "string",
+                "title": "Upload Payment Slip",
+                "format": "file"
+            },
+            "contactNumber": {
+                "type": "number",
+                "description": "Contact Number"
+            },
+            "cusdecNumber": {
+                "type": "string",
+                "description": "CUSDEC Number"
+            },
+            "hsCode": {
+                "type": "number",
+                "description": "HS CODE"
+            },
+            "contractNumber": {
+                "type": "number",
+                "description": "Contract Number"
+            },
+            "lotNumber": {
+                "type": "number",
+                "description": "Lot Number"
+            },
+            "dcGrade": {
+                "title": "DC Grade",
+                "description": "DC Grade",
+                "type": "array",
+                "items": {
+                    "type": "string",
+                    "enum": [
+                        "FINE",
+                        "MEDIUM",
+                        "COARSE"
+                    ]
+                },
+                "uniqueItems": true
+            },
+            "numberOfBags": {
+                "type": "number",
+                "description": "Number of Bags"
+            },
+            "weightOfBag": {
+                "type": "number",
+                "description": "Weight of a Bag"
+            },
+            "totalWeight": {
+                "type": "number",
+                "description": "Total Weight"
+            },
+            "dateOfContainerization": {
+                "type": "string",
+                "format": "date",
+                "description": "Date of Containerization"
+            },
+            "nameOfVessel": {
+                "type": "string",
+                "description": "Name of the Vessel"
+            },
+            "containerNumber": {
+                "type": "string",
+                "description": "Container Number"
+            },
+            "dateOfSailing": {
+                "type": "string",
+                "format": "date",
+                "description": "Date of Sailing"
+            },
+            "portOfDischarge": {
+                "type": "string",
+                "description": "Port of Discharge"
+            },
+            "finalDestination": {
+                "type": "string",
+                "description": "Final Destination"
+            },
+            "nameOfBuyer": {
+                "type": "string",
+                "description": "Name of the Buyer"
+            },
+            "containerFillingStatus": {
+                "type": "string",
+                "enum": [
+                    "Full",
+                    "Part"
+                ],
+                "description": "Container Filling Status"
+            },
+            "balanceMaterialNature": {
+                "type": "string",
+                "description": "If Part, Declare Nature of Balance Material"
+            },
+            "requiredCertificates": {
+                "type": "array",
+                "title": "pick all certificates that are being requested",
+                "description": "pick all certificates that are being requested",
+                "items": {
+                    "type": "string",
+                    "enum": [
+                        "SALMONELLA",
+                        "OTHER"
+                    ]
+                },
+                "uniqueItems": true
+            },
+            "detailsOfBags": {
+                "type": "string",
+                "title": "Upload Details of Bags (Please Fill Google Sheet sent with this Form)",
+                "format": "file"
+            }
+        },
+        "required": [
+            "paymentDetails",
+            "paymentCategory",
+            "exporterNameAddressReg",
+            "paymentSlip",
+            "contactNumber",
+            "cusdecNumber",
+            "dcGrade",
+            "numberOfBags",
+            "weightOfBag",
+            "totalWeight",
+            "portOfDischarge",
+            "finalDestination",
+            "containerFillingStatus",
+            "detailsOfBags"
+        ]
+    },
+    "uiSchema": {
+        "type": "Categorization",
+        "elements": [
+            {
+                "type": "Category",
+                "label": "General",
+                "elements": [
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/contactNumber"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/contractNumber"
+                    }
+                ]
+            },
+            {
+                "type": "Category",
+                "label": "Consignment",
+                "elements": [
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/exporterNameAddressReg"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/cusdecNumber"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/hsCode"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/lotNumber"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/dcGrade"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/numberOfBags"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/weightOfBag"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/totalWeight"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/dateOfContainerization"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/nameOfVessel"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/containerNumber"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/dateOfSailing"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/portOfDischarge"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/finalDestination"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/nameOfBuyer"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/containerFillingStatus",
+                        "options": {
+                            "format": "radio"
+                        }
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/balanceMaterialNature",
+                        "options": {
+                            "multi": true
+                        }
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/requiredCertificates",
+                        "label": "pick all certificates that are being requested"
+                    },
+                    {
+                        "type": "VerticalLayout",
+                        "elements": [
+                            {
+                                "text": "Uploaded Details of Bags",
+                                "type": "Label"
+                            },
+                            {
+                                "type": "Control",
+                                "scope": "#/properties/detailsOfBags"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "type": "Category",
+                "label": "Finance",
+                "elements": [
+                    {
+                        "type": "VerticalLayout",
+                        "elements": [
+                            {
+                                "text": "Uploaded Payment Details",
+                                "type": "Label"
+                            },
+                            {
+                                "type": "Control",
+                                "scope": "#/properties/paymentDetails"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/paymentCategory",
+                        "options": {
+                            "format": "radio"
+                        }
+                    },
+                    {
+                        "type": "VerticalLayout",
+                        "elements": [
+                            {
+                                "text": "Uploaded Payment Slip",
+                                "type": "Label"
+                            },
+                            {
+                                "type": "Control",
+                                "scope": "#/properties/paymentSlip"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}

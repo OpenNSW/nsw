@@ -1,8 +1,10 @@
 {
-  "fcau:general_application:v1": "Health Certificate Application",
-  "npqs:sample_drop_ack:v1": "Sample Drop-off Confirmation",
-  "npqs:testing_requirement:v1": "Testing Requirement Assessment",
+  "fcau:general_application:v1": "Health Certificate Application Review",
+  "fcau:sample_drop_ack:v1": "Sample Drop-off Confirmation",
+  "fcau:testing_requirement:v1": "Analyze Testing Requirement",
   "fcau:lab_payment_upload:v1": "Payment Upload Verification",
-  "npqs:lab_results_review:v1": "Lab Results Review",
-  "npqs:manual_inspection:v1": "Certificate Issuance"
+  "fcau:lab_results_review:v1": "Lab Results Review",
+  "fcau:certificate_issue:v1": "Health Certificate Issuance",
+  "cda:general_application:v1": "Salmonella Free and Physical Quality Certificates Application Review",
+  "cda:certificate_issue:v1": "Salmonella Free and Physical Quality Certificates Issuance"
 }

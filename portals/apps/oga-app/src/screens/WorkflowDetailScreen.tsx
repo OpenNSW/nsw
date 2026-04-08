@@ -27,8 +27,8 @@ export function WorkflowDetailScreen() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
-  const [formConfig, setFormConfig] = useState<{ schema: JsonSchema; uiSchema: UISchemaElement } | null>(null)
-  const [formData, setFormData] = useState<Record<string, unknown>>({})
+  const [ogaFormConfig, setOgaFormConfig] = useState<{ schema: JsonSchema; uiSchema: UISchemaElement } | null>(null)
+  const [ogaFormData, setOgaFormData] = useState<Record<string, unknown>>({})
   const [formErrors, setFormErrors] = useState<unknown[]>([])
 
   const [activeTab, setActiveTab] = useState('review')
@@ -72,7 +72,7 @@ export function WorkflowDetailScreen() {
     setIsSubmitting(true)
     setError(null)
     try {
-      await submitReview(apiClient, taskId, formData)
+      await submitReview(apiClient, taskId, ogaFormData)
       setSuccess(true)
       setTimeout(() => navigate(-1), 2000)
     } catch (err) {
@@ -92,7 +92,8 @@ export function WorkflowDetailScreen() {
       try {
         const data = await fetchApplicationDetail(apiClient, taskId)
         setApplication(data)
-        setFormConfig({ schema: data.form.schema, uiSchema: data.form.uiSchema })
+        setOgaFormConfig({ schema: data.ogaForm.schema, uiSchema: data.ogaForm.uiSchema })
+        setOgaFormData(data.ogaActionData || {})
       } catch (err) {
         setError('Failed to load application details')
         console.error(err)
@@ -260,8 +261,8 @@ export function WorkflowDetailScreen() {
                   return (
                     <Box className="bg-white p-4 rounded border border-gray-100">
                       <JsonForms
-                        schema={application.ogaForm.schema}
-                        uischema={application.ogaForm.uiSchema}
+                        schema={application.dataForm?.schema}
+                        uischema={application.dataForm?.uiSchema}
                         data={application.data}
                         renderers={radixRenderers}
                         readonly={true}
@@ -321,17 +322,17 @@ export function WorkflowDetailScreen() {
               <Box pt="4">
                 {/* Review Tab */}
                 <Tabs.Content value="review">
-                  {formConfig && isActionable && areActionsSupported ? (
+                  {ogaFormConfig && isActionable && areActionsSupported ? (
                       <form onSubmit={(event) => {
                   void handleSubmit(event)
                 }} noValidate>
                         <JsonForms
-                          schema={formConfig.schema}
-                          uischema={formConfig.uiSchema}
-                          data={formData}
+                          schema={ogaFormConfig.schema}
+                          uischema={ogaFormConfig.uiSchema}
+                          data={ogaFormData}
                           renderers={radixRenderers}
                           onChange={({ data, errors }: { data: Record<string, unknown>; errors?: unknown[] }) => {
-                            setFormData(data);
+                            setOgaFormData(data);
                             setFormErrors(errors || []);
                           }}
                         />
@@ -391,15 +392,15 @@ export function WorkflowDetailScreen() {
                           )}
                         </Flex>
                       </form>
-                    ) : formConfig ? (
+                    ) : ogaFormConfig ? (
                       <JsonForms
-                        schema={formConfig.schema}
-                        uischema={formConfig.uiSchema}
-                        data={formData}
+                        schema={ogaFormConfig.schema}
+                        uischema={ogaFormConfig.uiSchema}
+                        data={application.ogaActionData || {}}
                         renderers={radixRenderers}
                         readonly
                         onChange={({ data, errors }: { data: Record<string, unknown>; errors?: unknown[] }) => {
-                          setFormData(data);
+                          setOgaFormData(data);
                           setFormErrors(errors || []);
                         }}
                       />

@@ -290,8 +290,8 @@ func TestWaitForEventTask_GetRenderInfo_WithDisplay(t *testing.T) {
 			Url: "http://irrelevant",
 		},
 		Display: &WaitForEventDisplay{
-			Title:       "Awaiting verification",
-			Description: "Please wait while we process your request.",
+			TitleWaiting:       "Awaiting verification",
+			DescriptionWaiting: "Please wait while we process your request.",
 		},
 	})
 	require.NoError(t, err)
@@ -309,8 +309,8 @@ func TestWaitForEventTask_GetRenderInfo_WithDisplay(t *testing.T) {
 
 	display, ok := content["display"].(*WaitForEventDisplay)
 	require.True(t, ok, "display should be a *WaitForEventDisplay")
-	assert.Equal(t, "Awaiting verification", display.Title)
-	assert.Equal(t, "Please wait while we process your request.", display.Description)
+	assert.Equal(t, "Awaiting verification", display.TitleWaiting)
+	assert.Equal(t, "Please wait while we process your request.", display.DescriptionWaiting)
 }
 
 // ── Start edge cases ──────────────────────────────────────────────────────────

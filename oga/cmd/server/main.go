@@ -78,7 +78,7 @@ func main() {
 	mux.HandleFunc("POST /api/oga/applications/{taskId}/review", handler.HandleReviewApplication)
 	mux.HandleFunc("POST /api/oga/applications/{taskId}/feedback", feedbackHandler.HandleFeedback)
 	mux.HandleFunc("GET /api/oga/uploads/{key}", handler.HandleGetUploadURL)
-	mux.HandleFunc("POST /uploads", handler.HandleUpload)
+	mux.HandleFunc("POST /api/oga/uploads", handler.HandleUpload)
 
 	// Set up graceful shutdown
 	serverAddr := fmt.Sprintf(":%s", cfg.Port)

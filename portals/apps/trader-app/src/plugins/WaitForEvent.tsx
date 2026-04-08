@@ -7,8 +7,12 @@ import { radixRenderers } from "@opennsw/jsonforms-renderers"
 import type {TaskFormData} from "./SimpleForm.tsx";
 
 type WaitForEventDisplay = {
-  title?: string
-  description?: string
+  title_waiting?: string
+  description_waiting?: string
+  title_failed?: string
+  description_failed?: string
+  title_completed?: string
+  description_completed?: string
 }
 
 export type WaitForEventConfigs = {
@@ -193,8 +197,6 @@ export default function WaitForEvent(props: { configs: WaitForEventConfigs; plug
 
   const workflowId = preConsignmentId || consignmentId
   const display = props.configs.display
-  const title = display?.title ?? "Waiting for event"
-  const description = display?.description
 
   const handleRetry = async () => {
     if (!workflowId || !taskId) return
@@ -216,14 +218,14 @@ export default function WaitForEvent(props: { configs: WaitForEventConfigs; plug
   }
 
   if (props.pluginState === "RECEIVED_CALLBACK") {
-    return <CompletedState title={title} description={description} formInfo={props.configs.eventReviewForm} />
+    return <CompletedState title={display?.title_completed || "Completed"} description={display?.description_completed} formInfo={props.configs.eventReviewForm} />
   }
 
   if (props.pluginState === "NOTIFY_FAILED" && !retried) {
     return (
       <FailedState
-        title={title}
-        description={description}
+        title={display?.title_failed || "Failed"}
+        description={display?.description_failed}
         onRetry={handleRetry}
         isRetrying={isRetrying}
         retryError={retryError}
@@ -231,5 +233,5 @@ export default function WaitForEvent(props: { configs: WaitForEventConfigs; plug
     )
   }
 
-  return <WaitingState title={title} description={description} confirmedRetry={retried} />
+  return <WaitingState title={display?.title_waiting || "Waiting for event"} description={display?.description_waiting} confirmedRetry={retried} />
 }
