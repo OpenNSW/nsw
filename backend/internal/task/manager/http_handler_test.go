@@ -132,3 +132,71 @@ func TestHTTPHandler_M2M_Bypass(t *testing.T) {
 	// Should be 200 OK because RBAC was bypassed and logic succeeded
 	assert.Equal(t, http.StatusOK, w.Code)
 }
+func TestHTTPHandler_HandleExecuteTask_RBAC(t *testing.T) {
+	t.Run("Trader Forbidden", func(t *testing.T) {
+		tm, _, _, _ := setupTest(t)
+		handler := NewHTTPHandler(tm, &config.AuthConfig{TraderGroup: "Trader", CHAGroup: "CHA"})
+		
+		req := httptest.NewRequest(http.MethodPost, "/execute", bytes.NewBufferString(`{"task_id":"t1"}`))
+		userID := "trader-1"
+		ctx := context.WithValue(req.Context(), auth.AuthContextKey, &auth.AuthContext{
+			UserID: &userID, Groups: []string{"Trader"}, IsM2M: false,
+		})
+		req = req.WithContext(ctx)
+
+		w := httptest.NewRecorder()
+		handler.HandleExecuteTask(w, req)
+		assert.Equal(t, http.StatusForbidden, w.Code)
+	})
+
+	t.Run("CHA Allowed", func(t *testing.T) {
+		tm, mockFactory, mockStore, mockPlugin := setupTest(t)
+		handler := NewHTTPHandler(tm, &config.AuthConfig{TraderGroup: "Trader", CHAGroup: "CHA"})
+		
+		taskID := "task-1"
+		req := httptest.NewRequest(http.MethodPost, "/execute", bytes.NewBufferString(`{"task_id":"`+taskID+`"}`))
+		userID := "cha-1"
+		ctx := context.WithValue(req.Context(), auth.AuthContextKey, &auth.AuthContext{
+			UserID: &userID, Groups: []string{"CHA"}, IsM2M: false,
+		})
+		req = req.WithContext(ctx)
+
+		// Mock expectations for successful execution
+		taskInfo := &persistence.TaskInfo{ID: taskID, Type: plugin.TaskTypeSimpleForm}
+		mockStore.On("GetByID", taskID).Return(taskInfo, nil).Once()
+		mockStore.On("CheckOwnership", taskID, userID).Return(true, nil).Once()
+		mockFactory.On("BuildExecutor", mock.Anything, taskInfo.Type, mock.Anything).Return(plugin.Executor{Plugin: mockPlugin}, nil).Once()
+		mockStore.On("GetLocalState", taskID).Return(json.RawMessage(`{}`), nil).Once()
+		mockStore.On("GetPluginState", taskID).Return("", nil).Once()
+		mockPlugin.On("Init", mock.Anything).Return().Once()
+		
+		newState := plugin.Completed
+		mockPlugin.On("Execute", mock.Anything, mock.Anything).Return(&plugin.ExecutionResponse{
+			NewState: &newState, ApiResponse: &plugin.ApiResponse{Success: true},
+		}, nil).Once()
+		mockStore.On("UpdateStatus", taskID, &newState).Return(nil).Once()
+
+		w := httptest.NewRecorder()
+		handler.HandleExecuteTask(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+}
+
+func TestHTTPHandler_HandleGetTask_RBAC(t *testing.T) {
+	t.Run("Other Group Forbidden", func(t *testing.T) {
+		tm, _, _, _ := setupTest(t)
+		handler := NewHTTPHandler(tm, &config.AuthConfig{TraderGroup: "Trader", CHAGroup: "CHA"})
+		
+		req := httptest.NewRequest(http.MethodGet, "/tasks/t1", nil)
+		req.SetPathValue("id", "t1")
+		userID := "other-1"
+		ctx := context.WithValue(req.Context(), auth.AuthContextKey, &auth.AuthContext{
+			UserID: &userID, Groups: []string{"OTHER"}, IsM2M: false,
+		})
+		req = req.WithContext(ctx)
+
+		w := httptest.NewRecorder()
+		handler.HandleGetTask(w, req)
+		assert.Equal(t, http.StatusForbidden, w.Code)
+	})
+}
