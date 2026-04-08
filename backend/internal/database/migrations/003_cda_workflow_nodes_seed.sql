@@ -106,7 +106,8 @@ VALUES
                         "templateKey": "cda:certificate_issue:v1"
                     },
                     "template": {
-                        "Application ID": "application_id"
+                        "Application ID": "application_id",
+                        "Required Certificates": "required_certificates"
                     }
                 },
                 "response": {
@@ -114,7 +115,7 @@ VALUES
                         "formId": "cda-certificate-issue-response"
                     },
                     "mapping": {
-                        "certificate": "cda:certificate"
+                        "certificates": "issued_certificates"
                     }
                 }
             }

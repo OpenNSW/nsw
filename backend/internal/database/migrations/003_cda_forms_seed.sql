@@ -28,7 +28,10 @@ VALUES
                         "Exporter A",
                         "Exporter B"
                     ],
-                    "description": "Exporter Name, Address & Registration Number"
+                    "description": "Exporter Name, Address & Registration Number",
+                    "x-globalContext": {
+                        "writeTo": "exporter_name_address_reg"
+                    }
                 },
                 "paymentSlip": {
                     "type": "string",
@@ -126,6 +129,9 @@ VALUES
                 "requiredCertificates": {
                     "type": "array",
                     "title": "pick all certificates that are being requested",
+                    "x-globalContext": {
+                        "writeTo": "required_certificates"
+                    },
                     "description": "pick all certificates that are being requested",
                     "items": {
                         "type": "string",
@@ -135,6 +141,7 @@ VALUES
                         ]
                     },
                     "uniqueItems": true
+
                 },
                 "detailsOfBags": {
                     "type": "string",

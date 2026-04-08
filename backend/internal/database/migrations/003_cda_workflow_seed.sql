@@ -44,8 +44,7 @@ VALUES
                     "cda.application_id": "application_id"
                 },
                 "output_mapping": {
-                    "salmonella_cert_uri": "cda.salmonella_cert_uri",
-                    "quality_cert_uri": "cda.quality_cert_uri"
+                    "issued_certificates": "cda.issued_certificates"
                 }
             },
             {

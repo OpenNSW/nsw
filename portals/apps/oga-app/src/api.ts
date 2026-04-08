@@ -113,12 +113,17 @@ export interface OGAApplication {
   title?: string;
   serviceUrl: string;
   data: Record<string, unknown>;
+  ogaActionData?: Record<string, unknown>;
   meta?: {
     type: string;
     verificationId: string;
     templateKey?: string;
   };
-  form: {
+  dataForm?: {
+    schema: JsonSchema;
+    uiSchema: UISchemaElement;
+  };
+  ogaForm: {
     schema: JsonSchema;
     uiSchema: UISchemaElement;
   };
@@ -128,10 +133,6 @@ export interface OGAApplication {
   reviewedAt?: string;
   createdAt: string;
   updatedAt: string;
-  ogaForm?: {
-    schema: JsonSchema;
-    uiSchema: UISchemaElement;
-  };
 }
 
 

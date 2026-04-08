@@ -74,8 +74,9 @@ type Application struct {
 	Title           string           `json:"title,omitempty"`
 	ServiceURL      string           `json:"serviceUrl"`
 	Data            map[string]any   `json:"data"`
+	OgaActionData   map[string]any   `json:"ogaActionData,omitempty"` // Data from the reviewer (e.g. approval decision, comments)
 	Meta            *Meta            `json:"meta,omitempty"`
-	Form            json.RawMessage  `json:"form,omitempty"`
+	DataForm        json.RawMessage  `json:"dataForm,omitempty"`
 	OgaForm         json.RawMessage  `json:"ogaForm,omitempty"`
 	Status          string           `json:"status"`
 	FeedbackHistory []feedback.Entry `json:"feedbackHistory,omitempty"`
@@ -236,16 +237,17 @@ func (s *ogaService) GetApplications(ctx context.Context, status string, workflo
 		meta := metaFromJSONB(record.Meta)
 
 		applications[i] = Application{
-			TaskID:     record.TaskID,
-			WorkflowID: record.WorkflowID,
-			Title:      s.resolveTitle(record.TaskID, meta),
-			ServiceURL: record.ServiceURL,
-			Data:       record.Data,
-			Meta:       meta,
-			Status:     record.Status,
-			ReviewedAt: record.ReviewedAt,
-			CreatedAt:  record.CreatedAt,
-			UpdatedAt:  record.UpdatedAt,
+			TaskID:        record.TaskID,
+			WorkflowID:    record.WorkflowID,
+			Title:         s.resolveTitle(record.TaskID, meta),
+			ServiceURL:    record.ServiceURL,
+			Data:          record.Data,
+			Meta:          meta,
+			OgaActionData: record.ReviewerResponse,
+			Status:        record.Status,
+			ReviewedAt:    record.ReviewedAt,
+			CreatedAt:     record.CreatedAt,
+			UpdatedAt:     record.UpdatedAt,
 		}
 	}
 
@@ -299,6 +301,7 @@ func (s *ogaService) GetApplication(ctx context.Context, taskID string) (*Applic
 		ServiceURL:      record.ServiceURL,
 		Data:            record.Data,
 		Meta:            meta,
+		OgaActionData:   record.ReviewerResponse,
 		Status:          record.Status,
 		FeedbackHistory: feedbackHistoryFromRaw(record.OGAFeedbackHistory),
 		ReviewedAt:      record.ReviewedAt,
@@ -306,25 +309,25 @@ func (s *ogaService) GetApplication(ctx context.Context, taskID string) (*Applic
 		UpdatedAt:       record.UpdatedAt,
 	}
 
-	// Attach form: look up by meta, fall back to default
+	// Attach oga form: look up by meta, fall back to default
 	formID := FormIDFromMeta(meta)
 	if formID != "" {
-		if form, err := s.formStore.GetForm(formID); err == nil {
-			app.Form = form
+		if ogaForm, err := s.formStore.GetForm(formID); err == nil {
+			app.OgaForm = ogaForm
 		} else {
 			slog.WarnContext(ctx, "form not found for application, using default", "taskID", taskID, "formID", formID)
-			if form, err := s.formStore.GetDefaultForm(); err == nil {
-				app.Form = form
+			if ogaForm, err := s.formStore.GetDefaultForm(); err == nil {
+				app.OgaForm = ogaForm
 			}
 		}
-		// Try to load an oga form (view template)
-		ogaFormID := formID + ".view"
-		if ogaForm, err := s.formStore.GetForm(ogaFormID); err == nil {
-			app.OgaForm = ogaForm
+		// Try to load form schema of NSW (view template)
+		nswViewFormID := formID + ".view"
+		if ogaForm, err := s.formStore.GetForm(nswViewFormID); err == nil {
+			app.DataForm = ogaForm
 		}
 	} else {
-		if form, err := s.formStore.GetDefaultForm(); err == nil {
-			app.Form = form
+		if ogaForm, err := s.formStore.GetDefaultForm(); err == nil {
+			app.OgaForm = ogaForm
 		}
 	}
 
