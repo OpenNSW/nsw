@@ -47,8 +47,9 @@ type OGAService interface {
 }
 
 type Meta struct {
-	VerificationType string `json:"type"`
-	VerificationId   string `json:"verificationId"`
+	VerificationType string `json:"type,omitempty"`
+	VerificationId   string `json:"verificationId,omitempty"`
+	TemplateKey      string `json:"templateKey,omitempty"` // TODO: should be required in future, but optional for now to maintain backward compatibility with existing forms that don't have it
 }
 
 // InjectRequest represents the incoming data from services
@@ -306,12 +307,6 @@ func (s *ogaService) ReviewApplication(ctx context.Context, taskID string, revie
 		return err
 	}
 
-	decision, ok := reviewerResponse["decision"].(string)
-	if !ok || decision == "" {
-		return fmt.Errorf("reviewerResponse must contain a non-empty 'decision' string")
-	}
-	status := decision
-
 	// Prepare response payload for the service
 	response := TaskResponse{
 		TaskID:     app.TaskID,
@@ -330,6 +325,8 @@ func (s *ogaService) ReviewApplication(ctx context.Context, taskID string, revie
 			"error", err)
 		return fmt.Errorf("failed to send response to service: %w", err)
 	}
+
+	status := "DONE" // TODO: Should remove this hardcoded status and determine it based on reviewerResponse content
 
 	if err := s.store.UpdateStatus(taskID, status, reviewerResponse); err != nil {
 		// TODO: If this fails, we have already sent the response to the service but failed to update our record of it. We should consider how to handle this edge case - for now we just log an error.

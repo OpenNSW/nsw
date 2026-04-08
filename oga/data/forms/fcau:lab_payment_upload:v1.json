@@ -1,0 +1,23 @@
+{
+  "schema": {
+    "type": "object",
+    "required": [
+      "paymentReceived"
+    ],
+    "properties": {
+      "paymentReceived": {
+        "type": "boolean",
+        "title": "Payment Received"
+      }
+    }
+  },
+  "uiSchema": {
+    "type": "VerticalLayout",
+    "elements": [
+      {
+        "type": "Control",
+        "scope": "#/properties/paymentReceived"
+      }
+    ]
+  }
+}

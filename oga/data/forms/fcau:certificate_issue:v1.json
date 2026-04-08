@@ -1,0 +1,24 @@
+{
+  "schema": {
+        "type": "object",
+        "required": [
+            "certificate"
+        ],
+        "properties": {
+            "certificate": {
+                "type": "string",
+                "title": "Upload Certificate",
+                "format": "file"
+            }
+        }
+    },
+    "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Control",
+                "scope": "#/properties/certificate"
+            }
+        ]
+    }
+}
