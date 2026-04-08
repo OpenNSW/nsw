@@ -1,0 +1,66 @@
+{
+    "id": "71e5e73a-ebb2-4750-aaa4-f71087adac43",
+    "name": "Customs Declaration Request's Response View",
+    "description": "Response for the cusdec call.",
+    "schema": {
+        "type": "object",
+        "required": [
+            "assesmentNo",
+            "payment_requirements"
+        ],
+        "properties": {
+            "assesmentNo": {
+                "type": "string",
+                "title": "Assessment No"
+            },
+            "payment_requirements": {
+                "type": "object",
+                "title": "Payment Requirements",
+                "properties": {
+                    "cess": {
+                        "type": "number",
+                        "title": "Cess"
+                    },
+                    "total": {
+                        "type": "number",
+                        "title": "Total"
+                    },
+                    "export_levy": {
+                        "type": "number",
+                        "title": "Export Levy"
+                    }
+                }
+            }
+        }
+    },
+    "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Control",
+                "label": "Assessment Number",
+                "scope": "#/properties/assesmentNo"
+            },
+            {
+                "type": "Group",
+                "label": "Payment Requirements",
+                "elements": [
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/payment_requirements/properties/cess"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/payment_requirements/properties/export_levy"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/payment_requirements/properties/total"
+                    }
+                ]
+            }
+        ]
+    },
+    "version": "1.0",
+    "active": true
+}

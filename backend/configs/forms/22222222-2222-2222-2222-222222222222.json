@@ -1,0 +1,87 @@
+{
+    "id": "22222222-2222-2222-2222-222222222222",
+    "name": "Phytosanitary Certificate",
+    "description": "Phytosanitary certificate for plant products export",
+    "schema": {
+        "type": "object",
+        "required": [
+            "distinguishingMarks",
+            "disinfestationTreatment"
+        ],
+        "properties": {
+            "countryOfOrigin": {
+                "type": "string",
+                "title": "Country of Origin",
+                "readOnly": true,
+                "x-globalContext": {
+                    "readFrom": "consignee:countryOfOrigin"
+                }
+            },
+            "distinguishingMarks": {
+                "type": "string",
+                "title": "Distinguishing Marks",
+                "example": "BWI-UK-LOT01"
+            },
+            "countryOfDestination": {
+                "type": "string",
+                "title": "Country of Destination",
+                "readOnly": true,
+                "x-globalContext": {
+                    "readFrom": "consignment:destination"
+                }
+            },
+            "disinfestationTreatment": {
+                "type": "string",
+                "title": "Disinfestation Treatment",
+                "example": "Fumigation with Methyl Bromide (CH3Br) at 48g/m³ for 24 hrs"
+            },
+            "supportingDocuments": {
+                "type": "string",
+                "title": "Supporting Documents",
+                "format": "file"
+            }
+        }
+    },
+    "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "text": "Phytosanitary Certificate",
+                "type": "Label"
+            },
+            {
+                "type": "HorizontalLayout",
+                "elements": [
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/countryOfOrigin",
+                        "options": {
+                            "readOnly": true
+                        }
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/countryOfDestination",
+                        "options": {
+                            "readOnly": true
+                        }
+                    }
+                ]
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/distinguishingMarks"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/disinfestationTreatment"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/supportingDocuments"
+            }
+        ]
+    },
+    "version": "1.0",
+    "active": true
+}

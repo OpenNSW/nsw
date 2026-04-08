@@ -1,0 +1,113 @@
+{
+    "id": "33333333-3333-3333-3333-333333333333",
+    "name": "Health Certificate",
+    "description": "Health and safety certificate for food products",
+    "schema": {
+        "type": "object",
+        "required": [
+            "productDescription",
+            "batchLotNumbers",
+            "productionExpiryDates",
+            "microbiologicalTestReportId",
+            "processingPlantRegistrationNo"
+        ],
+        "properties": {
+            "consigneeName": {
+                "type": "string",
+                "title": "Consignee Name",
+                "readOnly": true,
+                "x-globalContext": {
+                    "readFrom": "consignee:consignee_name"
+                }
+            },
+            "batchLotNumbers": {
+                "type": "string",
+                "title": "Batch / Lot Numbers",
+                "description": "DC-2026-JAN-05"
+            },
+            "consigneeAddress": {
+                "type": "string",
+                "title": "Consignee Address",
+                "readOnly": true,
+                "x-globalContext": {
+                    "readFrom": "consignee:address"
+                }
+            },
+            "productDescription": {
+                "type": "string",
+                "title": "Product Description",
+                "description": "Organic Desiccated Coconut (Fine Grade)"
+            },
+            "productionExpiryDates": {
+                "type": "string",
+                "title": "Production & Expiry Dates",
+                "description": "Example: Production: YYYY-MM-DD, Expiry: YYYY-MM-DD"
+            },
+            "microbiologicalTestReportId": {
+                "type": "string",
+                "title": "Microbiological Test Report ID",
+                "description": "ITI/2026/LAB-9982"
+            },
+            "processingPlantRegistrationNo": {
+                "type": "string",
+                "title": "Processing Plant Registration No.",
+                "description": "CDA/REG/2025/158"
+            },
+            "supportingDocuments": {
+                "type": "string",
+                "title": "Supporting Documents",
+                "format": "file"
+            }
+        }
+    },
+    "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "text": "Health Certificate",
+                "type": "Label"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/consigneeName",
+                "options": {
+                    "readOnly": true
+                }
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/consigneeAddress",
+                "options": {
+                    "multi": true,
+                    "readOnly": true
+                }
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/productDescription"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/batchLotNumbers"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/productionExpiryDates"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/microbiologicalTestReportId"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/processingPlantRegistrationNo"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/supportingDocuments"
+            }
+        ]
+    },
+    "version": "1.0",
+    "active": true
+}

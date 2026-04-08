@@ -1,0 +1,51 @@
+{
+    "id": "cda-certificate-issue-response",
+    "name": "CDA Certificate Issue Response Form",
+    "description": "Form for reviewers to provide their decision and comments on the certificate issue.",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "certificates": {
+                "type": "array",
+                "title": "Uploaded Certificates",
+                "description": "Add and upload all necessary certificates below.",
+                "minItems": 1,
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "certificateName": {
+                            "type": "string",
+                            "title": "Certificate Name / Description"
+                        },
+                        "certificateFile": {
+                            "type": "string",
+                            "title": "Upload Document",
+                            "format": "file"
+                        }
+                    },
+                    "required": [
+                        "certificateFile"
+                    ]
+                }
+            }
+        },
+        "required": [
+            "certificates"
+        ]
+    },
+    "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Label",
+                "text": "Please upload all requested certificates"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/certificates"
+            }
+        ]
+    },
+    "version": "1.0",
+    "active": true
+}

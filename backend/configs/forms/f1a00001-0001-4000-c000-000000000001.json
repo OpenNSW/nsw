@@ -1,0 +1,26 @@
+{
+    "id": "f1a00001-0001-4000-c000-000000000001",
+    "name": "Manual Inspection Form (Phytosanitary)",
+    "description": "Form for manual inspection tasks when phytosanitary certificate requires manual review",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "inspectionDate": {
+                "type": "string",
+                "format": "date",
+                "title": "Inspection Date"
+            }
+        }
+    },
+    "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Control",
+                "scope": "#/properties/inspectionDate"
+            }
+        ]
+    },
+    "version": "1.0",
+    "active": true
+}

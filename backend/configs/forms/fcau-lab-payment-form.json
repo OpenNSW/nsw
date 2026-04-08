@@ -1,0 +1,33 @@
+{
+    "id": "fcau-lab-payment-form",
+    "name": "FCAU Lab Payment Form",
+    "description": "Form for applicants to upload proof of payment for lab testing.",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "labPaymentReceipt": {
+                "type": "string",
+                "title": "Payment Receipt",
+                "format": "file"
+            }
+        },
+        "required": [
+            "labPaymentReceipt"
+        ]
+    },
+    "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "text": "Upload Lab Payment Receipt",
+                "type": "Label"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/labPaymentReceipt"
+            }
+        ]
+    },
+    "version": "1.0",
+    "active": true
+}

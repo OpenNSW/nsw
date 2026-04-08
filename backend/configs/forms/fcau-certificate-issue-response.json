@@ -1,0 +1,29 @@
+{
+    "id": "fcau-certificate-issue-response",
+    "name": "FCAU Certificate Issue Response Form",
+    "description": "Form for reviewers to provide their decision and comments on the certificate issue.",
+    "schema": {
+        "type": "object",
+        "required": [
+            "certificate"
+        ],
+        "properties": {
+            "certificate": {
+                "type": "string",
+                "title": "Upload Certificate",
+                "format": "file"
+            }
+        }
+    },
+    "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Control",
+                "scope": "#/properties/certificate"
+            }
+        ]
+    },
+    "version": "1.0",
+    "active": true
+}

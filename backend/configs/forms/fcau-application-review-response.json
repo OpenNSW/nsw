@@ -1,0 +1,29 @@
+{
+    "id": "fcau-application-review-response",
+    "name": "FCAU Application Review Response Form",
+    "description": "Form for reviewers to provide their decision and comments on the application.",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "applicationId": {
+                "type": "string",
+                "title": "Application ID",
+                "description": "Please enter Application ID"
+            }
+        },
+        "required": [
+            "applicationId"
+        ]
+    },
+    "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Control",
+                "scope": "#/properties/applicationId"
+            }
+        ]
+    },
+    "version": "1.0",
+    "active": true
+}
