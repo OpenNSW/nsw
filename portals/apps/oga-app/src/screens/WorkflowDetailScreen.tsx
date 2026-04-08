@@ -51,7 +51,7 @@ export function WorkflowDetailScreen() {
     try {
       await submitFeedback(apiClient, taskId, { feedback: feedbackText.trim() })
       setSuccess(true)
-      setTimeout(() => navigate('/workflows'), 2000)
+      setTimeout(() => navigate(-1), 2000)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send feedback')
     } finally {
@@ -74,7 +74,7 @@ export function WorkflowDetailScreen() {
     try {
       await submitReview(apiClient, taskId, formData)
       setSuccess(true)
-      setTimeout(() => navigate('/workflows'), 2000)
+      setTimeout(() => navigate(-1), 2000)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit review')
     } finally {
@@ -119,7 +119,7 @@ export function WorkflowDetailScreen() {
           <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
           <Callout.Text>{error}</Callout.Text>
         </Callout.Root>
-        <Button variant="soft" mt="4" onClick={() => { void navigate('/workflows') }}>
+        <Button variant="soft" mt="4" onClick={() => { void navigate(-1) }}>
           <ArrowLeftIcon /> Back to List
         </Button>
       </Box>
@@ -133,7 +133,7 @@ export function WorkflowDetailScreen() {
           <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
           <Callout.Text>Application not found</Callout.Text>
         </Callout.Root>
-        <Button variant="soft" mt="4" onClick={() => { void navigate('/workflows') }}>
+        <Button variant="soft" mt="4" onClick={() => { void navigate(-1) }}>
           <ArrowLeftIcon /> Back to List
         </Button>
       </Box>
@@ -150,14 +150,22 @@ export function WorkflowDetailScreen() {
 
   return (
     <div className="animate-fade-in max-w-5xl mx-auto">
-      <Flex justify="between" align="center" mb="6">
-        <Button variant="ghost" color="gray" onClick={() => { void navigate('/workflows') }}>
-          <ArrowLeftIcon /> Back to Workflows
+      <div className="mb-6">
+        <Button variant="ghost" color="gray" onClick={() => { void navigate(-1) }} className="mb-4 -ml-2">
+          <ArrowLeftIcon /> Back to Consignments
         </Button>
-        <Badge size="2" color={statusColor} highContrast>
-          {application.status}
-        </Badge>
-      </Flex>
+        <Flex justify="between" align="center">
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900">{application.title || 'Task Review'}</h1>
+            <Text size="2" color="gray" className="font-mono">
+              Task ID: {application.taskId}
+            </Text>
+          </div>
+          <Badge size="2" color={statusColor} highContrast>
+            {application.status}
+          </Badge>
+        </Flex>
+      </div>
 
       {error && (
         <Callout.Root color="red" mb="6">
@@ -182,7 +190,7 @@ export function WorkflowDetailScreen() {
             </Text>
             <div className="space-y-4 mt-4">
               <Box>
-                <Text size="1" color="gray" as="div" mb="1">Workflow ID</Text>
+                <Text size="1" color="gray" as="div" mb="1">Consignment ID</Text>
                 <Text size="2" weight="medium" className="break-all font-mono">{application.workflowId}</Text>
               </Box>
               <Box>
@@ -331,7 +339,7 @@ export function WorkflowDetailScreen() {
                           <Button
                             variant="soft"
                             color="gray"
-                            onClick={() => { void navigate('/workflows') }}
+                            onClick={() => { void navigate(-1) }}
                             disabled={isSubmitting || isSendingFeedback}
                             type="button"
                           >

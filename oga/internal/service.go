@@ -66,6 +66,7 @@ type InjectRequest struct {
 type Application struct {
 	TaskID          string           `json:"taskId"`
 	WorkflowID      string           `json:"workflowId"`
+	Title           string           `json:"title,omitempty"`
 	ServiceURL      string           `json:"serviceUrl"`
 	Data            map[string]any   `json:"data"`
 	Meta            *Meta            `json:"meta,omitempty"`
@@ -126,17 +127,19 @@ func metaFromJSONB(j JSONB) *Meta {
 }
 
 type ogaService struct {
-	store      *ApplicationStore
-	formStore  *FormStore
-	httpClient *httpclient.Client
+	store        *ApplicationStore
+	formStore    *FormStore
+	titleService TitleService
+	httpClient   *httpclient.Client
 }
 
 // NewOGAService creates a new OGA service instance with database storage
-func NewOGAService(store *ApplicationStore, formStore *FormStore, httpClient *httpclient.Client) OGAService {
+func NewOGAService(store *ApplicationStore, formStore *FormStore, titleService TitleService, httpClient *httpclient.Client) OGAService {
 	return &ogaService{
-		store:      store,
-		formStore:  formStore,
-		httpClient: httpClient,
+		store:        store,
+		formStore:    formStore,
+		titleService: titleService,
+		httpClient:   httpClient,
 	}
 }
 
@@ -188,6 +191,26 @@ func (s *ogaService) CreateApplication(ctx context.Context, req *InjectRequest) 
 	return nil
 }
 
+func (s *ogaService) resolveTitle(taskID string, meta *Meta) string {
+	if meta != nil {
+		// 1. Try concatenation of type and verificationId
+		if meta.VerificationType != "" && meta.VerificationId != "" {
+			key := fmt.Sprintf("%s:%s", meta.VerificationType, meta.VerificationId)
+			if title := s.titleService.GetTitle(key); title != "" {
+				return title
+			}
+		}
+		// 2. Try templateKey
+		if meta.TemplateKey != "" {
+			if title := s.titleService.GetTitle(meta.TemplateKey); title != "" {
+				return title
+			}
+		}
+	}
+	// 3. Fallback to taskID
+	return s.titleService.GetTitle(taskID)
+}
+
 // GetApplications returns a paginated list of applications (optionally filtered by status, workflow, or search)
 func (s *ogaService) GetApplications(ctx context.Context, status string, workflowID string, search string, page, pageSize int) (*PagedResponse[Application], error) {
 	if page < 1 {
@@ -206,9 +229,11 @@ func (s *ogaService) GetApplications(ctx context.Context, status string, workflo
 	applications := make([]Application, len(records))
 	for i, record := range records {
 		meta := metaFromJSONB(record.Meta)
+
 		applications[i] = Application{
 			TaskID:     record.TaskID,
 			WorkflowID: record.WorkflowID,
+			Title:      s.resolveTitle(record.TaskID, meta),
 			ServiceURL: record.ServiceURL,
 			Data:       record.Data,
 			Meta:       meta,
@@ -261,9 +286,11 @@ func (s *ogaService) GetApplication(ctx context.Context, taskID string) (*Applic
 	}
 
 	meta := metaFromJSONB(record.Meta)
+
 	app := &Application{
 		TaskID:          record.TaskID,
 		WorkflowID:      record.WorkflowID,
+		Title:           s.resolveTitle(record.TaskID, meta),
 		ServiceURL:      record.ServiceURL,
 		Data:            record.Data,
 		Meta:            meta,

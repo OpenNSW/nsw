@@ -121,7 +121,7 @@ func (s *ApplicationStore) List(ctx context.Context, status string, workflowID s
 		return nil, 0, err
 	}
 
-	if err := query.Order("created_at DESC").Offset(offset).Limit(limit).Find(&apps).Error; err != nil {
+	if err := query.Order("created_at ASC").Offset(offset).Limit(limit).Find(&apps).Error; err != nil {
 		return nil, 0, err
 	}
 

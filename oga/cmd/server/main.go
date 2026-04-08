@@ -27,6 +27,7 @@ func main() {
 		"db_path", cfg.DB.Path,
 		"port", cfg.Port,
 		"forms_path", cfg.FormsPath,
+		"titles_path", cfg.TitlesPath,
 	)
 
 	// Initialize database store
@@ -40,13 +41,19 @@ func main() {
 		log.Fatalf("failed to create form store: %v", err)
 	}
 
+	// Initialize title service
+	titleService, err := internal.NewTitleService(cfg.TitlesPath)
+	if err != nil {
+		log.Fatalf("failed to create title service: %v", err)
+	}
+
 	// TODO: Once M2M Auth Implemented, Uncomment this and pass it to nswHttpClient for automatic token management
 	//nswOAuth2Client := httpclient.NewOAuth2Authenticator(cfg.NSW.ClientID, cfg.NSW.ClientSecret, cfg.NSW.TokenURL, cfg.NSW.Scopes)
 	// Initialize HTTP client for NSW API integration
 	nswHttpClient := httpclient.NewClient(cfg.NSW.BaseURL, 10*time.Second, nil)
 
 	// Initialize OGA service
-	service := internal.NewOGAService(store, formStore, nswHttpClient)
+	service := internal.NewOGAService(store, formStore, titleService, nswHttpClient)
 	defer func() {
 		if err := service.Close(); err != nil {
 			slog.Error("failed to close service", "error", err)

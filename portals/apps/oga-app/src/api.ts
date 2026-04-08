@@ -107,15 +107,16 @@ export interface FeedbackEntry {
   timestamp: string;
   round: number;
 }
-
 export interface OGAApplication {
   taskId: string;
   workflowId: string;
+  title?: string;
   serviceUrl: string;
   data: Record<string, unknown>;
   meta?: {
     type: string;
     verificationId: string;
+    templateKey?: string;
   };
   form: {
     schema: JsonSchema;
@@ -132,6 +133,7 @@ export interface OGAApplication {
     uiSchema: UISchemaElement;
   };
 }
+
 
 
 export interface WorkflowSummary {

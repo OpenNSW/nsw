@@ -88,13 +88,13 @@ export function WorkflowTasksScreen() {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50/50 border-b border-gray-200 text-left">
-                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Task ID
+                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-16">
+                  #
                 </th>
                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Verification Type
+                  Verification Task
                 </th>
-                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-4 text-xs font-semibold text-gray-500 text-center uppercase tracking-wider">
                   Status
                 </th>
                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -103,23 +103,23 @@ export function WorkflowTasksScreen() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
-              {applications.map((app) => (
+              {applications.map((app, index) => (
                 <tr
                   key={app.taskId}
                   onClick={() => { void navigate(`/workflows/${app.workflowId}?taskId=${app.taskId}`) }}
                   className="hover:bg-blue-50/30 cursor-pointer transition-colors group text-sm"
                 >
-                  <td className="px-6 py-4 break-all font-mono text-blue-600 font-medium hover:underline">
-                    {app.taskId}
+                  <td className="px-6 py-4 whitespace-nowrap text-gray-500 font-medium">
+                    {(page - 1) * PAGE_SIZE + index + 1}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-700 capitalize">
-                    {app.meta?.type || 'Standard'}
+                  <td className="px-6 py-4 text-blue-600 font-medium hover:underline">
+                    {app.title || app.taskId}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
                     <Badge
                       size="1"
                       color={
-                        app.status === 'APPROVED' ? 'green' :
+                        app.status === 'DONE' ? 'green' :
                           app.status === 'REJECTED' ? 'red' :
                             app.status === 'FEEDBACK_REQUESTED' ? 'amber' :
                               'blue'

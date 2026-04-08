@@ -1,0 +1,8 @@
+{
+  "fcau:general_application:v1": "Health Certificate Application",
+  "npqs:sample_drop_ack:v1": "Sample Drop-off Confirmation",
+  "npqs:testing_requirement:v1": "Testing Requirement Assessment",
+  "fcau:lab_payment_upload:v1": "Payment Upload Verification",
+  "npqs:lab_results_review:v1": "Lab Results Review",
+  "npqs:manual_inspection:v1": "Certificate Issuance"
+}

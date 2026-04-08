@@ -150,7 +150,7 @@ export function WorkflowListScreen() {
                         <Badge
                           size="1"
                           color={
-                            wf.status === 'APPROVED' ? 'green' :
+                            wf.status === 'APPROVED' || wf.status === 'DONE' ? 'green' :
                               wf.status === 'REJECTED' ? 'red' :
                                 wf.status === 'FEEDBACK_REQUESTED' ? 'amber' :
                                   'blue'

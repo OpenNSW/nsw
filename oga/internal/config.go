@@ -20,6 +20,7 @@ type Config struct {
 	Port           string
 	DB             database.Config
 	FormsPath      string
+	TitlesPath     string
 	DefaultFormID  string
 	AllowedOrigins []string
 	NSW            NSWConfig
@@ -63,6 +64,7 @@ func LoadConfig() (Config, error) {
 		Port:           envOrDefault("OGA_PORT", "8081"),
 		DB:             dbConfig,
 		FormsPath:      envOrDefault("OGA_FORMS_PATH", "./data/forms"),
+		TitlesPath:     envOrDefault("OGA_TITLES_PATH", "./data/task_titles.json"),
 		DefaultFormID:  envOrDefault("OGA_DEFAULT_FORM_ID", "default"),
 		AllowedOrigins: parseOrigins(envOrDefault("OGA_ALLOWED_ORIGINS", "*")),
 		NSW: NSWConfig{

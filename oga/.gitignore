@@ -22,6 +22,9 @@ vendor/
 data/
 !data/forms/default.json
 
+# title configs
+!data/task_titles.json
+
 # OS-specific files
 .DS_Store
 Thumbs.db
