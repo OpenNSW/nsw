@@ -1,0 +1,53 @@
+{
+    "id": "95d7e7fe-5be0-43cb-ac71-94bc70d3a01d",
+    "name": "OGA Form Review (health certificate)",
+    "description": "Form to render review information of health certificate",
+    "schema": {
+        "type": "object",
+        "required": [
+            "decision",
+            "reviewedAt"
+        ],
+        "properties": {
+            "decision": {
+                "enum": [
+                    "APPROVED",
+                    "REJECTED"
+                ],
+                "type": "string"
+            },
+            "reviewedAt": {
+                "type": "string",
+                "format": "date-time"
+            },
+            "reviewerNotes": {
+                "type": "string"
+            }
+        }
+    },
+    "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Control",
+                "scope": "#/properties/decision",
+                "options": {
+                    "format": "radio"
+                }
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/reviewerNotes",
+                "options": {
+                    "multi": true
+                }
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/reviewedAt"
+            }
+        ]
+    },
+    "version": "1.0",
+    "active": true
+}

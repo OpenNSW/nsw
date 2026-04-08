@@ -1,0 +1,53 @@
+{
+    "id": "f1a00001-0001-4000-c000-000000000002",
+    "name": "OGA Review (Manual Inspection) View",
+    "description": "Form to display OGA review response for manual inspection outcome.",
+    "schema": {
+        "type": "object",
+        "required": [
+            "decision",
+            "reviewedAt"
+        ],
+        "properties": {
+            "decision": {
+                "enum": [
+                    "APPROVED",
+                    "REJECTED"
+                ],
+                "type": "string"
+            },
+            "reviewedAt": {
+                "type": "string",
+                "format": "date-time"
+            },
+            "reviewerNotes": {
+                "type": "string"
+            }
+        }
+    },
+    "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Control",
+                "scope": "#/properties/decision",
+                "options": {
+                    "format": "radio"
+                }
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/reviewerNotes",
+                "options": {
+                    "multi": true
+                }
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/reviewedAt"
+            }
+        ]
+    },
+    "version": "1.0",
+    "active": true
+}

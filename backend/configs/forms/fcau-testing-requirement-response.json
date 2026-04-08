@@ -1,0 +1,57 @@
+{
+    "id": "fcau-testing-requirement-response",
+    "name": "FCAU Testing Requirement Response Form",
+    "description": "Form for reviewers to provide their decision and comments on the testing requirement.",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "labTestingStatus": {
+                "type": "string",
+                "title": "Are lab tests required?",
+                "enum": [
+                    "Required",
+                    "Not Required"
+                ]
+            },
+            "requiredTests": {
+                "type": "array",
+                "title": "List Required Lab Tests",
+                "description": "Add a new text box for each specific lab test required.",
+                "items": {
+                    "type": "string",
+                    "title": "Test Name"
+                }
+            }
+        },
+        "required": [
+            "labTestingStatus"
+        ]
+    },
+    "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Control",
+                "scope": "#/properties/labTestingStatus",
+                "options": {
+                    "format": "radio"
+                }
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/requiredTests",
+                "rule": {
+                    "effect": "SHOW",
+                    "condition": {
+                        "scope": "#/properties/labTestingStatus",
+                        "schema": {
+                            "const": "Required"
+                        }
+                    }
+                }
+            }
+        ]
+    },
+    "version": "1.0",
+    "active": true
+}

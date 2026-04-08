@@ -1,0 +1,74 @@
+{
+    "id": "44444444-4444-4444-4444-444444444444",
+    "name": "General Information",
+    "description": "General consignment information form",
+    "schema": {
+        "type": "object",
+        "title": "General Info",
+        "required": [
+            "consigneeName",
+            "consigneeAddress",
+            "countryOfOrigin",
+            "countryOfDestination"
+        ],
+        "properties": {
+            "consigneeName": {
+                "type": "string",
+                "title": "Consignee Name",
+                "x-globalContext": {
+                    "writeTo": "consignee:consignee_name"
+                }
+            },
+            "countryOfOrigin": {
+                "enum": [
+                    "LK"
+                ],
+                "type": "string",
+                "title": "Country of Origin",
+                "x-globalContext": {
+                    "writeTo": "consignee:countryOfOrigin"
+                }
+            },
+            "consigneeAddress": {
+                "type": "string",
+                "title": "Consignee Address",
+                "x-globalContext": {
+                    "writeTo": "consignee:address"
+                }
+            },
+            "countryOfDestination": {
+                "type": "string",
+                "title": "Country of Destination",
+                "x-globalContext": {
+                    "writeTo": "consignment:destination"
+                }
+            }
+        }
+    },
+    "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Control",
+                "scope": "#/properties/consigneeName"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/consigneeAddress",
+                "options": {
+                    "multi": true
+                }
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/countryOfOrigin"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/countryOfDestination"
+            }
+        ]
+    },
+    "version": "1.0",
+    "active": true
+}

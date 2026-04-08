@@ -1,0 +1,100 @@
+{
+    "id": "11111111-1111-1111-1111-111111111111",
+    "name": "Customs Declaration",
+    "description": "Export customs declaration form for trade goods",
+    "schema": {
+        "type": "object",
+        "required": [
+            "declarationType",
+            "totalInvoiceValue",
+            "totalPackages",
+            "totalNetWeight"
+        ],
+        "properties": {
+            "totalPackages": {
+                "type": "number",
+                "title": "Total Packages",
+                "minimum": 0
+            },
+            "totalNetWeight": {
+                "type": "number",
+                "title": "Total Net Weight (kg)",
+                "minimum": 0
+            },
+            "countryOfOrigin": {
+                "type": "string",
+                "title": "Country of Origin",
+                "readOnly": true,
+                "x-globalContext": {
+                    "readFrom": "consignee:countryOfOrigin"
+                }
+            },
+            "declarationType": {
+                "enum": [
+                    "EX1"
+                ],
+                "type": "string",
+                "title": "Declaration Type"
+            },
+            "totalInvoiceValue": {
+                "type": "string",
+                "title": "Total Invoice Value & Currency",
+                "description": "Example: 1,000,000 LKR"
+            },
+            "countryOfDestination": {
+                "type": "string",
+                "title": "Country of Destination",
+                "readOnly": true,
+                "x-globalContext": {
+                    "readFrom": "consignment:destination"
+                }
+            }
+        }
+    },
+    "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "text": "Customs Declaration",
+                "type": "Label"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/declarationType"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/totalInvoiceValue"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/totalPackages"
+            },
+            {
+                "type": "HorizontalLayout",
+                "elements": [
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/countryOfOrigin",
+                        "options": {
+                            "readOnly": true
+                        }
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/countryOfDestination",
+                        "options": {
+                            "readOnly": true
+                        }
+                    }
+                ]
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/totalNetWeight"
+            }
+        ]
+    },
+    "version": "1.0",
+    "active": true
+}
