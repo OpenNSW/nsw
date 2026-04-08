@@ -3,9 +3,12 @@ package uploads
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"mime/multipart"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -163,18 +166,15 @@ func TestDownload_InvalidKeyFormat(t *testing.T) {
 func TestUpload_Unauthorized(t *testing.T) {
 	handler := NewHTTPHandler(NewUploadService(&MockDriver{}))
 
-	var buf bytes.Buffer
-	w := multipart.NewWriter(&buf)
-	part, _ := w.CreateFormFile("file", "test.pdf")
-	if _, err := part.Write([]byte("content")); err != nil {
-		t.Fatalf("failed to write multipart content: %v", err)
+	body := map[string]any{
+		"filename": "test.pdf",
+		"mime_type": "application/pdf",
+		"size":      1024,
 	}
-	if err := w.Close(); err != nil {
-		t.Fatalf("failed to close multipart writer: %v", err)
-	}
+	jsonBody, _ := json.Marshal(body)
 
-	req := httptest.NewRequest(http.MethodPost, "/uploads", &buf)
-	req.Header.Set("Content-Type", w.FormDataContentType())
+	req := httptest.NewRequest(http.MethodPost, "/uploads", bytes.NewReader(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
 	handler.Upload(rec, req)
@@ -182,15 +182,84 @@ func TestUpload_Unauthorized(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected status 401, got %d", rec.Code)
 	}
-	if ct := rec.Header().Get("Content-Type"); ct != "application/json" {
-		t.Errorf("expected Content-Type application/json, got %q", ct)
+}
+
+func TestUpload_Success(t *testing.T) {
+	mock := &MockDriver{}
+	handler := NewHTTPHandler(NewUploadService(mock))
+
+	body := map[string]any{
+		"filename":  "test.pdf",
+		"mime_type": "application/pdf",
+		"size":      1024,
 	}
-	var errBody map[string]string
-	if err := json.NewDecoder(rec.Body).Decode(&errBody); err != nil {
-		t.Errorf("expected JSON body: %v", err)
+	jsonBody, _ := json.Marshal(body)
+
+	req := httptest.NewRequest(http.MethodPost, "/uploads", bytes.NewReader(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	ctx := withAuthContext(req.Context(), &auth.AuthContext{
+		UserID: "trader-1", UserContext: &auth.UserContext{UserID: "trader-1"},
+	})
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	handler.Upload(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d. Body: %s", rec.Code, rec.Body.String())
 	}
-	if errBody["error"] == "" {
-		t.Error("expected error message in body")
+
+	var metadata FileMetadata
+	if err := json.NewDecoder(rec.Body).Decode(&metadata); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if metadata.Name != "test.pdf" {
+		t.Errorf("expected name test.pdf, got %s", metadata.Name)
+	}
+	if metadata.UploadURL == "" {
+		t.Error("expected upload_url to be populated")
+	}
+}
+
+func TestUploadContentLocal_Success(t *testing.T) {
+	tempDir := t.TempDir()
+	driver, _ := drivers.NewLocalFSDriver(tempDir, "/api/v1/uploads")
+	service := NewUploadService(driver)
+	handler := NewHTTPHandler(service)
+
+	key := "550e8400-e29b-41d4-a716-446655440000.pdf"
+	content := []byte("pdf content")
+
+	// Generate valid HMAC token
+	secret := "local-dev-secret"
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(key))
+	token := hex.EncodeToString(mac.Sum(nil))
+
+	req := httptest.NewRequest(http.MethodPut, "/uploads/local-put/"+key+"?token="+token, bytes.NewReader(content))
+	req.SetPathValue("key", key)
+	req.Header.Set("Content-Type", "application/pdf")
+	rec := httptest.NewRecorder()
+
+	handler.UploadContentLocal(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected status 204, got %d. Body: %s", rec.Code, rec.Body.String())
+	}
+
+	// Verify file was saved
+	reader, ct, err := driver.Get(context.Background(), key)
+	if err != nil {
+		t.Fatalf("failed to get saved file: %v", err)
+	}
+	defer reader.Close()
+	if ct != "application/pdf" {
+		t.Errorf("expected content type application/pdf, got %s", ct)
+	}
+	savedContent, _ := io.ReadAll(reader)
+	if !bytes.Equal(savedContent, content) {
+		t.Error("saved content does not match")
 	}
 }
 

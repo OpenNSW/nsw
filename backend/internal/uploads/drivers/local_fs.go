@@ -2,6 +2,9 @@ package drivers
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -140,4 +143,19 @@ func (d *LocalFSDriver) GetDownloadURL(ctx context.Context, key string, ttl time
 		return key, nil
 	}
 	return fmt.Sprintf("%s/api/v1/uploads/%s/content", d.PublicURL, key), nil
+}
+
+func (d *LocalFSDriver) GetUploadURL(ctx context.Context, key string, ttl time.Duration, contentType string, maxSizeBytes int64) (string, error) {
+	if d.PublicURL == "" {
+		return "", fmt.Errorf("public URL not configured for local storage")
+	}
+
+	// Generate a basic HMAC token for local dev security
+	secret := "local-dev-secret"
+	h := hmac.New(sha256.New, []byte(secret))
+	h.Write([]byte(key))
+	token := hex.EncodeToString(h.Sum(nil))
+
+	// Returns a URL pointing back to our local PUT handler with a security token
+	return fmt.Sprintf("%s/api/v1/uploads/local-put/%s?token=%s", d.PublicURL, key, token), nil
 }

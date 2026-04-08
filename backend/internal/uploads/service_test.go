@@ -47,15 +47,23 @@ func (m *MockDriver) GetDownloadURL(ctx context.Context, key string, ttl time.Du
 	return "/test/download/" + key, nil
 }
 
+func (m *MockDriver) GetUploadURL(ctx context.Context, key string, ttl time.Duration, contentType string, maxSizeBytes int64) (string, error) {
+	m.LastTTL = ttl
+	if m.GenerateURLErr != nil {
+		return "", m.GenerateURLErr
+	}
+	return "/test/upload/" + key, nil
+}
+
 func TestUploadService(t *testing.T) {
 	mock := &MockDriver{}
 	service := NewUploadService(mock)
 
 	ctx := context.Background()
 	filename := "test.jpg"
-	content := []byte("image data")
+	size := int64(1024)
 
-	metadata, err := service.Upload(ctx, filename, bytes.NewReader(content), int64(len(content)), "image/jpeg")
+	metadata, err := service.Upload(ctx, filename, size, "image/jpeg")
 	if err != nil {
 		t.Fatalf("Upload failed: %v", err)
 	}
@@ -64,12 +72,12 @@ func TestUploadService(t *testing.T) {
 		t.Errorf("expected name %s, got %s", filename, metadata.Name)
 	}
 
-	if !bytes.Equal(mock.SavedBody, content) {
-		t.Error("saved body does not match input")
+	if metadata.Size != size {
+		t.Errorf("expected size %d, got %d", size, metadata.Size)
 	}
 
-	if metadata.URL != "" {
-		t.Errorf("expected URL to be empty, got %s", metadata.URL)
+	if metadata.UploadURL != "/test/upload/"+metadata.Key {
+		t.Errorf("unexpected upload URL: %s", metadata.UploadURL)
 	}
 }
 
