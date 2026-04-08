@@ -15,7 +15,7 @@ export async function uploadFile(apiClient: ApiClient, file: File): Promise<Uplo
   const formData = new FormData()
   formData.append('file', file)
 
-  const response = await fetch(`${API_BASE_URL}/uploads`, {
+  const response = await fetch(`${API_BASE_URL}/api/oga/uploads`, {
     method: 'POST',
     headers: await apiClient.getAuthHeaders(false),
     body: formData,

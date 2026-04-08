@@ -139,7 +139,7 @@ function ReviewResponseForm({ formInfo }: { formInfo: TaskFormData }) {
       <div className="bg-gray-50 border-b border-gray-100 px-6 py-4">
         <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider">{formInfo.title}</h3>
       </div>
-      <div className="p-6 pointer-events-none opacity-80 bg-gray-50/30">
+      <div className="p-6 opacity-80 bg-gray-50/30">
         <JsonForms
           schema={formInfo.schema}
           uischema={formInfo.uiSchema}
