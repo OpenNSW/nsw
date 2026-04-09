@@ -256,8 +256,10 @@ services:
       VITE_API_BASE_URL: http://localhost:${BACKEND_PORT:-8080}/api/v1
       VITE_IDP_BASE_URL: ${IDP_PUBLIC_URL:-https://localhost:8090}
       VITE_IDP_CLIENT_ID: ${TRADER_IDP_CLIENT_ID:-TRADER_PORTAL_APP}
+      VITE_IDP_TRADER_GROUP_NAME: ${TRADER_IDP_TRADER_GROUP_NAME:-Traders}
+      VITE_IDP_CHA_GROUP_NAME: ${TRADER_IDP_CHA_GROUP_NAME:-CHA}
       VITE_APP_URL: http://localhost:${TRADER_APP_PORT:-5173}
-      VITE_IDP_SCOPES: ${IDP_SCOPES:-openid,profile,email}
+      VITE_IDP_SCOPES: ${IDP_SCOPES:-openid,profile,email,group,role}
       VITE_IDP_PLATFORM: ${IDP_PLATFORM:-AsgardeoV2}
       VITE_SHOW_AUTOFILL_BUTTON: ${SHOW_AUTOFILL_BUTTON:-true}
 
