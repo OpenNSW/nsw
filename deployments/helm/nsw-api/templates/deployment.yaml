@@ -92,7 +92,7 @@ spec:
             - name: SERVICE_URL
               value: {{ tpl .Values.config.serviceUrl . | quote }}
             - name: CORS_ALLOWED_ORIGINS
-              value: {{ .Values.config.cors.allowedOrigins | quote }}
+              value: {{ tpl .Values.config.cors.allowedOrigins . | quote }}
             - name: SERVICES_CONFIG_PATH
               value: "/app/configs/services.json"
 

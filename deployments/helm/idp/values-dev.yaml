@@ -19,20 +19,20 @@ thunder:
     server:
       publicUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"
     gateClient:
-      hostname: "dev-idp-service"
-      port: 8090
-      scheme: "http"
+      hostname: "idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"
+      port: 443
+      scheme: "https"
 
     database:
       config:
-        host: "dev-nsw-db"
+        host: "nsw-db"
         passwordRef:
           name: "dev-nsw-db-credentials"
       runtime:
-        host: "dev-nsw-db"
+        host: "nsw-db"
         passwordRef:
           name: "dev-nsw-db-credentials"
       user:
-        host: "dev-nsw-db"
+        host: "nsw-db"
         passwordRef:
           name: "dev-nsw-db-credentials"

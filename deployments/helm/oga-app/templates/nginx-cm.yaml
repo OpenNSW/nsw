@@ -15,23 +15,46 @@ data:
             try_files $uri $uri/ /index.html;
         }
 
+        # Never cache index.html to ensure users always get the latest configuration
+        location = /index.html {
+            root /usr/share/nginx/html;
+            add_header Cache-Control "no-store, no-cache, must-revalidate";
+        }
+
         # Health check for the portal itself
         location /health {
             access_log off;
             return 200 'OK';
         }
 
-        # Proxy OGA API requests to the backend
-        location /api/v1/oga/ {
-            # Rewrite /api/v1/oga/applications -> /api/oga/applications
-            rewrite ^/api/v1/oga/(.*) /api/oga/$1 break;
+        # High-priority proxy for OGA API
+        location ^~ /api/oga/ {
             proxy_pass {{ .Values.config.ogaBackendUrl }};
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
             
-            # Handle CORS if necessary (though the browser calls the portal, which proxies, so it's same-origin)
+            add_header 'Access-Control-Allow-Origin' '*' always;
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS, PUT, DELETE' always;
+            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
+            
+            if ($request_method = 'OPTIONS') {
+                add_header 'Access-Control-Max-Age' 1728000;
+                add_header 'Content-Type' 'text/plain; charset=utf-8';
+                add_header 'Content-Length' 0;
+                return 204;
+            }
+        }
+
+        location ^~ /oga/ {
+            rewrite ^/oga/(.*) /api/oga/$1 break;
+            proxy_pass {{ .Values.config.ogaBackendUrl }};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
             add_header 'Access-Control-Allow-Origin' '*' always;
             add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS, PUT, DELETE' always;
             add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;

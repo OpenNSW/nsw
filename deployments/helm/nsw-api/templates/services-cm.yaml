@@ -9,17 +9,17 @@ data:
       "services": [
         {
           "id": "npqs",
-          "url": "http://oga-npqs-backend.national-single-window-platform.svc.cluster.local:8081",
+          "url": "http://{{ .Values.config.servicePrefix }}-oga-npqs-backend.{{ .Release.Namespace }}.svc.cluster.local:8081",
           "timeout": "30s"
         },
         {
           "id": "fcau",
-          "url": "http://oga-fcau-backend.national-single-window-platform.svc.cluster.local:8081",
+          "url": "http://{{ .Values.config.servicePrefix }}-oga-fcau-backend.{{ .Release.Namespace }}.svc.cluster.local:8081",
           "timeout": "30s"
         },
         {
           "id": "ird",
-          "url": "http://oga-ird-backend.national-single-window-platform.svc.cluster.local:8081",
+          "url": "http://{{ .Values.config.servicePrefix }}-oga-ird-backend.{{ .Release.Namespace }}.svc.cluster.local:8081",
           "timeout": "30s"
         },
         {
@@ -29,7 +29,7 @@ data:
         },
         {
           "id": "customs-app",
-          "url": "http://customs-app.national-single-window-platform.svc.cluster.local",
+          "url": "http://{{ .Values.config.servicePrefix }}customs-app.{{ .Release.Namespace }}.svc.cluster.local",
           "timeout": "5s"
         }
       ]

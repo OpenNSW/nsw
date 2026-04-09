@@ -18,4 +18,5 @@ resources:
 
 auth:
   username: "postgres"
-  password: "postgres" # Default for Dev
+  # password should be set via --set-string auth.password=$PASS at install time or use an existing secret
+  password: ""

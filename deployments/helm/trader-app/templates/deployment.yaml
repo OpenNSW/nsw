@@ -31,13 +31,13 @@ spec:
               protocol: TCP
           env:
             - name: VITE_API_BASE_URL
-              value: {{ .Values.config.apiBaseUrl | quote }}
+              value: {{ tpl .Values.config.apiBaseUrl . | quote }}
             - name: VITE_IDP_BASE_URL
-              value: {{ .Values.config.idpBaseUrl | quote }}
+              value: {{ tpl .Values.config.idpBaseUrl . | quote }}
             - name: VITE_IDP_CLIENT_ID
-              value: {{ .Values.config.idpClientId | quote }}
+              value: {{ tpl .Values.config.idpClientId . | quote }}
             - name: VITE_APP_URL
-              value: {{ .Values.config.appUrl | quote }}
+              value: {{ tpl .Values.config.appUrl . | quote }}
             - name: VITE_IDP_SCOPES
               value: {{ .Values.config.idpScopes | quote }}
             - name: VITE_IDP_PLATFORM

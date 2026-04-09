@@ -9,7 +9,7 @@ replicaCount: 1
 image:
   repository: ghcr.io/opennsw/nsw-api
   pullPolicy: Always
-  tag: latest
+  tag: v1.2.0
 
 imagePullSecrets:
   - name: ghcr-secret
@@ -58,7 +58,7 @@ config:
   internalServiceUrl: "http://nsw-api.{{ .Release.Namespace }}.svc.cluster.local"
 
   cors:
-    allowedOrigins: "https://trader-app.{{ .Release.Namespace }}.{{ .Values.global.clusterDomain }}"
+    allowedOrigins: "https://trader-app.{{ .Release.Namespace }}.{{ .Values.global.clusterDomain }},https://oga-fcau.{{ .Release.Namespace }}.{{ .Values.global.clusterDomain }},https://oga-ird.{{ .Release.Namespace }}.{{ .Values.global.clusterDomain }},https://oga-npqs.{{ .Release.Namespace }}.{{ .Values.global.clusterDomain }}"
 
   storage:
     type: "local"
@@ -80,9 +80,9 @@ resources:
     memory: 256Mi
 
 route:
-  enabled: true
+  enabled: false
   tls:
-    enabled: true
+    enabled: false
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
 
@@ -94,15 +94,37 @@ autoscaling:
   targetMemoryUtilizationPercentage: 80
 
 podDisruptionBudget:
-  enabled: true
+  enabled: false
   minAvailable: 1
 
 dbMigrations:
   enabled: true
-  image: "registry.redhat.io/rhel8/postgresql-12:latest"
-  host: "nsw-db"
-  user: "postgres"
-  database: "nsw"
-  secretName: "nsw-db-secret"
-  secretKey: "password"
+  image:
+    repository: ghcr.io/opennsw/nsw-api-migrations
+    tag: latest
+    pullPolicy: Always
   backoffLimit: 3
+  host: nsw-db
+  port: 5432
+  database: nsw_dev
+  secretName: dev-nsw-db-credentials
+  secretKey: password
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 10m
+      memory: 64Mi
+  user: postgres
+

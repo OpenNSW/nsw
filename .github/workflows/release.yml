@@ -58,6 +58,11 @@ jobs:
             context: ./portals
             dockerfile: ./portals/apps/oga-app/Dockerfile
             description: NSW OGA Officer Portal Frontend
+          - service_name: NSW Backend Migrations
+            image_name: nsw-api-migrations
+            context: .
+            dockerfile: ./backend/migrations.Dockerfile
+            description: NSW Database Migrations
 
     env:
       GIT_COMMIT: ${{ github.sha }}

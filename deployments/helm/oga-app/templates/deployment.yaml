@@ -30,7 +30,7 @@ spec:
             - name: VITE_INSTANCE_CONFIG
               value: {{ .Values.config.instanceConfig | quote }}
             - name: VITE_API_BASE_URL
-              value: "/api"
+              value: {{ tpl .Values.config.apiBaseUrl . | quote }}
             - name: VITE_IDP_BASE_URL
               value: {{ tpl .Values.config.idpBaseUrl . | quote }}
             - name: VITE_IDP_CLIENT_ID

@@ -3,9 +3,8 @@
  * when the API or auth changes, only this file is updated.
  */
 import type { ApiClient } from './api'
-import { getEnv } from '../runtimeConfig'
 
-const API_BASE_URL = getEnv('VITE_API_BASE_URL', 'http://localhost:8080/api/v1')!
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1'
 
 export interface UploadResponse {
   key: string

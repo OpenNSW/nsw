@@ -170,7 +170,7 @@ export async function fetchApplications(
   signal?: AbortSignal
 ): Promise<PaginatedResponse<OGAApplication>> {
   return apiClient.get<PaginatedResponse<OGAApplication>>(
-    '/oga/applications',
+    '/api/oga/applications',
     {
       status: params?.status,
       workflowId: params?.workflowId,
@@ -184,7 +184,7 @@ export async function fetchApplications(
 
 // Fetch application detail by taskId from OGA Service
 export async function fetchApplicationDetail(apiClient: ApiClient, taskId: string, signal?: AbortSignal): Promise<OGAApplication> {
-  return apiClient.get<OGAApplication>(`/oga/applications/${taskId}`, {}, signal)
+  return apiClient.get<OGAApplication>(`/api/oga/applications/${taskId}`, {}, signal)
 }
 
 // Submit review for a task via OGA Service
@@ -195,7 +195,7 @@ export async function submitReview(
   signal?: AbortSignal
 ): Promise<ReviewResponse> {
   return apiClient.post<Record<string, unknown>, ReviewResponse>(
-    `/oga/applications/${taskId}/review`,
+    `/api/oga/applications/${taskId}/review`,
     formValues,
     signal
   )
@@ -209,7 +209,7 @@ export async function submitFeedback(
   signal?: AbortSignal
 ): Promise<ReviewResponse> {
   return apiClient.post<Record<string, unknown>, ReviewResponse>(
-      `/oga/applications/${taskId}/feedback`,
+      `/api/oga/applications/${taskId}/feedback`,
       content,
       signal
   )

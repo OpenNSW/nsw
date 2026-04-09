@@ -5,13 +5,15 @@ fullnameOverride: "dev-oga-fcau"
 config:
   # Instructs the frontend to load fcau.config.ts
   instanceConfig: "fcau"
+  apiBaseUrl: "https://dev-oga-fcau-backend-national-single-window-platform.apps.sovecloud1.akaza.lk"
   
   # The exact client ID seeded in the IDP
   idpClientId: "OGA_PORTAL_APP_FCAU"
   
   # The hyphenated Frontend route OpenShift will auto-generate
   appUrl: "https://dev-oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  idpBaseUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"
   
   # The internal K8s DNS name for the Dev FCAU backend. 
   # Nginx will proxy traffic here securely inside the cluster.
-  ogaBackendUrl: "http://dev-oga-fcau-backend:8080"
+  ogaBackendUrl: "http://dev-oga-fcau-backend:8081"
