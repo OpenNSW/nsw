@@ -21,5 +21,6 @@ resources:
 
 auth:
   username: "postgres"
-  # password should be set via --set-string auth.password=$PASS at install time or use an existing secret
+  # CRITICAL: password is REQUIRED at install time via --set auth.password=<pass>
+  # Enforced in secrets.yaml templates.
   password: ""

@@ -10,8 +10,8 @@ config:
   database:
     host: "nsw-db"
     credentialsSecretName: "nsw-db-credentials"
-  nswApiBaseUrl: "http://staging-api-nsw-api:8080/api/v1"
-  allowedOrigins: "https://{{ .Release.Name }}-{{ .Release.Namespace }}.{{ .Release.Namespace }}.{{ .Values.global.clusterDomain }}"
+  nswApiBaseUrl: "http://staging-nsw-api:8080/api/v1"
+  allowedOrigins: "https://staging-oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk,https://staging-oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk,https://staging-oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk"
 
 route:
   enabled: true

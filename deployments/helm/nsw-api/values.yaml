@@ -25,11 +25,10 @@ securityContext:
 
 service:
   type: ClusterIP
-  port: 80
-  targetPort: 8080
-  useWorkflowManagerV2: true
-  temporalHost: "temporal-server:7233"
-  temporalNamespace: "default"
+  port: 8080
+  temporalHost: temporal-server:7233
+  temporalNamespace: default
+  services: []
 
 config:
   server:
@@ -42,23 +41,28 @@ config:
     port: 5432
     name: "nsw_db"
     username: "postgres"
-    # password comes from Secret: nsw-db-credentials.password
+    credentialsSecretName: "nsw-db-credentials"
     sslMode: "disable"
 
   auth:
     # Use the internal service name and port 8090
-    jwksUrl: "http://idp-thunder-service.{{ .Release.Namespace }}.svc.cluster.local:8090/oauth2/jwks"
-    issuer: "https://idp-thunder-{{ .Release.Namespace }}.{{ .Values.global.clusterDomain }}"
+    jwksUrl: "http://idp-thunder-service.national-single-window-platform.svc.cluster.local:8090/oauth2/jwks"
+    issuer: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"
     audience: "TRADER_PORTAL_APP"
     clientId: "TRADER_PORTAL_APP"
     # Set to true if the IDP is using a self-signed cert internally (common in GovCloud)
-    insecureSkipTlsVerify: true
+    insecureSkipTlsVerify: false
 
-  serviceUrl: "https://{{ include \"nsw-api.fullname\" . }}.{{ .Release.Namespace }}.{{ .Values.global.clusterDomain }}"
-  internalServiceUrl: "http://nsw-api.{{ .Release.Namespace }}.svc.cluster.local"
+  serviceUrl: "https://nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"
+  internalServiceUrl: "http://nsw-api.national-single-window-platform.svc.cluster.local"
+
+  # servicePrefix is the Helm release name prefix used to construct internal OGA backend service URLs.
+  # It MUST match the release name used when deploying the OGA backend charts.
+  # Example: release "dev-nsw-api" → servicePrefix "dev" → resolves to "dev-oga-fcau-backend"
+  servicePrefix: "dev"
 
   cors:
-    allowedOrigins: "https://trader-app.{{ .Release.Namespace }}.{{ .Values.global.clusterDomain }},https://oga-fcau.{{ .Release.Namespace }}.{{ .Values.global.clusterDomain }},https://oga-ird.{{ .Release.Namespace }}.{{ .Values.global.clusterDomain }},https://oga-npqs.{{ .Release.Namespace }}.{{ .Values.global.clusterDomain }}"
+    allowedOrigins: "https://trader-app-national-single-window-platform.apps.sovecloud1.akaza.lk,https://oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk,https://oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk,https://oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk"
 
   storage:
     type: "local"
@@ -101,13 +105,13 @@ dbMigrations:
   enabled: true
   image:
     repository: ghcr.io/opennsw/nsw-api-migrations
-    tag: 1.0.0
+    tag: latest
     pullPolicy: Always
   backoffLimit: 3
   host: nsw-db
   port: 5432
-  database: nsw_dev
-  secretName: dev-nsw-db-credentials
+  database: nsw_db
+  secretName: nsw-db-credentials
   secretKey: password
   podSecurityContext:
     runAsNonRoot: true
@@ -118,7 +122,6 @@ dbMigrations:
     capabilities:
       drop:
         - ALL
-    readOnlyRootFilesystem: true
   resources:
     limits:
       cpu: 100m

@@ -6,6 +6,24 @@ global:
 
 replicaCount: 1
 
+dbMigrations:
+  enabled: true
+  image:
+    repository: ghcr.io/opennsw/nsw-api-migrations
+    tag: latest
+    pullPolicy: Always
+  host: "nsw-db"
+  database: "nsw_dev"
+  secretName: "nsw-db-credentials"
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: ["ALL"]
+
 config:
   nswApiBaseUrl: "https://dev-nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"
   serviceUrl: "https://dev-nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"
@@ -20,11 +38,25 @@ config:
     clientId: "TRADER_PORTAL_APP"
     credentialsSecretName: "nsw-api-auth-credentials"
   cors:
-    allowedOrigins: "https://dev-trader-app-{{ .Values.global.namespace }}.{{ .Values.global.clusterDomain }},https://dev-oga-fcau-{{ .Values.global.namespace }}.{{ .Values.global.clusterDomain }},https://dev-oga-ird-{{ .Values.global.namespace }}.{{ .Values.global.clusterDomain }},https://dev-oga-npqs-{{ .Values.global.namespace }}.{{ .Values.global.clusterDomain }}"
+    allowedOrigins: "https://dev-trader-app-national-single-window-platform.apps.sovecloud1.akaza.lk,https://dev-oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk,https://dev-oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk,https://dev-oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk"
 
 service:
-  temporalHost: "temporal-server:7233"
-  temporalNamespace: "nsw-dev"
+  services:
+    - id: "npqs"
+      url: "http://dev-oga-npqs-backend.national-single-window-platform.svc.cluster.local:8081"
+      timeout: "30s"
+    - id: "fcau"
+      url: "http://dev-oga-fcau-backend.national-single-window-platform.svc.cluster.local:8081"
+      timeout: "30s"
+    - id: "ird"
+      url: "http://dev-oga-ird-backend.national-single-window-platform.svc.cluster.local:8081"
+      timeout: "30s"
+    - id: "customs-asycuda"
+      url: "https://7b0eb5f0-1ee3-4a0c-8946-82a893cb60c2.mock.pstmn.io"
+      timeout: "10s"
+    - id: "customs-app"
+      url: "http://dev-trader-app.national-single-window-platform.svc.cluster.local:80"
+      timeout: "5s"
 
 route:
   enabled: true

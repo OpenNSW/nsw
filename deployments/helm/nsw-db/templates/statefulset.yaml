@@ -30,10 +30,13 @@ spec:
             - name: POSTGRESQL_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Release.Name }}-credentials
+                  name: nsw-db-credentials
                   key: password
             - name: POSTGRESQL_USER
-              value: "postgres"
+              valueFrom:
+                secretKeyRef:
+                  name: nsw-db-credentials
+                  key: user
             - name: POSTGRESQL_DATABASE
               value: {{ .Values.auth.databaseName | default "nsw_db" | quote }}
             - name: PGDATA
@@ -48,7 +51,7 @@ spec:
               command:
                 - pg_isready
                 - -U
-                - "postgres"
+                - {{ .Values.auth.username | default "postgres" | quote }}
                 - -d
                 - {{ .Values.auth.databaseName | default "nsw_db" | quote }}
             initialDelaySeconds: 5
@@ -60,7 +63,7 @@ spec:
               command:
                 - pg_isready
                 - -U
-                - "postgres"
+                - {{ .Values.auth.username | default "postgres" | quote }}
                 - -d
                 - {{ .Values.auth.databaseName | default "nsw_db" | quote }}
             initialDelaySeconds: 15

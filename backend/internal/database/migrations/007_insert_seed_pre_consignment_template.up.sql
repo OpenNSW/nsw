@@ -287,7 +287,8 @@ VALUES
             "service": "inland-revenue",
             "requiresOgaVerification": true,
             "submission": {
-                "url": ' || to_jsonb((:'PRECONSIGNMENT_OGA_SUBMISSION_URL')::text)::text || ',
+                "serviceId": "ird",
+                "url": "/api/oga/inject",
                 "request": {
                     "meta": {
                         "type": "preconsignment",

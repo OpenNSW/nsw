@@ -15,7 +15,7 @@ resources:
     memory: 512Mi
 
 config:
-  serviceUrl: "https://staging-api-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  serviceUrl: "https://staging-nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"
   database:
     host: "nsw-db"
     name: "nsw_staging"
@@ -27,11 +27,10 @@ config:
     clientId: "nsw-staging-client"
     clientSecret: "nsw-staging-secret"
   cors:
-    allowedOrigins:
-      - "https://staging-trader-app-national-single-window-platform.apps.sovecloud1.akaza.lk"
-      - "https://staging-oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk"
-      - "https://staging-oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk"
-      - "https://staging-oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk"
+    allowedOrigins: "https://staging-trader-app-national-single-window-platform.apps.sovecloud1.akaza.lk,https://staging-oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk,https://staging-oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk,https://staging-oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk"
+
+dbMigrations:
+  enabled: false
 
 service:
   temporalHost: "temporal-server:7233"
@@ -39,4 +38,4 @@ service:
 
 route:
   enabled: true
-  host: "staging-api-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  host: ""

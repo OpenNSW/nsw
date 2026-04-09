@@ -25,7 +25,7 @@ config:
     name: "oga-backend-npqs"
     credentialsSecretName: "nsw-db-credentials"
   allowedOrigins: "https://dev-oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk"
-  nswApiBaseUrl: "https://dev-api-national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"
+  nswApiBaseUrl: "https://dev-nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"
 
 route:
   enabled: true

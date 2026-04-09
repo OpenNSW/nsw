@@ -1,3 +1,15 @@
+{{- $services := .Values.service.services -}}
+{{- if not $services -}}
+{{- $prefix := .Values.config.servicePrefix | default "dev" -}}
+{{- $ns := .Release.Namespace -}}
+{{- $services = list
+  (dict "id" "npqs" "url" (printf "http://%s-oga-npqs-backend.%s.svc.cluster.local:8081" $prefix $ns) "timeout" "30s")
+  (dict "id" "fcau" "url" (printf "http://%s-oga-fcau-backend.%s.svc.cluster.local:8081" $prefix $ns) "timeout" "30s")
+  (dict "id" "ird" "url" (printf "http://%s-oga-ird-backend.%s.svc.cluster.local:8081" $prefix $ns) "timeout" "30s")
+  (dict "id" "customs-asycuda" "url" "https://7b0eb5f0-1ee3-4a0c-8946-82a893cb60c2.mock.pstmn.io" "timeout" "10s")
+  (dict "id" "customs-app" "url" (printf "http://%s-trader-app.%s.svc.cluster.local:80" $prefix $ns) "timeout" "5s")
+-}}
+{{- end -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -6,32 +18,6 @@ data:
   services.json: |
     {
       "version": "1.0",
-      "services": [
-        {
-          "id": "npqs",
-          "url": "http://{{ .Values.config.servicePrefix }}-oga-npqs-backend.{{ .Release.Namespace }}.svc.cluster.local:8081",
-          "timeout": "30s"
-        },
-        {
-          "id": "fcau",
-          "url": "http://{{ .Values.config.servicePrefix }}-oga-fcau-backend.{{ .Release.Namespace }}.svc.cluster.local:8081",
-          "timeout": "30s"
-        },
-        {
-          "id": "ird",
-          "url": "http://{{ .Values.config.servicePrefix }}-oga-ird-backend.{{ .Release.Namespace }}.svc.cluster.local:8081",
-          "timeout": "30s"
-        },
-        {
-          "id": "customs-asycuda",
-          "url": "https://7b0eb5f0-1ee3-4a0c-8946-82a893cb60c2.mock.pstmn.io",
-          "timeout": "10s"
-        },
-        {
-          "id": "customs-app",
-          "url": "http://{{ .Values.config.servicePrefix }}customs-app.{{ .Release.Namespace }}.svc.cluster.local",
-          "timeout": "5s"
-        }
-      ]
+      "services": {{ tpl ($services | toJson) . }}
     }
 

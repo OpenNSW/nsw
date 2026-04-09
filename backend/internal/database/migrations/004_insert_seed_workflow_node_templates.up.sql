@@ -107,7 +107,7 @@ VALUES
         'Phytosanitary Certificate',
         'Phytosanitary certificate for plant products export',
         'SIMPLE_FORM',
-        ('{
+        '{
             "agency": "NPQS",
             "formId": "22222222-2222-2222-2222-222222222222",
             "service": "plant-quarantine-phytosanitary",
@@ -166,7 +166,8 @@ VALUES
                 ]
             },
             "submission": {
-                "url": ' || to_jsonb((:'NPQS_OGA_SUBMISSION_URL')::text)::text || ',
+                "serviceId": "npqs",
+                "url": "/api/oga/inject",
                 "request": {
                     "meta": {
                         "type": "consignment",
@@ -175,7 +176,7 @@ VALUES
                     }
                 }
             }
-        }')::jsonb,
+        }',
         '[
             "c0000003-0003-0003-0003-000000000008"
         ]',
@@ -193,7 +194,7 @@ VALUES
         'Health Certificate',
         'Health and safety certificate for food products',
         'SIMPLE_FORM',
-        ('{
+        '{
             "agency": "EDB",
             "formId": "33333333-3333-3333-3333-333333333333",
             "service": "food-control-administration-unit",
@@ -205,7 +206,8 @@ VALUES
                 }
             },
             "submission": {
-                "url": ' || to_jsonb((:'FCAU_OGA_SUBMISSION_URL')::text)::text || ',
+                "serviceId": "fcau",
+                "url": "/api/oga/inject",
                 "request": {
                     "meta": {
                         "type": "consignment",
@@ -214,7 +216,8 @@ VALUES
                     }
                 }
             }
-        }')::jsonb,
+        }',
+
         '[
             "c0000003-0003-0003-0003-000000000008"
         ]',
@@ -231,14 +234,21 @@ VALUES
         'e1a00001-0001-4000-b000-000000000007',
         'Manual Inspection',
         'Manual inspection task for high-risk phytosanitary cases',
-        'WAIT_FOR_EVENT',
-        ('{
-            "display": {
-                "title": "Awaiting Physical Inspection",
-                "description": "Consignment flagged for physical inspection. NPQS inspector will review the consignment on-site."
+        'SIMPLE_FORM',
+        '{
+            "agency": "NPQS",
+            "formId": "f1a00001-0001-4000-c000-000000000001",
+            "service": "plant-quarantine-phytosanitary",
+            "callback": {
+                "response": {
+                    "display": {
+                        "formId": "f1a00001-0001-4000-c000-000000000002"
+                    }
+                }
             },
             "submission": {
-                "url": ' || to_jsonb((:'NPQS_OGA_SUBMISSION_URL')::text)::text || ',
+                "serviceId": "npqs",
+                "url": "/api/oga/inject",
                 "request": {
                     "meta": {
                         "templateKey": "npqs:manual_inspection:v1"
@@ -258,7 +268,8 @@ VALUES
                     }
                 }
             }
-        }')::jsonb,
+        }',
+
         '[
             "c0000003-0003-0003-0003-000000000003"
         ]',

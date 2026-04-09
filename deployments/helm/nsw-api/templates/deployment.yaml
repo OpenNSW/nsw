@@ -54,12 +54,12 @@ spec:
             - name: DB_USERNAME
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.config.database.credentialsSecretName | default (printf "%s-db-credentials" .Release.Name) }}
+                  name: {{ .Values.config.database.credentialsSecretName | default "nsw-db-credentials" }}
                   key: "user"
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.config.database.credentialsSecretName | default (printf "%s-db-credentials" .Release.Name) }}
+                  name: {{ .Values.config.database.credentialsSecretName | default "nsw-db-credentials" }}
                   key: "password"
             - name: DB_NAME
               value: {{ .Values.config.database.name | quote }}
