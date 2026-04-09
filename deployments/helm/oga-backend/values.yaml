@@ -8,7 +8,7 @@ config:
   port: 8081
   database:
     driver: postgres
-    host: nsw-db
+    host: nsw-db.national-single-window-platform.svc.cluster.local
     port: 5432
     sslMode: disable
   defaultFormId: default
@@ -17,17 +17,17 @@ config:
 # The specific DB name and Allowed Origins should be overridden in agency values files.
 
 route:
-  enabled: true
+  enabled: false
   tls:
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
 
 migrations:
-  enabled: true
+  enabled: false
   image:
-    repository: registry.redhat.io/rhel8/postgresql-12@sha256:fd7b47517df99487c02d86f57b0b6722c32551bcf89ce61018d6a5e355c7c212
-    tag: ""
-    pullPolicy: IfNotPresent
+    repository: registry.developers.crunchydata.com/crunchydata/crunchy-postgres
+    tag: "ubi8-15.4-0"
+    pullPolicy: Always
   resources:
     limits:
       cpu: 200m

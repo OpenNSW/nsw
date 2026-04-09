@@ -51,6 +51,8 @@ MIGRATIONS=(
     "009_insert_cha_entity.up.sql"
     "010_workflow_table.up.sql"
     "011_workflow_tem_v2.up.sql"
+    "012_seed_admin_cha_and_context.up.sql"
+    "013_fix_submission_configs.up.sql"
 )
 
 echo "Starting database migrations..."

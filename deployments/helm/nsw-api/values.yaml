@@ -9,7 +9,7 @@ replicaCount: 1
 image:
   repository: ghcr.io/opennsw/nsw-api
   pullPolicy: Always
-  tag: v1.2.0
+  tag: latest
 
 imagePullSecrets:
   - name: ghcr-secret
@@ -101,7 +101,7 @@ dbMigrations:
   enabled: true
   image:
     repository: ghcr.io/opennsw/nsw-api-migrations
-    tag: latest
+    tag: 1.0.0
     pullPolicy: Always
   backoffLimit: 3
   host: nsw-db

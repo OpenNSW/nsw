@@ -21,6 +21,11 @@ data:
             add_header Cache-Control "no-store, no-cache, must-revalidate";
         }
 
+        location = /runtime-env.js {
+            root /usr/share/nginx/html;
+            add_header Cache-Control "no-store, no-cache, must-revalidate";
+        }
+
         # Health check for the portal itself
         location /health {
             access_log off;

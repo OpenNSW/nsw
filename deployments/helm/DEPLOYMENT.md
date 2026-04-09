@@ -31,11 +31,19 @@ docker buildx build --platform linux/amd64 -t ghcr.io/opennsw/oga-backend:latest
 docker buildx build --platform linux/amd64 -t ghcr.io/opennsw/idp:latest -f deployments/helm/idp/Dockerfile ./deployments/helm/idp --push
 ```
 
+### 1.1 Temporal Image Mirroring
+
+```bash
+docker pull --platform linux/amd64 temporalio/auto-setup:1.28.3
+docker tag temporalio/auto-setup:1.28.3 ghcr.io/opennsw/temporal-auto-setup:1.28.3
+docker push ghcr.io/opennsw/temporal-auto-setup:1.28.3
+```
+
 ---
 
 ## 2. Deploy / Upgrade Helm Charts (Multi-Environment)
 
-Always explicitly execute Helm layering the environment values.
+We utilize a hierarchical values approach (`values.yaml` + `values-dev.yaml`) and separate namespaces per environment to guarantee isolation without collisions. **Always explicitly execute Helm layering the environment values.**
 
 ### Developer Initialization
 ```bash
@@ -43,52 +51,101 @@ helm dependency build ./deployments/helm/idp
 helm dependency build ./deployments/helm/nsw-api
 ```
 
-### Option A: STAGING Environment (national-single-window-platform)
+### Option A: DEV Environment Deployments
 ```bash
-# Core Services
-helm upgrade --install staging-api ./deployments/helm/nsw-api -f ./deployments/helm/nsw-api/values.yaml -f ./deployments/helm/nsw-api/values-staging.yaml -n national-single-window-platform --history-max 1
-helm upgrade --install staging-trader-app ./deployments/helm/trader-app -f ./deployments/helm/trader-app/values.yaml -f ./deployments/helm/trader-app/values-staging.yaml -n national-single-window-platform --set fullnameOverride=staging-trader-app --history-max 1
-
-# OGA Apps & Backends (NPQS, FCAU, IRD)
-helm upgrade --install staging-oga-fcau-backend ./deployments/helm/oga-backend -f ./deployments/helm/oga-backend/values.yaml -f ./deployments/helm/oga-backend/fcau-backend-values.yaml -n national-single-window-platform --history-max 1
-helm upgrade --install staging-oga-fcau ./deployments/helm/oga-app -f ./deployments/helm/oga-app/values.yaml -f ./deployments/helm/oga-app/values/fcau-values.yaml -n national-single-window-platform --set fullnameOverride=staging-oga-fcau --history-max 1
-```
-
-### Option B: DEV Environment (national-single-window-platform)
-```bash
-# Core Services
+# Core NSW Core API
 helm upgrade --install dev-nsw-api ./deployments/helm/nsw-api -f ./deployments/helm/nsw-api/values.yaml -f ./deployments/helm/nsw-api/values-dev.yaml -n national-single-window-platform --history-max 1
-helm upgrade --install dev-trader-app ./deployments/helm/trader-app -f ./deployments/helm/trader-app/values.yaml -f ./deployments/helm/trader-app/values-dev.yaml -n national-single-window-platform --history-max 1
 
-# OGA Apps & Backends (NPQS, FCAU, IRD)
-helm upgrade --install dev-oga-fcau-backend ./deployments/helm/oga-backend -f ./deployments/helm/oga-backend/values.yaml -f ./deployments/helm/oga-backend/fcau-backend-values.yaml -n national-single-window-platform --history-max 1
-helm upgrade --install dev-oga-fcau ./deployments/helm/oga-app -f ./deployments/helm/oga-app/values.yaml -f ./deployments/helm/oga-app/values-dev.yaml -n national-single-window-platform --set fullnameOverride=dev-oga-fcau --history-max 1
+# Temporal Server
+helm upgrade --install dev-trader-app ./deployments/helm/trader-app -f ./deployments/helm/trader-app/values.yaml -f ./deployments/helm/trader-app/values-dev.yaml -n nsw-dev --set fullnameOverride=trader-app,image.tag=latest --history-max 1
+helm upgrade --install dev-temporal ./deployments/helm/temporal -f ./deployments/helm/temporal/values-dev.yaml -n nsw-dev --history-max 1
+
+# IDP Umbrella Chart (with Kustomize Patching)
+# NOTE: Only redeploy idp-thunder if there is a version update. 
+# Seeding and configuration are usually handled via hooks or manual scripts.
+kustomize build --enable-helm ./deployments/helm/idp | oc apply -n national-single-window-platform -f -
+
+# OGA Apps & Backends
+helm upgrade --install dev-oga-fcau-backend ./deployments/helm/oga-backend -f ./deployments/helm/oga-backend/values-dev.yaml -f ./deployments/helm/oga-backend/fcau-backend-values.yaml -n national-single-window-platform --history-max 1
+helm upgrade --install dev-oga-ird-backend ./deployments/helm/oga-backend -f ./deployments/helm/oga-backend/values-dev.yaml -f ./deployments/helm/oga-backend/ird-backend-values.yaml -n nsw-dev --history-max 1
+helm upgrade --install dev-oga-npqs-backend ./deployments/helm/oga-backend -f ./deployments/helm/oga-backend/values-dev.yaml -f ./deployments/helm/oga-backend/npqs-backend-values.yaml -n nsw-dev --history-max 1
+
+helm upgrade --install dev-oga-fcau-app ./deployments/helm/oga-app -f ./deployments/helm/oga-app/values-dev.yaml -f ./deployments/helm/oga-app/values/fcau-values.yaml -n nsw-dev --set fullnameOverride=dev-oga-fcau-app --history-max 1
+helm upgrade --install dev-oga-ird-app ./deployments/helm/oga-app -f ./deployments/helm/oga-app/values-dev.yaml -f ./deployments/helm/oga-app/values/ird-values.yaml -n nsw-dev --set fullnameOverride=dev-oga-ird-app --history-max 1
+helm upgrade --install dev-oga-npqs-app ./deployments/helm/oga-app -f ./deployments/helm/oga-app/values-dev.yaml -f ./deployments/helm/oga-app/values/npqs-values.yaml -n nsw-dev --set fullnameOverride=dev-oga-npqs-app --history-max 1
+```
+
+### Option B: STAGING Environment Deployments
+Use the exact same pattern with `-f values-staging.yaml` overrides and `-n nsw-staging` namespaces.
+```bash
+# Core NSW Core API
+helm upgrade --install staging-nsw-api ./deployments/helm/nsw-api -f ./deployments/helm/nsw-api/values.yaml -f ./deployments/helm/nsw-api/values-staging.yaml -n nsw-staging --history-max 1
 ```
 
 ---
 
-## 3. Database & Seeding
+## 3. Database Setup (Standardization)
 
-### 3.1 Initial Seeding
-The `nsw-api` chart includes a `pre-install` hook that runs `init.sql`. This script is idempotent and seeds:
-- `workflow_template_v2` (V2 Workflow definitions)
-- `hs_codes`
-- `customs_house_agents`
-- `forms` (schemas and UI templates)
+### 3.1 Logical Databases
+Each service **must** have its own logical database within the `nsw-db` cluster.
 
-### 3.2 Troubleshooting "Record Not Found"
-If specific tasks like `node_2_cusdec` are reported as "not found", ensure:
-1.  **Fresh Consignment**: Create a new consignment in the Trader portal. Old IDs after a DB purge will fail.
-2.  **Seeding Verification**: Check `workflow_template_maps_v2` for the correct HS code mapping.
-3.  **Temporal Workers**: Ensure `dev-nsw-api` pods are healthy and connected to Temporal.
+```bash
+# Create Databases
+oc exec deployment/nsw-db -- psql -U postgres -c "CREATE DATABASE \"nsw_db\";"
+oc exec deployment/nsw-db -- psql -U postgres -c "CREATE DATABASE \"oga-backend-fcau\";"
+oc exec deployment/nsw-db -- psql -U postgres -c "CREATE DATABASE \"oga-backend-ird\";"
+oc exec deployment/nsw-db -- psql -U postgres -c "CREATE DATABASE \"oga-backend-npqs\";"
+```
+
+### 3.2 Service URLs (Port 8081)
+All OGA services are configured to listen on **port 8081**. This must be reflected in:
+1.  **nsw-api Registry**: `services-cm.yaml` (ConfigMap)
+2.  **Workflow Seeds**: `ogaSubmissionUrls` in `nsw-api/values.yaml`
+3.  **OGA Frontend Proxy**: `ogaBackendUrl` in `oga-app` values.
+
+```yaml
+# nsw-api/values.yaml snippet
+migrations:
+  ogaSubmissionUrls:
+    npqs: "http://oga-npqs-backend:8081/api/oga/inject"
+    fcau: "http://oga-fcau-backend:8081/api/oga/inject"
+    ird: "http://oga-ird-backend:8081/api/oga/inject"
+```
 
 ---
 
-## 4. Diagnostic Commands
-```bash
-# Check OGA Connectivity
-oc exec deployment/dev-nsw-api -- curl -v http://dev-oga-npqs-backend:8081/health
+## 4. Verification & Troubleshooting
 
-# Verify Database Seeding
-oc exec deployment/nsw-db -- psql -U postgres -d nsw_dev -c "SELECT id FROM workflow_template_v2;"
+| Issue | Cause | Fix |
+|:---|:---|:---|
+| `no registered service found` | URL/Port mismatch | Verify `services-cm.yaml` includes port `:8081`. |
+| `Data not visible in OGA portal` | Proxy mismatch | Check `OGA_BACKEND_URL` in frontend pod matches backend service. |
+| `Temporal connection failure` | Incorrect host or stale connection pool | Set `TEMPORAL_HOST` correctly. If it fails with "no usable database connection", restart temporal pods. |
+| `ErrImagePull` on migrations | Missing `latest` tag | Use explicit version tags (e.g., `1.0.0`) in `values.yaml` instead of `latest`. |
+| `Invalid client_id` in IDP | Apps not registered or stale | Run `seed.sh` manually inside the thunder pod or rerun the seed job. (Redeploying idp-thunder is rarely needed). |
+
+### Diagnostic Commands
+```bash
+# Check API logs
+kubectl logs -l app.kubernetes.io/instance=dev-nsw-api -n national-single-window-platform
+
+# Check OGA Connectivity
+oc exec deployment/nsw-api -- curl -v http://oga-npqs-backend:8081/health
+
+# Check Nginx Proxy Configuration
+oc exec deployment/oga-npqs-app -- cat /etc/nginx/conf.d/default.conf | grep proxy_pass
+```
+
+---
+
+## 5. Directory Structure
+```
+deployments/helm/
+├── nsw-api/           (Core API)
+├── trader-app/        (Trader Frontend)
+├── oga-app/           (Generic OGA Frontend)
+│   └── values/        (Instance overrides)
+└── oga-backend/       (Generic OGA Backend)
+    └── *-values.yaml  (Instance overrides)
+└── idp/               (Declarative IDP Umbrella Chart)
 ```

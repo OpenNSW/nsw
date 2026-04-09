@@ -7,7 +7,8 @@ global:
 replicaCount: 1
 
 config:
-  serviceUrl: "https://dev-api-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  nswApiBaseUrl: "https://dev-nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"
+  serviceUrl: "https://dev-nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"
   database:
     host: "nsw-db"
     name: "nsw_dev"
@@ -17,9 +18,9 @@ config:
     issuer: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"
     jwksUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk/oauth2/jwks"
     clientId: "TRADER_PORTAL_APP"
-    clientSecret: "nsw-dev-secret"
+    credentialsSecretName: "nsw-api-auth-credentials"
   cors:
-    allowedOrigins: "https://dev-trader-app-national-single-window-platform.apps.sovecloud1.akaza.lk,https://dev-oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk,https://dev-oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk,https://dev-oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk"
+    allowedOrigins: "https://dev-trader-app-{{ .Values.global.namespace }}.{{ .Values.global.clusterDomain }},https://dev-oga-fcau-{{ .Values.global.namespace }}.{{ .Values.global.clusterDomain }},https://dev-oga-ird-{{ .Values.global.namespace }}.{{ .Values.global.clusterDomain }},https://dev-oga-npqs-{{ .Values.global.namespace }}.{{ .Values.global.clusterDomain }}"
 
 service:
   temporalHost: "temporal-server:7233"

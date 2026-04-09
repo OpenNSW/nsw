@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "nsw-db.fullname" . }}
+  labels:
+    {{- include "nsw-db.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "nsw-db.fullname" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "nsw-db.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "nsw-db.selectorLabels" . | nindent 8 }}
+    spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgres
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: tcp-postgresql
+              containerPort: 5432
+              protocol: TCP
+          env:
+            - name: POSTGRESQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-credentials
+                  key: password
+            - name: POSTGRESQL_USER
+              value: "postgres"
+            - name: POSTGRESQL_DATABASE
+              value: {{ .Values.auth.databaseName | default "nsw_db" | quote }}
+            - name: PGDATA
+              value: /var/lib/pgsql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/pgsql/data
+          
+          # Readiness & Liveness Probes to protect the migration-job
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - "postgres"
+                - -d
+                - {{ .Values.auth.databaseName | default "nsw_db" | quote }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - "postgres"
+                - -d
+                - {{ .Values.auth.databaseName | default "nsw_db" | quote }}
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+  
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        # Dynamic Storage Class
+        {{- if .Values.persistence.storageClass }}
+        storageClassName: {{ .Values.persistence.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size | default "10Gi" }}
