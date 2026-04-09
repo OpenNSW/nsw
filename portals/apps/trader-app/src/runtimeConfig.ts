@@ -2,6 +2,14 @@ type RuntimeConfigValue = string | undefined
 
 type RuntimeConfigMap = Record<string, RuntimeConfigValue>
 
+export interface IdpRoleGroupConfig {
+  traderGroupName: string
+  chaGroupName: string
+}
+
+const DEFAULT_TRADER_GROUP_NAME = 'Traders'
+const DEFAULT_CHA_GROUP_NAME = 'CHA'
+
 declare global {
   interface Window {
     __APP_CONFIG__?: RuntimeConfigMap
@@ -16,6 +24,8 @@ function resolveRuntimeConfig(): RuntimeConfigMap {
   return window.__APP_CONFIG__ ?? {}
 }
 
+export function getEnv(name: string): string | undefined
+export function getEnv(name: string, fallback: string): string
 export function getEnv(name: string, fallback?: string): string | undefined {
   const runtimeValue = resolveRuntimeConfig()[name]
   if (runtimeValue && runtimeValue.trim() !== '') {
@@ -37,4 +47,11 @@ export function getBooleanEnv(name: string, fallback = false): boolean {
   }
 
   return value.toLowerCase() === 'true'
+}
+
+export function getIdpRoleGroupConfig(): IdpRoleGroupConfig {
+  return {
+    traderGroupName: getEnv('VITE_IDP_TRADER_GROUP_NAME', DEFAULT_TRADER_GROUP_NAME),
+    chaGroupName: getEnv('VITE_IDP_CHA_GROUP_NAME', DEFAULT_CHA_GROUP_NAME),
+  }
 }

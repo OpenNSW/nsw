@@ -6,12 +6,14 @@ import {ConsignmentScreen} from "./screens/ConsignmentScreen.tsx"
 import {ConsignmentDetailScreen} from "./screens/ConsignmentDetailScreen.tsx"
 import {TaskDetailScreen} from "./screens/TaskDetailScreen.tsx";
 import {PreconsignmentScreen} from "./screens/PreconsignmentScreen.tsx"
-import {useAsgardeo, SignedOut} from '@asgardeo/react'
+import {SignedOut} from '@asgardeo/react'
 import {LoginScreen} from "./screens/LoginScreen.tsx";
 import {ApiProvider, useApi} from './services/ApiContext'
 import { RoleProvider } from './services/RoleContext'
 import { UploadProvider } from '@opennsw/jsonforms-renderers'
 import { uploadFile, getDownloadUrl } from './services/upload'
+import { useAuthContext } from './hooks/useAuthContext'
+import { UnauthorizedScreen } from './screens/UnauthorizedScreen.tsx'
 
 function UploadWrapper({ children }: { children: ReactNode }) {
   const api = useApi()
@@ -26,14 +28,15 @@ function UploadWrapper({ children }: { children: ReactNode }) {
 }
 
 function ProtectedLayout() {
-  const {isSignedIn, isLoading} = useAsgardeo()
+  const {isSignedIn, isLoading, availableRoles, isResolvingRoles} = useAuthContext()
 
-  if (isLoading) return null
+  if (isLoading || (isSignedIn && (isResolvingRoles || availableRoles === null))) return null
   if (!isSignedIn) return <Navigate to="/login" replace/>
+  if (!availableRoles || availableRoles.length === 0) return <UnauthorizedScreen/>
   
   return (
     <ApiProvider>
-      <RoleProvider availableGroups={['trader', 'cha']} isLoading={isLoading}>
+      <RoleProvider availableGroups={availableRoles} isLoading={isResolvingRoles}>
         <UploadWrapper>
           <Layout/>
         </UploadWrapper>

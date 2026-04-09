@@ -1,7 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
-import {useState} from "react";
+import {useState} from 'react'
 
 export function Layout() {
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(() => {
@@ -22,14 +22,11 @@ export function Layout() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Top Bar - Full Width */}
       <TopBar />
 
       <div className="flex">
+        <Sidebar isExpanded={isSidebarExpanded} onToggle={handleToggleSidebar} />
 
-      <Sidebar isExpanded={isSidebarExpanded} onToggle={handleToggleSidebar} />
-
-      {/* Main Content Area */}
       <main
         style={{ marginLeft: `${sidebarWidth}px`, width: `calc(100% - ${sidebarWidth}px)` }}
         className="min-h-[calc(100vh-64px)] transition-all duration-300 mt-16"
