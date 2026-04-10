@@ -23,3 +23,20 @@ func VerifyToken(key, token, secret string, expiresAt int64, contentType string,
 	expected := GenerateToken(key, secret, expiresAt, contentType, maxSizeBytes)
 	return hmac.Equal([]byte(token), []byte(expected))
 }
+
+// GenerateDownloadToken creates an HMAC-SHA256 token specifically for download links (only signs key and expiration).
+func GenerateDownloadToken(key, secret string, expiresAt int64) string {
+	payload := fmt.Sprintf("%s:%d", key, expiresAt)
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(payload))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+// VerifyDownloadToken checks if a provided download token matches the expected signature.
+func VerifyDownloadToken(key, token, secret string, expiresAt int64) bool {
+	if token == "" || secret == "" {
+		return false
+	}
+	expected := GenerateDownloadToken(key, secret, expiresAt)
+	return hmac.Equal([]byte(token), []byte(expected))
+}

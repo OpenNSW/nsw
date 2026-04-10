@@ -143,7 +143,21 @@ func (d *LocalFSDriver) GetDownloadURL(ctx context.Context, key string, ttl time
 	if d.PublicURL == "" {
 		return key, nil
 	}
-	return fmt.Sprintf("%s/api/v1/uploads/%s/content", d.PublicURL, key), nil
+
+	expiresAt := time.Now().Add(ttl).Unix()
+	token := GenerateDownloadToken(key, d.SecretKey, expiresAt)
+
+	// Returns a URL with security token and expiration
+	v := url.Values{}
+	v.Set("token", token)
+	v.Set("expiresAt", strconv.FormatInt(expiresAt, 10))
+
+	return fmt.Sprintf("%s/api/v1/uploads/%s/content?%s", d.PublicURL, key, v.Encode()), nil
+}
+
+// VerifyDownloadToken checks if a provided download token is valid and not expired.
+func (d *LocalFSDriver) VerifyDownloadToken(key, token string, expiresAt int64) bool {
+	return VerifyDownloadToken(key, token, d.SecretKey, expiresAt)
 }
 
 func (d *LocalFSDriver) GetUploadURL(ctx context.Context, key string, ttl time.Duration, contentType string, maxSizeBytes int64) (string, error) {

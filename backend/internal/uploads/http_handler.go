@@ -228,7 +228,8 @@ func (h *HTTPHandler) DownloadContent(w http.ResponseWriter, r *http.Request) {
 	// This endpoint is only available when using LocalFSDriver (local development).
 	// It serves the same role as an S3 presigned URL — no auth required since the
 	// caller was already authenticated when obtaining the URL via GET /uploads/{key}.
-	if _, ok := h.Service.Driver.(*drivers.LocalFSDriver); !ok {
+	driver, ok := h.Service.Driver.(*drivers.LocalFSDriver)
+	if !ok {
 		writeJSONError(w, http.StatusNotFound, "not found")
 		return
 	}
@@ -240,6 +241,32 @@ func (h *HTTPHandler) DownloadContent(w http.ResponseWriter, r *http.Request) {
 	}
 	if !validStorageKey(key) {
 		writeJSONError(w, http.StatusBadRequest, "invalid key format")
+		return
+	}
+
+	// Extract and verify security constraints
+	token := r.URL.Query().Get("token")
+	expiresAtStr := r.URL.Query().Get("expiresAt")
+	if token == "" || expiresAtStr == "" {
+		writeJSONError(w, http.StatusUnauthorized, "missing security token or expiration")
+		return
+	}
+
+	expiresAt, err := strconv.ParseInt(expiresAtStr, 10, 64)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid expiration format")
+		return
+	}
+
+	// Verify HMAC signature
+	if !driver.VerifyDownloadToken(key, token, expiresAt) {
+		writeJSONError(w, http.StatusUnauthorized, "invalid security token")
+		return
+	}
+
+	// Enforce TTL
+	if time.Now().Unix() > expiresAt {
+		writeJSONError(w, http.StatusForbidden, "download link expired")
 		return
 	}
 

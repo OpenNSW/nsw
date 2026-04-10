@@ -31,15 +31,27 @@ func TestDownloadContent_LocalDriver_Success(t *testing.T) {
 		t.Fatalf("failed to save test file: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/uploads/"+key+"/content", nil)
+	// Generate valid signed URL using the driver
+	ttl := 15 * time.Minute
+	downloadURL, err := driver.GetDownloadURL(ctx, key, ttl)
+	if err != nil {
+		t.Fatalf("Failed to get download URL: %v", err)
+	}
+
+	parsedURL, err := url.Parse(downloadURL)
+	if err != nil {
+		t.Fatalf("Failed to parse download URL: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, parsedURL.String(), nil)
 	req.SetPathValue("key", key)
 	rec := httptest.NewRecorder()
 
-	// No auth context set — should still succeed because this endpoint is intended to be public.
+	// No auth context set — should still succeed because this endpoint is signature-secured instead of auth-secured.
 	handler.DownloadContent(rec, req)
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d", rec.Code)
+		t.Fatalf("expected status 200, got %d. Body: %s", rec.Code, rec.Body.String())
 	}
 
 	if rec.Header().Get("Content-Type") != "application/pdf" {
