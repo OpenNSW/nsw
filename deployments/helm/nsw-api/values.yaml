@@ -8,7 +8,7 @@ replicaCount: 1
 
 image:
   repository: ghcr.io/opennsw/nsw-api
-  pullPolicy: Always
+  pullPolicy: IfNotPresent
   tag: latest
 
 imagePullSecrets:
@@ -41,8 +41,11 @@ config:
     port: 5432
     name: "nsw_db"
     username: "postgres"
-    # password comes from Secret: nsw-db-credentials.password
+    credentialsSecretName: "nsw-db-credentials"
     sslMode: "disable"
+    maxIdleConns: 10
+    maxOpenConns: 100
+    maxConnLifetimeSeconds: 3600
 
   auth:
     # Use the internal service name and port 8090
@@ -51,7 +54,7 @@ config:
     audience: "TRADER_PORTAL_APP"
     clientId: "TRADER_PORTAL_APP"
     # Set to true if the IDP is using a self-signed cert internally (common in GovCloud)
-    insecureSkipTlsVerify: true
+    insecureSkipTlsVerify: false
 
   serviceUrl: "https://nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"
   internalServiceUrl: "http://nsw-api.national-single-window-platform.svc.cluster.local"
@@ -63,6 +66,10 @@ config:
 
   cors:
     allowedOrigins: "https://trader-app-national-single-window-platform.apps.sovecloud1.akaza.lk,https://oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk,https://oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk,https://oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk"
+    allowedMethods: "GET,POST,PUT,DELETE,OPTIONS"
+    allowedHeaders: "Content-Type,Authorization"
+    allowCredentials: true
+    maxAge: 3600
 
   storage:
     type: "local"
@@ -91,22 +98,32 @@ route:
     insecureEdgeTerminationPolicy: Redirect
 
 autoscaling:
-  enabled: false
-  minReplicas: 1
+  enabled: true
+  minReplicas: 2
   maxReplicas: 5
   targetCPUUtilizationPercentage: 80
   targetMemoryUtilizationPercentage: 80
 
 podDisruptionBudget:
-  enabled: false
+  enabled: true
   minAvailable: 1
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: nsw-api
+          topologyKey: kubernetes.io/hostname
 
 dbMigrations:
   enabled: true
   image:
     repository: ghcr.io/opennsw/nsw-api-migrations
     tag: latest
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
   backoffLimit: 3
   host: nsw-db
   port: 5432
@@ -130,4 +147,3 @@ dbMigrations:
       cpu: 10m
       memory: 64Mi
   user: postgres
-

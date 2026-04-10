@@ -15,7 +15,7 @@ resources:
     memory: 512Mi
 
 config:
-  serviceUrl: "https://staging-nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"
+  serviceUrl: "https://staging-nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk"
   database:
     host: "nsw-db"
     name: "nsw_staging"
@@ -30,11 +30,19 @@ config:
     allowedOrigins: "https://staging-trader-app-national-single-window-platform.apps.sovecloud1.akaza.lk,https://staging-oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk,https://staging-oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk,https://staging-oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk"
 
 dbMigrations:
-  enabled: false
+  enabled: true
+  database: "nsw_staging"
+  host: "nsw-db"
+  secretName: "nsw-db-credentials"
+  image:
+    repository: ghcr.io/opennsw/nsw-api-migrations
+    tag: latest
+    pullPolicy: IfNotPresent
 
 service:
   temporalHost: "temporal-server:7233"
-  temporalNamespace: "nsw-staging"
+  temporalNamespace: "national-single-window-platform"
+  useWorkflowManagerV2: "TRUE"
 
 route:
   enabled: true

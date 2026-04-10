@@ -6,12 +6,15 @@ global:
 
 replicaCount: 1
 
+service:
+  useWorkflowManagerV2: "TRUE"
+
 dbMigrations:
   enabled: true
   image:
     repository: ghcr.io/opennsw/nsw-api-migrations
     tag: latest
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
   host: "nsw-db"
   database: "nsw_dev"
   secretName: "nsw-db-credentials"
@@ -26,7 +29,7 @@ dbMigrations:
 
 config:
   nswApiBaseUrl: "https://dev-nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"
-  serviceUrl: "https://dev-nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"
+  serviceUrl: "https://dev-nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk"
   database:
     host: "nsw-db"
     name: "nsw_dev"

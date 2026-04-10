@@ -21,5 +21,8 @@ resources:
 
 auth:
   username: "postgres"
-  # password should be set via --set-string auth.password=$PASS at install time or use an existing secret
+  # Best practice: create a secret externally and provide the name here.
+  # This avoids leaking passwords in CI/CD pipeline logs via --set arguments.
+  existingSecret: ""
+  # CRITICAL: If existingSecret is empty, password is REQUIRED at install time via --set auth.password=<pass>
   password: ""
