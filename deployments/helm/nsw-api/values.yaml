@@ -1,19 +1,34 @@
 # Default values for nsw-api.
+global:
+  namespace: "national-single-window-platform"
+  clusterDomain: "apps.sovecloud1.akaza.lk"
 
+fullnameOverride: ""
 replicaCount: 1
 
 image:
   repository: ghcr.io/opennsw/nsw-api
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
   tag: latest
 
 imagePullSecrets:
-  - name: ghcr-pull-secret
+  - name: ghcr-secret
+
+podSecurityContext:
+  runAsNonRoot: true
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
 
 service:
   type: ClusterIP
-  port: 80
-  targetPort: 8080
+  port: 8080
+  temporalHost: temporal-server:7233
+  temporalNamespace: default
+  services: []
 
 config:
   server:
@@ -33,19 +48,23 @@ config:
     jwksUrl: "https://idp-route.national-single-window-platform.lgc.gov.lk/oauth2/jwks"
     issuer: "https://idp-route.national-single-window-platform.lgc.gov.lk"
     audience: "NSW_API"
-    clientId:
+    clientIds:
       - "TRADER_PORTAL_APP"
       - "FCAU_TO_NSW"
       - "NPQS_TO_NSW"
       - "IRD_TO_NSW"
     insecureSkipTlsVerify: false
 
-  serviceUrl: "https://nsw-api-national-single-window-platform.lgc.gov.lk"
+  serviceUrl: "https://nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"
+  internalServiceUrl: "http://nsw-api.national-single-window-platform.svc.cluster.local"
+
+  # servicePrefix is the Helm release name prefix used to construct internal OGA backend service URLs.
+  # It MUST match the release name used when deploying the OGA backend charts.
+  # Example: release "dev-nsw-api" → servicePrefix "dev" → resolves to "dev-oga-fcau-backend"
+  servicePrefix: "dev"
 
   cors:
-    allowedOrigins:
-      - "https://trader-portal-national-single-window-platform.lgc.gov.lk"
-      - "https://npqs-portal-national-single-window-platform.lgc.gov.lk"
+    allowedOrigins: "https://trader-app-national-single-window-platform.apps.sovecloud1.akaza.lk,https://oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk,https://oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk,https://oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk"
 
   storage:
     type: "local"
@@ -55,8 +74,6 @@ config:
     s3Endpoint: ""
     s3Bucket: "nsw-uploads"
     s3Region: "us-east-1"
-    s3AccessKey: ""
-    s3SecretKey: ""
     s3UseSsl: true
     s3PublicUrl: ""
 
@@ -69,10 +86,50 @@ resources:
     memory: 256Mi
 
 route:
-  enabled: true
-  # Leave empty to let OpenShift auto-assign; set explicitly only if your user has permission.
-  host: ""
+  enabled: false
   tls:
-    enabled: true
+    enabled: false
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+dbMigrations:
+  enabled: true
+  image:
+    repository: ghcr.io/opennsw/nsw-api-migrations
+    tag: latest
+    pullPolicy: Always
+  backoffLimit: 3
+  host: nsw-db
+  port: 5432
+  database: nsw_db
+  secretName: nsw-db-credentials
+  secretKey: password
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 10m
+      memory: 64Mi
+  user: postgres
+

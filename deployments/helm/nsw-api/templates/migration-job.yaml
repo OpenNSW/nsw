@@ -1,0 +1,76 @@
+{{- if .Values.dbMigrations.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "nsw-api.fullname" . }}-migration
+  labels:
+    {{- include "nsw-api.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.dbMigrations.backoffLimit | default 3 }}
+  template:
+    spec:
+      restartPolicy: Never
+      securityContext:
+        {{- toYaml .Values.dbMigrations.podSecurityContext | nindent 8 }}
+      imagePullSecrets:
+        {{- toYaml .Values.imagePullSecrets | nindent 8 }}
+      initContainers:
+        - name: wait-for-db
+          image: "{{ .Values.dbMigrations.image.repository }}:{{ .Values.dbMigrations.image.tag }}"
+          imagePullPolicy: {{ .Values.dbMigrations.image.pullPolicy }}
+          command:
+            - "/bin/sh"
+            - "-c"
+            - |
+              echo "Waiting for database at ${DB_HOST}:${DB_PORT}..."
+              until pg_isready -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USER}"; do
+                echo "Database not ready, sleeping 2s..."
+                sleep 2
+              done
+              echo "Database is ready!"
+          env:
+            - name: DB_USER
+              value: {{ .Values.dbMigrations.user | default "postgres" | quote }}
+            - name: DB_HOST
+              value: {{ .Values.dbMigrations.host | default "nsw-db" | quote }}
+            - name: DB_PORT
+              value: {{ .Values.dbMigrations.port | default "5432" | quote }}
+          resources:
+            {{- toYaml .Values.dbMigrations.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.dbMigrations.securityContext | nindent 12 }}
+      containers:
+        - name: migrate
+          image: "{{ .Values.dbMigrations.image.repository }}:{{ .Values.dbMigrations.image.tag }}"
+          imagePullPolicy: {{ .Values.dbMigrations.image.pullPolicy }}
+          command:
+            - "/bin/sh"
+            - "-c"
+            - |
+              # Construct the URL safely in the shell environment
+              export DB_URL="postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable"
+              echo "Executing golang-migrate up..."
+              /usr/local/bin/migrate -path=/migrations -database="${DB_URL}" up
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dbMigrations.secretName | default "nsw-db-credentials" }}
+                  key: {{ .Values.dbMigrations.secretKey | default "password" }}
+            - name: DB_USER
+              value: {{ .Values.dbMigrations.user | default "postgres" | quote }}
+            - name: DB_HOST
+              value: {{ .Values.dbMigrations.host | default "nsw-db" | quote }}
+            - name: DB_PORT
+              value: {{ .Values.dbMigrations.port | default "5432" | quote }}
+            - name: DB_NAME
+              value: {{ .Values.dbMigrations.database | default "nsw" | quote }}
+          resources:
+            {{- toYaml .Values.dbMigrations.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.dbMigrations.securityContext | nindent 12 }}
+{{- end }}
