@@ -1,3 +1,4 @@
+{{- if not .Values.nginxConfigMapName }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -34,42 +35,20 @@ data:
 
         # High-priority proxy for OGA API
         location ^~ /api/oga/ {
-            rewrite ^/api/oga/(.*) /$1 break;
-            proxy_pass {{ .Values.config.ogaBackendUrl }};
+            proxy_pass ${OGA_BACKEND_URL};
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
-            
-            add_header 'Access-Control-Allow-Origin' '*' always;
-            add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS, PUT, DELETE' always;
-            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
-            
-            if ($request_method = 'OPTIONS') {
-                add_header 'Access-Control-Max-Age' 1728000;
-                add_header 'Content-Type' 'text/plain; charset=utf-8';
-                add_header 'Content-Length' 0;
-                return 204;
-            }
         }
 
         location ^~ /oga/ {
-            rewrite ^/oga/(.*) /$1 break;
-            proxy_pass {{ .Values.config.ogaBackendUrl }};
+            rewrite ^/oga/(.*) /api/oga/$1 break;
+            proxy_pass ${OGA_BACKEND_URL};
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
-            
-            add_header 'Access-Control-Allow-Origin' '*' always;
-            add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS, PUT, DELETE' always;
-            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
-            
-            if ($request_method = 'OPTIONS') {
-                add_header 'Access-Control-Max-Age' 1728000;
-                add_header 'Content-Type' 'text/plain; charset=utf-8';
-                add_header 'Content-Length' 0;
-                return 204;
-            }
         }
     }
+{{- end }}
