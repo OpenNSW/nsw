@@ -1,253 +1,279 @@
 import { withJsonFormsControlProps } from '@jsonforms/react';
 import type { ControlElement, JsonSchema } from '@jsonforms/core';
 import { Card, Flex, Text, Box, IconButton, Button } from '@radix-ui/themes';
-import { UploadIcon, FileTextIcon, Cross2Icon, CheckCircledIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
 import {
-  useState,
-  useRef,
-  useEffect,
-  useCallback,
-  type ChangeEvent,
-  type DragEvent
+    UploadIcon, FileTextIcon, Cross2Icon,
+    CheckCircledIcon, ExclamationTriangleIcon
+} from '@radix-ui/react-icons';
+import {
+    useState, useRef, useEffect, useCallback,
+    type ChangeEvent, type DragEvent
 } from 'react';
 import { useUpload } from '../contexts/UploadContext';
-import * as React from "react";
+import * as React from 'react';
+
+interface FileEntry {
+    key: string;
+    name: string;
+    blobUrl?: string;
+}
+
+interface XFileOptions {
+    maxFiles?: number;
+    maxSize?: number;
+    accept?: string;
+}
 
 interface FileControlProps {
-    data: string | null;
-    handleChange(path: string, value: string | null): void;
+    data: string | string[] | null;
+    handleChange(path: string, value: string | string[] | null): void;
     path: string;
     label: string;
     required?: boolean;
     uischema?: ControlElement;
-    schema?: JsonSchema;
+    schema?: JsonSchema & { 'x-file'?: XFileOptions };
     enabled?: boolean;
 }
 
-const FileControl = ({ data, handleChange, path, label, required, uischema, enabled }: FileControlProps) => {
+function normalizeData(data: string | string[] | null): string[] {
+    if (!data) return [];
+    return Array.isArray(data) ? data : [data];
+}
+
+function formatBytes(bytes: number): string {
+    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
+    if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${bytes} B`;
+}
+
+function formatAccept(accept: string): string {
+    return accept
+        .split(',')
+        .map(t => {
+            t = t.trim();
+            if (t === 'image/*') return 'Images';
+            if (t === 'application/pdf') return 'PDF';
+            if (t.startsWith('.')) return t.toUpperCase();
+            return t.split('/').pop()?.toUpperCase() ?? t;
+        })
+        .join(', ');
+}
+
+const FileControl = ({
+                         data, handleChange, path, label, required,
+                         uischema, schema, enabled
+                     }: FileControlProps) => {
     const uploadContext = useUpload();
-    const [dragActive, setDragActive] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [fileName, setFileName] = useState<string | null>(null);
-    const [localBlobUrl, setLocalBlobUrl] = useState<string | null>(null);
+
+    // Read x-file constraints from schema
+    const xFile: XFileOptions = schema?.['x-file'] ?? {};
+    const uiOptions = uischema?.options ?? {};
+
+    const maxFiles = xFile.maxFiles ?? (uiOptions.maxFiles as number) ?? 1;
+    const maxSize  = xFile.maxSize  ?? (uiOptions.maxSize  as number) ?? 5 * 1024 * 1024;
+    const accept   = xFile.accept   ?? (uiOptions.accept   as string) ?? 'image/*,application/pdf';
+
+    const isMulti   = maxFiles > 1;
+    const isEnabled = enabled !== false;
+
+    const [dragActive, setDragActive]   = useState(false);
+    const [error, setError]             = useState<string | null>(null);
+    const [fileEntries, setFileEntries] = useState<Record<string, FileEntry>>({});
     const inputRef = useRef<HTMLInputElement>(null);
+
+    const currentKeys = normalizeData(data);
+    const atLimit     = currentKeys.length >= maxFiles;
 
     useEffect(() => {
         return () => {
-            if (localBlobUrl) URL.revokeObjectURL(localBlobUrl);
+            Object.values(fileEntries).forEach(e => {
+                if (e.blobUrl) URL.revokeObjectURL(e.blobUrl);
+            });
         };
-    }, [localBlobUrl]);
-
-    const options = uischema?.options || {};
-    const maxSize = (options.maxSize as number) || 5 * 1024 * 1024; // Default 5MB
-    const accept = (options.accept as string) || 'image/*,application/pdf';
-    const isEnabled = enabled !== false;
-
-    const getDisplayText = () => {
-        if (fileName) return fileName;
-        if (!data) return null;
-        // Try to extract name from data URL if stored there, otherwise generic
-        return 'Uploaded File';
-    };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const processFile = useCallback(async (file: File) => {
+        setError(null);
+
+        if (currentKeys.length >= maxFiles) {
+            setError(`Maximum ${maxFiles} file${maxFiles > 1 ? 's' : ''} allowed.`);
+            return;
+        }
         if (file.size > maxSize) {
-            const sizeMB = (maxSize / (1024 * 1024)).toFixed(0);
-            setError(`File size exceeds ${sizeMB} MiB limit.`);
+            setError(`File exceeds the ${formatBytes(maxSize)} limit.`);
             return;
         }
 
-        const acceptedTypes = accept.split(',').map((t: string) => t.trim());
-        const isFileTypeAccepted = acceptedTypes.some((type: string) => {
+        const acceptedTypes = accept.split(',').map(t => t.trim());
+        const typeOk = acceptedTypes.some(type => {
+            if (type === '*' || type === '*/*') return true;
             if (type.endsWith('/*')) return file.type.startsWith(type.slice(0, -1));
             if (type.startsWith('.')) return file.name.toLowerCase().endsWith(type.toLowerCase());
             return file.type === type;
         });
-        if (accept !== '*' && !isFileTypeAccepted && !accept.includes('*/*')) {
-            setError(`Invalid file type. Accepted types: ${accept}`);
+        if (!typeOk) {
+            setError(`Invalid type. Accepted: ${formatAccept(accept)}`);
             return;
         }
 
-        if (uploadContext?.onUpload) {
-            try {
-                const result = await uploadContext.onUpload(file);
-                setLocalBlobUrl(URL.createObjectURL(file));
-                handleChange(path, result.key);
-                setFileName(result.name ?? file.name);
-                setError(null);
-            } catch {
-                setError('Upload failed.');
-                if (inputRef.current) inputRef.current.value = '';
-            }
+        if (!uploadContext?.onUpload) {
+            setError('Upload service not configured.');
             return;
         }
-        if (import.meta.env.DEV) {
-            console.warn('[FileControl] UploadProvider did not supply onUpload; upload service not configured for this application.');
+
+        try {
+            const result  = await uploadContext.onUpload(file);
+            const blobUrl = URL.createObjectURL(file);
+            const entry: FileEntry = { key: result.key, name: result.name ?? file.name, blobUrl };
+
+            setFileEntries(prev => ({ ...prev, [result.key]: entry }));
+
+            const newKeys = [...currentKeys, result.key];
+            handleChange(path, isMulti ? newKeys : newKeys[0]);
+        } catch {
+            setError('Upload failed. Please try again.');
+            if (inputRef.current) inputRef.current.value = '';
         }
-        setError('Upload service not configured for this application.');
-    }, [accept, uploadContext, maxSize, path, handleChange]);
+    }, [currentKeys, maxFiles, maxSize, accept, uploadContext, path, handleChange, isMulti]);
 
     const handleDrag = (e: DragEvent<HTMLDivElement>) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (!isEnabled || data) return;
-
-        if (e.type === 'dragenter' || e.type === 'dragover') {
-            setDragActive(true);
-        } else if (e.type === 'dragleave') {
-            setDragActive(false);
-        }
+        e.preventDefault(); e.stopPropagation();
+        if (!isEnabled || atLimit) return;
+        setDragActive(e.type === 'dragenter' || e.type === 'dragover');
     };
 
     const handleDrop = (e: DragEvent<HTMLDivElement>) => {
-        e.preventDefault();
-        e.stopPropagation();
+        e.preventDefault(); e.stopPropagation();
         setDragActive(false);
-        if (!isEnabled || data) return;
-
-        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-            processFile(e.dataTransfer.files[0]);
-        }
+        if (!isEnabled || atLimit) return;
+        if (e.dataTransfer.files?.[0]) processFile(e.dataTransfer.files[0]);
     };
 
     const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
+        if (e.target.files?.[0]) {
             processFile(e.target.files[0]);
+            e.target.value = '';
         }
     };
 
-    const handleRemove = () => {
+    const handleRemove = (key: string) => {
         if (!isEnabled) return;
-
-        if (localBlobUrl) {
-            URL.revokeObjectURL(localBlobUrl);
-            setLocalBlobUrl(null);
-        }
-        handleChange(path, null);
-        setFileName(null);
-        setError(null);
-        if (inputRef.current) {
-            inputRef.current.value = '';
-        }
+        setFileEntries(prev => {
+            const next = { ...prev };
+            if (next[key]?.blobUrl) URL.revokeObjectURL(next[key].blobUrl!);
+            delete next[key];
+            return next;
+        });
+        const newKeys = currentKeys.filter(k => k !== key);
+        handleChange(path, isMulti
+            ? (newKeys.length > 0 ? newKeys : null)
+            : (newKeys[0] ?? null)
+        );
     };
 
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-        if (isEnabled && (e.key === 'Enter' || e.key === ' ')) {
-            e.preventDefault();
-            inputRef.current?.click();
-        }
-    };
-
-    if (!isEnabled && !data) return null;
-
-    const onView = async (e: React.MouseEvent<HTMLButtonElement>) => {
-        e.preventDefault()
-        // 1. Handle local files or data URLs immediately (synchronous = no popup block)
-        if (localBlobUrl) {
-            const url = localBlobUrl || data;
-            window.open(url!, '_blank', 'noopener,noreferrer')?.focus();
+    const onView = async (e: React.MouseEvent<HTMLButtonElement>, key: string) => {
+        e.preventDefault();
+        const blobUrl = fileEntries[key]?.blobUrl;
+        if (blobUrl) {
+            window.open(blobUrl, '_blank', 'noopener,noreferrer')?.focus();
             return;
         }
-
-        if (data && data.startsWith('data:')) {
-            let blobUrl: string | null = null;
-            try {
-                const parts = data.split(',');
-                const mime = parts[0].match(/:(.*?);/)?.[1] || 'application/octet-stream';
-                const b64Data = parts[1];
-                const byteCharacters = atob(b64Data);
-                const byteNumbers = new Array(byteCharacters.length);
-                for (let i = 0; i < byteCharacters.length; i++) {
-                    byteNumbers[i] = byteCharacters.charCodeAt(i);
-                }
-                const byteArray = new Uint8Array(byteNumbers);
-                const blob = new Blob([byteArray], { type: mime });
-                blobUrl = URL.createObjectURL(blob);
-                window.open(blobUrl, '_blank', 'noopener,noreferrer')?.focus();
-            } catch (err) {
-                console.error('[FileControl] Failed to create blob URL from data URL, attempting direct open:', err);
-                window.open(data, '_blank', 'noopener,noreferrer')?.focus();
-            } finally {
-                if (blobUrl) {
-                    URL.revokeObjectURL(blobUrl);
-                }
-            }
-            return;
-        }
-
-        if (!data) return;
-
-        // 2. Handle remote keys: open a blank tab FIRST to capture the user gesture
         const newWindow = window.open('', '_blank');
-        if (!newWindow) return; // Browser blocked the popup
-
+        if (!newWindow) return;
         try {
-            const result = await uploadContext?.getDownloadUrl?.(data);
-            if (result?.url) {
-                // 3. Redirect the already-opened tab to the presigned URL
-                newWindow.location.href = result.url;
-            } else {
-                newWindow.close();
-            }
-        } catch (err) {
-            console.error('[FileControl] Failed to fetch download URL:', err);
-            newWindow.close();
-        }
+            const result = await uploadContext?.getDownloadUrl?.(key);
+            if (result?.url) newWindow.location.href = result.url;
+            else newWindow.close();
+        } catch { newWindow.close(); }
     };
+
+    if (!isEnabled && currentKeys.length === 0) return null;
+
+    const remaining    = maxFiles - currentKeys.length;
+    const showDropZone = isEnabled && !atLimit;
 
     return (
         <Box mb="4">
-            <Text as="label" size="2" weight="bold" mb="1" className="block">
-                {label} {required && '*'}
-            </Text>
+            {/* ── Header row ── */}
+            <Flex align="center" justify="between" mb="2">
+                <Text as="label" size="2" weight="bold">
+                    {label}{required && <Text color="red"> *</Text>}
+                </Text>
+                <Text size="1" color="gray">
+                    {isMulti
+                        ? `Up to ${maxFiles} files · ${formatBytes(maxSize)} each · ${formatAccept(accept)}`
+                        : `${formatBytes(maxSize)} · ${formatAccept(accept)}`
+                    }
+                </Text>
+            </Flex>
 
-            {data ? (
-                <Card size="2" variant="surface" className="relative group">
+            {/* ── Uploaded file rows ── */}
+            {currentKeys.map(key => (
+                <Card key={key} size="2" variant="surface" mb="2">
                     <Flex align="center" gap="3">
-                        <Box className="bg-blue-100 p-2 rounded text-blue-600">
+                        <Box style={{
+                            background: 'var(--blue-3)',
+                            padding: 8,
+                            borderRadius: 6,
+                            color: 'var(--blue-9)',
+                            flexShrink: 0
+                        }}>
                             <FileTextIcon width="20" height="20" />
                         </Box>
                         <Box style={{ flex: 1, overflow: 'hidden' }}>
-                            <Text size="2" weight="bold" className="block truncate">
-                                {getDisplayText()}
+                            <Text size="2" weight="bold" style={{
+                                display: 'block',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                            }}>
+                                {fileEntries[key]?.name ?? 'Uploaded File'}
                             </Text>
                         </Box>
-                        <Flex align="center" gap="3">
-                            <Button variant="soft" color="blue" size="1" onClick={onView}>
-                              View
+                        <Flex align="center" gap="2" style={{ flexShrink: 0 }}>
+                            <Button variant="soft" color="blue" size="1"
+                                    onClick={e => onView(e, key)}>
+                                View
                             </Button>
-                            <Flex align="center" gap="2">
-                                <CheckCircledIcon className="text-green-600 w-5 h-5" />
-                                {isEnabled && (
-                                    <IconButton
-                                        variant="ghost"
-                                        color="gray"
-                                        onClick={handleRemove}
-                                        className="hover:text-red-600 transition-colors"
-                                    >
-                                        <Cross2Icon />
-                                    </IconButton>
-                                )}
-                            </Flex>
+                            <CheckCircledIcon style={{ color: 'var(--green-9)', width: 18, height: 18 }} />
+                            {isEnabled && (
+                                <IconButton variant="ghost" color="gray"
+                                            onClick={() => handleRemove(key)}>
+                                    <Cross2Icon />
+                                </IconButton>
+                            )}
                         </Flex>
                     </Flex>
                 </Card>
-            ) : (
+            ))}
+
+            {/* ── Drop zone — hidden once limit reached ── */}
+            {showDropZone && (
                 <div
-                    className={`
-            border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200 ease-in-out
-            ${dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50'}
-            ${error ? 'border-red-300 bg-red-50' : ''}
-            ${!isEnabled ? 'opacity-60 cursor-not-allowed pointer-events-none' : 'cursor-pointer'}
-          `}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => inputRef.current?.click()}
+                    onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            inputRef.current?.click();
+                        }
+                    }}
                     onDragEnter={handleDrag}
                     onDragLeave={handleDrag}
                     onDragOver={handleDrag}
                     onDrop={handleDrop}
-                    onClick={() => isEnabled && inputRef.current?.click()} // Safety check
-                    onKeyDown={handleKeyDown}
-                    role="button"
-                    tabIndex={!isEnabled ? -1 : 0}
+                    style={{ cursor: 'pointer' }}
+                    className={[
+                        'border-2 border-dashed rounded-lg p-6 text-center',
+                        'transition-all duration-200 ease-in-out',
+                        dragActive
+                            ? 'border-blue-500 bg-blue-50'
+                            : error
+                                ? 'border-red-300 bg-red-50'
+                                : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50'
+                    ].join(' ')}
                 >
                     <input
                         ref={inputRef}
@@ -255,35 +281,41 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
                         style={{ display: 'none' }}
                         accept={accept}
                         onChange={handleInputChange}
-                        disabled={!isEnabled}
                     />
-
                     <Flex direction="column" align="center" gap="2">
                         {error ? (
                             <>
-                                <ExclamationTriangleIcon className="w-8 h-8 text-red-500" />
-                                <Text size="2" color="red" weight="medium">
-                                    {error}
-                                </Text>
+                                <ExclamationTriangleIcon style={{ width: 32, height: 32, color: 'var(--red-9)' }} />
+                                <Text size="2" color="red" weight="medium">{error}</Text>
                                 <Text size="1" color="gray">Click to try again</Text>
                             </>
                         ) : (
                             <>
-                                <UploadIcon className="w-8 h-8 text-gray-400" />
+                                <UploadIcon style={{ width: 32, height: 32, color: 'var(--gray-8)' }} />
                                 <Text size="2" weight="medium">
-                                    Click to upload or drag and drop
+                                    {currentKeys.length > 0
+                                        ? `Add another file (${remaining} remaining)`
+                                        : 'Click to upload or drag and drop'
+                                    }
                                 </Text>
                                 <Text size="1" color="gray">
-                                    Max {Math.round(maxSize / (1024 * 1024))}MB
+                                    {formatBytes(maxSize)} max · {formatAccept(accept)}
                                 </Text>
                             </>
                         )}
                     </Flex>
                 </div>
             )}
+
+            {/* ── Limit reached nudge ── */}
+            {isEnabled && atLimit && isMulti && (
+                <Text size="1" color="gray" mt="1"
+                      style={{ display: 'block', textAlign: 'center' }}>
+                    Maximum {maxFiles} files uploaded. Remove one to replace it.
+                </Text>
+            )}
         </Box>
     );
 };
 
-const FileControlWithProps = withJsonFormsControlProps(FileControl);
-export default FileControlWithProps;
+export default withJsonFormsControlProps(FileControl);
