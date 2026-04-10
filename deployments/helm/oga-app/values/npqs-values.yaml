@@ -1,0 +1,11 @@
+fullnameOverride: ""
+
+config:
+  instanceConfig: "npqs"
+  idpClientId: "OGA_PORTAL_APP_NPQS"
+  appUrl: "https://dev-oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  ogaBackendUrl: "http://dev-oga-npqs-backend:8081"
+
+route:
+  enabled: true
+  host: ""
