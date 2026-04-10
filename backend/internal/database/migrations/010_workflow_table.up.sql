@@ -1,3 +1,4 @@
+BEGIN;
 -- ============================================================================
 -- Migration: Create workflows table and unify workflow_id on workflow_nodes
 -- ============================================================================
@@ -36,7 +37,8 @@ SELECT
     c.created_at,
     c.updated_at
 FROM consignments c
-WHERE c.state IN ('IN_PROGRESS', 'FINISHED');
+WHERE c.state IN ('IN_PROGRESS', 'FINISHED')
+ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================================
 -- Populate workflows from existing pre-consignments (only those with workflow nodes)
@@ -53,7 +55,8 @@ SELECT
     pc.created_at,
     pc.updated_at
 FROM pre_consignments pc
-WHERE pc.state IN ('IN_PROGRESS', 'COMPLETED');
+WHERE pc.state IN ('IN_PROGRESS', 'COMPLETED')
+ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================================
 -- Add workflow_id to workflow_nodes and populate from existing data
@@ -64,6 +67,7 @@ UPDATE workflow_nodes SET workflow_id = COALESCE(consignment_id, pre_consignment
 
 ALTER TABLE workflow_nodes ALTER COLUMN workflow_id SET NOT NULL;
 
+ALTER TABLE workflow_nodes DROP CONSTRAINT IF EXISTS fk_workflow_nodes_workflow;
 ALTER TABLE workflow_nodes ADD CONSTRAINT fk_workflow_nodes_workflow
     FOREIGN KEY (workflow_id) REFERENCES workflows(id)
     ON UPDATE CASCADE ON DELETE CASCADE;
@@ -97,3 +101,5 @@ ALTER TABLE pre_consignments DROP COLUMN IF EXISTS trader_context;
 -- ============================================================================
 CREATE INDEX IF NOT EXISTS idx_workflow_nodes_workflow_id ON workflow_nodes (workflow_id);
 CREATE INDEX IF NOT EXISTS idx_workflow_nodes_workflow_id_state ON workflow_nodes (workflow_id, state);
+
+COMMIT;

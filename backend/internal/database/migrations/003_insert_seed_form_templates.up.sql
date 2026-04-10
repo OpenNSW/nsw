@@ -678,4 +678,4 @@ VALUES
         }',
         '1.0',
         TRUE
-    );
+    ) ON CONFLICT (id) DO NOTHING;
