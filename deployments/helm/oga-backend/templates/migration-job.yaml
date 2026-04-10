@@ -38,7 +38,10 @@ spec:
             - name: PGPORT
               value: {{ .Values.config.database.port | quote }}
             - name: PGUSER
-              value: {{ .Values.config.database.username | default "postgres" | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.config.database.credentialsSecretName | default (printf "%s-db-credentials" .Release.Name) }}
+                  key: {{ .Values.config.database.userKey | default "user" }}
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:

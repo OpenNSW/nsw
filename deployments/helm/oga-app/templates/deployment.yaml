@@ -42,11 +42,23 @@ spec:
             - name: VITE_IDP_PLATFORM
               value: {{ .Values.config.idpPlatform | quote }}
             - name: VITE_OGA_API_BASE_URL
-              value: {{ tpl .Values.config.apiBaseUrl . | quote }}
+              value: {{ printf "%s/api/oga" (tpl .Values.config.appUrl .) | quote }}
             - name: VITE_SHOW_AUTOFILL_BUTTON
               value: "true"
             - name: OGA_BACKEND_URL
               value: {{ tpl .Values.config.ogaBackendUrl . | quote }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
           volumeMounts:
             - name: nginx-config
               mountPath: /etc/nginx/templates/default.conf.template

@@ -66,12 +66,14 @@ spec:
             - name: forms-volume
               mountPath: /opt/oga/data/forms
           livenessProbe:
-            tcpSocket:
+            httpGet:
+              path: /health
               port: http
             initialDelaySeconds: 5
             periodSeconds: 15
           readinessProbe:
-            tcpSocket:
+            httpGet:
+              path: /health
               port: http
             initialDelaySeconds: 3
             periodSeconds: 10

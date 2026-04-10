@@ -34,6 +34,7 @@ data:
 
         # High-priority proxy for OGA API
         location ^~ /api/oga/ {
+            rewrite ^/api/oga/(.*) /$1 break;
             proxy_pass {{ .Values.config.ogaBackendUrl }};
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
@@ -53,7 +54,7 @@ data:
         }
 
         location ^~ /oga/ {
-            rewrite ^/oga/(.*) /api/oga/$1 break;
+            rewrite ^/oga/(.*) /$1 break;
             proxy_pass {{ .Values.config.ogaBackendUrl }};
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
