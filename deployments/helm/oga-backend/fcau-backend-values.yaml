@@ -1,0 +1,192 @@
+# OGA-FCAU Backend Values
+nameOverride: oga-fcau-backend
+fullnameOverride: ""
+
+port: 8081
+
+# Resource Management (Akaza Quotas)
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+image:
+  tag: latest
+imagePullSecrets:
+  - name: ghcr-secret
+
+# Isolated Database Configuration
+config:
+  database:
+    name: "oga-backend-fcau"
+    credentialsSecretName: "nsw-db-credentials"
+  allowedOrigins: "https://dev-oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  nswApiBaseUrl: "https://dev-nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"
+  port: 8081
+
+route:
+  enabled: true
+  host: ""
+  tls:
+    enabled: true
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
+seeding:
+  enabled: false
+
+forms:
+  "default.json": |-
+    {
+      "schema": {
+        "type": "object",
+        "required": [
+          "decision"
+        ],
+        "properties": {
+          "decision": {
+            "type": "string",
+            "title": "Decision",
+            "oneOf": [
+              {
+                "const": "APPROVED",
+                "title": "Approved"
+              },
+              {
+                "const": "REJECTED",
+                "title": "Rejected"
+              }
+            ]
+          },
+          "remarks": {
+            "type": "string",
+            "title": "Remarks"
+          }
+        }
+      },
+      "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/decision"
+          },
+          {
+            "type": "Control",
+            "scope": "#/properties/remarks",
+            "options": {
+              "multi": true
+            }
+          }
+        ]
+      }
+    }
+  "consignment.edb.fcau.health-certificate.001.view.json": |-
+    {
+        "title": "Health Certificate (Submitted)",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "consigneeName": {
+                    "type": "string",
+                    "title": "Consignee Name",
+                    "readOnly": true
+                },
+                "consigneeAddress": {
+                    "type": "string",
+                    "title": "Consignee Address",
+                    "readOnly": true
+                },
+                "productDescription": {
+                    "type": "string",
+                    "title": "Product Description",
+                    "readOnly": true
+                },
+                "batchLotNumbers": {
+                    "type": "string",
+                    "title": "Batch / Lot Numbers",
+                    "readOnly": true
+                },
+                "productionExpiryDates": {
+                    "type": "string",
+                    "title": "Production & Expiry Dates",
+                    "readOnly": true
+                },
+                "microbiologicalTestReportId": {
+                    "type": "string",
+                    "title": "Microbiological Test Report ID",
+                    "readOnly": true
+                },
+                "processingPlantRegistrationNo": {
+                    "type": "string",
+                    "title": "Processing Plant Registration No.",
+                    "readOnly": true
+                },
+                "supportingDocuments": {
+                    "type": "string",
+                    "title": "Supporting Documents",
+                    "format": "file",
+                    "readOnly": true
+                }
+            }
+        },
+        "uiSchema": {
+            "type": "VerticalLayout",
+            "elements": [
+                {
+                    "type": "Label",
+                    "text": "Health Certificate"
+                },
+                {
+                    "type": "HorizontalLayout",
+                    "elements": [
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/consigneeName"
+                        },
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/consigneeAddress"
+                        }
+                    ]
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/productDescription"
+                },
+                {
+                    "type": "HorizontalLayout",
+                    "elements": [
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/batchLotNumbers"
+                        },
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/productionExpiryDates"
+                        }
+                    ]
+                },
+                {
+                    "type": "HorizontalLayout",
+                    "elements": [
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/microbiologicalTestReportId"
+                        },
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/processingPlantRegistrationNo"
+                        }
+                    ]
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/supportingDocuments"
+                }
+            ]
+        }
+    }
