@@ -40,17 +40,17 @@ PGPASSWORD=$DB_PASSWORD psql -h "$MIGRATION_DB_HOST" -p "$DB_PORT" -U "$DB_USERN
 
 # Define the file paths
 MIGRATIONS=(
-    "001_initial_schema.sql"
-    "001_insert_seed_hscodes.sql"
-    "001_insert_seed_form_templates.sql"
-    "001_insert_seed_workflow_node_templates.sql"
-    "001_insert_seed_workflow_templates.sql"
-    "001_insert_seed_workflow_hscode_map.sql"
-    "001_insert_seed_pre_consignment_template.sql"
-    "001_insert_payment_transactions.sql"
-    "001_insert_cha_entity.sql"
-    "002_workflow_table.sql"
-    "002_workflow_tem_v2.sql"
+    "001_initial_schema.up.sql"
+    "002_insert_seed_hscodes.up.sql"
+    "003_insert_seed_form_templates.up.sql"
+    "004_insert_seed_workflow_node_templates.up.sql"
+    "005_insert_seed_workflow_templates.up.sql"
+    "006_insert_seed_workflow_hscode_map.up.sql"
+    "007_insert_seed_pre_consignment_template.up.sql"
+    "008_insert_payment_transactions.up.sql"
+    "009_insert_cha_entity.up.sql"
+    "010_workflow_table.up.sql"
+    "011_workflow_tem_v2.up.sql"
 )
 
 echo "Starting database migrations..."
