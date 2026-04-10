@@ -34,7 +34,10 @@ spec:
               echo "Database is ready!"
           env:
             - name: DB_USER
-              value: {{ .Values.dbMigrations.user | default "postgres" | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dbMigrations.secretName | default "nsw-db-credentials" }}
+                  key: user
             - name: DB_HOST
               value: {{ .Values.dbMigrations.host | default "nsw-db" | quote }}
             - name: DB_PORT
@@ -52,7 +55,7 @@ spec:
             - "-c"
             - |
               # Construct the URL safely in the shell environment
-              export DB_URL="postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable"
+              export DB_URL="postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=${DB_SSLMODE}"
               echo "Executing golang-migrate up..."
               /usr/local/bin/migrate -path=/migrations -database="${DB_URL}" up
           env:
@@ -62,7 +65,12 @@ spec:
                   name: {{ .Values.dbMigrations.secretName | default "nsw-db-credentials" }}
                   key: {{ .Values.dbMigrations.secretKey | default "password" }}
             - name: DB_USER
-              value: {{ .Values.dbMigrations.user | default "postgres" | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dbMigrations.secretName | default "nsw-db-credentials" }}
+                  key: user
+            - name: DB_SSLMODE
+              value: {{ .Values.config.database.sslMode | default "disable" | quote }}
             - name: DB_HOST
               value: {{ .Values.dbMigrations.host | default "nsw-db" | quote }}
             - name: DB_PORT

@@ -30,12 +30,15 @@ spec:
             - name: POSTGRESQL_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Release.Name }}-credentials
+                  name: {{ .Values.auth.existingSecret | default "nsw-db-credentials" }}
                   key: password
             - name: POSTGRESQL_USER
-              value: "postgres"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.auth.existingSecret | default "nsw-db-credentials" }}
+                  key: user
             - name: POSTGRESQL_DATABASE
-              value: {{ .Values.auth.databaseName | default "nsw_db" | quote }}
+              value: {{ required "auth.databaseName is required" .Values.auth.databaseName | quote }}
             - name: PGDATA
               value: /var/lib/pgsql/data/pgdata
           volumeMounts:
@@ -48,9 +51,9 @@ spec:
               command:
                 - pg_isready
                 - -U
-                - "postgres"
+                - {{ .Values.auth.username | default "postgres" | quote }}
                 - -d
-                - {{ .Values.auth.databaseName | default "nsw_db" | quote }}
+                - {{ required "auth.databaseName is required" .Values.auth.databaseName | quote }}
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 5
@@ -60,9 +63,9 @@ spec:
               command:
                 - pg_isready
                 - -U
-                - "postgres"
+                - {{ .Values.auth.username | default "postgres" | quote }}
                 - -d
-                - {{ .Values.auth.databaseName | default "nsw_db" | quote }}
+                - {{ required "auth.databaseName is required" .Values.auth.databaseName | quote }}
             initialDelaySeconds: 15
             periodSeconds: 20
             timeoutSeconds: 5
