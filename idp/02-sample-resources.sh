@@ -191,7 +191,7 @@ create_spa_application() {
         read -r -d '' APP_PAYLOAD <<JSON || true
 {
     "name": "${APP_NAME}",
-    "description": "${APP_DESCRIPTION}",${ADDITIONAL_FIELDS}
+    "description": "${APP_DESCRIPTION}",
     "is_registration_flow_enabled": false,
     "template": "react",
     "logo_url": "https://ssl.gstatic.com/docs/common/profile/kiwi_lg.png",
