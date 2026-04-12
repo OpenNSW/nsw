@@ -79,6 +79,7 @@ const FileControl = ({
     const [dragActive, setDragActive]   = useState(false);
     const [error, setError]             = useState<string | null>(null);
     const [fileEntries, setFileEntries] = useState<Record<string, FileEntry>>({});
+    const activeBlobs = useRef<Set<string>>(new Set());
     const inputRef = useRef<HTMLInputElement>(null);
 
     const currentKeys = normalizeData(data);
@@ -86,11 +87,9 @@ const FileControl = ({
 
     useEffect(() => {
         return () => {
-            Object.values(fileEntries).forEach(e => {
-                if (e.blobUrl) URL.revokeObjectURL(e.blobUrl);
-            });
+            activeBlobs.current.forEach(url => URL.revokeObjectURL(url));
+            activeBlobs.current.clear();
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const processFile = useCallback(async (file: File) => {
@@ -125,6 +124,7 @@ const FileControl = ({
         try {
             const result  = await uploadContext.onUpload(file);
             const blobUrl = URL.createObjectURL(file);
+            activeBlobs.current.add(blobUrl);
             const entry: FileEntry = { key: result.key, name: result.name ?? file.name, blobUrl };
 
             setFileEntries(prev => ({ ...prev, [result.key]: entry }));
@@ -161,7 +161,11 @@ const FileControl = ({
         if (!isEnabled) return;
         setFileEntries(prev => {
             const next = { ...prev };
-            if (next[key]?.blobUrl) URL.revokeObjectURL(next[key].blobUrl!);
+            const blobUrl = next[key]?.blobUrl;
+            if (blobUrl) {
+                URL.revokeObjectURL(blobUrl);
+                activeBlobs.current.delete(blobUrl);
+            }
             delete next[key];
             return next;
         });
