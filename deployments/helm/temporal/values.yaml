@@ -1,0 +1,40 @@
+# temporal values for auto-setup
+global:
+  namespace: "national-single-window-platform"
+  clusterDomain: "apps.sovecloud1.akaza.lk"
+
+image:
+  repository: ghcr.io/opennsw/temporal-auto-setup
+  tag: "1.28.3"
+  pullPolicy: Always
+
+ui:
+  image:
+    repository: ghcr.io/opennsw/temporal-ui
+    tag: "2.48.0"
+    pullPolicy: Always
+
+imagePullSecrets:
+  - name: ghcr-secret
+
+service:
+  type: ClusterIP
+  port: 7233
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1024Mi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+persistence:
+  enabled: false
+  host: "nsw-db"
+  credentialsSecretName: "nsw-db-credentials"
+
+# Temporal environment configuration
+env:
+  dbName: "temporal_db"
+  extraEnv: []
