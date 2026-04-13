@@ -1,7 +1,7 @@
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: {{ .Values.ui.route.name | default (printf "%s-ui" .Release.Name) }}
+  name: {{ .Values.ui.route.name | default (printf "%s-ui" (include "temporal.fullname" .)) }}
   labels:
     {{- include "temporal.labels" . | nindent 4 }}
 spec:
@@ -10,7 +10,7 @@ spec:
   {{- end }}
   to:
     kind: Service
-    name: {{ .Release.Name }}-server
+    name: {{ include "temporal.fullname" . }}-server
     weight: 100
   port:
     targetPort: ui

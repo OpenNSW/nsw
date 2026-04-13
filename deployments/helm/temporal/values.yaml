@@ -6,13 +6,16 @@ global:
 image:
   repository: ghcr.io/opennsw/temporal-auto-setup
   tag: "1.28.3"
-  pullPolicy: Always
+  pullPolicy: IfNotPresent
 
 ui:
   image:
     repository: ghcr.io/opennsw/temporal-ui
     tag: "2.48.0"
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
+  route:
+    name: "temporal-ui"
+    host: ""
 
 imagePullSecrets:
   - name: ghcr-secret
@@ -30,7 +33,6 @@ resources:
     memory: 512Mi
 
 persistence:
-  enabled: false
   host: "nsw-db"
   credentialsSecretName: "nsw-db-credentials"
 
@@ -38,3 +40,6 @@ persistence:
 env:
   dbName: "temporal_db"
   extraEnv: []
+
+temporalNamespaces:
+  - national-single-window-platform

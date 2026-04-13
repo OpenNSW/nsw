@@ -35,8 +35,8 @@ spec:
           - -c
           - |
             echo "Waiting for Temporal to respond..."
-            until temporal operator --address {{ .Release.Name }}-server:7233 cluster describe; do sleep 2; done;
-            echo "Registering namespace {{ .Values.global.namespace }}-dev..."
-            temporal operator --address {{ .Release.Name }}-server:7233 namespace create --namespace {{ .Values.global.namespace }}-dev || echo "Namespace already exists."
-            echo "Registering namespace {{ .Values.global.namespace }}-staging..."
-            temporal operator --address {{ .Release.Name }}-server:7233 namespace create --namespace {{ .Values.global.namespace }}-staging || echo "Namespace already exists."
+            until temporal operator --address {{ include "temporal.fullname" . }}-server:7233 cluster describe; do sleep 2; done;
+            {{- range .Values.temporalNamespaces | default (list "default") }}
+            echo "Registering namespace {{ . }}..."
+            temporal operator --address {{ include "temporal.fullname" $ }}-server:7233 namespace create --namespace {{ . }} || echo "Namespace already exists."
+            {{- end }}
