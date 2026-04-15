@@ -43,7 +43,10 @@ func main() {
 	// TODO: Once M2M Auth Implemented, Uncomment this and pass it to nswHttpClient for automatic token management
 	//nswOAuth2Client := httpclient.NewOAuth2Authenticator(cfg.NSW.ClientID, cfg.NSW.ClientSecret, cfg.NSW.TokenURL, cfg.NSW.Scopes)
 	// Initialize HTTP client for NSW API integration
-	nswHttpClient := httpclient.NewClient(cfg.NSW.BaseURL, 10*time.Second, nil)
+	nswHttpClient := httpclient.NewClientBuilder().
+		WithBaseURL(cfg.NSW.BaseURL).
+		WithTimeout(10 * time.Second).
+		Build()
 
 	// Initialize OGA service
 	service := internal.NewOGAService(store, formStore, nswHttpClient)
