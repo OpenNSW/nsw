@@ -60,10 +60,10 @@ configurations:
       value: https://localhost:8090/oauth2/jwks
     - name: AUTH_ISSUER
       value: https://localhost:8090
-    - name: AUTH_CLIENT_ID
-      value: TRADER_PORTAL_APP
+    - name: AUTH_CLIENT_IDS
+      value: TRADER_PORTAL_APP,FCAU_TO_NSW,NPQS_TO_NSW,IRD_TO_NSW
     - name: AUTH_AUDIENCE
-      value: TRADER_PORTAL_APP
+      value: NSW_API
     # CORS
     - name: CORS_ALLOWED_ORIGINS
       value: http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176
