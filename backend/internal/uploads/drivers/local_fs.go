@@ -26,7 +26,7 @@ var (
 type LocalFSDriver struct {
 	BaseDir   string
 	PublicURL string
-	SecretKey string
+	secretKey string
 }
 
 // NewLocalFSDriver creates a new LocalFSDriver.
@@ -37,7 +37,7 @@ func NewLocalFSDriver(baseDir, publicURL, secretKey string) (*LocalFSDriver, err
 	if err := os.MkdirAll(baseDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create base directory: %w", err)
 	}
-	return &LocalFSDriver{BaseDir: baseDir, PublicURL: publicURL, SecretKey: secretKey}, nil
+	return &LocalFSDriver{BaseDir: baseDir, PublicURL: publicURL, secretKey: secretKey}, nil
 }
 
 // getHashedPath generates a two-level deep path for a key to avoid flat directory issues.
@@ -144,8 +144,11 @@ func (d *LocalFSDriver) GetDownloadURL(ctx context.Context, key string, ttl time
 		return key, nil
 	}
 
+	if ttl == 0 {
+		ttl = 15 * time.Minute
+	}
 	expiresAt := time.Now().Add(ttl).Unix()
-	token := GenerateDownloadToken(key, d.SecretKey, expiresAt)
+	token := GenerateDownloadToken(key, d.secretKey, expiresAt)
 
 	// Returns a URL with security token and expiration
 	v := url.Values{}
@@ -157,7 +160,7 @@ func (d *LocalFSDriver) GetDownloadURL(ctx context.Context, key string, ttl time
 
 // VerifyDownloadToken checks if a provided download token is valid and not expired.
 func (d *LocalFSDriver) VerifyDownloadToken(key, token string, expiresAt int64) bool {
-	return VerifyDownloadToken(key, token, d.SecretKey, expiresAt)
+	return VerifyDownloadToken(key, token, d.secretKey, expiresAt)
 }
 
 func (d *LocalFSDriver) GetUploadURL(ctx context.Context, key string, ttl time.Duration, contentType string, maxSizeBytes int64) (string, error) {
@@ -165,8 +168,11 @@ func (d *LocalFSDriver) GetUploadURL(ctx context.Context, key string, ttl time.D
 		return "", fmt.Errorf("public URL not configured for local storage")
 	}
 
+	if ttl == 0 {
+		ttl = 15 * time.Minute
+	}
 	expiresAt := time.Now().Add(ttl).Unix()
-	token := GenerateToken(key, d.SecretKey, expiresAt, contentType, maxSizeBytes)
+	token := GenerateToken(key, d.secretKey, expiresAt, contentType, maxSizeBytes)
 
 	// Returns a URL pointing back to our local PUT handler with security constraints encoded
 	v := url.Values{}
@@ -181,5 +187,5 @@ func (d *LocalFSDriver) GetUploadURL(ctx context.Context, key string, ttl time.D
 
 // VerifyToken checks if a token is valid for a given key and constraints using the driver's secret.
 func (d *LocalFSDriver) VerifyToken(key, token string, expiresAt int64, contentType string, maxSizeBytes int64) bool {
-	return VerifyToken(key, token, d.SecretKey, expiresAt, contentType, maxSizeBytes)
+	return VerifyToken(key, token, d.secretKey, expiresAt, contentType, maxSizeBytes)
 }

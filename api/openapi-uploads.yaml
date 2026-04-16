@@ -81,11 +81,10 @@ paths:
 
   /uploads/{key}:
     get:
-      summary: Download File
+      summary: Get File Download URL
       description: >
-        Download a previously uploaded file by its unique key.
-        Returns the file content with the appropriate content type.
-      operationId: downloadFile
+        Fetches a presigned or limited-time URL to securely download the file content.
+      operationId: getDownloadUrl
       tags:
         - Uploads
       parameters:
@@ -98,20 +97,20 @@ paths:
           example: "550e8400-e29b-41d4-a716-446655440000.pdf"
       responses:
         "200":
-          description: File retrieved successfully
+          description: Download URL generated successfully
           content:
-            application/octet-stream:
+            application/json:
               schema:
-                type: string
-                format: binary
-            application/pdf:
-              schema:
-                type: string
-                format: binary
-            image/*:
-              schema:
-                type: string
-                format: binary
+                type: object
+                properties:
+                  download_url:
+                    type: string
+                    description: The presigned URL to download the actual file contents
+                    example: "/api/v1/uploads/550e8400-e29b-41d4-a716-446655440000.pdf/content?token=12345&expiresAt=123"
+                  expires_at:
+                    type: integer
+                    description: Unix timestamp indicating when the link expires
+                    example: 1713256000
         "400":
           description: Bad request - key is required or invalid
           content:

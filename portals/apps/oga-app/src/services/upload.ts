@@ -1,7 +1,8 @@
 import type { ApiClient } from '../api'
 import { getEnv } from '../runtimeConfig'
 
-const API_BASE_URL = getEnv('VITE_API_BASE_URL', 'http://localhost:8080/api/v1')!
+const API_BASE_URL = getEnv('VITE_API_BASE_URL', 'http://localhost:8081')!
+const STORAGE_API_BASE_URL = getEnv('VITE_OGA_API_BASE_URL', 'http://localhost:8080/api/v1')!
 
 export interface UploadResponse {
   key: string
@@ -11,7 +12,7 @@ export interface UploadResponse {
 
 export async function uploadFile(apiClient: ApiClient, file: File): Promise<UploadResponse> {
   // Request the presigned URL (S3 or local equivalent)
-  const initResponse = await fetch(`${API_BASE_URL}/uploads`, {
+  const initResponse = await fetch(`${API_BASE_URL}/api/oga/uploads`, {
     method: 'POST',
     headers: {
       ...(await apiClient.getAuthHeaders(false)),
@@ -36,8 +37,13 @@ export async function uploadFile(apiClient: ApiClient, file: File): Promise<Uplo
     throw new Error('Server did not provide an upload URL')
   }
 
+  // Resolve relative upload URL if we are using the local backend mock
+  const finalUploadUrl = meta.upload_url.startsWith('/')
+    ? new URL(STORAGE_API_BASE_URL).origin + meta.upload_url
+    : meta.upload_url
+
   // Upload directly to Blob Storage / Local Mock
-  const uploadResponse = await fetch(meta.upload_url, {
+  const uploadResponse = await fetch(finalUploadUrl, {
     method: 'PUT',
     headers: {
       'Content-Type': file.type || 'application/octet-stream',
@@ -55,7 +61,7 @@ export async function uploadFile(apiClient: ApiClient, file: File): Promise<Uplo
 }
 
 export async function getDownloadUrl(apiClient: ApiClient, key: string): Promise<{ url: string; expiresAt: number }> {
-  const response = await fetch(`${API_BASE_URL}/uploads/${key}`, {
+  const response = await fetch(`${API_BASE_URL}/api/oga/uploads/${key}`, {
     headers: await apiClient.getAuthHeaders(false),
   })
 
@@ -67,7 +73,7 @@ export async function getDownloadUrl(apiClient: ApiClient, key: string): Promise
 
   // Format local relative paths to absolute paths so the browser can download it
   const url = data.download_url.startsWith('/')
-    ? `${new URL(API_BASE_URL).origin}${data.download_url}`
+    ? new URL(STORAGE_API_BASE_URL).origin + data.download_url
     : data.download_url
 
   return { url, expiresAt: data.expires_at }

@@ -11,6 +11,7 @@ import {
   type DragEvent
 } from 'react';
 import { useUpload } from '../contexts/UploadContext';
+import { getStorageKeyDisplayText, viewFile } from '../utils/storage';
 import * as React from "react";
 
 interface FileControlProps {
@@ -45,9 +46,7 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
 
     const getDisplayText = () => {
         if (fileName) return fileName;
-        if (!data) return null;
-        // Try to extract name from data URL if stored there, otherwise generic
-        return 'Uploaded File';
+        return getStorageKeyDisplayText(data || '');
     };
 
     const processFile = useCallback(async (file: File) => {
@@ -141,58 +140,9 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, enab
     if (!isEnabled && !data) return null;
 
     const onView = async (e: React.MouseEvent<HTMLButtonElement>) => {
-        e.preventDefault()
-        // 1. Handle local files or data URLs immediately (synchronous = no popup block)
-        if (localBlobUrl) {
-            const url = localBlobUrl || data;
-            window.open(url!, '_blank', 'noopener,noreferrer')?.focus();
-            return;
-        }
-
-        if (data && data.startsWith('data:')) {
-            let blobUrl: string | null = null;
-            try {
-                const parts = data.split(',');
-                const mime = parts[0].match(/:(.*?);/)?.[1] || 'application/octet-stream';
-                const b64Data = parts[1];
-                const byteCharacters = atob(b64Data);
-                const byteNumbers = new Array(byteCharacters.length);
-                for (let i = 0; i < byteCharacters.length; i++) {
-                    byteNumbers[i] = byteCharacters.charCodeAt(i);
-                }
-                const byteArray = new Uint8Array(byteNumbers);
-                const blob = new Blob([byteArray], { type: mime });
-                blobUrl = URL.createObjectURL(blob);
-                window.open(blobUrl, '_blank', 'noopener,noreferrer')?.focus();
-            } catch (err) {
-                console.error('[FileControl] Failed to create blob URL from data URL, attempting direct open:', err);
-                window.open(data, '_blank', 'noopener,noreferrer')?.focus();
-            } finally {
-                if (blobUrl) {
-                    URL.revokeObjectURL(blobUrl);
-                }
-            }
-            return;
-        }
-
+        e.preventDefault();
         if (!data) return;
-
-        // 2. Handle remote keys: open a blank tab FIRST to capture the user gesture
-        const newWindow = window.open('', '_blank');
-        if (!newWindow) return; // Browser blocked the popup
-
-        try {
-            const result = await uploadContext?.getDownloadUrl?.(data);
-            if (result?.url) {
-                // 3. Redirect the already-opened tab to the presigned URL
-                newWindow.location.href = result.url;
-            } else {
-                newWindow.close();
-            }
-        } catch (err) {
-            console.error('[FileControl] Failed to fetch download URL:', err);
-            newWindow.close();
-        }
+        await viewFile(data, uploadContext?.getDownloadUrl, { localBlobUrl });
     };
 
     return (

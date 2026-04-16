@@ -1,12 +1,33 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button, Badge, Spinner, Text, Card, Flex, Box, Callout, Tabs } from '@radix-ui/themes'
-import { ArrowLeftIcon, CheckCircledIcon, ExclamationTriangleIcon, InfoCircledIcon, ChatBubbleIcon } from '@radix-ui/react-icons'
+import { ArrowLeftIcon, CheckCircledIcon, ExclamationTriangleIcon, InfoCircledIcon, ChatBubbleIcon, FileTextIcon } from '@radix-ui/react-icons'
 import { fetchApplicationDetail, submitReview, submitFeedback, type OGAApplication } from '../api'
 import { JsonForms } from '@jsonforms/react';
-import { radixRenderers } from '@opennsw/jsonforms-renderers';
+import { radixRenderers, useUpload, storageKeyRegex, viewFile, getStorageKeyDisplayText } from '@opennsw/jsonforms-renderers';
 import type { JsonSchema, UISchemaElement } from '@jsonforms/core';
 import { useApi } from '../services/useApi'
+
+function FileValue({ storageKey }: { storageKey: string }) {
+  const { getDownloadUrl } = useUpload() || {};
+
+  const handleView = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    await viewFile(storageKey, getDownloadUrl);
+  };
+
+  return (
+    <Flex align="center" gap="3">
+      <Text size="2" weight="medium" className="truncate" style={{ maxWidth: '150px' }}>
+        {getStorageKeyDisplayText(storageKey)}
+      </Text>
+      <Button variant="soft" size="1" color="blue" onClick={handleView} style={{ cursor: 'pointer' }}>
+        <FileTextIcon width="14" height="14" />
+        View
+      </Button>
+    </Flex>
+  );
+}
 
 export function WorkflowDetailScreen() {
   const navigate = useNavigate()
@@ -257,7 +278,13 @@ export function WorkflowDetailScreen() {
                             {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
                           </Text>
                           <Text size="2" weight="medium">
-                            {typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value)}
+                            {typeof value === 'string' && storageKeyRegex.test(value) ? (
+                              <FileValue storageKey={value} />
+                            ) : typeof value === 'object' && value !== null ? (
+                              JSON.stringify(value)
+                            ) : (
+                              String(value)
+                            )}
                           </Text>
                         </Box>
                       ))}
