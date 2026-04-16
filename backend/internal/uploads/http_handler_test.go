@@ -5,10 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"mime/multipart"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
+	"time"
 
 	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/uploads/drivers"
@@ -18,7 +20,7 @@ import (
 
 func TestDownloadContent_LocalDriver_Success(t *testing.T) {
 	tempDir := t.TempDir()
-	driver, _ := drivers.NewLocalFSDriver(tempDir, "/api/v1/uploads")
+	driver, _ := drivers.NewLocalFSDriver(tempDir, "/api/v1/uploads", "local-dev-secret")
 	service := NewUploadService(driver)
 	handler := NewHTTPHandler(service)
 
@@ -29,15 +31,27 @@ func TestDownloadContent_LocalDriver_Success(t *testing.T) {
 		t.Fatalf("failed to save test file: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/uploads/"+key+"/content", nil)
+	// Generate valid signed URL using the driver
+	ttl := 15 * time.Minute
+	downloadURL, err := driver.GetDownloadURL(ctx, key, ttl)
+	if err != nil {
+		t.Fatalf("Failed to get download URL: %v", err)
+	}
+
+	parsedURL, err := url.Parse(downloadURL)
+	if err != nil {
+		t.Fatalf("Failed to parse download URL: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, parsedURL.String(), nil)
 	req.SetPathValue("key", key)
 	rec := httptest.NewRecorder()
 
-	// No auth context set — should still succeed because this endpoint is intended to be public.
+	// No auth context set — should still succeed because this endpoint is signature-secured instead of auth-secured.
 	handler.DownloadContent(rec, req)
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d", rec.Code)
+		t.Fatalf("expected status 200, got %d. Body: %s", rec.Code, rec.Body.String())
 	}
 
 	if rec.Header().Get("Content-Type") != "application/pdf" {
@@ -163,18 +177,15 @@ func TestDownload_InvalidKeyFormat(t *testing.T) {
 func TestUpload_Unauthorized(t *testing.T) {
 	handler := NewHTTPHandler(NewUploadService(&MockDriver{}))
 
-	var buf bytes.Buffer
-	w := multipart.NewWriter(&buf)
-	part, _ := w.CreateFormFile("file", "test.pdf")
-	if _, err := part.Write([]byte("content")); err != nil {
-		t.Fatalf("failed to write multipart content: %v", err)
+	body := map[string]any{
+		"filename":  "test.pdf",
+		"mime_type": "application/pdf",
+		"size":      1024,
 	}
-	if err := w.Close(); err != nil {
-		t.Fatalf("failed to close multipart writer: %v", err)
-	}
+	jsonBody, _ := json.Marshal(body)
 
-	req := httptest.NewRequest(http.MethodPost, "/uploads", &buf)
-	req.Header.Set("Content-Type", w.FormDataContentType())
+	req := httptest.NewRequest(http.MethodPost, "/uploads", bytes.NewReader(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
 	handler.Upload(rec, req)
@@ -182,15 +193,92 @@ func TestUpload_Unauthorized(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected status 401, got %d", rec.Code)
 	}
-	if ct := rec.Header().Get("Content-Type"); ct != "application/json" {
-		t.Errorf("expected Content-Type application/json, got %q", ct)
+}
+
+func TestUpload_Success(t *testing.T) {
+	mock := &MockDriver{}
+	handler := NewHTTPHandler(NewUploadService(mock))
+
+	body := map[string]any{
+		"filename":  "test.pdf",
+		"mime_type": "application/pdf",
+		"size":      1024,
 	}
-	var errBody map[string]string
-	if err := json.NewDecoder(rec.Body).Decode(&errBody); err != nil {
-		t.Errorf("expected JSON body: %v", err)
+	jsonBody, _ := json.Marshal(body)
+
+	req := httptest.NewRequest(http.MethodPost, "/uploads", bytes.NewReader(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	ctx := withAuthContext(req.Context(), &auth.AuthContext{
+		UserID: "trader-1", UserContext: &auth.UserContext{UserID: "trader-1"},
+	})
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	handler.Upload(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d. Body: %s", rec.Code, rec.Body.String())
 	}
-	if errBody["error"] == "" {
-		t.Error("expected error message in body")
+
+	var metadata FileMetadata
+	if err := json.NewDecoder(rec.Body).Decode(&metadata); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if metadata.Name != "test.pdf" {
+		t.Errorf("expected name test.pdf, got %s", metadata.Name)
+	}
+	if metadata.UploadURL == "" {
+		t.Error("expected upload_url to be populated")
+	}
+}
+
+func TestUploadContentLocal_Success(t *testing.T) {
+	tempDir := t.TempDir()
+	driver, _ := drivers.NewLocalFSDriver(tempDir, "/api/v1/uploads", "local-dev-secret")
+	service := NewUploadService(driver)
+	handler := NewHTTPHandler(service)
+
+	key := "550e8400-e29b-41d4-a716-446655440000.pdf"
+	content := []byte("pdf content")
+
+	// Generate valid upload URL using the driver
+	contentType := "application/pdf"
+	maxSizeBytes := int64(32 << 20)
+
+	uploadURL, err := driver.GetUploadURL(context.Background(), key, 15*time.Minute, contentType, maxSizeBytes)
+	if err != nil {
+		t.Fatalf("Failed to get upload URL: %v", err)
+	}
+
+	parsedURL, err := url.Parse(uploadURL)
+	if err != nil {
+		t.Fatalf("Failed to parse upload URL: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPut, parsedURL.RequestURI(), bytes.NewReader(content))
+	req.SetPathValue("key", key)
+	req.Header.Set("Content-Type", "application/pdf")
+	rec := httptest.NewRecorder()
+
+	handler.UploadContentLocal(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected status 204, got %d. Body: %s", rec.Code, rec.Body.String())
+	}
+
+	// Verify file was saved
+	reader, ct, err := driver.Get(context.Background(), key)
+	if err != nil {
+		t.Fatalf("failed to get saved file: %v", err)
+	}
+	defer reader.Close()
+	if ct != "application/pdf" {
+		t.Errorf("expected content type application/pdf, got %s", ct)
+	}
+	savedContent, _ := io.ReadAll(reader)
+	if !bytes.Equal(savedContent, content) {
+		t.Error("saved content does not match")
 	}
 }
 

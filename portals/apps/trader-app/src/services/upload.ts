@@ -3,32 +3,59 @@
  * when the API or auth changes, only this file is updated.
  */
 import type { ApiClient } from './api'
+import { getEnv } from '../runtimeConfig'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1'
+const API_BASE_URL = getEnv('VITE_API_BASE_URL', 'http://localhost:8080/api/v1')!
 
 export interface UploadResponse {
   key: string
   name: string
+  url?: string
+  upload_url?: string
 }
 
 export async function uploadFile(apiClient: ApiClient, file: File): Promise<UploadResponse> {
-  const formData = new FormData()
-  formData.append('file', file)
-
-  const response = await fetch(`${API_BASE_URL}/uploads`, {
+  // Register the upload and get a presigned/upload URL
+  const initResponse = await fetch(`${API_BASE_URL}/uploads`, {
     method: 'POST',
-    headers: await apiClient.getAuthHeaders(false),
-    body: formData,
+    headers: {
+      ...(await apiClient.getAuthHeaders(false)),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      filename: file.name,
+      mime_type: file.type || 'application/octet-stream',
+      size: file.size,
+    }),
   })
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    console.error(`Upload error ${response.status}: ${errorText}`)
-    throw new Error(`Failed to upload file: ${response.status} ${response.statusText}`)
+  if (!initResponse.ok) {
+    const errorText = await initResponse.text()
+    console.error(`Upload initialization error ${initResponse.status}: ${errorText}`)
+    throw new Error(`Failed to initialize upload: ${initResponse.status} ${initResponse.statusText}`)
   }
 
-  const meta = (await response.json()) as { key: string; name: string }
-  return { key: meta.key, name: meta.name }
+  const meta = (await initResponse.json()) as UploadResponse
+  if (!meta.upload_url) {
+    throw new Error('Server did not provide an upload URL')
+  }
+
+  // Upload the actual file content to the provided URL
+  const uploadResponse = await fetch(meta.upload_url, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': file.type || 'application/octet-stream',
+    },
+    body: file,
+  })
+
+  if (!uploadResponse.ok) {
+    const errorText = await uploadResponse.text()
+    console.error(`File content upload error ${uploadResponse.status}: ${errorText}`)
+    throw new Error(`Failed to upload file content: ${uploadResponse.status} ${uploadResponse.statusText}`)
+  }
+
+  return meta
 }
 
 export async function getDownloadUrl(apiClient: ApiClient, key: string): Promise<{ url: string; expiresAt: number }> {

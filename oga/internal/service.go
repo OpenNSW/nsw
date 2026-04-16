@@ -42,6 +42,9 @@ type OGAService interface {
 	// GetDownloadURL fetches a download URL for a key from the main backend.
 	GetDownloadURL(ctx context.Context, key string) (string, error)
 
+	// CreateUploadURL proxies an upload initialization request to the main backend.
+	CreateUploadURL(ctx context.Context, payload []byte) (map[string]any, error)
+
 	// Close closes the service and releases resources
 	Close() error
 }
@@ -417,6 +420,28 @@ func (s *ogaService) GetDownloadURL(ctx context.Context, key string) (string, er
 
 	slog.InfoContext(ctx, "resolved download URL from metadata", "key", key, "downloadURL", metadata.DownloadURL)
 	return metadata.DownloadURL, nil
+}
+
+// CreateUploadURL proxies an upload initialization request to the main backend.
+func (s *ogaService) CreateUploadURL(ctx context.Context, payload []byte) (map[string]any, error) {
+	resp, err := s.httpClient.Post("uploads", "application/json", payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to POST upload metadata: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		slog.WarnContext(ctx, "failed to fetch upload metadata from backend",
+			"status", resp.Status)
+		return nil, fmt.Errorf("failed to POST upload metadata, status code: %d", resp.StatusCode)
+	}
+
+	var metadata map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&metadata); err != nil {
+		return nil, fmt.Errorf("failed to decode upload metadata: %w", err)
+	}
+
+	return metadata, nil
 }
 
 // feedbackHistoryFromRaw converts the raw JSONB slice from the store into typed feedback entries.

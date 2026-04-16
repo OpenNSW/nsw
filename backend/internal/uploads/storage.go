@@ -19,4 +19,7 @@ type StorageDriver interface {
 
 	// GetDownloadURL returns a presigned or time-limited URL for downloading
 	GetDownloadURL(ctx context.Context, key string, ttl time.Duration) (string, error)
+
+	// GetUploadURL returns a presigned URL for uploading a file directly to storage
+	GetUploadURL(ctx context.Context, key string, ttl time.Duration, contentType string, maxSizeBytes int64) (string, error)
 }

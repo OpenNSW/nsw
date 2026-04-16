@@ -90,3 +90,21 @@ func (d *S3Driver) GetDownloadURL(ctx context.Context, key string, ttl time.Dura
 	}
 	return d.presignGet(ctx, key, ttl)
 }
+
+func (d *S3Driver) GetUploadURL(ctx context.Context, key string, ttl time.Duration, contentType string, maxSizeBytes int64) (string, error) {
+	if ttl == 0 {
+		ttl = 15 * time.Minute
+	}
+
+	presignedReq, err := d.PresignClient.PresignPutObject(ctx, &s3.PutObjectInput{
+		Bucket:        aws.String(d.Bucket),
+		Key:           aws.String(key),
+		ContentType:   aws.String(contentType),
+		ContentLength: aws.Int64(maxSizeBytes),
+	}, s3.WithPresignExpires(ttl))
+	if err != nil {
+		return "", fmt.Errorf("failed to presign upload URL: %w", err)
+	}
+
+	return presignedReq.URL, nil
+}
