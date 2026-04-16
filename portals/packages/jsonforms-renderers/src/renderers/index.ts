@@ -1,6 +1,7 @@
 import TextControl, { TextControlTester } from './TextControl';
 import NumberControl, { NumberControlTester } from './NumberControl';
 import BooleanControl, { BooleanControlTester } from './BooleanControl';
+import RadioControl, { RadioControlTester } from './RadioControl';
 import SelectControl, { SelectControlTester } from './SelectControl';
 import DateControl, { DateControlTester } from './DateControl';
 import {
@@ -26,6 +27,7 @@ export const radixRenderers = [
     { tester: TextControlTester, renderer: TextControl },
     { tester: NumberControlTester, renderer: NumberControl },
     { tester: BooleanControlTester, renderer: BooleanControl },
+    { tester: RadioControlTester, renderer: RadioControl },
     { tester: SelectControlTester, renderer: SelectControl },
     { tester: DateControlTester, renderer: DateControl },
     { tester: VerticalLayoutTester, renderer: VerticalLayoutRenderer },
@@ -41,6 +43,7 @@ export const radixRenderers = [
 export * from './TextControl';
 export * from './NumberControl';
 export * from './BooleanControl';
+export * from './RadioControl';
 export * from './SelectControl';
 export * from './DateControl';
 export * from './LayoutRenderers';
