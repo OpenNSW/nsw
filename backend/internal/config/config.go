@@ -70,7 +70,7 @@ type AuthConfig struct {
 	JWKSURL               string
 	Issuer                string
 	Audience              string
-	ClientID              string
+	ClientIDs             []string
 	InsecureSkipTLSVerify bool
 }
 
@@ -141,8 +141,8 @@ func Load() (*Config, error) {
 		Auth: AuthConfig{
 			JWKSURL:               getEnvOrDefault("AUTH_JWKS_URL", "https://localhost:8090/oauth2/jwks"),
 			Issuer:                getEnvOrDefault("AUTH_ISSUER", "https://localhost:8090"),
-			Audience:              getEnvOrDefault("AUTH_AUDIENCE", "TRADER_PORTAL_APP"),
-			ClientID:              getEnvOrDefault("AUTH_CLIENT_ID", "TRADER_PORTAL_APP"),
+			Audience:              getEnvOrDefault("AUTH_AUDIENCE", "NSW_API"),
+			ClientIDs:             parseCommaSeparated(getEnvOrDefault("AUTH_CLIENT_IDS", "TRADER_PORTAL_APP,FCAU_TO_NSW,NPQS_TO_NSW,IRD_TO_NSW")),
 			InsecureSkipTLSVerify: getBoolOrDefault("AUTH_JWKS_INSECURE_SKIP_VERIFY", defaultInsecureJWKS),
 		},
 		Notification: NotificationConfig{
@@ -186,8 +186,8 @@ func (c *Config) Validate() error {
 	if c.Auth.Audience == "" {
 		return fmt.Errorf("AUTH_AUDIENCE is required")
 	}
-	if c.Auth.ClientID == "" {
-		return fmt.Errorf("AUTH_CLIENT_ID is required")
+	if len(c.Auth.ClientIDs) == 0 {
+		return fmt.Errorf("AUTH_CLIENT_IDS is required")
 	}
 	if !c.Server.Debug {
 		if len(c.CORS.AllowedOrigins) == 0 {

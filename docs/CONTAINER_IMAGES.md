@@ -68,8 +68,8 @@ docker run --rm --name nsw-backend \
   -e DB_SSLMODE=disable \
   -e AUTH_JWKS_URL=https://<idp-host>:8090/oauth2/jwks \
   -e AUTH_ISSUER=https://<idp-host>:8090 \
-  -e AUTH_CLIENT_ID=TRADER_PORTAL_APP \
-  -e AUTH_AUDIENCE=TRADER_PORTAL_APP \
+  -e AUTH_CLIENT_IDS=TRADER_PORTAL_APP,FCAU_TO_NSW,NPQS_TO_NSW,IRD_TO_NSW \
+  -e AUTH_AUDIENCE=NSW_API \
   -e AUTH_JWKS_INSECURE_SKIP_VERIFY=true \
   -e CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176 \
   -e STORAGE_TYPE=local \

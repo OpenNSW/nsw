@@ -62,8 +62,8 @@ spec:
               value: {{ .Values.config.auth.issuer | quote }}
             - name: AUTH_AUDIENCE
               value: {{ .Values.config.auth.audience | quote }}
-            - name: AUTH_CLIENT_ID
-              value: {{ .Values.config.auth.clientId | quote }}
+            - name: AUTH_CLIENT_IDS
+              value: {{ join "," .Values.config.auth.clientIds | quote }}
             - name: AUTH_JWKS_INSECURE_SKIP_VERIFY
               value: {{ .Values.config.auth.insecureSkipTlsVerify | quote }}
 
