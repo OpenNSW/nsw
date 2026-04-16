@@ -27,11 +27,6 @@ func NewAuthService(db *gorm.DB) *AuthService {
 // 1. Database lookup of user context
 // 2. Handling not found errors gracefully
 // 3. Logging errors for debugging
-//
-// TODO_JWT_FUTURE: When JWT is implemented:
-// - This method will still be called the same way
-// - No changes needed here, token verification happens in token_parser.go
-// - Consider caching user contexts for performance optimization
 func (as *AuthService) GetUserContext(userID string) (*UserContext, error) {
 	if userID == "" {
 		return nil, fmt.Errorf("user ID is empty")
@@ -63,7 +58,7 @@ func (as *AuthService) GetUserContext(userID string) (*UserContext, error) {
 //	newContext := json.RawMessage(`{"company": "Acme Inc", "role": "exporter"}`)
 //	err := authService.UpdateUserContext("TRADER-001", newContext)
 //
-// TODO_JWT_FUTURE: Consider adding:
+// TODO: Enhancements to consider:
 // - Audit logging for who/when/what changed
 // - Version tracking for user context changes
 // - Webhook notifications on context updates
@@ -98,8 +93,8 @@ func (as *AuthService) UpdateUserContext(userID string, ctx json.RawMessage) err
 //
 // This is useful for initialization or bulk operations.
 //
-// TODO_JWT_FUTURE: This method might be useful when:
-// - Receiving user context updates from external systems
+// TODO: This method might be useful when:
+// - Receiving user context updates from external Identity systems
 // - Initializing new users during registration
 // - Syncing with identity management systems
 func (as *AuthService) UpsertUserContext(userID string, ctx json.RawMessage) error {

@@ -18,12 +18,6 @@ import (
 // providing a clean interface for the HTTP server to use.
 //
 // This manager pattern keeps auth logic self-contained and makes main.go cleaner.
-//
-// TODO_JWT_FUTURE: When JWT is implemented, this manager will be extended to:
-// - Load JWT configuration (secret/public key)
-// - Initialize JWT validators
-// - Manage token caching
-// - Handle key rotation
 type Manager struct {
 	service        *AuthService
 	tokenExtractor *TokenExtractor
@@ -38,7 +32,7 @@ type Manager struct {
 //	authManager := auth.NewManager(db)
 //	handler := middleware.CORS(&cfg.CORS)(authManager.Middleware()(mux))
 //
-// This centralizes all auth setup and makes it easy to extend with JWT configuration later.
+// This centralizes auth setup for token extraction, middleware, and user-context access.
 func NewManager(db *gorm.DB, authConfig config.AuthConfig) (*Manager, error) {
 	slog.Info("initializing auth manager")
 
@@ -51,7 +45,7 @@ func NewManager(db *gorm.DB, authConfig config.AuthConfig) (*Manager, error) {
 	}
 
 	tokenExtractor, err := NewTokenExtractorWithClient(
-		authConfig.JWKSURL, authConfig.Issuer, authConfig.Audience, authConfig.ClientID, httpClient,
+		authConfig.JWKSURL, authConfig.Issuer, authConfig.Audience, authConfig.ClientIDs, httpClient,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize token extractor: %w", err)
@@ -73,11 +67,9 @@ func NewManager(db *gorm.DB, authConfig config.AuthConfig) (*Manager, error) {
 //
 // The middleware:
 // 1. Extracts Authorization header
-// 2. Parses token to get trader ID
-// 3. Looks up user context from database
+// 2. Parses token into user or client principal
+// 3. Looks up user context from database for user principals
 // 4. Injects context into request
-//
-// Gracefully degrades if auth is missing or fails.
 func (m *Manager) Middleware() func(http.Handler) http.Handler { return m.middleware }
 
 // Service returns the auth service for direct use if needed.
@@ -102,9 +94,6 @@ func (m *Manager) Service() *AuthService { return m.service }
 //	mux.Handle("POST /api/protected",
 //	    authManager.RequireAuthMiddleware()(handler),
 //	)
-//
-// TODO_JWT_FUTURE: Could extend this to support role-based access:
-// authManager.RequireAuthMiddleware("admin", "exporter")
 func (m *Manager) RequireAuthMiddleware() func(http.Handler) http.Handler {
 	return RequireAuth(m.service, m.tokenExtractor)
 }
@@ -192,6 +181,5 @@ func (m *Manager) Health() error {
 //	defer authManager.Close()
 func (m *Manager) Close() error {
 	slog.Debug("auth manager closing")
-	// TODO_JWT_FUTURE: Add cleanup logic for JWT validators, caches, etc.
 	return nil
 }

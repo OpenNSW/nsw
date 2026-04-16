@@ -2,11 +2,20 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"encoding/base64"
 	"encoding/json"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
+
+func strPtr(s string) *string { return &s }
 
 // Note: These are integration test examples. To run them, you need:
 // 1. A test database instance (PostgreSQL)
@@ -20,7 +29,7 @@ func TestGetAuthContext_FromRequest(t *testing.T) {
 		UserID:      "TRADER-001",
 		UserContext: json.RawMessage(`{"test": "data"}`),
 	}
-	authCtx := &AuthContext{UserID: "TRADER-001", UserContext: uc}
+	authCtx := &AuthContext{UserID: strPtr("TRADER-001"), UserContext: uc}
 	ctx := context.WithValue(context.Background(), AuthContextKey, authCtx)
 
 	// Retrieve context
@@ -29,8 +38,8 @@ func TestGetAuthContext_FromRequest(t *testing.T) {
 		t.Error("expected to retrieve auth context")
 		return
 	}
-	if retrieved.UserID != "TRADER-001" {
-		t.Errorf("got trader id %s, want TRADER-001", retrieved.UserID)
+	if retrieved.UserID == nil || *retrieved.UserID != "TRADER-001" {
+		t.Errorf("got trader id %v, want TRADER-001", retrieved.UserID)
 	}
 }
 
@@ -131,7 +140,7 @@ func TestAuthMiddleware_UninitializedDependencies(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	tokenExtractor, err := NewTokenExtractor("https://localhost:8090/oauth2/jwks", "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", "TRADER_PORTAL_APP")
+	tokenExtractor, err := NewTokenExtractor("https://localhost:8090/oauth2/jwks", "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", []string{"TRADER_PORTAL_APP"})
 	if err != nil {
 		t.Fatalf("failed to create token extractor: %v", err)
 	}
@@ -160,7 +169,7 @@ func TestAuthMiddleware_InvalidToken(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	tokenExtractor, err := NewTokenExtractor("https://localhost:8090/oauth2/jwks", "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", "TRADER_PORTAL_APP")
+	tokenExtractor, err := NewTokenExtractor("https://localhost:8090/oauth2/jwks", "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", []string{"TRADER_PORTAL_APP"})
 	if err != nil {
 		t.Fatalf("failed to create token extractor: %v", err)
 	}
@@ -179,5 +188,201 @@ func TestAuthMiddleware_InvalidToken(t *testing.T) {
 	}
 	if testHandlerCalled {
 		t.Error("expected handler not to be called for invalid token")
+	}
+}
+
+func TestBuildAuthContext_UserPrincipalOnly(t *testing.T) {
+	principal := &Principal{
+		UserPrincipal: &UserPrincipal{
+			UserID:   "TRADER-001",
+			Email:    "trader@example.com",
+			OUHandle: "ou-handle",
+			OUID:     "ou-id",
+		},
+	}
+
+	authCtx := buildAuthContext(principal)
+
+	if authCtx.UserID == nil || *authCtx.UserID != "TRADER-001" {
+		t.Fatalf("expected user id to be set from user principal")
+	}
+	if authCtx.ClientID != nil {
+		t.Fatalf("expected client id to be nil when client principal is absent")
+	}
+}
+
+func TestBuildAuthContext_ClientPrincipalOnly(t *testing.T) {
+	principal := &Principal{
+		ClientPrincipal: &ClientPrincipal{ClientID: "CLIENT-001"},
+	}
+
+	authCtx := buildAuthContext(principal)
+
+	if authCtx.ClientID == nil || *authCtx.ClientID != "CLIENT-001" {
+		t.Fatalf("expected client id to be set from client principal")
+	}
+	if authCtx.UserID != nil || authCtx.Email != nil || authCtx.OUHandle != nil || authCtx.OUID != nil {
+		t.Fatalf("expected user fields to be nil when user principal is absent")
+	}
+}
+
+func TestAuthMiddleware_ValidClientCredentialsToken(t *testing.T) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("failed to generate rsa key: %v", err)
+	}
+
+	jwksServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"keys": []map[string]interface{}{
+				{
+					"kid": "test-kid",
+					"kty": "RSA",
+					"alg": "RS256",
+					"use": "sig",
+					"n":   base64.RawURLEncoding.EncodeToString(privateKey.N.Bytes()),
+					"e":   base64.RawURLEncoding.EncodeToString(big.NewInt(int64(privateKey.PublicKey.E)).Bytes()),
+				},
+			},
+		})
+	}))
+	defer jwksServer.Close()
+
+	tokenExtractor, err := NewTokenExtractor(jwksServer.URL, "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", []string{"TRADER_PORTAL_APP"})
+	if err != nil {
+		t.Fatalf("failed to create token extractor: %v", err)
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
+		"sub":        "FCAU_TO_NSW",
+		"iss":        "https://localhost:8090/oauth2/token",
+		"aud":        "TRADER_PORTAL_APP",
+		"client_id":  "TRADER_PORTAL_APP",
+		"grant_type": "client_credentials",
+		"iat":        time.Now().Add(-1 * time.Minute).Unix(),
+		"nbf":        time.Now().Add(-1 * time.Minute).Unix(),
+		"exp":        time.Now().Add(10 * time.Minute).Unix(),
+	})
+	token.Header["kid"] = "test-kid"
+	signedToken, err := token.SignedString(privateKey)
+	if err != nil {
+		t.Fatalf("failed to sign token: %v", err)
+	}
+
+	testHandlerCalled := false
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testHandlerCalled = true
+		authCtx := GetAuthContext(r.Context())
+		if authCtx == nil {
+			t.Fatalf("expected auth context")
+		}
+		if authCtx.ClientID == nil || *authCtx.ClientID != "TRADER_PORTAL_APP" {
+			t.Fatalf("expected client id TRADER_PORTAL_APP, got %v", authCtx.ClientID)
+		}
+		if authCtx.UserID != nil {
+			t.Fatalf("expected user id to be nil for client principal")
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+
+	handlerWithMiddleware := Middleware(&AuthService{}, tokenExtractor)(testHandler)
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/test", nil)
+	req.Header.Set("Authorization", "Bearer "+signedToken)
+	recorder := httptest.NewRecorder()
+
+	handlerWithMiddleware.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", recorder.Code)
+	}
+	if !testHandlerCalled {
+		t.Fatalf("expected handler to be called for valid token")
+	}
+}
+
+func TestRequireAuth_UnauthenticatedRequest(t *testing.T) {
+	handlerCalled := false
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handlerCalled = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	protected := RequireAuth(nil, nil)(testHandler)
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/protected", nil)
+	recorder := httptest.NewRecorder()
+
+	protected.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status 401, got %d", recorder.Code)
+	}
+	if handlerCalled {
+		t.Fatalf("expected protected handler not to be called")
+	}
+}
+
+func TestRequireAuth_ValidClientCredentialsToken(t *testing.T) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("failed to generate rsa key: %v", err)
+	}
+
+	jwksServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"keys": []map[string]interface{}{
+				{
+					"kid": "requireauth-kid",
+					"kty": "RSA",
+					"alg": "RS256",
+					"use": "sig",
+					"n":   base64.RawURLEncoding.EncodeToString(privateKey.N.Bytes()),
+					"e":   base64.RawURLEncoding.EncodeToString(big.NewInt(int64(privateKey.PublicKey.E)).Bytes()),
+				},
+			},
+		})
+	}))
+	defer jwksServer.Close()
+
+	tokenExtractor, err := NewTokenExtractor(jwksServer.URL, "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", []string{"TRADER_PORTAL_APP"})
+	if err != nil {
+		t.Fatalf("failed to create token extractor: %v", err)
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
+		"sub":        "NPQS_TO_NSW",
+		"iss":        "https://localhost:8090/oauth2/token",
+		"aud":        "TRADER_PORTAL_APP",
+		"client_id":  "TRADER_PORTAL_APP",
+		"grant_type": "client_credentials",
+		"iat":        time.Now().Add(-1 * time.Minute).Unix(),
+		"nbf":        time.Now().Add(-1 * time.Minute).Unix(),
+		"exp":        time.Now().Add(10 * time.Minute).Unix(),
+	})
+	token.Header["kid"] = "requireauth-kid"
+	signedToken, err := token.SignedString(privateKey)
+	if err != nil {
+		t.Fatalf("failed to sign token: %v", err)
+	}
+
+	handlerCalled := false
+	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handlerCalled = true
+		w.WriteHeader(http.StatusOK)
+	})
+
+	protected := RequireAuth(&AuthService{}, tokenExtractor)(testHandler)
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/protected", nil)
+	req.Header.Set("Authorization", "Bearer "+signedToken)
+	recorder := httptest.NewRecorder()
+
+	protected.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", recorder.Code)
+	}
+	if !handlerCalled {
+		t.Fatalf("expected protected handler to be called")
 	}
 }

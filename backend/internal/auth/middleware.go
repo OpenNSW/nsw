@@ -12,27 +12,22 @@ import (
 // Middleware creates an HTTP middleware that extracts and injects authentication context.
 // This middleware:
 // 1. Extracts the Authorization header
-// 2. Parses the token to get the user ID and email
-// 3. Looks up the user context from the database
+// 2. Parses the token into a user principal or client principal
+// 3. Looks up user context from the database for user principals
 // 4. Injects the auth context into the request
 //
-// If the user has no stored context (e.g. CHA users), AuthContext is still injected
+// If a user has no stored context, AuthContext is still injected
 // with UserContext = nil. Handlers must tolerate a nil UserContext.
 //
-// If any step fails (missing token, invalid token, user not found),
-// the request proceeds without auth context. Handlers should check for context availability.
+// Behavior summary:
+// - Missing Authorization header: request proceeds without auth context.
+// - Invalid token: request is rejected with 401.
+// - Auth dependencies unavailable or DB errors: request is rejected with 500.
 //
 // This design allows:
 // - Public endpoints (no auth required)
 // - Protected endpoints (check for context)
 // - Optional auth endpoints (use context if available)
-//
-// TODO_JWT_FUTURE: When JWT is implemented:
-// - The middleware stays the same
-// - Token verification moves to token_parser.go (ExtractClaimsFromHeader)
-// - Consider adding additional claims from JWT to AuthContext
-// - Consider adding rate limiting based on token/user
-// - Consider adding audit logging for auth attempts
 func Middleware(authService *AuthService, tokenExtractor *TokenExtractor) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -51,40 +46,71 @@ func Middleware(authService *AuthService, tokenExtractor *TokenExtractor) func(h
 				return
 			}
 
-			claims, err := tokenExtractor.ExtractClaimsFromHeader(authHeader)
+			principal, err := tokenExtractor.ExtractPrincipalFromHeader(authHeader)
 			if err != nil {
-				slog.Warn("failed to extract claims from token", "error", err)
+				slog.Warn("failed to extract principal from token", "error", err)
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnauthorized)
 				_, _ = w.Write([]byte(`{"error":"unauthorized","message":"invalid authentication token"}`))
 				return
 			}
 
-			authCtx := &AuthContext{
-				UserID:   claims.UserID,
-				Email:    claims.Email,
-				OUHandle: claims.OUHandle,
+			if principal == nil {
+				slog.Warn("token extractor returned nil principal")
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				_, _ = w.Write([]byte(`{"error":"unauthorized","message":"invalid authentication token"}`))
+				return
 			}
 
-			userCtx, err := authService.GetUserContext(claims.UserID)
-			if err != nil {
-				if errors.Is(err, gorm.ErrRecordNotFound) {
-					slog.Debug("no stored user context, proceeding with nil UserContext",
-						"user_id", claims.UserID)
+			if principal.UserPrincipal == nil && principal.ClientPrincipal == nil {
+				slog.Warn("token missing both userPrincipal and clientPrincipal")
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				_, _ = w.Write([]byte(`{"error":"unauthorized","message":"invalid authentication token"}`))
+				return
+			}
+
+			authCtx := buildAuthContext(principal)
+			if principal.UserPrincipal != nil {
+				userCtx, err := authService.GetUserContext(principal.UserPrincipal.UserID)
+				if err != nil {
+					if errors.Is(err, gorm.ErrRecordNotFound) {
+						slog.Debug("no stored user context, proceeding with nil UserContext",
+							"user_id", principal.UserPrincipal.UserID)
+						// TODO: Create new user context for the user and store it in the database for future requests
+					} else {
+						slog.Error("failed to get user context from database", "user_id", principal.UserPrincipal.UserID, "error", err)
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusInternalServerError)
+						_, _ = w.Write([]byte(`{"error":"internal_server_error","message":"failed to retrieve user context"}`))
+						return
+					}
 				} else {
-					slog.Warn("failed to get user context from database",
-						"user_id", claims.UserID, "error", err)
-					next.ServeHTTP(w, r)
-					return
+					authCtx.UserContext = userCtx
 				}
-			} else {
-				authCtx.UserContext = userCtx
 			}
-
 			ctx := context.WithValue(r.Context(), AuthContextKey, authCtx)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+func buildAuthContext(principal *Principal) *AuthContext {
+	authCtx := &AuthContext{}
+
+	if principal.UserPrincipal != nil {
+		authCtx.UserID = &principal.UserPrincipal.UserID
+		authCtx.Email = &principal.UserPrincipal.Email
+		authCtx.OUHandle = &principal.UserPrincipal.OUHandle
+		authCtx.OUID = &principal.UserPrincipal.OUID
+	}
+
+	if principal.ClientPrincipal != nil {
+		authCtx.ClientID = &principal.ClientPrincipal.ClientID
+	}
+
+	return authCtx
 }
 
 // RequireAuth returns a middleware that requires authentication.

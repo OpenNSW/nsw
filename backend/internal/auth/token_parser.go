@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -14,17 +15,36 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+type AllowedGrantType string
+
+const (
+	AuthorizationCodeGrant AllowedGrantType = "authorization_code"
+	ClientCredentialsGrant AllowedGrantType = "client_credentials"
+)
+
 type tokenClaims struct {
 	jwt.RegisteredClaims
-	ClientID string `json:"client_id"`
-	Email    string `json:"email"`
-	OUHandle string `json:"ouHandle"`
+	ClientID  string           `json:"client_id"`
+	GrantType AllowedGrantType `json:"grant_type"`
+	Email     *string          `json:"email,omitempty"`
+	OUHandle  *string          `json:"ouHandle,omitempty"`
+	OUID      *string          `json:"ouId,omitempty"`
 }
 
-type ExtractedClaims struct {
+type ClientPrincipal struct {
+	ClientID string `json:"clientId"`
+}
+
+type UserPrincipal struct {
 	UserID   string `json:"userId"`
 	Email    string `json:"email"`
 	OUHandle string `json:"ouHandle"`
+	OUID     string `json:"ouId"`
+}
+
+type Principal struct {
+	UserPrincipal   *UserPrincipal   `json:"userPrincipal,omitempty"`
+	ClientPrincipal *ClientPrincipal `json:"clientPrincipal,omitempty"`
 }
 
 type jwksResponse struct {
@@ -43,13 +63,14 @@ type jwk struct {
 const defaultJWKSCacheTTL = 5 * time.Minute
 
 // TokenExtractor handles token extraction and parsing from HTTP headers.
-// It validates JWT signatures using JWKS and maps the `sub` claim to TraderID.
+// It validates JWT signatures using JWKS and resolves a user principal
+// or client principal based on grant type.
 type TokenExtractor struct {
-	jwksURL          string
-	issuer           string
-	audience         string
-	expectedClientID string
-	httpClient       *http.Client
+	jwksURL           string
+	issuer            string
+	audience          string
+	expectedClientIDs []string
+	httpClient        *http.Client
 
 	cacheMu       sync.RWMutex
 	cachedJWKS    *jwksResponse
@@ -57,13 +78,13 @@ type TokenExtractor struct {
 	jwksCacheTTL  time.Duration
 }
 
-func NewTokenExtractor(jwksURL, issuer, audience, expectedClientID string) (*TokenExtractor, error) {
+func NewTokenExtractor(jwksURL, issuer, audience string, expectedClientIDs []string) (*TokenExtractor, error) {
 	extractor := &TokenExtractor{
-		jwksURL:          strings.TrimSpace(jwksURL),
-		issuer:           strings.TrimSpace(issuer),
-		audience:         strings.TrimSpace(audience),
-		expectedClientID: strings.TrimSpace(expectedClientID),
-		jwksCacheTTL:     defaultJWKSCacheTTL,
+		jwksURL:           strings.TrimSpace(jwksURL),
+		issuer:            strings.TrimSpace(issuer),
+		audience:          strings.TrimSpace(audience),
+		expectedClientIDs: expectedClientIDs,
+		jwksCacheTTL:      defaultJWKSCacheTTL,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -76,18 +97,18 @@ func NewTokenExtractor(jwksURL, issuer, audience, expectedClientID string) (*Tok
 	return extractor, nil
 }
 
-func NewTokenExtractorWithClient(jwksURL, issuer, audience, expectedClientID string, httpClient *http.Client) (*TokenExtractor, error) {
+func NewTokenExtractorWithClient(jwksURL, issuer, audience string, expectedClientIDs []string, httpClient *http.Client) (*TokenExtractor, error) {
 	if httpClient == nil {
-		return NewTokenExtractor(jwksURL, issuer, audience, expectedClientID)
+		return NewTokenExtractor(jwksURL, issuer, audience, expectedClientIDs)
 	}
 
 	extractor := &TokenExtractor{
-		jwksURL:          strings.TrimSpace(jwksURL),
-		issuer:           strings.TrimSpace(issuer),
-		audience:         strings.TrimSpace(audience),
-		expectedClientID: strings.TrimSpace(expectedClientID),
-		jwksCacheTTL:     defaultJWKSCacheTTL,
-		httpClient:       httpClient,
+		jwksURL:           strings.TrimSpace(jwksURL),
+		issuer:            strings.TrimSpace(issuer),
+		audience:          strings.TrimSpace(audience),
+		expectedClientIDs: expectedClientIDs,
+		jwksCacheTTL:      defaultJWKSCacheTTL,
+		httpClient:        httpClient,
 	}
 
 	if err := extractor.validateConfig(); err != nil {
@@ -107,8 +128,8 @@ func (te *TokenExtractor) validateConfig() error {
 	if te.audience == "" {
 		return fmt.Errorf("audience is not configured")
 	}
-	if te.expectedClientID == "" {
-		return fmt.Errorf("client id is not configured")
+	if len(te.expectedClientIDs) == 0 {
+		return fmt.Errorf("client ids are not configured")
 	}
 	if te.httpClient == nil {
 		return fmt.Errorf("http client is not configured")
@@ -117,10 +138,11 @@ func (te *TokenExtractor) validateConfig() error {
 	return nil
 }
 
-// ExtractClaimsFromHeader extracts the claims from Authorization header.
+// ExtractPrincipalFromHeader extracts the principal from Authorization header.
 // Expected header format: "Bearer <jwt_token>".
-// JWT signature is validated against configured JWKS endpoint and `sub` is used as trader ID.
-func (te *TokenExtractor) ExtractClaimsFromHeader(authHeader string) (*ExtractedClaims, error) {
+// JWT signature is validated against configured JWKS endpoint, then claims are
+// mapped into either UserPrincipal or ClientPrincipal.
+func (te *TokenExtractor) ExtractPrincipalFromHeader(authHeader string) (*Principal, error) {
 	if authHeader == "" {
 		return nil, fmt.Errorf("authorization header is empty")
 	}
@@ -137,7 +159,7 @@ func (te *TokenExtractor) ExtractClaimsFromHeader(authHeader string) (*Extracted
 	parsedToken, err := jwt.ParseWithClaims(tokenString, claims, te.keyFunc,
 		jwt.WithValidMethods([]string{"RS256", "RS384", "RS512"}),
 		jwt.WithIssuer(te.issuer),
-		jwt.WithAudience(te.audience),
+		// jwt.WithAudience(te.audience), // TODO: Once Thunder(IdP) supports defining audience claim, add this validation back.
 		jwt.WithLeeway(30*time.Second),
 	)
 	if err != nil {
@@ -151,22 +173,58 @@ func (te *TokenExtractor) ExtractClaimsFromHeader(authHeader string) (*Extracted
 		return nil, fmt.Errorf("jwt missing exp claim")
 	}
 
-	userID := strings.TrimSpace(claims.Subject)
-	if len(userID) == 0 {
-		return nil, fmt.Errorf("jwt missing sub claim")
-	}
-
-	if strings.TrimSpace(claims.ClientID) == "" {
+	if claims.ClientID == "" {
 		return nil, fmt.Errorf("jwt missing client_id claim")
 	}
-	if strings.TrimSpace(claims.ClientID) != te.expectedClientID {
-		return nil, fmt.Errorf("jwt client_id does not match expected client id")
+	if !slices.Contains(te.expectedClientIDs, claims.ClientID) {
+		return nil, fmt.Errorf("unexpected client_id claim: %q", claims.ClientID)
 	}
 
-	return &ExtractedClaims{
-		UserID:   userID,
-		Email:    strings.TrimSpace(claims.Email),
-		OUHandle: strings.TrimSpace(claims.OUHandle),
+	switch claims.GrantType {
+	case AuthorizationCodeGrant:
+		userPrincipal, err := te.userPrincipalFromClaims(claims)
+		if err != nil {
+			return nil, err
+		}
+		return &Principal{UserPrincipal: userPrincipal}, nil
+	case ClientCredentialsGrant:
+		clientPrincipal, err := te.clientPrincipalFromClaims(claims)
+		if err != nil {
+			return nil, err
+		}
+		return &Principal{ClientPrincipal: clientPrincipal}, nil
+	default:
+		return nil, fmt.Errorf("unsupported grant type: %q", claims.GrantType)
+	}
+}
+
+func (te *TokenExtractor) userPrincipalFromClaims(claims *tokenClaims) (*UserPrincipal, error) {
+	if claims.Subject == "" {
+		return nil, fmt.Errorf("jwt missing sub claim for user principal")
+	}
+	if claims.Email == nil {
+		return nil, fmt.Errorf("jwt missing email claim for user principal")
+	}
+	if claims.OUHandle == nil {
+		return nil, fmt.Errorf("jwt missing ouHandle claim for user principal")
+	}
+	if claims.OUID == nil {
+		return nil, fmt.Errorf("jwt missing ouId claim for user principal")
+	}
+	return &UserPrincipal{
+		UserID:   claims.Subject,
+		Email:    *claims.Email,
+		OUHandle: *claims.OUHandle,
+		OUID:     *claims.OUID,
+	}, nil
+}
+
+func (te *TokenExtractor) clientPrincipalFromClaims(claims *tokenClaims) (*ClientPrincipal, error) {
+	if claims.ClientID == "" {
+		return nil, fmt.Errorf("jwt missing client_id claim for client principal")
+	}
+	return &ClientPrincipal{
+		ClientID: claims.ClientID,
 	}, nil
 }
 

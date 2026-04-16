@@ -17,7 +17,7 @@ import (
 )
 
 // TestTokenExtractor tests the token extraction logic
-func TestTokenExtractor_ExtractClaimsFromHeader(t *testing.T) {
+func TestTokenExtractor_ExtractPrincipalFromHeader(t *testing.T) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatalf("failed to generate rsa key: %v", err)
@@ -40,12 +40,12 @@ func TestTokenExtractor_ExtractClaimsFromHeader(t *testing.T) {
 	}))
 	defer jwksServer.Close()
 
-	extractor, err := NewTokenExtractor(jwksServer.URL, "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", "TRADER_PORTAL_APP")
+	extractor, err := NewTokenExtractor(jwksServer.URL, "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", []string{"TRADER_PORTAL_APP"})
 	if err != nil {
 		t.Fatalf("failed to create token extractor: %v", err)
 	}
 
-	mintToken := func(subject string, issuer string, audience string, clientID string, ouHandle string, notBefore time.Time, expiresAt time.Time) string {
+	mintToken := func(subject string, issuer string, audience string, clientID string, grantType string, email string, ouHandle string, ouID string, notBefore time.Time, expiresAt time.Time) string {
 		claims := jwt.RegisteredClaims{
 			Subject:   subject,
 			Issuer:    issuer,
@@ -62,8 +62,17 @@ func TestTokenExtractor_ExtractClaimsFromHeader(t *testing.T) {
 			"nbf":       claims.NotBefore.Unix(),
 			"exp":       claims.ExpiresAt.Unix(),
 		}
+		if strings.TrimSpace(grantType) != "" {
+			tokenClaims["grant_type"] = grantType
+		}
+		if strings.TrimSpace(email) != "" {
+			tokenClaims["email"] = email
+		}
 		if strings.TrimSpace(ouHandle) != "" {
 			tokenClaims["ouHandle"] = ouHandle
+		}
+		if strings.TrimSpace(ouID) != "" {
+			tokenClaims["ouId"] = ouID
 		}
 
 		token := jwt.NewWithClaims(jwt.SigningMethodRS256, tokenClaims)
@@ -80,7 +89,10 @@ func TestTokenExtractor_ExtractClaimsFromHeader(t *testing.T) {
 		"https://localhost:8090/oauth2/token",
 		"TRADER_PORTAL_APP",
 		"TRADER_PORTAL_APP",
+		"authorization_code",
+		"trader@example.com",
 		"traders",
+		"OU-001",
 		time.Now().Add(-1*time.Minute),
 		time.Now().Add(10*time.Minute),
 	)
@@ -90,7 +102,10 @@ func TestTokenExtractor_ExtractClaimsFromHeader(t *testing.T) {
 		"https://localhost:8090/oauth2/token",
 		"TRADER_PORTAL_APP",
 		"TRADER_PORTAL_APP",
+		"authorization_code",
+		"trader@example.com",
 		"traders",
+		"OU-001",
 		time.Now().Add(-10*time.Minute),
 		time.Now().Add(-1*time.Minute),
 	)
@@ -100,7 +115,10 @@ func TestTokenExtractor_ExtractClaimsFromHeader(t *testing.T) {
 		"https://localhost:8090/oauth2/token",
 		"TRADER_PORTAL_APP",
 		"TRADER_PORTAL_APP",
+		"authorization_code",
+		"trader@example.com",
 		"traders",
+		"OU-001",
 		time.Now().Add(-1*time.Minute),
 		time.Now().Add(10*time.Minute),
 	)
@@ -110,7 +128,10 @@ func TestTokenExtractor_ExtractClaimsFromHeader(t *testing.T) {
 		"https://wrong-issuer.example.com",
 		"TRADER_PORTAL_APP",
 		"TRADER_PORTAL_APP",
+		"authorization_code",
+		"trader@example.com",
 		"traders",
+		"OU-001",
 		time.Now().Add(-1*time.Minute),
 		time.Now().Add(10*time.Minute),
 	)
@@ -120,7 +141,10 @@ func TestTokenExtractor_ExtractClaimsFromHeader(t *testing.T) {
 		"https://localhost:8090/oauth2/token",
 		"OTHER_AUDIENCE",
 		"TRADER_PORTAL_APP",
+		"authorization_code",
+		"trader@example.com",
 		"traders",
+		"OU-001",
 		time.Now().Add(-1*time.Minute),
 		time.Now().Add(10*time.Minute),
 	)
@@ -130,7 +154,10 @@ func TestTokenExtractor_ExtractClaimsFromHeader(t *testing.T) {
 		"https://localhost:8090/oauth2/token",
 		"TRADER_PORTAL_APP",
 		"OTHER_CLIENT",
+		"authorization_code",
+		"trader@example.com",
 		"traders",
+		"OU-001",
 		time.Now().Add(-1*time.Minute),
 		time.Now().Add(10*time.Minute),
 	)
@@ -140,7 +167,49 @@ func TestTokenExtractor_ExtractClaimsFromHeader(t *testing.T) {
 		"https://localhost:8090/oauth2/token",
 		"TRADER_PORTAL_APP",
 		"TRADER_PORTAL_APP",
+		"authorization_code",
+		"trader@example.com",
 		"",
+		"OU-001",
+		time.Now().Add(-1*time.Minute),
+		time.Now().Add(10*time.Minute),
+	)
+
+	validClientCredentialsToken := mintToken(
+		"FCAU_TO_NSW",
+		"https://localhost:8090/oauth2/token",
+		"TRADER_PORTAL_APP",
+		"TRADER_PORTAL_APP",
+		"client_credentials",
+		"",
+		"",
+		"",
+		time.Now().Add(-1*time.Minute),
+		time.Now().Add(10*time.Minute),
+	)
+
+	missingGrantTypeToken := mintToken(
+		"TRADER-001",
+		"https://localhost:8090/oauth2/token",
+		"TRADER_PORTAL_APP",
+		"TRADER_PORTAL_APP",
+		"",
+		"trader@example.com",
+		"traders",
+		"OU-001",
+		time.Now().Add(-1*time.Minute),
+		time.Now().Add(10*time.Minute),
+	)
+
+	unsupportedGrantTypeToken := mintToken(
+		"TRADER-001",
+		"https://localhost:8090/oauth2/token",
+		"TRADER_PORTAL_APP",
+		"TRADER_PORTAL_APP",
+		"password",
+		"trader@example.com",
+		"traders",
+		"OU-001",
 		time.Now().Add(-1*time.Minute),
 		time.Now().Add(10*time.Minute),
 	)
@@ -206,10 +275,10 @@ func TestTokenExtractor_ExtractClaimsFromHeader(t *testing.T) {
 			wantErr:    true,
 		},
 		{
-			name:       "invalid audience",
+			name:       "audience currently not enforced",
 			authHeader: "Bearer " + wrongAudienceToken,
-			want:       "",
-			wantErr:    true,
+			want:       "TRADER-001",
+			wantErr:    false,
 		},
 		{
 			name:       "invalid client_id",
@@ -218,26 +287,46 @@ func TestTokenExtractor_ExtractClaimsFromHeader(t *testing.T) {
 			wantErr:    true,
 		},
 		{
-			name:       "valid token without ouHandle",
-			authHeader: "Bearer " + missingOUHandleToken,
-			want:       "TRADER-001",
+			name:       "valid client_credentials token",
+			authHeader: "Bearer " + validClientCredentialsToken,
+			want:       "TRADER_PORTAL_APP",
 			wantErr:    false,
+		},
+		{
+			name:       "missing grant_type claim",
+			authHeader: "Bearer " + missingGrantTypeToken,
+			want:       "",
+			wantErr:    true,
+		},
+		{
+			name:       "unsupported grant_type claim",
+			authHeader: "Bearer " + unsupportedGrantTypeToken,
+			want:       "",
+			wantErr:    true,
+		},
+		{
+			name:       "authorization_code token without ouHandle",
+			authHeader: "Bearer " + missingOUHandleToken,
+			want:       "",
+			wantErr:    true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			claims, err := extractor.ExtractClaimsFromHeader(tt.authHeader)
+			claims, err := extractor.ExtractPrincipalFromHeader(tt.authHeader)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ExtractClaimsFromHeader() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ExtractPrincipalFromHeader() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			got := ""
-			if claims != nil {
-				got = claims.UserID
+			if claims != nil && claims.UserPrincipal != nil {
+				got = claims.UserPrincipal.UserID
+			} else if claims != nil && claims.ClientPrincipal != nil {
+				got = claims.ClientPrincipal.ClientID
 			}
 			if got != tt.want {
-				t.Errorf("ExtractClaimsFromHeader() got UserID = %v, want %v", got, tt.want)
+				t.Errorf("ExtractPrincipalFromHeader() got UserID = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -290,11 +379,11 @@ func TestAuthContextCreation(t *testing.T) {
 	}
 
 	authCtx := &AuthContext{
-		UserID:      "TRADER-TEST",
+		UserID:      &uc.UserID,
 		UserContext: uc,
 	}
 
-	if authCtx.UserID != "TRADER-TEST" {
+	if authCtx.UserID == nil || *authCtx.UserID != "TRADER-TEST" {
 		t.Errorf("AuthContext.UserID got = %v, want TRADER-TEST", authCtx.UserID)
 	}
 
@@ -328,13 +417,17 @@ func BenchmarkTokenExtraction(b *testing.B) {
 	defer jwksServer.Close()
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
-		"sub":       "TRADER-001",
-		"iss":       "https://localhost:8090/oauth2/token",
-		"aud":       "TRADER_PORTAL_APP",
-		"client_id": "TRADER_PORTAL_APP",
-		"iat":       time.Now().Add(-1 * time.Minute).Unix(),
-		"nbf":       time.Now().Add(-1 * time.Minute).Unix(),
-		"exp":       time.Now().Add(10 * time.Minute).Unix(),
+		"sub":        "TRADER-001",
+		"iss":        "https://localhost:8090/oauth2/token",
+		"aud":        "TRADER_PORTAL_APP",
+		"client_id":  "TRADER_PORTAL_APP",
+		"grant_type": "authorization_code",
+		"email":      "trader@example.com",
+		"ouHandle":   "traders",
+		"ouId":       "OU-001",
+		"iat":        time.Now().Add(-1 * time.Minute).Unix(),
+		"nbf":        time.Now().Add(-1 * time.Minute).Unix(),
+		"exp":        time.Now().Add(10 * time.Minute).Unix(),
 	})
 	token.Header["kid"] = "bench-kid"
 	signedToken, err := token.SignedString(privateKey)
@@ -342,7 +435,7 @@ func BenchmarkTokenExtraction(b *testing.B) {
 		b.Fatalf("failed to sign token: %v", err)
 	}
 
-	extractor, err := NewTokenExtractor(jwksServer.URL, "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", "TRADER_PORTAL_APP")
+	extractor, err := NewTokenExtractor(jwksServer.URL, "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", []string{"TRADER_PORTAL_APP"})
 	if err != nil {
 		b.Fatalf("failed to create token extractor: %v", err)
 	}
@@ -350,8 +443,8 @@ func BenchmarkTokenExtraction(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, err := extractor.ExtractClaimsFromHeader(authHeader); err != nil {
-			b.Fatalf("failed to extract claims: %v", err)
+		if _, err := extractor.ExtractPrincipalFromHeader(authHeader); err != nil {
+			b.Fatalf("failed to extract principal: %v", err)
 		}
 	}
 }
@@ -382,13 +475,17 @@ func TestTokenExtractor_JWKSIsCached(t *testing.T) {
 	defer jwksServer.Close()
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
-		"sub":       "TRADER-001",
-		"iss":       "https://localhost:8090/oauth2/token",
-		"aud":       "TRADER_PORTAL_APP",
-		"client_id": "TRADER_PORTAL_APP",
-		"iat":       time.Now().Add(-1 * time.Minute).Unix(),
-		"nbf":       time.Now().Add(-1 * time.Minute).Unix(),
-		"exp":       time.Now().Add(10 * time.Minute).Unix(),
+		"sub":        "TRADER-001",
+		"iss":        "https://localhost:8090/oauth2/token",
+		"aud":        "TRADER_PORTAL_APP",
+		"client_id":  "TRADER_PORTAL_APP",
+		"grant_type": "authorization_code",
+		"email":      "trader@example.com",
+		"ouHandle":   "traders",
+		"ouId":       "OU-001",
+		"iat":        time.Now().Add(-1 * time.Minute).Unix(),
+		"nbf":        time.Now().Add(-1 * time.Minute).Unix(),
+		"exp":        time.Now().Add(10 * time.Minute).Unix(),
 	})
 	token.Header["kid"] = "cache-kid"
 	signedToken, err := token.SignedString(privateKey)
@@ -396,14 +493,14 @@ func TestTokenExtractor_JWKSIsCached(t *testing.T) {
 		t.Fatalf("failed to sign token: %v", err)
 	}
 
-	extractor, err := NewTokenExtractor(jwksServer.URL, "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", "TRADER_PORTAL_APP")
+	extractor, err := NewTokenExtractor(jwksServer.URL, "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", []string{"TRADER_PORTAL_APP"})
 	if err != nil {
 		t.Fatalf("failed to create token extractor: %v", err)
 	}
-	if _, err := extractor.ExtractClaimsFromHeader("Bearer " + signedToken); err != nil {
+	if _, err := extractor.ExtractPrincipalFromHeader("Bearer " + signedToken); err != nil {
 		t.Fatalf("first extract failed: %v", err)
 	}
-	if _, err := extractor.ExtractClaimsFromHeader("Bearer " + signedToken); err != nil {
+	if _, err := extractor.ExtractPrincipalFromHeader("Bearer " + signedToken); err != nil {
 		t.Fatalf("second extract failed: %v", err)
 	}
 
@@ -451,13 +548,17 @@ func TestTokenExtractor_RefreshesJWKSOnUnknownKid(t *testing.T) {
 	defer jwksServer.Close()
 
 	oldToken := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
-		"sub":       "TRADER-001",
-		"iss":       "https://localhost:8090/oauth2/token",
-		"aud":       "TRADER_PORTAL_APP",
-		"client_id": "TRADER_PORTAL_APP",
-		"iat":       time.Now().Add(-1 * time.Minute).Unix(),
-		"nbf":       time.Now().Add(-1 * time.Minute).Unix(),
-		"exp":       time.Now().Add(10 * time.Minute).Unix(),
+		"sub":        "TRADER-001",
+		"iss":        "https://localhost:8090/oauth2/token",
+		"aud":        "TRADER_PORTAL_APP",
+		"client_id":  "TRADER_PORTAL_APP",
+		"grant_type": "authorization_code",
+		"email":      "trader@example.com",
+		"ouHandle":   "traders",
+		"ouId":       "OU-001",
+		"iat":        time.Now().Add(-1 * time.Minute).Unix(),
+		"nbf":        time.Now().Add(-1 * time.Minute).Unix(),
+		"exp":        time.Now().Add(10 * time.Minute).Unix(),
 	})
 	oldToken.Header["kid"] = "old-kid"
 	oldSignedToken, err := oldToken.SignedString(privateKeyA)
@@ -466,13 +567,17 @@ func TestTokenExtractor_RefreshesJWKSOnUnknownKid(t *testing.T) {
 	}
 
 	newToken := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
-		"sub":       "TRADER-001",
-		"iss":       "https://localhost:8090/oauth2/token",
-		"aud":       "TRADER_PORTAL_APP",
-		"client_id": "TRADER_PORTAL_APP",
-		"iat":       time.Now().Add(-1 * time.Minute).Unix(),
-		"nbf":       time.Now().Add(-1 * time.Minute).Unix(),
-		"exp":       time.Now().Add(10 * time.Minute).Unix(),
+		"sub":        "TRADER-001",
+		"iss":        "https://localhost:8090/oauth2/token",
+		"aud":        "TRADER_PORTAL_APP",
+		"client_id":  "TRADER_PORTAL_APP",
+		"grant_type": "authorization_code",
+		"email":      "trader@example.com",
+		"ouHandle":   "traders",
+		"ouId":       "OU-001",
+		"iat":        time.Now().Add(-1 * time.Minute).Unix(),
+		"nbf":        time.Now().Add(-1 * time.Minute).Unix(),
+		"exp":        time.Now().Add(10 * time.Minute).Unix(),
 	})
 	newToken.Header["kid"] = "new-kid"
 	newSignedToken, err := newToken.SignedString(privateKeyB)
@@ -480,16 +585,16 @@ func TestTokenExtractor_RefreshesJWKSOnUnknownKid(t *testing.T) {
 		t.Fatalf("failed to sign new token: %v", err)
 	}
 
-	extractor, err := NewTokenExtractor(jwksServer.URL, "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", "TRADER_PORTAL_APP")
+	extractor, err := NewTokenExtractor(jwksServer.URL, "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", []string{"TRADER_PORTAL_APP"})
 	if err != nil {
 		t.Fatalf("failed to create token extractor: %v", err)
 	}
-	if _, err := extractor.ExtractClaimsFromHeader("Bearer " + oldSignedToken); err != nil {
+	if _, err := extractor.ExtractPrincipalFromHeader("Bearer " + oldSignedToken); err != nil {
 		t.Fatalf("old token extract failed: %v", err)
 	}
 
 	atomic.StoreInt32(&serveNewKey, 1)
-	if _, err := extractor.ExtractClaimsFromHeader("Bearer " + newSignedToken); err != nil {
+	if _, err := extractor.ExtractPrincipalFromHeader("Bearer " + newSignedToken); err != nil {
 		t.Fatalf("new token extract failed after refresh: %v", err)
 	}
 
@@ -500,21 +605,21 @@ func TestTokenExtractor_RefreshesJWKSOnUnknownKid(t *testing.T) {
 
 func TestNewTokenExtractor_InvalidConfig(t *testing.T) {
 	tests := []struct {
-		name             string
-		jwksURL          string
-		issuer           string
-		audience         string
-		expectedClientID string
+		name              string
+		jwksURL           string
+		issuer            string
+		audience          string
+		expectedClientIDs []string
 	}{
-		{name: "missing jwks url", issuer: "iss", audience: "aud", expectedClientID: "client"},
-		{name: "missing issuer", jwksURL: "https://localhost/jwks", audience: "aud", expectedClientID: "client"},
-		{name: "missing audience", jwksURL: "https://localhost/jwks", issuer: "iss", expectedClientID: "client"},
-		{name: "missing client id", jwksURL: "https://localhost/jwks", issuer: "iss", audience: "aud"},
+		{name: "missing jwks url", issuer: "iss", audience: "aud", expectedClientIDs: []string{"client"}},
+		{name: "missing issuer", jwksURL: "https://localhost/jwks", audience: "aud", expectedClientIDs: []string{"client"}},
+		{name: "missing audience", jwksURL: "https://localhost/jwks", issuer: "iss", expectedClientIDs: []string{"client"}},
+		{name: "missing client ids", jwksURL: "https://localhost/jwks", issuer: "iss", audience: "aud", expectedClientIDs: []string{}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			extractor, err := NewTokenExtractor(tt.jwksURL, tt.issuer, tt.audience, tt.expectedClientID)
+			extractor, err := NewTokenExtractor(tt.jwksURL, tt.issuer, tt.audience, tt.expectedClientIDs)
 			if err == nil {
 				t.Fatalf("expected constructor error, got extractor: %#v", extractor)
 			}

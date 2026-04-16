@@ -16,12 +16,16 @@ func (t *UserContext) TableName() string {
 }
 
 // AuthContext is the transient authentication context injected into each request
-// by the auth middleware. UserID is always set (from the JWT sub claim).
-// UserContext is nullable — CHAs and other non-trader roles may not have a DB entry.
+// by the auth middleware.
+// For user principals, UserID and identity fields are set.
+// For client principals (M2M), ClientID is set and UserID may be nil.
+// UserContext is nullable — users without a DB entry are allowed.
 type AuthContext struct {
-	UserID      string       `json:"userId"`
-	Email       string       `json:"email"`
-	OUHandle    string       `json:"ouHandle"`
+	UserID      *string      `json:"userId,omitempty"`
+	Email       *string      `json:"email,omitempty"`
+	OUHandle    *string      `json:"ouHandle,omitempty"`
+	OUID        *string      `json:"ouId,omitempty"`
+	ClientID    *string      `json:"clientId,omitempty"`
 	UserContext *UserContext `json:"userContext,omitempty"`
 }
 
@@ -44,7 +48,8 @@ type ContextKey string
 const AuthContextKey ContextKey = "authContext"
 
 // GetAuthContext extracts the AuthContext from a request context.
-// Returns nil if no auth context is available (request had no valid token).
+// Returns nil if no auth context is available (for example: public route,
+// missing auth header, or middleware not applied).
 //
 // Usage in handlers:
 //
