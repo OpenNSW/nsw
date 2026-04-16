@@ -29,12 +29,12 @@ func NewPreConsignmentRouter(pcs *service.PreConsignmentService) *PreConsignment
 func (r *PreConsignmentRouter) HandleGetTraderPreConsignments(w http.ResponseWriter, req *http.Request) {
 	// Require authentication
 	authCtx := auth.GetAuthContext(req.Context())
-	if authCtx == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	if authCtx == nil || authCtx.UserID == nil {
+		http.Error(w, "Unauthorized: Human context required", http.StatusUnauthorized)
 		return
 	}
 
-	traderID := authCtx.UserID
+	traderID := *authCtx.UserID
 
 	offset, limit, err := utils.ParsePaginationParams(req)
 	if err != nil {
@@ -60,8 +60,8 @@ func (r *PreConsignmentRouter) HandleGetTraderPreConsignments(w http.ResponseWri
 func (r *PreConsignmentRouter) HandleCreatePreConsignment(w http.ResponseWriter, req *http.Request) {
 	// Require authentication
 	authCtx := auth.GetAuthContext(req.Context())
-	if authCtx == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	if authCtx == nil || authCtx.UserID == nil {
+		http.Error(w, "Unauthorized: Human context required", http.StatusUnauthorized)
 		return
 	}
 
@@ -71,7 +71,7 @@ func (r *PreConsignmentRouter) HandleCreatePreConsignment(w http.ResponseWriter,
 		return
 	}
 
-	traderId := authCtx.UserID
+	traderId := *authCtx.UserID
 	traderContext, err := authCtx.GetUserContextMap()
 	if err != nil {
 		http.Error(w, "failed to parse trader context", http.StatusInternalServerError)
@@ -97,12 +97,12 @@ func (r *PreConsignmentRouter) HandleCreatePreConsignment(w http.ResponseWriter,
 func (r *PreConsignmentRouter) HandleGetPreConsignmentsByTraderID(w http.ResponseWriter, req *http.Request) {
 	// Require authentication
 	authCtx := auth.GetAuthContext(req.Context())
-	if authCtx == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	if authCtx == nil || authCtx.UserID == nil {
+		http.Error(w, "Unauthorized: Human context required", http.StatusUnauthorized)
 		return
 	}
 
-	traderID := authCtx.UserID
+	traderID := *authCtx.UserID
 
 	preConsignments, err := r.pcs.GetPreConsignmentsByTraderID(req.Context(), traderID)
 	if err != nil {

@@ -16,15 +16,19 @@ import (
 
 type tokenClaims struct {
 	jwt.RegisteredClaims
-	ClientID string `json:"client_id"`
-	Email    string `json:"email"`
-	OUHandle string `json:"ouHandle"`
+	ClientID string   `json:"client_id"`
+	Email    string   `json:"email"`
+	OUHandle string   `json:"ouHandle"`
+	Groups   []string `json:"groups"` // Assuming WSO2 sends this
 }
 
 type ExtractedClaims struct {
-	UserID   string `json:"userId"`
-	Email    string `json:"email"`
-	OUHandle string `json:"ouHandle"`
+	UserID   *string  `json:"userId"`
+	Email    string   `json:"email"`
+	OUHandle string   `json:"ouHandle"`
+	ClientID string   `json:"clientId"`
+	Groups   []string `json:"groups"`
+	IsM2M    bool     `json:"isM2M"`
 }
 
 type jwksResponse struct {
@@ -45,11 +49,12 @@ const defaultJWKSCacheTTL = 5 * time.Minute
 // TokenExtractor handles token extraction and parsing from HTTP headers.
 // It validates JWT signatures using JWKS and maps the `sub` claim to TraderID.
 type TokenExtractor struct {
-	jwksURL          string
-	issuer           string
-	audience         string
-	expectedClientID string
-	httpClient       *http.Client
+	jwksURL                  string
+	issuer                   string
+	audience                 string
+	expectedClientID         string
+	expectedInternalClientID string
+	httpClient               *http.Client
 
 	cacheMu       sync.RWMutex
 	cachedJWKS    *jwksResponse
@@ -57,13 +62,14 @@ type TokenExtractor struct {
 	jwksCacheTTL  time.Duration
 }
 
-func NewTokenExtractor(jwksURL, issuer, audience, expectedClientID string) (*TokenExtractor, error) {
+func NewTokenExtractor(jwksURL, issuer, audience, expectedClientID, expectedInternalClientID string) (*TokenExtractor, error) {
 	extractor := &TokenExtractor{
-		jwksURL:          strings.TrimSpace(jwksURL),
-		issuer:           strings.TrimSpace(issuer),
-		audience:         strings.TrimSpace(audience),
-		expectedClientID: strings.TrimSpace(expectedClientID),
-		jwksCacheTTL:     defaultJWKSCacheTTL,
+		jwksURL:                  strings.TrimSpace(jwksURL),
+		issuer:                   strings.TrimSpace(issuer),
+		audience:                 strings.TrimSpace(audience),
+		expectedClientID:         strings.TrimSpace(expectedClientID),
+		expectedInternalClientID: strings.TrimSpace(expectedInternalClientID),
+		jwksCacheTTL:             defaultJWKSCacheTTL,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -76,18 +82,19 @@ func NewTokenExtractor(jwksURL, issuer, audience, expectedClientID string) (*Tok
 	return extractor, nil
 }
 
-func NewTokenExtractorWithClient(jwksURL, issuer, audience, expectedClientID string, httpClient *http.Client) (*TokenExtractor, error) {
+func NewTokenExtractorWithClient(jwksURL, issuer, audience, expectedClientID, expectedInternalClientID string, httpClient *http.Client) (*TokenExtractor, error) {
 	if httpClient == nil {
-		return NewTokenExtractor(jwksURL, issuer, audience, expectedClientID)
+		return NewTokenExtractor(jwksURL, issuer, audience, expectedClientID, expectedInternalClientID)
 	}
 
 	extractor := &TokenExtractor{
-		jwksURL:          strings.TrimSpace(jwksURL),
-		issuer:           strings.TrimSpace(issuer),
-		audience:         strings.TrimSpace(audience),
-		expectedClientID: strings.TrimSpace(expectedClientID),
-		jwksCacheTTL:     defaultJWKSCacheTTL,
-		httpClient:       httpClient,
+		jwksURL:                  strings.TrimSpace(jwksURL),
+		issuer:                   strings.TrimSpace(issuer),
+		audience:                 strings.TrimSpace(audience),
+		expectedClientID:         strings.TrimSpace(expectedClientID),
+		expectedInternalClientID: strings.TrimSpace(expectedInternalClientID),
+		jwksCacheTTL:             defaultJWKSCacheTTL,
+		httpClient:               httpClient,
 	}
 
 	if err := extractor.validateConfig(); err != nil {
@@ -107,8 +114,8 @@ func (te *TokenExtractor) validateConfig() error {
 	if te.audience == "" {
 		return fmt.Errorf("audience is not configured")
 	}
-	if te.expectedClientID == "" {
-		return fmt.Errorf("client id is not configured")
+	if te.expectedClientID == "" && te.expectedInternalClientID == "" {
+		return fmt.Errorf("at least one client id must be configured")
 	}
 	if te.httpClient == nil {
 		return fmt.Errorf("http client is not configured")
@@ -147,26 +154,40 @@ func (te *TokenExtractor) ExtractClaimsFromHeader(authHeader string) (*Extracted
 		return nil, fmt.Errorf("invalid jwt token")
 	}
 
-	if claims.ExpiresAt == nil {
-		return nil, fmt.Errorf("jwt missing exp claim")
+	// Validate ClientID against whitelist, only allow non-empty expected IDs to match
+	isAuthorizedClient := (te.expectedClientID != "" && claims.ClientID == te.expectedClientID) ||
+		(te.expectedInternalClientID != "" && claims.ClientID == te.expectedInternalClientID)
+
+	if !isAuthorizedClient {
+		return nil, fmt.Errorf("unauthorized client: %s", claims.ClientID)
 	}
 
-	userID := strings.TrimSpace(claims.Subject)
-	if len(userID) == 0 {
-		return nil, fmt.Errorf("jwt missing sub claim")
+	// Detect M2M
+	// A token is M2M ONLY if it comes from the internal client and has a matching M2M subject pattern.
+	isM2M := false
+	if te.expectedInternalClientID != "" && claims.ClientID == te.expectedInternalClientID {
+		if claims.Subject == "" || claims.Subject == claims.ClientID || strings.HasPrefix(claims.Subject, claims.ClientID+"@") {
+			isM2M = true
+		}
 	}
 
-	if strings.TrimSpace(claims.ClientID) == "" {
-		return nil, fmt.Errorf("jwt missing client_id claim")
+	if !isM2M && claims.Subject == "" {
+		return nil, fmt.Errorf("missing 'sub' claim in human token")
 	}
-	if strings.TrimSpace(claims.ClientID) != te.expectedClientID {
-		return nil, fmt.Errorf("jwt client_id does not match expected client id")
+
+	var userID *string
+	if !isM2M {
+		sub := claims.Subject
+		userID = &sub
 	}
 
 	return &ExtractedClaims{
 		UserID:   userID,
 		Email:    strings.TrimSpace(claims.Email),
 		OUHandle: strings.TrimSpace(claims.OUHandle),
+		ClientID: claims.ClientID,
+		Groups:   claims.Groups,
+		IsM2M:    isM2M,
 	}, nil
 }
 

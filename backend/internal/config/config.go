@@ -62,12 +62,14 @@ type StorageConfig struct {
 	S3UseSSL       bool
 	S3PublicURL    string
 }
-
 type AuthConfig struct {
 	JWKSURL               string
 	Issuer                string
 	Audience              string
 	ClientID              string
+	InternalClientID      string
+	TraderGroup           string
+	CHAGroup              string
 	InsecureSkipTLSVerify bool
 }
 
@@ -129,6 +131,9 @@ func Load() (*Config, error) {
 			Issuer:                getEnvOrDefault("AUTH_ISSUER", "https://localhost:8090"),
 			Audience:              getEnvOrDefault("AUTH_AUDIENCE", "TRADER_PORTAL_APP"),
 			ClientID:              getEnvOrDefault("AUTH_CLIENT_ID", "TRADER_PORTAL_APP"),
+			InternalClientID:      getEnvOrDefault("AUTH_INTERNAL_CLIENT_ID", "OGA_M2M_APP"),
+			TraderGroup:           getEnvOrDefault("AUTH_TRADER_GROUP", "NSW_TRADER"),
+			CHAGroup:              getEnvOrDefault("AUTH_CHA_GROUP", "NSW_CHA"),
 			InsecureSkipTLSVerify: getBoolOrDefault("AUTH_JWKS_INSECURE_SKIP_VERIFY", defaultInsecureJWKS),
 		},
 		UseWorkflowManagerV2: getBoolOrDefault("USE_WORKFLOW_MANAGER_V2", false),

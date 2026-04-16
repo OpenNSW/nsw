@@ -20,7 +20,8 @@ func TestGetAuthContext_FromRequest(t *testing.T) {
 		UserID:      "TRADER-001",
 		UserContext: json.RawMessage(`{"test": "data"}`),
 	}
-	authCtx := &AuthContext{UserID: "TRADER-001", UserContext: uc}
+	userID := "TRADER-001"
+	authCtx := &AuthContext{UserID: &userID, UserContext: uc}
 	ctx := context.WithValue(context.Background(), AuthContextKey, authCtx)
 
 	// Retrieve context
@@ -29,8 +30,8 @@ func TestGetAuthContext_FromRequest(t *testing.T) {
 		t.Error("expected to retrieve auth context")
 		return
 	}
-	if retrieved.UserID != "TRADER-001" {
-		t.Errorf("got trader id %s, want TRADER-001", retrieved.UserID)
+	if retrieved.UserID == nil || *retrieved.UserID != "TRADER-001" {
+		t.Errorf("got trader id %v, want TRADER-001", retrieved.UserID)
 	}
 }
 
@@ -131,7 +132,7 @@ func TestAuthMiddleware_UninitializedDependencies(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	tokenExtractor, err := NewTokenExtractor("https://localhost:8090/oauth2/jwks", "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", "TRADER_PORTAL_APP")
+	tokenExtractor, err := NewTokenExtractor("https://localhost:8090/oauth2/jwks", "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", "TRADER_PORTAL_APP", "INTERNAL_CLIENT")
 	if err != nil {
 		t.Fatalf("failed to create token extractor: %v", err)
 	}
@@ -160,7 +161,7 @@ func TestAuthMiddleware_InvalidToken(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	tokenExtractor, err := NewTokenExtractor("https://localhost:8090/oauth2/jwks", "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", "TRADER_PORTAL_APP")
+	tokenExtractor, err := NewTokenExtractor("https://localhost:8090/oauth2/jwks", "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", "TRADER_PORTAL_APP", "INTERNAL_CLIENT")
 	if err != nil {
 		t.Fatalf("failed to create token extractor: %v", err)
 	}

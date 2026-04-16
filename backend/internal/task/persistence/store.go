@@ -38,6 +38,7 @@ type TaskStore struct {
 type TaskStoreInterface interface {
 	Create(*TaskInfo) error
 	GetByID(string) (*TaskInfo, error)
+	CheckOwnership(string, string) (bool, error)
 	UpdateStatus(string, *plugin.State) error
 	Update(*TaskInfo) error
 	Delete(string) error
@@ -70,6 +71,21 @@ func (s *TaskStore) GetByID(id string) (*TaskInfo, error) {
 		return nil, err
 	}
 	return &taskRecord, nil
+}
+
+// CheckOwnership verifies if a task belongs to a consignment owned by the requestor
+func (s *TaskStore) CheckOwnership(id string, requestorID string) (bool, error) {
+	var count int64
+	err := s.db.Table("task_infos").
+		Joins("JOIN consignments ON task_infos.workflow_id = consignments.id").
+		Where("task_infos.id = ?", id).
+		Where("(consignments.trader_id = ? OR consignments.cha_id = ?)", requestorID, requestorID).
+		Count(&count).Error
+
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 // UpdateStatus updates the status of a task execution
