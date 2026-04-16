@@ -244,6 +244,29 @@ func (h *OGAHandler) HandleGetUploadURL(w http.ResponseWriter, r *http.Request) 
 
 	WriteJSONResponse(w, http.StatusOK, map[string]any{
 		"download_url": downloadURL,
-		"expires_at":   time.Now().Add(15 * time.Minute).Unix(),
+		"expires_at":   time.Now().Add(DefaultPresignTTL).Unix(),
 	})
+}
+
+// HandleCreateUpload prepares an upload by requesting an upload URL from the main backend
+func (h *OGAHandler) HandleCreateUpload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		WriteJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	var body json.RawMessage
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		WriteJSONError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	result, err := h.service.CreateUploadURL(r.Context(), body)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "failed to create upload URL", "error", err)
+		WriteJSONError(w, http.StatusInternalServerError, "Failed to create upload URL")
+		return
+	}
+
+	WriteJSONResponse(w, http.StatusOK, result)
 }
