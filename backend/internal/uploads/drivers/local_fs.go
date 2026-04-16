@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -24,16 +26,18 @@ var (
 type LocalFSDriver struct {
 	BaseDir   string
 	PublicURL string
+	secretKey string
 }
 
 // NewLocalFSDriver creates a new LocalFSDriver.
 // baseDir is where files will be stored.
 // publicURL is the base URL used to generate public links (e.g., /api/uploads).
-func NewLocalFSDriver(baseDir, publicURL string) (*LocalFSDriver, error) {
+// secretKey is the secret used for HMAC signing of local-put upload URLs.
+func NewLocalFSDriver(baseDir, publicURL, secretKey string) (*LocalFSDriver, error) {
 	if err := os.MkdirAll(baseDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create base directory: %w", err)
 	}
-	return &LocalFSDriver{BaseDir: baseDir, PublicURL: publicURL}, nil
+	return &LocalFSDriver{BaseDir: baseDir, PublicURL: publicURL, secretKey: secretKey}, nil
 }
 
 // getHashedPath generates a two-level deep path for a key to avoid flat directory issues.
@@ -139,5 +143,49 @@ func (d *LocalFSDriver) GetDownloadURL(ctx context.Context, key string, ttl time
 	if d.PublicURL == "" {
 		return key, nil
 	}
-	return fmt.Sprintf("%s/api/v1/uploads/%s/content", d.PublicURL, key), nil
+
+	if ttl == 0 {
+		ttl = 15 * time.Minute
+	}
+	expiresAt := time.Now().Add(ttl).Unix()
+	token := GenerateDownloadToken(key, d.secretKey, expiresAt)
+
+	// Returns a URL with security token and expiration
+	v := url.Values{}
+	v.Set("token", token)
+	v.Set("expiresAt", strconv.FormatInt(expiresAt, 10))
+
+	return fmt.Sprintf("%s/api/v1/uploads/%s/content?%s", d.PublicURL, key, v.Encode()), nil
+}
+
+// VerifyDownloadToken checks if a provided download token is valid and not expired.
+func (d *LocalFSDriver) VerifyDownloadToken(key, token string, expiresAt int64) bool {
+	return VerifyDownloadToken(key, token, d.secretKey, expiresAt)
+}
+
+func (d *LocalFSDriver) GetUploadURL(ctx context.Context, key string, ttl time.Duration, contentType string, maxSizeBytes int64) (string, error) {
+	if d.PublicURL == "" {
+		return "", fmt.Errorf("public URL not configured for local storage")
+	}
+
+	if ttl == 0 {
+		ttl = 15 * time.Minute
+	}
+	expiresAt := time.Now().Add(ttl).Unix()
+	token := GenerateToken(key, d.secretKey, expiresAt, contentType, maxSizeBytes)
+
+	// Returns a URL pointing back to our local PUT handler with security constraints encoded
+	v := url.Values{}
+	v.Set("token", token)
+	v.Set("expiresAt", strconv.FormatInt(expiresAt, 10))
+	v.Set("contentType", contentType)
+	v.Set("maxSizeBytes", strconv.FormatInt(maxSizeBytes, 10))
+
+	return fmt.Sprintf("%s/api/v1/uploads/local-put/%s?%s",
+		d.PublicURL, key, v.Encode()), nil
+}
+
+// VerifyToken checks if a token is valid for a given key and constraints using the driver's secret.
+func (d *LocalFSDriver) VerifyToken(key, token string, expiresAt int64, contentType string, maxSizeBytes int64) bool {
+	return VerifyToken(key, token, d.secretKey, expiresAt, contentType, maxSizeBytes)
 }

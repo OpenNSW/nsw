@@ -29,19 +29,24 @@ paths:
       requestBody:
         required: true
         content:
-          multipart/form-data:
+          application/json:
             schema:
               type: object
               required:
-                - file
+                - filename
+                - mime_type
+                - size
               properties:
-                file:
+                filename:
                   type: string
-                  format: binary
-                  description: The file to upload
-            encoding:
-              file:
-                contentType: application/octet-stream
+                  description: The original filename
+                mime_type:
+                  type: string
+                  description: The MIME type of the file
+                size:
+                  type: integer
+                  format: int64
+                  description: The file size in bytes
       responses:
         "200":
           description: File uploaded successfully
@@ -53,9 +58,10 @@ paths:
                 id: "550e8400-e29b-41d4-a716-446655440000"
                 name: "document.pdf"
                 key: "550e8400-e29b-41d4-a716-446655440000.pdf"
-                url: "/bucket/550e8400-e29b-41d4-a716-446655440000.pdf"
+                url: "/api/v1/uploads/550e8400-e29b-41d4-a716-446655440000.pdf/content"
+                upload_url: "/api/v1/uploads/local-put/550e8400-e29b-41d4-a716-446655440000.pdf?token=..."
                 size: 1024000
-                mimeType: "application/pdf"
+                mime_type: "application/pdf"
         "400":
           description: Bad request - file is required or invalid
           content:
@@ -75,11 +81,10 @@ paths:
 
   /uploads/{key}:
     get:
-      summary: Download File
+      summary: Get File Download URL
       description: >
-        Download a previously uploaded file by its unique key.
-        Returns the file content with the appropriate content type.
-      operationId: downloadFile
+        Fetches a presigned or limited-time URL to securely download the file content.
+      operationId: getDownloadUrl
       tags:
         - Uploads
       parameters:
@@ -92,20 +97,20 @@ paths:
           example: "550e8400-e29b-41d4-a716-446655440000.pdf"
       responses:
         "200":
-          description: File retrieved successfully
+          description: Download URL generated successfully
           content:
-            application/octet-stream:
+            application/json:
               schema:
-                type: string
-                format: binary
-            application/pdf:
-              schema:
-                type: string
-                format: binary
-            image/*:
-              schema:
-                type: string
-                format: binary
+                type: object
+                properties:
+                  download_url:
+                    type: string
+                    description: The presigned URL to download the actual file contents
+                    example: "/api/v1/uploads/550e8400-e29b-41d4-a716-446655440000.pdf/content?token=12345&expiresAt=123"
+                  expires_at:
+                    type: integer
+                    description: Unix timestamp indicating when the link expires
+                    example: 1713256000
         "400":
           description: Bad request - key is required or invalid
           content:
@@ -168,11 +173,9 @@ components:
       type: object
       required:
         - id
-        - name
         - key
-        - url
         - size
-        - mimeType
+        - mime_type
       properties:
         id:
           type: string
@@ -190,13 +193,17 @@ components:
         url:
           type: string
           description: Public URL to access the file
-          example: "/bucket/550e8400-e29b-41d4-a716-446655440000.pdf"
+          example: "/api/v1/uploads/550e8400-e29b-41d4-a716-446655440000.pdf/content"
+        upload_url:
+          type: string
+          description: Presigned or local URL for uploading the file content
+          example: "/api/v1/uploads/local-put/550e8400-e29b-41d4-a716-446655440000.pdf?token=..."
         size:
           type: integer
           format: int64
           description: File size in bytes
           example: 1024000
-        mimeType:
+        mime_type:
           type: string
           description: MIME type of the uploaded file
           example: "application/pdf"

@@ -62,6 +62,7 @@ type StorageConfig struct {
 	S3SecretKey    string
 	S3UseSSL       bool
 	S3PublicURL    string
+	LocalPutSecret string
 }
 
 type AuthConfig struct {
@@ -133,6 +134,7 @@ func Load() (*Config, error) {
 			S3SecretKey:    os.Getenv("STORAGE_S3_SECRET_KEY"),
 			S3UseSSL:       getBoolOrDefault("STORAGE_S3_USE_SSL", true),
 			S3PublicURL:    os.Getenv("STORAGE_S3_PUBLIC_URL"),
+			LocalPutSecret: getEnvOrDefault("STORAGE_LOCAL_PUT_SECRET", "local-dev-secret"),
 		},
 		Auth: AuthConfig{
 			JWKSURL:               getEnvOrDefault("AUTH_JWKS_URL", "https://localhost:8090/oauth2/jwks"),
