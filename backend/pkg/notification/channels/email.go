@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sync"
 	texttemplate "text/template"
 	"time"
 
@@ -15,15 +16,23 @@ import (
 	"github.com/go-mail/mail/v2"
 )
 
+// cachedTemplate stores both text and HTML versions of a template.
+type cachedTemplate struct {
+	text *texttemplate.Template
+	html *template.Template
+}
+
 // EmailChannel implements notification.EmailChannel using SMTP.
 type EmailChannel struct {
 	config notification.EmailConfig
+	cache  sync.Map // map[string]*cachedTemplate
 }
 
 // NewEmailChannel creates a new email channel with the given configuration.
 func NewEmailChannel(config notification.EmailConfig) notification.EmailChannel {
 	return &EmailChannel{
 		config: config,
+		cache:  sync.Map{},
 	}
 }
 
@@ -91,41 +100,53 @@ func (e *EmailChannel) sendToRecipient(ctx context.Context, payload notification
 }
 
 func (e *EmailChannel) renderTemplate(templateID string, data map[string]interface{}) (subject, plainBody, htmlBody string, err error) {
-	templatePath := filepath.Join(e.config.TemplateRoot, templateID+".tmpl")
-	templateContent, err := os.ReadFile(templatePath)
-	if err != nil {
-		return "", "", "", fmt.Errorf("failed to read template file %s: %w", templatePath, err)
-	}
+	var ct *cachedTemplate
 
-	// Parse with text/template for subject and plain body (no HTML escaping)
-	textTmpl, err := texttemplate.New("email").Parse(string(templateContent))
-	if err != nil {
-		return "", "", "", fmt.Errorf("failed to parse text template: %w", err)
-	}
+	if val, ok := e.cache.Load(templateID); ok {
+		ct = val.(*cachedTemplate)
+	} else {
+		templatePath := filepath.Join(e.config.TemplateRoot, templateID+".tmpl")
+		templateContent, err := os.ReadFile(templatePath)
+		if err != nil {
+			return "", "", "", fmt.Errorf("failed to read template file %s: %w", templatePath, err)
+		}
 
-	// Parse with html/template for HTML body (with HTML escaping)
-	htmlTmpl, err := template.New("email").Parse(string(templateContent))
-	if err != nil {
-		return "", "", "", fmt.Errorf("failed to parse HTML template: %w", err)
+		// Parse with text/template for subject and plain body (no HTML escaping)
+		textTmpl, err := texttemplate.New("email").Parse(string(templateContent))
+		if err != nil {
+			return "", "", "", fmt.Errorf("failed to parse text template: %w", err)
+		}
+
+		// Parse with html/template for HTML body (with HTML escaping)
+		htmlTmpl, err := template.New("email").Parse(string(templateContent))
+		if err != nil {
+			return "", "", "", fmt.Errorf("failed to parse HTML template: %w", err)
+		}
+
+		ct = &cachedTemplate{
+			text: textTmpl,
+			html: htmlTmpl,
+		}
+		e.cache.Store(templateID, ct)
 	}
 
 	// Render subject with text template
 	subjectBuf := &bytes.Buffer{}
-	if err := textTmpl.ExecuteTemplate(subjectBuf, "subject", data); err != nil {
+	if err := ct.text.ExecuteTemplate(subjectBuf, "subject", data); err != nil {
 		return "", "", "", fmt.Errorf("failed to render subject: %w", err)
 	}
 	subject = subjectBuf.String()
 
 	// Render plain body with text template
 	plainBuf := &bytes.Buffer{}
-	if err := textTmpl.ExecuteTemplate(plainBuf, "plainBody", data); err != nil {
+	if err := ct.text.ExecuteTemplate(plainBuf, "plainBody", data); err != nil {
 		return "", "", "", fmt.Errorf("failed to render plainBody: %w", err)
 	}
 	plainBody = plainBuf.String()
 
 	// Render HTML body with HTML template
 	htmlBuf := &bytes.Buffer{}
-	if err := htmlTmpl.ExecuteTemplate(htmlBuf, "htmlBody", data); err != nil {
+	if err := ct.html.ExecuteTemplate(htmlBuf, "htmlBody", data); err != nil {
 		return "", "", "", fmt.Errorf("failed to render htmlBody: %w", err)
 	}
 	htmlBody = htmlBuf.String()
