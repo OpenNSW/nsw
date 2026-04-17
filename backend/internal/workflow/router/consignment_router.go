@@ -2,6 +2,7 @@ package router
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
 	"github.com/OpenNSW/nsw/utils"
+	"gorm.io/gorm"
 )
 
 type ConsignmentRouter struct {
@@ -29,6 +31,7 @@ func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *ht
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
+	defer func() { _ = r.Body.Close() }()
 
 	var req model.CreateConsignmentDTO
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -36,10 +39,15 @@ func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *ht
 		return
 	}
 
-	traderID := authCtx.UserID
+	if authCtx.UserID == nil {
+		http.Error(w, "User identity required", http.StatusForbidden)
+		return
+	}
+	traderID := *authCtx.UserID
 	// Stage 1: create shell only
 	consignment, err := c.cs.CreateConsignmentShell(r.Context(), req.Flow, req.ChaID, traderID)
 	if err != nil {
+		slog.Error("failed to create consignment shell", "error", err)
 		http.Error(w, "failed to create consignment: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -48,6 +56,7 @@ func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *ht
 	if err := json.NewEncoder(w).Encode(consignment); err != nil {
 		slog.Error("failed to encode response for consignment", "error", err)
 		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -91,26 +100,42 @@ func (c *ConsignmentRouter) HandleGetConsignments(w http.ResponseWriter, r *http
 	// Role-Based Identity Resolution
 	switch role {
 	case "cha":
-		cha, err := c.cha.GetCHAByEmail(ctx, authCtx.Email)
+		if authCtx.Email == nil {
+			http.Error(w, "Email is required in auth context", http.StatusBadRequest)
+			return
+		}
+		cha, err := c.cha.GetCHAByEmail(ctx, *authCtx.Email)
 		if err != nil {
-			http.Error(w, "failed to resolve default CHA profile", http.StatusForbidden)
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				http.Error(w, "CHA profile not found", http.StatusNotFound)
+				return
+			}
+			slog.Error("failed to retrieve CHA profile", "email", *authCtx.Email, "error", err)
+			http.Error(w, "failed to resolve default CHA profile", http.StatusInternalServerError)
 			return
 		}
 		filter.ChaID = &cha.ID
 	case "trader":
-		filter.TraderID = &authCtx.UserID
+		if authCtx.UserID == nil {
+			http.Error(w, "User ID is required in auth context", http.StatusBadRequest)
+			return
+		}
+		filter.TraderID = authCtx.UserID
 	default:
 		http.Error(w, "query param role must be trader or cha", http.StatusBadRequest)
 		return
 	}
 	consignments, err := c.cs.ListConsignments(ctx, filter)
 	if err != nil {
+		slog.Error("failed to retrieve consignments", "error", err)
 		http.Error(w, "failed to retrieve consignments", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(consignments); err != nil {
+		slog.Error("failed to encode response", "error", err)
 		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -122,6 +147,7 @@ func (c *ConsignmentRouter) HandleInitializeConsignment(w http.ResponseWriter, r
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
+	defer func() { _ = r.Body.Close() }()
 
 	consignmentIDStr := r.PathValue("id")
 	if consignmentIDStr == "" {
@@ -144,12 +170,14 @@ func (c *ConsignmentRouter) HandleInitializeConsignment(w http.ResponseWriter, r
 
 	globalContext, err := authCtx.GetUserContextMap()
 	if err != nil {
+		slog.Error("failed to parse user context", "error", err)
 		http.Error(w, "failed to parse user context", http.StatusInternalServerError)
 		return
 	}
 
 	consignment, err := c.cs.InitializeConsignmentByID(r.Context(), consignmentID, req.HSCodeIDs, globalContext)
 	if err != nil {
+		slog.Error("failed to initialize consignment", "error", err)
 		http.Error(w, "failed to initialize consignment: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -157,6 +185,7 @@ func (c *ConsignmentRouter) HandleInitializeConsignment(w http.ResponseWriter, r
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(consignment); err != nil {
+		slog.Error("failed to encode response", "error", err)
 		http.Error(w, "failed to encode response", http.StatusInternalServerError)
 		return
 	}
@@ -179,6 +208,7 @@ func (c *ConsignmentRouter) HandleGetConsignmentByID(w http.ResponseWriter, r *h
 	// Get consignment from service
 	consignment, err := c.cs.GetConsignmentByID(r.Context(), consignmentID)
 	if err != nil {
+		slog.Error("failed to retrieve consignment", "error", err)
 		http.Error(w, "failed to retrieve consignment: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -187,6 +217,7 @@ func (c *ConsignmentRouter) HandleGetConsignmentByID(w http.ResponseWriter, r *h
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(consignment); err != nil {
+		slog.Error("failed to encode response", "error", err)
 		http.Error(w, "failed to encode response", http.StatusInternalServerError)
 		return
 	}

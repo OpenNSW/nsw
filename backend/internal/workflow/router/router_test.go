@@ -151,7 +151,7 @@ func setupRouterTestDB(t *testing.T) (*gorm.DB, sqlmock.Sqlmock) {
 
 func withAuthContext(ctx context.Context, userID string) context.Context {
 	authCtx := &auth.AuthContext{
-		UserID: userID,
+		UserID: &userID,
 		UserContext: &auth.UserContext{
 			UserID:      userID,
 			UserContext: json.RawMessage(`{}`),
