@@ -1,0 +1,8 @@
+replicaCount: 2 
+
+config:
+  apiBaseUrl: "https://staging-nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"
+  idpBaseUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  idpClientId: "nsw-staging-client" 
+  appUrl: "https://staging-trader-app-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  showAutofillButton: "false"

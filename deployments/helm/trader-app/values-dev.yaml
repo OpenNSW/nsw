@@ -1,0 +1,7 @@
+fullnameOverride: "dev-trader-app"
+config:
+  apiBaseUrl: "https://dev-nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"
+  idpBaseUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  idpClientId: "TRADER_PORTAL_APP"
+  appUrl: "https://dev-trader-app-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  showAutofillButton: "true"
