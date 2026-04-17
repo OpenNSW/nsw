@@ -2,6 +2,7 @@ package router
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"github.com/OpenNSW/nsw/internal/auth"
@@ -34,7 +35,11 @@ func (r *PreConsignmentRouter) HandleGetTraderPreConsignments(w http.ResponseWri
 		return
 	}
 
-	traderID := authCtx.UserID
+	if authCtx.UserID == nil {
+		http.Error(w, "User identity required", http.StatusForbidden)
+		return
+	}
+	traderID := *authCtx.UserID
 
 	offset, limit, err := utils.ParsePaginationParams(req)
 	if err != nil {
@@ -44,6 +49,7 @@ func (r *PreConsignmentRouter) HandleGetTraderPreConsignments(w http.ResponseWri
 
 	templates, err := r.pcs.GetTraderPreConsignments(req.Context(), traderID, offset, limit)
 	if err != nil {
+		slog.Error("failed to retrieve pre-consignment templates", "error", err)
 		http.Error(w, "failed to retrieve pre-consignment templates: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -51,6 +57,7 @@ func (r *PreConsignmentRouter) HandleGetTraderPreConsignments(w http.ResponseWri
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(templates); err != nil {
+		slog.Error("failed to encode response", "error", err)
 		http.Error(w, "failed to encode response", http.StatusInternalServerError)
 		return
 	}
@@ -71,15 +78,21 @@ func (r *PreConsignmentRouter) HandleCreatePreConsignment(w http.ResponseWriter,
 		return
 	}
 
-	traderId := authCtx.UserID
+	if authCtx.UserID == nil {
+		http.Error(w, "User identity required", http.StatusForbidden)
+		return
+	}
+	traderId := *authCtx.UserID
 	traderContext, err := authCtx.GetUserContextMap()
 	if err != nil {
+		slog.Error("failed to parse user context", "error", err)
 		http.Error(w, "failed to parse trader context", http.StatusInternalServerError)
 		return
 	}
 
 	preConsignment, err := r.pcs.InitializePreConsignment(req.Context(), &createReq, traderId, traderContext)
 	if err != nil {
+		slog.Error("failed to create pre-consignment", "error", err)
 		http.Error(w, "failed to create pre-consignment: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -87,6 +100,7 @@ func (r *PreConsignmentRouter) HandleCreatePreConsignment(w http.ResponseWriter,
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(preConsignment); err != nil {
+		slog.Error("failed to encode response", "error", err)
 		http.Error(w, "failed to encode response", http.StatusInternalServerError)
 		return
 	}
@@ -102,10 +116,15 @@ func (r *PreConsignmentRouter) HandleGetPreConsignmentsByTraderID(w http.Respons
 		return
 	}
 
-	traderID := authCtx.UserID
+	if authCtx.UserID == nil {
+		http.Error(w, "User identity required", http.StatusForbidden)
+		return
+	}
+	traderID := *authCtx.UserID
 
 	preConsignments, err := r.pcs.GetPreConsignmentsByTraderID(req.Context(), traderID)
 	if err != nil {
+		slog.Error("failed to retrieve pre-consignments", "error", err)
 		http.Error(w, "failed to retrieve pre-consignments: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -113,6 +132,7 @@ func (r *PreConsignmentRouter) HandleGetPreConsignmentsByTraderID(w http.Respons
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(preConsignments); err != nil {
+		slog.Error("failed to encode response", "error", err)
 		http.Error(w, "failed to encode response", http.StatusInternalServerError)
 		return
 	}
@@ -130,6 +150,7 @@ func (r *PreConsignmentRouter) HandleGetPreConsignmentByID(w http.ResponseWriter
 
 	preConsignment, err := r.pcs.GetPreConsignmentByID(req.Context(), preConsignmentID)
 	if err != nil {
+		slog.Error("failed to retrieve pre-consignment", "error", err)
 		http.Error(w, "failed to retrieve pre-consignment: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -137,6 +158,7 @@ func (r *PreConsignmentRouter) HandleGetPreConsignmentByID(w http.ResponseWriter
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(preConsignment); err != nil {
+		slog.Error("failed to encode response", "error", err)
 		http.Error(w, "failed to encode response", http.StatusInternalServerError)
 		return
 	}
