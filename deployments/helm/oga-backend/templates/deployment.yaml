@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "oga-backend.fullname" . }}
+  labels:
+    {{- include "oga-backend.labels" . | nindent 4 }}
+spec:
+{{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount | default 1 }}
+{{- end }}
+  selector:
+    matchLabels:
+      {{- include "oga-backend.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "oga-backend.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml .Values.imagePullSecrets | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ if .Values.image }}{{ .Values.image.repository | default "ghcr.io/opennsw/oga-backend" }}{{ else }}ghcr.io/opennsw/oga-backend{{ end }}:{{ if .Values.image }}{{ .Values.image.tag | default .Chart.AppVersion }}{{ else }}{{ .Chart.AppVersion }}{{ end }}"
+          imagePullPolicy: {{ if .Values.image }}{{ .Values.image.pullPolicy | default "Always" }}{{ else }}Always{{ end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.config.port }}
+              protocol: TCP
+          env:
+            {{- if .Values.env }}
+            {{- toYaml .Values.env | nindent 12 }}
+            {{- end }}
+            - name: OGA_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.config.database.credentialsSecretName | default (printf "%s-db-credentials" .Release.Name) }}
+                  key: {{ .Values.config.database.userKey | default "user" }}
+            - name: OGA_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.config.database.credentialsSecretName | default (printf "%s-db-credentials" .Release.Name) }}
+                  key: password
+            - name: OGA_PORT
+              value: {{ .Values.config.port | default "8081" | quote }}
+            - name: OGA_DB_DRIVER
+              value: {{ .Values.config.database.driver | default "postgres" | quote }}
+            - name: OGA_DB_HOST
+              value: {{ .Values.config.database.host | default "nsw-db" | quote }}
+            - name: OGA_DB_PORT
+              value: {{ .Values.config.database.port | default "5432" | quote }}
+            - name: OGA_DB_NAME
+              value: {{ .Values.config.database.name | quote }}
+            - name: OGA_DB_SSLMODE
+              value: {{ .Values.config.database.sslMode | default "disable" | quote }}
+            - name: OGA_DEFAULT_FORM_ID
+              value: {{ .Values.config.defaultFormId | default "default" | quote }}
+            - name: OGA_ALLOWED_ORIGINS
+              value: {{ .Values.config.allowedOrigins | quote }}
+            - name: NSW_API_BASE_URL
+              value: {{ .Values.config.nswApiBaseUrl | quote }}
+            - name: USE_WORKFLOW_MANAGER_V2
+              value: {{ .Values.config.useWorkflowManagerV2 | default "true" | quote }}
+            - name: OGA_FORMS_PATH
+              value: "/opt/oga/data/forms"
+          volumeMounts:
+            - name: forms-volume
+              mountPath: /opt/oga/data/forms
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: forms-volume
+          configMap:
+            name: {{ .Release.Name }}-forms

@@ -249,7 +249,7 @@ services:
       dockerfile: apps/trader-app/Dockerfile
     image: nsw-trader-portal:local
     ports:
-      - "${TRADER_APP_PORT:-5173}:80"
+      - "${TRADER_APP_PORT:-5173}:8080"
     networks:
       - core-net
     environment:
@@ -316,7 +316,7 @@ services:
       dockerfile: apps/oga-app/Dockerfile
     image: nsw-oga-portal:local
     ports:
-      - "${OGA_APP_NPQS_PORT:-5174}:80"
+      - "${OGA_APP_NPQS_PORT:-5174}:8080"
     networks:
       - oga-npqs-net
     environment:
@@ -352,7 +352,7 @@ services:
   oga-portal-fcau:
     image: nsw-oga-portal:local
     ports:
-      - "${OGA_APP_FCAU_PORT:-5175}:80"
+      - "${OGA_APP_FCAU_PORT:-5175}:8080"
     networks:
       - oga-fcau-net
     depends_on:
@@ -390,7 +390,7 @@ services:
   oga-portal-ird:
     image: nsw-oga-portal:local
     ports:
-      - "${OGA_APP_IRD_PORT:-5176}:80"
+      - "${OGA_APP_IRD_PORT:-5176}:8080"
     networks:
       - oga-ird-net
     depends_on:
