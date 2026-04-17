@@ -76,5 +76,16 @@ func FormIDFromMeta(m *Meta) string {
 	if m == nil {
 		return ""
 	}
-	return m.VerificationType + ":" + m.VerificationId
+
+	// If TemplateKey is provided, use it directly as the form ID
+	if m.TemplateKey != "" {
+		return m.TemplateKey
+	}
+
+	// Otherwise, construct form ID from type and verificationId
+	if m.VerificationType != "" && m.VerificationId != "" {
+		return fmt.Sprintf("%s:%s", m.VerificationType, m.VerificationId)
+	}
+
+	return ""
 }
