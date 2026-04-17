@@ -89,6 +89,12 @@ docker run --rm --name nsw-oga-backend \
   -e OGA_PORT=8081 \
   -e OGA_DEFAULT_FORM_ID=default \
   -e OGA_ALLOWED_ORIGINS=http://localhost:5174,http://localhost:5175,http://localhost:5176 \
+  -e OGA_NSW_API_BASE_URL=http://backend:8080/api/v1 \
+  -e OGA_NSW_CLIENT_ID=IRD_TO_NSW \
+  -e OGA_NSW_CLIENT_SECRET=1234 \
+  -e OGA_NSW_TOKEN_URL=https://localhost:8090/oauth2/token \
+  -e OGA_NSW_SCOPES= \
+  -e OGA_NSW_TOKEN_INSECURE_SKIP_VERIFY=true \
   nsw-oga-backend:local
 ```
 
