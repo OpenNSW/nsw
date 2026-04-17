@@ -22,13 +22,17 @@ import (
 	"github.com/OpenNSW/nsw/internal/workflow/router"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
 
+	"github.com/OpenNSW/nsw/pkg/notification"
+	"github.com/OpenNSW/nsw/pkg/notification/channels"
+
 	"go.temporal.io/sdk/client"
 )
 
 // App contains initialized HTTP server and cleanup hooks.
 type App struct {
-	Server *http.Server
-	close  func() error
+	Server              *http.Server
+	NotificationManager *notification.Manager
+	close               func() error
 }
 
 // Close releases resources initialized during bootstrap.
@@ -212,6 +216,22 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("auth system health check failed: %w", err)
 	}
 
+	// Initialize notification manager
+	notificationManager := notification.NewManager()
+	emailChannel := channels.NewEmailChannel(notification.EmailConfig{
+		SMTPHost:     cfg.Notification.SMTPHost,
+		SMTPPort:     cfg.Notification.SMTPPort,
+		SMTPUsername: cfg.Notification.SMTPUsername,
+		SMTPPassword: cfg.Notification.SMTPPassword,
+		SMTPSender:   cfg.Notification.SMTPSender,
+		TemplateRoot: cfg.Notification.TemplateRoot,
+	})
+	notificationManager.RegisterEmailChannel(emailChannel)
+
+	// TODO: Add SMS channel if needed
+	// smsChannel := channels.NewSMSChannel(...)
+	// notificationManager.RegisterSMSChannel(smsChannel)
+
 	tmHandler := taskManager.NewHTTPHandler(tm)
 
 	// withAuth wraps an individual handler with the authentication middleware.
@@ -304,5 +324,9 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil
 	}
 
-	return &App{Server: server, close: closeFn}, nil
+	return &App{
+		Server:              server,
+		NotificationManager: notificationManager,
+		close:               closeFn,
+	}, nil
 }

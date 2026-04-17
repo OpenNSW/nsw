@@ -35,3 +35,13 @@ type EmailChannel interface {
 type SMSChannel interface {
 	Send(ctx context.Context, payload SMSPayload) map[string]error
 }
+
+// EmailConfig holds configuration for email channel.
+type EmailConfig struct {
+	SMTPHost     string
+	SMTPPort     int
+	SMTPUsername string
+	SMTPPassword string
+	SMTPSender   string
+	TemplateRoot string // Directory containing email templates
+}

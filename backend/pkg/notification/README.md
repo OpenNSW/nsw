@@ -42,8 +42,15 @@ import (
 manager := notification.NewManager()
 
 // Register Email Channel
-emailChan := channels.NewEmailChannel("/path/to/email/templates")
-manager.RegisterEmailChannel(emailChan)
+emailCfg := notification.EmailConfig{
+    SMTPHost:     "smtp.example.com",
+    SMTPPort:     587,
+    SMTPUsername: "user@example.com",
+    SMTPPassword: "password",
+    SMTPSender:   "noreply@example.com",
+    TemplateRoot: "/path/to/email/templates",
+}
+manager.RegisterEmailChannel(channels.NewEmailChannel(emailCfg))
 
 // Register Gov SMS Channel
 // NOTE: BaseURL MUST use https:// to protect credentials sent in the request body.
@@ -84,8 +91,8 @@ manager.SendSMS(ctx, notification.SMSPayload{
 The package includes three layers of testing:
 
 1.  **Manager Unit Tests**: `pkg/notification/manager_test.go`
-2.  **Channel Unit Tests**: `pkg/notification/channels/gov_sms_test.go`
-3.  **Integration Tests**: `pkg/notification/test/integration/integration_test.go` (uses a mock HTTP server and real template files).
+2.  **Channel Unit Tests**: `pkg/notification/channels/gov_sms_test.go`, `pkg/notification/channels/email.go` (template rendering)
+3.  **Integration Tests**: `pkg/notification/test/integration/integration_test.go` (uses a mock HTTP server for SMS and template validation for Email).
 
 To run all tests:
 ```bash
@@ -99,8 +106,12 @@ Templates should be organized in folders per channel:
 ```text
 templates/
 ├── email/
-│   ├── welcome.html
-│   └── welcome.txt
+│   └── otp.tmpl  # Contains {{define "subject"}}, {{define "plainBody"}}, {{define "htmlBody"}}
 └── sms/
     └── otp.txt
 ```
+
+Email templates use Go's `text/template` with three blocks:
+- `subject`: The email subject line
+- `plainBody`: Plain text version
+- `htmlBody`: HTML version

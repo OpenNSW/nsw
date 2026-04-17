@@ -16,6 +16,7 @@ type Config struct {
 	CORS                 CORSConfig
 	Storage              StorageConfig
 	Auth                 AuthConfig
+	Notification         NotificationConfig
 	UseWorkflowManagerV2 bool
 }
 
@@ -69,6 +70,15 @@ type AuthConfig struct {
 	Audience              string
 	ClientID              string
 	InsecureSkipTLSVerify bool
+}
+
+type NotificationConfig struct {
+	SMTPHost     string
+	SMTPPort     int
+	SMTPUsername string
+	SMTPPassword string
+	SMTPSender   string
+	TemplateRoot string
 }
 
 // Load reads configuration from environment variables
@@ -130,6 +140,14 @@ func Load() (*Config, error) {
 			Audience:              getEnvOrDefault("AUTH_AUDIENCE", "TRADER_PORTAL_APP"),
 			ClientID:              getEnvOrDefault("AUTH_CLIENT_ID", "TRADER_PORTAL_APP"),
 			InsecureSkipTLSVerify: getBoolOrDefault("AUTH_JWKS_INSECURE_SKIP_VERIFY", defaultInsecureJWKS),
+		},
+		Notification: NotificationConfig{
+			SMTPHost:     getEnvOrDefault("EMAIL_SMTP_HOST", "localhost"),
+			SMTPPort:     getIntOrDefault("EMAIL_SMTP_PORT", 587),
+			SMTPUsername: os.Getenv("EMAIL_SMTP_USERNAME"),
+			SMTPPassword: os.Getenv("EMAIL_SMTP_PASSWORD"),
+			SMTPSender:   getEnvOrDefault("EMAIL_SMTP_SENDER", "noreply@nsw.local"),
+			TemplateRoot: getEnvOrDefault("EMAIL_TEMPLATE_ROOT", "./configs/email-templates"),
 		},
 		UseWorkflowManagerV2: getBoolOrDefault("USE_WORKFLOW_MANAGER_V2", false),
 	}
