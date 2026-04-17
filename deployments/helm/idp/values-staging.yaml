@@ -1,0 +1,70 @@
+# Staging Overrides for idp-thunder umbrella
+global:
+  clusterDomain: "apps.sovecloud1.akaza.lk"
+  namespace: "national-single-window-platform"
+
+thunder:
+  configuration:
+    server:
+      publicUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"
+      httpOnly: true
+    gateClient:
+      hostname: "idp-thunder-service.national-single-window-platform.svc.cluster.local"
+      port: 8090
+      scheme: "http"
+
+    database:
+      config:
+        host: "nsw-db"
+        name: "configdb_staging"
+        username: "postgres"
+        password: "postgres"
+        sslmode: "disable"
+      runtime:
+        host: "nsw-db"
+        name: "runtimedb_staging"
+        username: "postgres"
+        password: "postgres"
+        sslmode: "disable"
+      user:
+        host: "nsw-db"
+        name: "userdb_staging"
+        username: "postgres"
+        password: "postgres"
+        sslmode: "disable"
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+  deployment:
+    securityContext:
+      readOnlyRootFilesystem: false
+      enableRunAsUser: false
+      enableRunAsGroup: false
+      enableFsGroup: false
+    image:
+      registry: "ghcr.io/opennsw"
+      repository: "idp"
+      tag: "latest"
+      pullPolicy: "Always"
+      imagePullSecret: "ghcr-secret"
+
+  setup:
+    enabled: true
+    backoffLimit: 10
+    preserveJob: true
+
+  ingress:
+    hostname: "idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"
+
+  cors:
+    allowedOrigins:
+      - "https://staging-trader-app-national-single-window-platform.apps.sovecloud1.akaza.lk"
+      - "https://staging-oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk"
+      - "https://staging-oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk"
+      - "https://staging-oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk"

@@ -1,0 +1,62 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: idp-sample-resources-seed
+  labels:
+    {{- include "idp-umbrella.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: seeder
+          image: "ghcr.io/opennsw/idp:latest"
+          imagePullPolicy: Always
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              echo "Waiting for identity provider to be ready..."
+              RETRIES=0
+              MAX_RETRIES=20
+              until curl -k -s -o /dev/null "${THUNDER_URL}/gate/signin" || [ $RETRIES -eq $MAX_RETRIES ]; do
+                echo "Still waiting... ($((RETRIES+1))/$MAX_RETRIES)"
+                sleep 10
+                RETRIES=$((RETRIES+1))
+              done
+              if [ $RETRIES -eq $MAX_RETRIES ]; then
+                  echo "Error: IDP did not become healthy in time."
+                  exit 1
+              fi
+              echo "IDP is healthy. Running sample resource seeding..."
+              bash /mnt/scripts/02-sample-resources.sh
+          env:
+            - name: THUNDER_URL
+              value: "http://idp-thunder-service.{{ .Release.Namespace }}.svc.cluster.local:8090"
+            - name: THUNDER_ADMIN_USERNAME
+              value: "admin"
+            - name: THUNDER_ADMIN_PASSWORD
+              value: {{ (.Values.seeding | default dict).adminPassword | required "seeding.adminPassword is required" | quote }}
+            - name: THUNDER_SAMPLE_USER_PASSWORD
+              value: {{ (.Values.seeding | default dict).sampleUserPassword | required "seeding.sampleUserPassword is required" | quote }}
+            - name: THUNDER_M2M_CLIENT_SECRET
+              value: {{ (.Values.seeding | default dict).m2mClientSecret | required "seeding.m2mClientSecret is required" | quote }}
+            - name: TRADER_APP_REDIRECT_DOMAIN
+              value: "{{ .Release.Name }}-trader-app-{{ .Release.Namespace }}.{{ .Values.global.clusterDomain }}"
+            - name: NPQS_APP_REDIRECT_DOMAIN
+              value: "{{ .Release.Name }}-oga-npqs-{{ .Release.Namespace }}.{{ .Values.global.clusterDomain }}"
+            - name: FCAU_APP_REDIRECT_DOMAIN
+              value: "{{ .Release.Name }}-oga-fcau-{{ .Release.Namespace }}.{{ .Values.global.clusterDomain }}"
+            - name: IRD_APP_REDIRECT_DOMAIN
+              value: "{{ .Release.Name }}-oga-ird-{{ .Release.Namespace }}.{{ .Values.global.clusterDomain }}"
+          volumeMounts:
+            - name: scripts
+              mountPath: /mnt/scripts
+      volumes:
+        - name: scripts
+          configMap:
+            name: idp-seeding-scripts
