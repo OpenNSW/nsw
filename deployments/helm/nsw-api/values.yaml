@@ -32,8 +32,12 @@ config:
   auth:
     jwksUrl: "https://idp-route.national-single-window-platform.lgc.gov.lk/oauth2/jwks"
     issuer: "https://idp-route.national-single-window-platform.lgc.gov.lk"
-    audience: "TRADER_PORTAL_APP"
-    clientId: "TRADER_PORTAL_APP"
+    audience: "NSW_API"
+    clientId:
+      - "TRADER_PORTAL_APP"
+      - "FCAU_TO_NSW"
+      - "NPQS_TO_NSW"
+      - "IRD_TO_NSW"
     insecureSkipTlsVerify: false
 
   serviceUrl: "https://nsw-api-national-single-window-platform.lgc.gov.lk"

@@ -27,11 +27,6 @@ func NewAuthService(db *gorm.DB) *AuthService {
 // 1. Database lookup of user context
 // 2. Handling not found errors gracefully
 // 3. Logging errors for debugging
-//
-// TODO_JWT_FUTURE: When JWT is implemented:
-// - This method will still be called the same way
-// - No changes needed here, token verification happens in token_parser.go
-// - Consider caching user contexts for performance optimization
 func (as *AuthService) GetUserContext(userID string) (*UserContext, error) {
 	if userID == "" {
 		return nil, fmt.Errorf("user ID is empty")
@@ -63,7 +58,7 @@ func (as *AuthService) GetUserContext(userID string) (*UserContext, error) {
 //	newContext := json.RawMessage(`{"company": "Acme Inc", "role": "exporter"}`)
 //	err := authService.UpdateUserContext("TRADER-001", newContext)
 //
-// TODO_JWT_FUTURE: Consider adding:
+// TODO: Enhancements to consider:
 // - Audit logging for who/when/what changed
 // - Version tracking for user context changes
 // - Webhook notifications on context updates
@@ -82,7 +77,7 @@ func (as *AuthService) UpdateUserContext(userID string, ctx json.RawMessage) err
 
 	result := as.db.Model(&UserContext{}).
 		Where("user_id = ?", userID).
-		Update("user_context", ctx)
+		Update("nsw_data", ctx)
 	if result.Error != nil {
 		return fmt.Errorf("failed to update user context: %w", result.Error)
 	}
@@ -92,33 +87,72 @@ func (as *AuthService) UpdateUserContext(userID string, ctx json.RawMessage) err
 	return nil
 }
 
+type UpsertUserContextPayload struct {
+	Email    *string
+	OUHandle *string
+	OUID     *string
+	NSWData  json.RawMessage
+}
+
 // UpsertUserContext creates or updates the user context.
 // If the user doesn't exist, it will be created with the provided context.
 // If it exists, the context will be updated.
 //
 // This is useful for initialization or bulk operations.
 //
-// TODO_JWT_FUTURE: This method might be useful when:
-// - Receiving user context updates from external systems
+// TODO: This method might be useful when:
+// - Receiving user context updates from external Identity systems
 // - Initializing new users during registration
 // - Syncing with identity management systems
-func (as *AuthService) UpsertUserContext(userID string, ctx json.RawMessage) error {
+func (as *AuthService) UpsertUserContext(userID string, payload UpsertUserContextPayload) error {
 	if userID == "" {
 		return fmt.Errorf("user ID is empty")
 	}
-	if len(ctx) == 0 {
-		return fmt.Errorf("user context is empty")
+	defaultNSWData := json.RawMessage(`{}`)
+	if len(payload.NSWData) == 0 {
+		payload.NSWData = defaultNSWData
 	}
 
-	var jsonData interface{}
-	if err := json.Unmarshal(ctx, &jsonData); err != nil {
-		return fmt.Errorf("invalid JSON in user context: %w", err)
+	userContext, err := as.GetUserContext(userID)
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("failed to upsert user context: %w", err)
+		}
+
+		email := ""
+		if payload.Email != nil {
+			email = *payload.Email
+		}
+		ouHandle := ""
+		if payload.OUHandle != nil {
+			ouHandle = *payload.OUHandle
+		}
+		ouID := ""
+		if payload.OUID != nil {
+			ouID = *payload.OUID
+		}
+
+		userContext = &UserContext{
+			UserID:   userID,
+			Email:    email,
+			OUHandle: ouHandle,
+			OUID:     ouID,
+			NSWData:  payload.NSWData,
+		}
+	} else {
+		if payload.Email != nil {
+			userContext.Email = *payload.Email
+		}
+		if payload.OUHandle != nil {
+			userContext.OUHandle = *payload.OUHandle
+		}
+		if payload.OUID != nil {
+			userContext.OUID = *payload.OUID
+		}
+		userContext.NSWData = payload.NSWData
 	}
 
-	result := as.db.Save(&UserContext{
-		UserID:      userID,
-		UserContext: ctx,
-	})
+	result := as.db.Save(userContext)
 	if result.Error != nil {
 		return fmt.Errorf("failed to upsert user context: %w", result.Error)
 	}
