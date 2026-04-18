@@ -26,8 +26,9 @@ func NewConsignmentRouter(cs *service.ConsignmentService, cha *service.CHAServic
 // Stage 1 (two-stage): body { flow, chaId } → creates shell (INITIALIZED)
 // Legacy: body { flow, items } → creates and initializes workflow
 func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *http.Request) {
-	authCtx := auth.GetAuthContext(r.Context())
-	if authCtx == nil {
+	ctx := r.Context()
+	authCtx := auth.GetAuthContext(ctx)
+	if authCtx == nil || authCtx.User == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -39,11 +40,7 @@ func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *ht
 		return
 	}
 
-	if authCtx.UserID == nil {
-		http.Error(w, "User identity required", http.StatusForbidden)
-		return
-	}
-	traderID := *authCtx.UserID
+	traderID := authCtx.User.UserID
 	// Stage 1: create shell only
 	consignment, err := c.cs.CreateConsignmentShell(r.Context(), req.Flow, req.ChaID, traderID)
 	if err != nil {
@@ -67,7 +64,7 @@ func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *ht
 func (c *ConsignmentRouter) HandleGetConsignments(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	authCtx := auth.GetAuthContext(ctx)
-	if authCtx == nil {
+	if authCtx == nil || authCtx.User == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -100,27 +97,19 @@ func (c *ConsignmentRouter) HandleGetConsignments(w http.ResponseWriter, r *http
 	// Role-Based Identity Resolution
 	switch role {
 	case "cha":
-		if authCtx.Email == nil {
-			http.Error(w, "Email is required in auth context", http.StatusBadRequest)
-			return
-		}
-		cha, err := c.cha.GetCHAByEmail(ctx, *authCtx.Email)
+		cha, err := c.cha.GetCHAByEmail(ctx, authCtx.User.Email)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				http.Error(w, "CHA profile not found", http.StatusNotFound)
+				http.Error(w, "CHA profile not found", http.StatusForbidden)
 				return
 			}
-			slog.Error("failed to retrieve CHA profile", "email", *authCtx.Email, "error", err)
+			slog.Error("failed to retrieve CHA profile", "email", authCtx.User.Email, "error", err)
 			http.Error(w, "failed to resolve default CHA profile", http.StatusInternalServerError)
 			return
 		}
 		filter.ChaID = &cha.ID
 	case "trader":
-		if authCtx.UserID == nil {
-			http.Error(w, "User ID is required in auth context", http.StatusBadRequest)
-			return
-		}
-		filter.TraderID = authCtx.UserID
+		filter.TraderID = &authCtx.User.UserID
 	default:
 		http.Error(w, "query param role must be trader or cha", http.StatusBadRequest)
 		return
@@ -142,8 +131,9 @@ func (c *ConsignmentRouter) HandleGetConsignments(w http.ResponseWriter, r *http
 // HandleInitializeConsignment handles PUT /api/v1/consignments/{id} (Stage 2: CHA selects HS Codes).
 // Body: InitializeConsignmentDTO { hsCodeIds: []uuid }. Response: ConsignmentDetailDTO.
 func (c *ConsignmentRouter) HandleInitializeConsignment(w http.ResponseWriter, r *http.Request) {
-	authCtx := auth.GetAuthContext(r.Context())
-	if authCtx == nil {
+	ctx := r.Context()
+	authCtx := auth.GetAuthContext(ctx)
+	if authCtx == nil || authCtx.User == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -195,6 +185,12 @@ func (c *ConsignmentRouter) HandleInitializeConsignment(w http.ResponseWriter, r
 // Path param: id (required)
 // Response: ConsignmentDetailDTO
 func (c *ConsignmentRouter) HandleGetConsignmentByID(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	authCtx := auth.GetAuthContext(ctx)
+	if authCtx == nil || authCtx.User == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	// Extract consignment ID from path
 	consignmentIDStr := r.PathValue("id")
 	if consignmentIDStr == "" {

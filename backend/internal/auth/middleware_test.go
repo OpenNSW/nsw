@@ -15,8 +15,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func strPtr(s string) *string { return &s }
-
 // Note: These are integration test examples. To run them, you need:
 // 1. A test database instance (PostgreSQL)
 // 2. Mock database setup/teardown
@@ -26,10 +24,10 @@ func strPtr(s string) *string { return &s }
 func TestGetAuthContext_FromRequest(t *testing.T) {
 	// Create a context with auth
 	uc := &UserContext{
-		UserID:      "TRADER-001",
-		UserContext: json.RawMessage(`{"test": "data"}`),
+		UserID:  "TRADER-001",
+		NSWData: json.RawMessage(`{"test": "data"}`),
 	}
-	authCtx := &AuthContext{UserID: strPtr("TRADER-001"), UserContext: uc}
+	authCtx := &AuthContext{User: uc}
 	ctx := context.WithValue(context.Background(), AuthContextKey, authCtx)
 
 	// Retrieve context
@@ -38,8 +36,8 @@ func TestGetAuthContext_FromRequest(t *testing.T) {
 		t.Error("expected to retrieve auth context")
 		return
 	}
-	if retrieved.UserID == nil || *retrieved.UserID != "TRADER-001" {
-		t.Errorf("got trader id %v, want TRADER-001", retrieved.UserID)
+	if retrieved.User == nil || retrieved.User.UserID != "TRADER-001" {
+		t.Errorf("got trader id %v, want TRADER-001", retrieved.User)
 	}
 }
 
@@ -64,8 +62,8 @@ func TestUserContext_JSONUnmarshaling(t *testing.T) {
 	}`)
 
 	uc := &UserContext{
-		UserID:      "TRADER-001",
-		UserContext: contextJSON,
+		UserID:  "TRADER-001",
+		NSWData: contextJSON,
 	}
 
 	// Verify UserID is set
@@ -75,7 +73,7 @@ func TestUserContext_JSONUnmarshaling(t *testing.T) {
 
 	// Unmarshal the JSON data
 	var data map[string]interface{}
-	err := json.Unmarshal(uc.UserContext, &data)
+	err := json.Unmarshal(uc.NSWData, &data)
 	if err != nil {
 		t.Errorf("failed to unmarshal trader context: %v", err)
 	}
@@ -193,6 +191,7 @@ func TestAuthMiddleware_InvalidToken(t *testing.T) {
 
 func TestBuildAuthContext_UserPrincipalOnly(t *testing.T) {
 	principal := &Principal{
+		Type: UserPrincipalType,
 		UserPrincipal: &UserPrincipal{
 			UserID:   "TRADER-001",
 			Email:    "trader@example.com",
@@ -203,25 +202,26 @@ func TestBuildAuthContext_UserPrincipalOnly(t *testing.T) {
 
 	authCtx := buildAuthContext(principal)
 
-	if authCtx.UserID == nil || *authCtx.UserID != "TRADER-001" {
+	if authCtx.User == nil || authCtx.User.UserID != "TRADER-001" {
 		t.Fatalf("expected user id to be set from user principal")
 	}
-	if authCtx.ClientID != nil {
+	if authCtx.Client != nil {
 		t.Fatalf("expected client id to be nil when client principal is absent")
 	}
 }
 
 func TestBuildAuthContext_ClientPrincipalOnly(t *testing.T) {
 	principal := &Principal{
+		Type:            ClientPrincipalType,
 		ClientPrincipal: &ClientPrincipal{ClientID: "CLIENT-001"},
 	}
 
 	authCtx := buildAuthContext(principal)
 
-	if authCtx.ClientID == nil || *authCtx.ClientID != "CLIENT-001" {
+	if authCtx.Client == nil || authCtx.Client.ClientID != "CLIENT-001" {
 		t.Fatalf("expected client id to be set from client principal")
 	}
-	if authCtx.UserID != nil || authCtx.Email != nil || authCtx.OUHandle != nil || authCtx.OUID != nil {
+	if authCtx.User != nil {
 		t.Fatalf("expected user fields to be nil when user principal is absent")
 	}
 }
@@ -277,10 +277,10 @@ func TestAuthMiddleware_ValidClientCredentialsToken(t *testing.T) {
 		if authCtx == nil {
 			t.Fatalf("expected auth context")
 		}
-		if authCtx.ClientID == nil || *authCtx.ClientID != "TRADER_PORTAL_APP" {
-			t.Fatalf("expected client id TRADER_PORTAL_APP, got %v", authCtx.ClientID)
+		if authCtx.Client == nil || authCtx.Client.ClientID != "TRADER_PORTAL_APP" {
+			t.Fatalf("expected client id TRADER_PORTAL_APP, got %v", authCtx.Client)
 		}
-		if authCtx.UserID != nil {
+		if authCtx.User != nil {
 			t.Fatalf("expected user id to be nil for client principal")
 		}
 		w.WriteHeader(http.StatusOK)

@@ -318,8 +318,8 @@ func (s *PreConsignmentService) syncTraderContextToAuth(tx *gorm.DB, preConsignm
 			}
 
 			uc = auth.UserContext{
-				UserID:      preConsignment.TraderID,
-				UserContext: contextJSON,
+				UserID:  preConsignment.TraderID,
+				NSWData: contextJSON,
 			}
 
 			if err := tx.Create(&uc).Error; err != nil {
@@ -331,8 +331,8 @@ func (s *PreConsignmentService) syncTraderContextToAuth(tx *gorm.DB, preConsignm
 	}
 
 	var existingContext map[string]any
-	if len(uc.UserContext) > 0 {
-		if err := json.Unmarshal(uc.UserContext, &existingContext); err != nil {
+	if len(uc.NSWData) > 0 {
+		if err := json.Unmarshal(uc.NSWData, &existingContext); err != nil {
 			return fmt.Errorf("failed to unmarshal existing user context: %w", err)
 		}
 	} else {
@@ -348,7 +348,7 @@ func (s *PreConsignmentService) syncTraderContextToAuth(tx *gorm.DB, preConsignm
 		return fmt.Errorf("failed to marshal updated user context: %w", err)
 	}
 
-	uc.UserContext = updatedJSON
+	uc.NSWData = updatedJSON
 	if err := tx.Save(&uc).Error; err != nil {
 		return fmt.Errorf("failed to update user context: %w", err)
 	}

@@ -358,8 +358,8 @@ func TestUserContextModel(t *testing.T) {
 				t.Fatalf("failed to marshal test context: %v", err)
 			}
 			uc := &UserContext{
-				UserID:      tt.traderID,
-				UserContext: contextJSON,
+				UserID:  tt.traderID,
+				NSWData: contextJSON,
 			}
 
 			got := uc.TableName()
@@ -374,21 +374,20 @@ func TestUserContextModel(t *testing.T) {
 func TestAuthContextCreation(t *testing.T) {
 	contextJSON := json.RawMessage(`{"company": "Test Corp"}`)
 	uc := &UserContext{
-		UserID:      "TRADER-TEST",
-		UserContext: contextJSON,
+		UserID:  "TRADER-TEST",
+		NSWData: contextJSON,
 	}
 
 	authCtx := &AuthContext{
-		UserID:      &uc.UserID,
-		UserContext: uc,
+		User: uc,
 	}
 
-	if authCtx.UserID == nil || *authCtx.UserID != "TRADER-TEST" {
-		t.Errorf("AuthContext.UserID got = %v, want TRADER-TEST", authCtx.UserID)
+	if authCtx.User == nil || authCtx.User.UserID != "TRADER-TEST" {
+		t.Errorf("AuthContext.User.UserID got = %v, want TRADER-TEST", authCtx.User)
 	}
 
-	if string(authCtx.UserContext.UserContext) != `{"company": "Test Corp"}` {
-		t.Errorf("AuthContext.UserContext not preserved")
+	if string(authCtx.User.NSWData) != `{"company": "Test Corp"}` {
+		t.Errorf("AuthContext.User.NSWData not preserved")
 	}
 }
 
