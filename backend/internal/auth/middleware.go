@@ -17,7 +17,7 @@ import (
 // 4. Injects the auth context into the request
 //
 // If a user has no stored context, AuthContext is still injected
-// with UserContext = nil. Handlers must tolerate a nil UserContext.
+// with User.NSWData initialized to an empty object.
 //
 // Behavior summary:
 // - Missing Authorization header: request proceeds without auth context.
@@ -76,9 +76,21 @@ func Middleware(authService *AuthService, tokenExtractor *TokenExtractor) func(h
 				userCtx, err := authService.GetUserContext(principal.UserPrincipal.UserID)
 				if err != nil {
 					if errors.Is(err, gorm.ErrRecordNotFound) {
-						slog.Debug("no stored user context, proceeding with nil UserContext",
+						slog.Debug("no stored user context, creating default context",
 							"user_id", principal.UserPrincipal.UserID)
-						// TODO: Create new user context for the user and store it in the database for future requests
+						err = authService.UpsertUserContext(principal.UserPrincipal.UserID, UpsertUserContextPayload{
+							Email:    &principal.UserPrincipal.Email,
+							OUHandle: &principal.UserPrincipal.OUHandle,
+							OUID:     &principal.UserPrincipal.OUID,
+							NSWData:  []byte(`{}`),
+						})
+						if err != nil {
+							slog.Error("failed to create default user context", "user_id", principal.UserPrincipal.UserID, "error", err)
+							w.Header().Set("Content-Type", "application/json")
+							w.WriteHeader(http.StatusInternalServerError)
+							_, _ = w.Write([]byte(`{"error":"internal_server_error","message":"failed to initialize user context"}`))
+							return
+						}
 					} else {
 						slog.Error("failed to get user context from database", "user_id", principal.UserPrincipal.UserID, "error", err)
 						w.Header().Set("Content-Type", "application/json")
@@ -86,9 +98,15 @@ func Middleware(authService *AuthService, tokenExtractor *TokenExtractor) func(h
 						_, _ = w.Write([]byte(`{"error":"internal_server_error","message":"failed to retrieve user context"}`))
 						return
 					}
-				} else {
-					authCtx.UserContext = userCtx
+					userCtx = &UserContext{
+						UserID:   principal.UserPrincipal.UserID,
+						Email:    principal.UserPrincipal.Email,
+						OUHandle: principal.UserPrincipal.OUHandle,
+						OUID:     principal.UserPrincipal.OUID,
+						NSWData:  []byte(`{}`),
+					}
 				}
+				authCtx.User = userCtx
 			}
 			ctx := context.WithValue(r.Context(), AuthContextKey, authCtx)
 			next.ServeHTTP(w, r.WithContext(ctx))
@@ -97,20 +115,48 @@ func Middleware(authService *AuthService, tokenExtractor *TokenExtractor) func(h
 }
 
 func buildAuthContext(principal *Principal) *AuthContext {
-	authCtx := &AuthContext{}
-
-	if principal.UserPrincipal != nil {
-		authCtx.UserID = &principal.UserPrincipal.UserID
-		authCtx.Email = &principal.UserPrincipal.Email
-		authCtx.OUHandle = &principal.UserPrincipal.OUHandle
-		authCtx.OUID = &principal.UserPrincipal.OUID
+	if principal == nil {
+		return &AuthContext{}
 	}
 
-	if principal.ClientPrincipal != nil {
-		authCtx.ClientID = &principal.ClientPrincipal.ClientID
+	switch principal.Type {
+	case UserPrincipalType:
+		if principal.UserPrincipal == nil {
+			return &AuthContext{}
+		}
+		return &AuthContext{
+			User: &UserContext{
+				UserID:   principal.UserPrincipal.UserID,
+				Email:    principal.UserPrincipal.Email,
+				OUHandle: principal.UserPrincipal.OUHandle,
+				OUID:     principal.UserPrincipal.OUID,
+			},
+		}
+	case ClientPrincipalType:
+		if principal.ClientPrincipal == nil {
+			return &AuthContext{}
+		}
+		return &AuthContext{
+			Client: &ClientContext{ClientID: principal.ClientPrincipal.ClientID},
+		}
+	default:
+		if principal.UserPrincipal != nil {
+			return &AuthContext{
+				User: &UserContext{
+					UserID:   principal.UserPrincipal.UserID,
+					Email:    principal.UserPrincipal.Email,
+					OUHandle: principal.UserPrincipal.OUHandle,
+					OUID:     principal.UserPrincipal.OUID,
+				},
+			}
+		}
+		if principal.ClientPrincipal != nil {
+			return &AuthContext{
+				Client: &ClientContext{ClientID: principal.ClientPrincipal.ClientID},
+			}
+		}
+		return &AuthContext{}
 	}
-
-	return authCtx
 }
 
 // RequireAuth returns a middleware that requires authentication.

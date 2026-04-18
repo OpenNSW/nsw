@@ -151,10 +151,9 @@ func setupRouterTestDB(t *testing.T) (*gorm.DB, sqlmock.Sqlmock) {
 
 func withAuthContext(ctx context.Context, userID string) context.Context {
 	authCtx := &auth.AuthContext{
-		UserID: &userID,
-		UserContext: &auth.UserContext{
-			UserID:      userID,
-			UserContext: json.RawMessage(`{}`),
+		User: &auth.UserContext{
+			UserID:  userID,
+			NSWData: json.RawMessage(`{}`),
 		},
 	}
 	return context.WithValue(ctx, auth.AuthContextKey, authCtx)
@@ -176,6 +175,7 @@ func TestConsignmentRouter_HandleGetConsignmentByID(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/api/v1/consignments/"+consignmentID, nil)
 	req.SetPathValue("id", consignmentID)
+	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
 
 	w := httptest.NewRecorder()
 	r.HandleGetConsignmentByID(w, req)
@@ -280,6 +280,7 @@ func TestPreConsignmentRouter_HandleGetPreConsignmentByID(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/api/v1/pre-consignments/"+id, nil)
 	req.SetPathValue("preConsignmentId", id)
+	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
 	w := httptest.NewRecorder()
 	r.HandleGetPreConsignmentByID(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -379,6 +380,7 @@ func TestConsignmentRouter_HandleGetConsignmentByID_InvalidID(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/api/v1/consignments/invalid-uuid", nil)
 	req.SetPathValue("id", "invalid-uuid")
+	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
 	w := httptest.NewRecorder()
 	r.HandleGetConsignmentByID(w, req)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -408,6 +410,7 @@ func TestConsignmentRouter_HandleGetConsignmentByID_ServiceError(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/api/v1/consignments/"+id, nil)
 	req.SetPathValue("id", id)
+	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
 
 	w := httptest.NewRecorder()
 	r.HandleGetConsignmentByID(w, req)
@@ -486,6 +489,7 @@ func TestPreConsignmentRouter_HandleGetPreConsignmentByID_InvalidID(t *testing.T
 
 	req, _ := http.NewRequest("GET", "/api/v1/pre-consignments/invalid-uuid", nil)
 	req.SetPathValue("preConsignmentId", "invalid-uuid")
+	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
 	w := httptest.NewRecorder()
 	r.HandleGetPreConsignmentByID(w, req)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -500,6 +504,7 @@ func TestPreConsignmentRouter_HandleGetPreConsignmentByID_ServiceError(t *testin
 
 	req, _ := http.NewRequest("GET", "/api/v1/pre-consignments/"+id, nil)
 	req.SetPathValue("preConsignmentId", id)
+	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
 	w := httptest.NewRecorder()
 	r.HandleGetPreConsignmentByID(w, req)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)

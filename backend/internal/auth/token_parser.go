@@ -31,6 +31,13 @@ type tokenClaims struct {
 	OUID      *string          `json:"ouId,omitempty"`
 }
 
+type PrincipalType string
+
+const (
+	UserPrincipalType   PrincipalType = "user"
+	ClientPrincipalType PrincipalType = "client"
+)
+
 type ClientPrincipal struct {
 	ClientID string `json:"clientId"`
 }
@@ -43,6 +50,7 @@ type UserPrincipal struct {
 }
 
 type Principal struct {
+	Type            PrincipalType    `json:"type"`
 	UserPrincipal   *UserPrincipal   `json:"userPrincipal,omitempty"`
 	ClientPrincipal *ClientPrincipal `json:"clientPrincipal,omitempty"`
 }
@@ -66,11 +74,11 @@ const defaultJWKSCacheTTL = 5 * time.Minute
 // It validates JWT signatures using JWKS and resolves a user principal
 // or client principal based on grant type.
 type TokenExtractor struct {
-	jwksURL           string
-	issuer            string
-	audience          string
-	expectedClientIDs []string
-	httpClient        *http.Client
+	jwksURL      string
+	expIssuer    string
+	expAudience  string
+	expClientIDs []string
+	httpClient   *http.Client
 
 	cacheMu       sync.RWMutex
 	cachedJWKS    *jwksResponse
@@ -80,11 +88,11 @@ type TokenExtractor struct {
 
 func NewTokenExtractor(jwksURL, issuer, audience string, expectedClientIDs []string) (*TokenExtractor, error) {
 	extractor := &TokenExtractor{
-		jwksURL:           strings.TrimSpace(jwksURL),
-		issuer:            strings.TrimSpace(issuer),
-		audience:          strings.TrimSpace(audience),
-		expectedClientIDs: expectedClientIDs,
-		jwksCacheTTL:      defaultJWKSCacheTTL,
+		jwksURL:      strings.TrimSpace(jwksURL),
+		expIssuer:    strings.TrimSpace(issuer),
+		expAudience:  strings.TrimSpace(audience),
+		expClientIDs: expectedClientIDs,
+		jwksCacheTTL: defaultJWKSCacheTTL,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -103,12 +111,12 @@ func NewTokenExtractorWithClient(jwksURL, issuer, audience string, expectedClien
 	}
 
 	extractor := &TokenExtractor{
-		jwksURL:           strings.TrimSpace(jwksURL),
-		issuer:            strings.TrimSpace(issuer),
-		audience:          strings.TrimSpace(audience),
-		expectedClientIDs: expectedClientIDs,
-		jwksCacheTTL:      defaultJWKSCacheTTL,
-		httpClient:        httpClient,
+		jwksURL:      strings.TrimSpace(jwksURL),
+		expIssuer:    strings.TrimSpace(issuer),
+		expAudience:  strings.TrimSpace(audience),
+		expClientIDs: expectedClientIDs,
+		jwksCacheTTL: defaultJWKSCacheTTL,
+		httpClient:   httpClient,
 	}
 
 	if err := extractor.validateConfig(); err != nil {
@@ -122,13 +130,13 @@ func (te *TokenExtractor) validateConfig() error {
 	if te.jwksURL == "" {
 		return fmt.Errorf("jwks url is not configured")
 	}
-	if te.issuer == "" {
+	if te.expIssuer == "" {
 		return fmt.Errorf("issuer is not configured")
 	}
-	if te.audience == "" {
+	if te.expAudience == "" {
 		return fmt.Errorf("audience is not configured")
 	}
-	if len(te.expectedClientIDs) == 0 {
+	if len(te.expClientIDs) == 0 {
 		return fmt.Errorf("client ids are not configured")
 	}
 	if te.httpClient == nil {
@@ -158,7 +166,7 @@ func (te *TokenExtractor) ExtractPrincipalFromHeader(authHeader string) (*Princi
 	claims := &tokenClaims{}
 	parsedToken, err := jwt.ParseWithClaims(tokenString, claims, te.keyFunc,
 		jwt.WithValidMethods([]string{"RS256", "RS384", "RS512"}),
-		jwt.WithIssuer(te.issuer),
+		jwt.WithIssuer(te.expIssuer),
 		// jwt.WithAudience(te.audience), // TODO: Once Thunder(IdP) supports defining audience claim, add this validation back.
 		jwt.WithLeeway(30*time.Second),
 	)
@@ -176,7 +184,7 @@ func (te *TokenExtractor) ExtractPrincipalFromHeader(authHeader string) (*Princi
 	if claims.ClientID == "" {
 		return nil, fmt.Errorf("jwt missing client_id claim")
 	}
-	if !slices.Contains(te.expectedClientIDs, claims.ClientID) {
+	if !slices.Contains(te.expClientIDs, claims.ClientID) {
 		return nil, fmt.Errorf("unexpected client_id claim: %q", claims.ClientID)
 	}
 
@@ -186,13 +194,19 @@ func (te *TokenExtractor) ExtractPrincipalFromHeader(authHeader string) (*Princi
 		if err != nil {
 			return nil, err
 		}
-		return &Principal{UserPrincipal: userPrincipal}, nil
+		return &Principal{
+			Type:          UserPrincipalType,
+			UserPrincipal: userPrincipal,
+		}, nil
 	case ClientCredentialsGrant:
 		clientPrincipal, err := te.clientPrincipalFromClaims(claims)
 		if err != nil {
 			return nil, err
 		}
-		return &Principal{ClientPrincipal: clientPrincipal}, nil
+		return &Principal{
+			Type:            ClientPrincipalType,
+			ClientPrincipal: clientPrincipal,
+		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported grant type: %q", claims.GrantType)
 	}

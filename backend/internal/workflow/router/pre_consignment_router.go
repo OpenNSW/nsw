@@ -28,19 +28,14 @@ func NewPreConsignmentRouter(pcs *service.PreConsignmentService) *PreConsignment
 // Pagination query params: offset (optional), limit (optional)
 // Response: TraderPreConsignmentsResponseDTO
 func (r *PreConsignmentRouter) HandleGetTraderPreConsignments(w http.ResponseWriter, req *http.Request) {
-	// Require authentication
-	authCtx := auth.GetAuthContext(req.Context())
-	if authCtx == nil {
+	ctx := req.Context()
+	authCtx := auth.GetAuthContext(ctx)
+	if authCtx == nil || authCtx.User == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	if authCtx.UserID == nil {
-		http.Error(w, "User identity required", http.StatusForbidden)
-		return
-	}
-	traderID := *authCtx.UserID
-
+	traderID := authCtx.User.UserID
 	offset, limit, err := utils.ParsePaginationParams(req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -65,9 +60,9 @@ func (r *PreConsignmentRouter) HandleGetTraderPreConsignments(w http.ResponseWri
 
 // HandleCreatePreConsignment handles POST /api/v1/pre-consignments
 func (r *PreConsignmentRouter) HandleCreatePreConsignment(w http.ResponseWriter, req *http.Request) {
-	// Require authentication
-	authCtx := auth.GetAuthContext(req.Context())
-	if authCtx == nil {
+	ctx := req.Context()
+	authCtx := auth.GetAuthContext(ctx)
+	if authCtx == nil || authCtx.User == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -78,11 +73,7 @@ func (r *PreConsignmentRouter) HandleCreatePreConsignment(w http.ResponseWriter,
 		return
 	}
 
-	if authCtx.UserID == nil {
-		http.Error(w, "User identity required", http.StatusForbidden)
-		return
-	}
-	traderId := *authCtx.UserID
+	traderId := authCtx.User.UserID
 	traderContext, err := authCtx.GetUserContextMap()
 	if err != nil {
 		slog.Error("failed to parse user context", "error", err)
@@ -109,19 +100,14 @@ func (r *PreConsignmentRouter) HandleCreatePreConsignment(w http.ResponseWriter,
 // HandleGetPreConsignmentsByTraderID handles GET /api/v1/pre-consignments
 // Returns all pre-consignment instances for authenticated trader
 func (r *PreConsignmentRouter) HandleGetPreConsignmentsByTraderID(w http.ResponseWriter, req *http.Request) {
-	// Require authentication
-	authCtx := auth.GetAuthContext(req.Context())
-	if authCtx == nil {
+	ctx := req.Context()
+	authCtx := auth.GetAuthContext(ctx)
+	if authCtx == nil || authCtx.User == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	if authCtx.UserID == nil {
-		http.Error(w, "User identity required", http.StatusForbidden)
-		return
-	}
-	traderID := *authCtx.UserID
-
+	traderID := authCtx.User.UserID
 	preConsignments, err := r.pcs.GetPreConsignmentsByTraderID(req.Context(), traderID)
 	if err != nil {
 		slog.Error("failed to retrieve pre-consignments", "error", err)
@@ -140,6 +126,13 @@ func (r *PreConsignmentRouter) HandleGetPreConsignmentsByTraderID(w http.Respons
 
 // HandleGetPreConsignmentByID handles GET /api/v1/pre-consignments/{preConsignmentId}
 func (r *PreConsignmentRouter) HandleGetPreConsignmentByID(w http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+	authCtx := auth.GetAuthContext(ctx)
+	if authCtx == nil || authCtx.User == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	preConsignmentIDStr := req.PathValue("preConsignmentId")
 	if preConsignmentIDStr == "" {
 		http.Error(w, "pre-consignment ID is required", http.StatusBadRequest)
