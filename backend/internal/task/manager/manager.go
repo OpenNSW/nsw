@@ -62,11 +62,6 @@ type TaskManager interface {
 	ExecuteTask(ctx context.Context, req ExecuteTaskRequest) (*plugin.ExecutionResponse, error)
 	GetTaskRenderInfo(ctx context.Context, taskID string) (*plugin.ApiResponse, error)
 
-	// Used by Old WorkflowManager
-	// RegisterUpstreamCallback registers the callback used for task updates.
-	RegisterUpstreamCallback(callback WorkflowUpdateHandler)
-
-	// User by New WorkflowManager V2
 	// RegisterUpstreamDoneCallback registers the callback used when task is done.
 	RegisterUpstreamDoneCallback(callback WorkflowDoneHandler)
 	// RegisterUpstreamUpdateCallback registers the callback used when task state changes.
@@ -87,7 +82,6 @@ type taskManager struct {
 	workflowDoneHandler   WorkflowDoneHandler            // Handler used to notify Workflow Manager of task completions
 	containerCache        *containerCache                // LRU cache for active containers
 	containerBuildMu      sync.Mutex                     // Protects container creation to prevent duplicates
-	useWorkflowManagerV2  bool                           // Are we using the  workflow manager v2. This is a temporary flag during the migration.
 }
 
 // NewTaskManager creates a new TaskManager instance with persistence data store.
@@ -108,21 +102,12 @@ func NewTaskManager(db *gorm.DB, factory plugin.TaskFactory) (TaskManager, error
 }
 
 // RegisterUpstreamUpdateCallback registers the callback used for task updates.
-// TODO: delete this after the migration to the new WorkflowManager.
-func (tm *taskManager) RegisterUpstreamCallback(callback WorkflowUpdateHandler) {
-	tm.useWorkflowManagerV2 = false
-	tm.workflowUpdateHandler = callback
-}
-
-// RegisterUpstreamUpdateCallback registers the callback used for task updates.
 func (tm *taskManager) RegisterUpstreamUpdateCallback(callback WorkflowUpdateHandler) {
-	tm.useWorkflowManagerV2 = true
 	tm.workflowUpdateHandler = callback
 }
 
 // RegisterUpstreamDoneCallback registers the callback used for task completion notifications.
 func (tm *taskManager) RegisterUpstreamDoneCallback(callback WorkflowDoneHandler) {
-	tm.useWorkflowManagerV2 = true
 	tm.workflowDoneHandler = callback
 }
 
@@ -266,12 +251,8 @@ func (tm *taskManager) execute(ctx context.Context, activeTask *container.Contai
 	}
 
 	if result.NewState != nil {
-		if tm.useWorkflowManagerV2 {
-			if *result.NewState == plugin.Completed || *result.NewState == plugin.Failed {
-				tm.notifyWorkflowDoneHandler(ctx, activeTask.WorkflowID, activeTask.TaskID, result.Outputs)
-			} else {
-				tm.notifyWorkflowUpdateHandler(ctx, activeTask.TaskID, result.NewState, result.ExtendedState, result.Outputs, result.EmittedOutcome)
-			}
+		if *result.NewState == plugin.Completed || *result.NewState == plugin.Failed {
+			tm.notifyWorkflowDoneHandler(ctx, activeTask.WorkflowID, activeTask.TaskID, result.Outputs)
 		} else {
 			tm.notifyWorkflowUpdateHandler(ctx, activeTask.TaskID, result.NewState, result.ExtendedState, result.Outputs, result.EmittedOutcome)
 		}

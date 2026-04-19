@@ -12,8 +12,36 @@ import (
 	"github.com/stretchr/testify/mock"
 	"gorm.io/gorm"
 
+	taskManager "github.com/OpenNSW/nsw/internal/task/manager"
+	workflowManagerV1 "github.com/OpenNSW/nsw/internal/workflow/manager"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 )
+
+// MockWorkflowManager implements v1 workflow manager for pre-consignment tests.
+type MockWorkflowManager struct {
+	mock.Mock
+}
+
+func (m *MockWorkflowManager) StartWorkflowInstance(ctx context.Context, tx *gorm.DB, workflowID string, workflowTemplates []model.WorkflowTemplate, globalContext map[string]any, handler workflowManagerV1.WorkflowEventHandler) error {
+	args := m.Called(ctx, tx, workflowID, workflowTemplates, globalContext, handler)
+	return args.Error(0)
+}
+
+func (m *MockWorkflowManager) GetWorkflowInstance(ctx context.Context, workflowID string) (*model.Workflow, error) {
+	args := m.Called(ctx, workflowID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.Workflow), args.Error(1)
+}
+
+func (m *MockWorkflowManager) RegisterTaskHandler(_ workflowManagerV1.TaskInitHandler) error {
+	return nil
+}
+
+func (m *MockWorkflowManager) HandleTaskUpdate(_ context.Context, _ taskManager.WorkflowManagerNotification) error {
+	return nil
+}
 
 func TestPreConsignmentService_InitializePreConsignment(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
