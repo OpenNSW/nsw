@@ -11,13 +11,12 @@ import (
 
 // Config holds all configuration for the application
 type Config struct {
-	Database             DatabaseConfig
-	Server               ServerConfig
-	CORS                 CORSConfig
-	Storage              StorageConfig
-	Auth                 AuthConfig
-	Notification         NotificationConfig
-	UseWorkflowManagerV2 bool
+	Database     DatabaseConfig
+	Server       ServerConfig
+	CORS         CORSConfig
+	Storage      StorageConfig
+	Auth         AuthConfig
+	Notification NotificationConfig
 }
 
 // DatabaseConfig holds database connection configuration
@@ -149,7 +148,6 @@ func Load() (*Config, error) {
 			SMTPSender:   getEnvOrDefault("EMAIL_SMTP_SENDER", "noreply@nsw.local"),
 			TemplateRoot: getEnvOrDefault("EMAIL_TEMPLATE_ROOT", "./configs/email-templates"),
 		},
-		UseWorkflowManagerV2: getBoolOrDefault("USE_WORKFLOW_MANAGER_V2", false),
 	}
 
 	// Validate required fields

@@ -5,6 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="${ENV_FILE:-$ROOT_DIR/.env}"
 RUN_IDP=true
+RUN_TEMPORAL=true
 RUN_MIGRATIONS=true
 
 for arg in "$@"; do
@@ -18,9 +19,12 @@ for arg in "$@"; do
     --skip-migrations)
       RUN_MIGRATIONS=false
       ;;
+    --skip-temporal)
+      RUN_TEMPORAL=false
+      ;;
     *)
       echo "Unknown argument: $arg"
-      echo "Usage: ./start-dev.sh [--env-file=/path/to/.env] [--skip-idp] [--skip-migrations]"
+      echo "Usage: ./start-dev.sh [--env-file=/path/to/.env] [--skip-idp] [--skip-migrations] [--skip-temporal]"
       exit 1
       ;;
   esac
@@ -71,11 +75,7 @@ if [[ "$RUN_MIGRATIONS" == "true" ]]; then
   )
 fi
 
-# Use Workflow Manager V2 by default for development and testing. Set to 'false' if you want to use the old workflow manager.
-# TODO: Need to remove this flag and related code once Temporal Workflow Manager is fully adopted and tested.
-USE_WORKFLOW_MANAGER_V2="${USE_WORKFLOW_MANAGER_V2:-false}"
-
-if [[ "$USE_WORKFLOW_MANAGER_V2" == "true" ]]; then
+if [[ "$RUN_TEMPORAL" == "true" ]]; then
   echo "Starting Temporal Workflow Manager..."
   (
     cd "$ROOT_DIR/temporal"
@@ -164,7 +164,6 @@ start_service() {
 echo "Starting local development services (non-Docker)..."
 
 start_service "backend" "$ROOT_DIR/backend" env \
-  USE_WORKFLOW_MANAGER_V2="$USE_WORKFLOW_MANAGER_V2" \
   DB_HOST="$DB_HOST" \
   DB_PORT="$DB_PORT" \
   DB_NAME="$DB_NAME" \
