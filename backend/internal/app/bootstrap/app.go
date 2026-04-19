@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	workflowManagerV2 "github.com/OpenNSW/go-temporal-workflow"
+	workflowmanager "github.com/OpenNSW/go-temporal-workflow"
 
 	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/config"
@@ -18,7 +18,6 @@ import (
 	"github.com/OpenNSW/nsw/internal/task/plugin"
 	"github.com/OpenNSW/nsw/internal/uploads"
 	"github.com/OpenNSW/nsw/internal/uploads/drivers"
-	workflowManagerV1 "github.com/OpenNSW/nsw/internal/workflow/manager"
 	"github.com/OpenNSW/nsw/internal/workflow/router"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
 
@@ -59,13 +58,13 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-func setupWorkflowManagerV2(
+func setupWorkflowManager(
 	ctx context.Context,
-	cfg *config.Config,
+	_ *config.Config,
 	tm taskManager.TaskManager,
 	templateService *service.TemplateService,
-) (workflowManagerV2.TemporalManager, error) {
-	// 1. Connect to the local Temporal Server (Needed for Workflow Manager V2)
+) (workflowmanager.TemporalManager, error) {
+	// 1. Connect to the local Temporal Server (Needed for Workflow Manager Bridge)
 	c, err := client.Dial(client.Options{})
 	if err != nil {
 		return nil, fmt.Errorf("error creating temporal client: %w", err)
@@ -75,7 +74,7 @@ func setupWorkflowManagerV2(
 	// defer c.Close()
 
 	// 4. Define Handlers for Manager Bridge
-	activationHandler := func(payload workflowManagerV2.TaskPayload) error {
+	activationHandler := func(payload workflowmanager.TaskPayload) error {
 		template, err := templateService.GetWorkflowNodeTemplateByID(ctx, payload.TaskTemplateID)
 		if err != nil {
 			return fmt.Errorf("error getting workflow node template: %w", err)
@@ -107,7 +106,7 @@ func setupWorkflowManagerV2(
 	}
 
 	// 5. Initialize Manager
-	workflowManager := workflowManagerV2.NewTemporalManager(c, "INTERPRETER_TASK_QUEUE", activationHandler, completionHandler)
+	workflowManager := workflowmanager.NewTemporalManager(c, "INTERPRETER_TASK_QUEUE", activationHandler, completionHandler)
 
 	taskDoneWrapper := func(ctx context.Context, workflowID string, taskID string, outputs map[string]any) {
 		err := workflowManager.TaskDone(ctx, workflowID, "", taskID, outputs)
@@ -152,44 +151,18 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	chaService := service.NewCHAService(db)
 	hsCodeService := service.NewHSCodeService(db)
 
-	var consignmentRouter *router.ConsignmentRouter
-	var preConsignmentRouter *router.PreConsignmentRouter
-
-	var wmV2 workflowManagerV2.TemporalManager
-	if cfg.UseWorkflowManagerV2 {
-		// --- NEW WORKFLOW MANAGER CODE ---
-		var err error
-		wmV2, err = setupWorkflowManagerV2(ctx, cfg, tm, templateService)
-		if err != nil {
-			_ = database.Close(db)
-			return nil, fmt.Errorf("failed to create workflow manager v2: %w", err)
-		}
-
-		consignmentService := service.NewConsignmentService(db, templateService, nil, wmV2)
-		consignmentRouter = router.NewConsignmentRouter(consignmentService, chaService)
-
-		// TODO: Pre-Consignment is commented out in new workflow for now
-		// preConsignmentService := service.NewPreConsignmentService(db, templateService, wmV2)
-		// preConsignmentRouter = router.NewPreConsignmentRouter(preConsignmentService)
-		preConsignmentRouter = nil
-	} else {
-		// --- OLD WORKFLOW MANAGER CODE ---
-		nodeService := service.NewWorkflowNodeService(db)
-		wm := workflowManagerV1.NewManager(db, nodeService, templateService)
-
-		if err := WireManagers(wm, tm); err != nil {
-			_ = database.Close(db)
-			return nil, fmt.Errorf("failed to wire managers: %w", err)
-		}
-
-		// Note: The signature of NewConsignmentService might have changed to accept both managers
-		// We pass 'wm' in place of the v1 manager, and 'nil' for the v2 one.
-		consignmentService := service.NewConsignmentService(db, templateService, wm, nil)
-		preConsignmentService := service.NewPreConsignmentService(db, templateService, wm)
-
-		consignmentRouter = router.NewConsignmentRouter(consignmentService, chaService)
-		preConsignmentRouter = router.NewPreConsignmentRouter(preConsignmentService)
+	wm, err := setupWorkflowManager(ctx, cfg, tm, templateService)
+	if err != nil {
+		_ = database.Close(db)
+		return nil, fmt.Errorf("failed to create workflow manager: %w", err)
 	}
+
+	consignmentService := service.NewConsignmentService(db, templateService, wm)
+	consignmentRouter := router.NewConsignmentRouter(consignmentService, chaService)
+
+	// TODO: Pre-consignment wiring is intentionally disabled until it is migrated to Temporal.
+	// preConsignmentService := service.NewPreConsignmentService(db, templateService, wm)
+	// preConsignmentRouter := router.NewPreConsignmentRouter(preConsignmentService)
 
 	hsCodeRouter := router.NewHSCodeRouter(hsCodeService)
 	chaRouter := router.NewCHARouter(chaService)
@@ -267,7 +240,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		})
 	})
 
-	// v1 routes. Each handler is individually wrapped with auth,
+	// API v1 routes. Each handler is individually wrapped with auth,
 	// so public or differently-authenticated routes can be added
 	// alongside these without restructuring the mux.
 	mux.Handle("POST /api/v1/tasks", withAuth(http.HandlerFunc(tmHandler.HandleExecuteTask)))
@@ -278,11 +251,10 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	mux.Handle("GET /api/v1/consignments/{id}", withAuth(http.HandlerFunc(consignmentRouter.HandleGetConsignmentByID)))
 	mux.Handle("PUT /api/v1/consignments/{id}", withAuth(http.HandlerFunc(consignmentRouter.HandleInitializeConsignment)))
 	mux.Handle("GET /api/v1/consignments", withAuth(http.HandlerFunc(consignmentRouter.HandleGetConsignments)))
-	if !cfg.UseWorkflowManagerV2 {
-		mux.Handle("POST /api/v1/pre-consignments", withAuth(http.HandlerFunc(preConsignmentRouter.HandleCreatePreConsignment)))
-		mux.Handle("GET /api/v1/pre-consignments/{preConsignmentId}", withAuth(http.HandlerFunc(preConsignmentRouter.HandleGetPreConsignmentByID)))
-		mux.Handle("GET /api/v1/pre-consignments", withAuth(http.HandlerFunc(preConsignmentRouter.HandleGetTraderPreConsignments)))
-	}
+	// TODO: Add pre-consignment routes once migrated to Temporal.
+	// mux.Handle("POST /api/v1/pre-consignments", withAuth(http.HandlerFunc(preConsignmentRouter.HandleCreatePreConsignment)))
+	// mux.Handle("GET /api/v1/pre-consignments/{preConsignmentId}", withAuth(http.HandlerFunc(preConsignmentRouter.HandleGetPreConsignmentByID)))
+	// mux.Handle("GET /api/v1/pre-consignments", withAuth(http.HandlerFunc(preConsignmentRouter.HandleGetTraderPreConsignments)))
 	mux.Handle("POST /api/v1/uploads", withAuth(http.HandlerFunc(uploadHandler.Upload)))
 	mux.Handle("GET /api/v1/uploads/{key}", withAuth(http.HandlerFunc(uploadHandler.Download)))
 	mux.Handle("DELETE /api/v1/uploads/{key}", withAuth(http.HandlerFunc(uploadHandler.Delete)))
@@ -318,9 +290,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 			return fmt.Errorf("failed to close database: %w", dbErr)
 		}
 
-		if cfg.UseWorkflowManagerV2 {
-			wmV2.StopWorker()
-		}
+		wm.StopWorker()
 		return nil
 	}
 
