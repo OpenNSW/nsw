@@ -11,12 +11,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 
-	"github.com/OpenNSW/nsw/internal/config"
 	"github.com/OpenNSW/nsw/internal/uploads/drivers"
 )
 
 // NewStorageFromConfig creates a storage instance based on the provided configuration.
-func NewStorageFromConfig(ctx context.Context, cfg config.StorageConfig) (StorageDriver, error) {
+func NewStorageFromConfig(ctx context.Context, cfg Config) (StorageDriver, error) {
 	switch strings.TrimSpace(cfg.Type) {
 	case "local":
 		slog.Info("Initializing local storage", "dir", cfg.LocalBaseDir)

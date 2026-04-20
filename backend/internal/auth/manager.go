@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-
-	"github.com/OpenNSW/nsw/internal/config"
 )
 
 // Manager handles all authentication-related operations and middleware setup.
@@ -33,7 +31,7 @@ type Manager struct {
 //	handler := middleware.CORS(&cfg.CORS)(authManager.Middleware()(mux))
 //
 // This centralizes auth setup for token extraction, middleware, and user-context access.
-func NewManager(db *gorm.DB, authConfig config.AuthConfig) (*Manager, error) {
+func NewManager(db *gorm.DB, authConfig Config) (*Manager, error) {
 	slog.Info("initializing auth manager")
 
 	service := NewAuthService(db)

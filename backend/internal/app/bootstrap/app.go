@@ -127,7 +127,7 @@ func setupWorkflowManager(
 
 // Build initializes dependencies and returns a fully wired application server.
 func Build(ctx context.Context, cfg *config.Config) (*App, error) {
-	db, err := database.New(&cfg.Database)
+	db, err := database.New(cfg.Database)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
