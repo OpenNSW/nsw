@@ -32,8 +32,7 @@ func TestDownloadContent_LocalDriver_Success(t *testing.T) {
 	}
 
 	// Generate valid signed URL using the driver
-	ttl := 15 * time.Minute
-	downloadURL, err := driver.GetDownloadURL(ctx, key, ttl)
+	downloadURL, err := driver.GetDownloadURL(ctx, key)
 	if err != nil {
 		t.Fatalf("Failed to get download URL: %v", err)
 	}
@@ -246,7 +245,7 @@ func TestUploadContentLocal_Success(t *testing.T) {
 	contentType := "application/pdf"
 	maxSizeBytes := int64(32 << 20)
 
-	uploadURL, err := driver.GetUploadURL(context.Background(), key, 15*time.Minute, contentType, maxSizeBytes)
+	uploadURL, err := driver.GetUploadURL(context.Background(), key, contentType, maxSizeBytes)
 	if err != nil {
 		t.Fatalf("Failed to get upload URL: %v", err)
 	}

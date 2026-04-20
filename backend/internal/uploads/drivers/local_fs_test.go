@@ -55,7 +55,7 @@ func TestLocalFSDriver_DirectoryHashing(t *testing.T) {
 	}
 
 	// Verify GetDownloadURL: should be tokenized and include /uploads
-	url, err := driver.GetDownloadURL(ctx, key, 0)
+	url, err := driver.GetDownloadURL(ctx, key)
 	if err != nil {
 		t.Errorf("GetDownloadURL failed: %v", err)
 	}

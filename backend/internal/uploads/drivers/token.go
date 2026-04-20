@@ -5,7 +5,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"time"
 )
+
+// DefaultPresignTTL is the default time-to-live for presigned upload and download URLs.
+const DefaultPresignTTL = 15 * time.Minute
 
 // GenerateToken creates an HMAC-SHA256 token signing multiple constraints.
 func GenerateToken(key, secret string, expiresAt int64, contentType string, maxSizeBytes int64) string {

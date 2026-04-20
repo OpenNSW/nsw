@@ -22,7 +22,7 @@ type S3Driver struct {
 
 func NewS3Driver(client *s3.Client, bucket string, publicURL string, presignTTL time.Duration) *S3Driver {
 	if presignTTL == 0 {
-		presignTTL = 15 * time.Minute
+		presignTTL = DefaultPresignTTL
 	}
 	return &S3Driver{
 		Client:        client,
@@ -75,10 +75,8 @@ func (d *S3Driver) Delete(ctx context.Context, key string) error {
 }
 
 // presignGet returns a presigned GET URL for the key; used by both GenerateURL and GetDownloadURL.
-func (d *S3Driver) presignGet(ctx context.Context, key string, ttl time.Duration) (string, error) {
-	if ttl == 0 {
-		ttl = d.presignTTL
-	}
+func (d *S3Driver) presignGet(ctx context.Context, key string) (string, error) {
+	ttl := d.presignTTL
 	presignedReq, err := d.PresignClient.PresignGetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(d.Bucket),
 		Key:    aws.String(key),
@@ -89,18 +87,13 @@ func (d *S3Driver) presignGet(ctx context.Context, key string, ttl time.Duration
 	return presignedReq.URL, nil
 }
 
-func (d *S3Driver) GetDownloadURL(ctx context.Context, key string, ttl time.Duration) (string, error) {
-	if ttl == 0 {
-		ttl = d.presignTTL
-	}
-	return d.presignGet(ctx, key, ttl)
+func (d *S3Driver) GetDownloadURL(ctx context.Context, key string) (string, error) {
+	return d.presignGet(ctx, key)
 }
 
-func (d *S3Driver) GetUploadURL(ctx context.Context, key string, ttl time.Duration, contentType string, maxSizeBytes int64) (string, error) {
-	if ttl == 0 {
-		ttl = d.presignTTL
-	}
-
+// presignPut returns a presigned PUT URL for the key and constraints.
+func (d *S3Driver) presignPut(ctx context.Context, key, contentType string, maxSizeBytes int64) (string, error) {
+	ttl := d.presignTTL
 	presignedReq, err := d.PresignClient.PresignPutObject(ctx, &s3.PutObjectInput{
 		Bucket:        aws.String(d.Bucket),
 		Key:           aws.String(key),
@@ -112,4 +105,8 @@ func (d *S3Driver) GetUploadURL(ctx context.Context, key string, ttl time.Durati
 	}
 
 	return presignedReq.URL, nil
+}
+
+func (d *S3Driver) GetUploadURL(ctx context.Context, key string, contentType string, maxSizeBytes int64) (string, error) {
+	return d.presignPut(ctx, key, contentType, maxSizeBytes)
 }

@@ -40,7 +40,7 @@ func NewLocalFSDriver(baseDir, publicURL, secretKey string, presignTTL time.Dura
 		return nil, fmt.Errorf("failed to create base directory: %w", err)
 	}
 	if presignTTL == 0 {
-		presignTTL = 15 * time.Minute
+		presignTTL = DefaultPresignTTL
 	}
 	return &LocalFSDriver{BaseDir: baseDir, PublicURL: publicURL, secretKey: secretKey, presignTTL: presignTTL}, nil
 }
@@ -144,14 +144,12 @@ func (d *LocalFSDriver) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
-func (d *LocalFSDriver) GetDownloadURL(ctx context.Context, key string, ttl time.Duration) (string, error) {
+func (d *LocalFSDriver) GetDownloadURL(ctx context.Context, key string) (string, error) {
 	if d.PublicURL == "" {
 		return key, nil
 	}
 
-	if ttl == 0 {
-		ttl = d.presignTTL
-	}
+	ttl := d.presignTTL
 	expiresAt := time.Now().Add(ttl).Unix()
 	token := GenerateDownloadToken(key, d.secretKey, expiresAt)
 
@@ -168,14 +166,16 @@ func (d *LocalFSDriver) VerifyDownloadToken(key, token string, expiresAt int64) 
 	return VerifyDownloadToken(key, token, d.secretKey, expiresAt)
 }
 
-func (d *LocalFSDriver) GetUploadURL(ctx context.Context, key string, ttl time.Duration, contentType string, maxSizeBytes int64) (string, error) {
+// GetUploadURL returns a presigned URL pointing to a local PUT handler.
+// Note: This method does NOT create the file on disk. It only signs the security constraints
+// (key, expiration, size limit). The actual resource allocation (file creation) happens in
+// Save() when the PUT request is eventually processed, matching S3's deferred behavior.
+func (d *LocalFSDriver) GetUploadURL(ctx context.Context, key string, contentType string, maxSizeBytes int64) (string, error) {
 	if d.PublicURL == "" {
 		return "", fmt.Errorf("public URL not configured for local storage")
 	}
 
-	if ttl == 0 {
-		ttl = d.presignTTL
-	}
+	ttl := d.presignTTL
 	expiresAt := time.Now().Add(ttl).Unix()
 	token := GenerateToken(key, d.secretKey, expiresAt, contentType, maxSizeBytes)
 

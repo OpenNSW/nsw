@@ -116,8 +116,16 @@ func (h *HTTPHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Filename == "" || req.MimeType == "" || req.Size <= 0 {
-		writeJSONError(w, http.StatusBadRequest, "filename, mime_type, and size are required")
+	if req.Filename == "" {
+		writeJSONError(w, http.StatusBadRequest, "filename is required")
+		return
+	}
+	if req.MimeType == "" {
+		writeJSONError(w, http.StatusBadRequest, "mime_type is required")
+		return
+	}
+	if req.Size <= 0 {
+		writeJSONError(w, http.StatusBadRequest, "size must be greater than 0")
 		return
 	}
 
@@ -253,7 +261,7 @@ func (h *HTTPHandler) Download(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	url, err := h.Service.GetDownloadURL(r.Context(), key, 15*time.Minute)
+	url, err := h.Service.GetDownloadURL(r.Context(), key)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "Failed to generate download URL", "key", key, "error", err)
 		writeJSONError(w, http.StatusInternalServerError, "failed to generate access")
@@ -263,7 +271,7 @@ func (h *HTTPHandler) Download(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]any{
 		"download_url": url,
-		"expires_at":   time.Now().Add(15 * time.Minute).Unix(),
+		"expires_at":   time.Now().Add(drivers.DefaultPresignTTL).Unix(),
 	}); err != nil {
 		slog.ErrorContext(r.Context(), "Failed to encode response", "error", err)
 	}

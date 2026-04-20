@@ -3,7 +3,6 @@ package uploads
 import (
 	"context"
 	"io"
-	"time"
 )
 
 // StorageDriver defines how we interact with the binary storage
@@ -18,8 +17,8 @@ type StorageDriver interface {
 	Delete(ctx context.Context, key string) error
 
 	// GetDownloadURL returns a presigned or time-limited URL for downloading
-	GetDownloadURL(ctx context.Context, key string, ttl time.Duration) (string, error)
+	GetDownloadURL(ctx context.Context, key string) (string, error)
 
 	// GetUploadURL returns a presigned URL for uploading a file directly to storage
-	GetUploadURL(ctx context.Context, key string, ttl time.Duration, contentType string, maxSizeBytes int64) (string, error)
+	GetUploadURL(ctx context.Context, key string, contentType string, maxSizeBytes int64) (string, error)
 }
