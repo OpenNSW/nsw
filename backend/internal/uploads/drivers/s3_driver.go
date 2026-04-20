@@ -17,14 +17,19 @@ type S3Driver struct {
 	PresignClient *s3.PresignClient
 	Bucket        string
 	PublicURL     string // Optional: Base URL if files are public
+	presignTTL    time.Duration
 }
 
-func NewS3Driver(client *s3.Client, bucket string, publicURL string) *S3Driver {
+func NewS3Driver(client *s3.Client, bucket string, publicURL string, presignTTL time.Duration) *S3Driver {
+	if presignTTL == 0 {
+		presignTTL = DefaultPresignTTL
+	}
 	return &S3Driver{
 		Client:        client,
 		PresignClient: s3.NewPresignClient(client),
 		Bucket:        bucket,
 		PublicURL:     publicURL,
+		presignTTL:    presignTTL,
 	}
 }
 
@@ -50,7 +55,7 @@ func (d *S3Driver) Get(ctx context.Context, key string) (io.ReadCloser, string, 
 		return nil, "", fmt.Errorf("failed to get from S3: %w", err)
 	}
 
-	contentType := "application/octet-stream"
+	contentType := DefaultMime
 	if resp.ContentType != nil {
 		contentType = *resp.ContentType
 	}
@@ -70,10 +75,8 @@ func (d *S3Driver) Delete(ctx context.Context, key string) error {
 }
 
 // presignGet returns a presigned GET URL for the key; used by both GenerateURL and GetDownloadURL.
-func (d *S3Driver) presignGet(ctx context.Context, key string, ttl time.Duration) (string, error) {
-	if ttl == 0 {
-		ttl = time.Hour
-	}
+func (d *S3Driver) presignGet(ctx context.Context, key string) (string, error) {
+	ttl := d.presignTTL
 	presignedReq, err := d.PresignClient.PresignGetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(d.Bucket),
 		Key:    aws.String(key),
@@ -84,9 +87,26 @@ func (d *S3Driver) presignGet(ctx context.Context, key string, ttl time.Duration
 	return presignedReq.URL, nil
 }
 
-func (d *S3Driver) GetDownloadURL(ctx context.Context, key string, ttl time.Duration) (string, error) {
-	if ttl == 0 {
-		ttl = 15 * time.Minute
+func (d *S3Driver) GetDownloadURL(ctx context.Context, key string) (string, error) {
+	return d.presignGet(ctx, key)
+}
+
+// presignPut returns a presigned PUT URL for the key and constraints.
+func (d *S3Driver) presignPut(ctx context.Context, key, contentType string, maxSizeBytes int64) (string, error) {
+	ttl := d.presignTTL
+	presignedReq, err := d.PresignClient.PresignPutObject(ctx, &s3.PutObjectInput{
+		Bucket:        aws.String(d.Bucket),
+		Key:           aws.String(key),
+		ContentType:   aws.String(contentType),
+		ContentLength: aws.Int64(maxSizeBytes),
+	}, s3.WithPresignExpires(ttl))
+	if err != nil {
+		return "", fmt.Errorf("failed to presign upload URL: %w", err)
 	}
-	return d.presignGet(ctx, key, ttl)
+
+	return presignedReq.URL, nil
+}
+
+func (d *S3Driver) GetUploadURL(ctx context.Context, key string, contentType string, maxSizeBytes int64) (string, error) {
+	return d.presignPut(ctx, key, contentType, maxSizeBytes)
 }

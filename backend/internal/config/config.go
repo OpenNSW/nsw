@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Config holds all configuration for the application
@@ -62,6 +63,8 @@ type StorageConfig struct {
 	S3SecretKey    string
 	S3UseSSL       bool
 	S3PublicURL    string
+	LocalPutSecret string
+	PresignTTL     time.Duration
 }
 
 type AuthConfig struct {
@@ -133,6 +136,8 @@ func Load() (*Config, error) {
 			S3SecretKey:    os.Getenv("STORAGE_S3_SECRET_KEY"),
 			S3UseSSL:       getBoolOrDefault("STORAGE_S3_USE_SSL", true),
 			S3PublicURL:    os.Getenv("STORAGE_S3_PUBLIC_URL"),
+			LocalPutSecret: getEnvOrDefault("STORAGE_LOCAL_PUT_SECRET", "local-dev-secret"),
+			PresignTTL:     parseDurationOrDefault(getEnvOrDefault("STORAGE_PRESIGN_TTL", "15m"), 15*time.Minute),
 		},
 		Auth: AuthConfig{
 			JWKSURL:               getEnvOrDefault("AUTH_JWKS_URL", "https://localhost:8090/oauth2/jwks"),
@@ -246,6 +251,16 @@ func getBoolOrDefault(key string, defaultValue bool) bool {
 // getDefaultInsecureJWKS returns true if the JWKS URL is a localhost URL, indicating that TLS verification can be skipped in development
 func getDefaultInsecureJWKS(jwksURL string) bool {
 	return strings.HasPrefix(jwksURL, "https://localhost") || strings.HasPrefix(jwksURL, "https://127.0.0.1")
+}
+
+// parseDurationOrDefault returns the time.Duration value of a string or a default value
+func parseDurationOrDefault(value string, defaultValue time.Duration) time.Duration {
+	if value != "" {
+		if d, err := time.ParseDuration(value); err == nil {
+			return d
+		}
+	}
+	return defaultValue
 }
 
 // parseCommaSeparated splits a comma-separated string into a slice of trimmed strings

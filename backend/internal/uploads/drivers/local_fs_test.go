@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestLocalFSDriver_DirectoryHashing(t *testing.T) {
@@ -19,7 +20,7 @@ func TestLocalFSDriver_DirectoryHashing(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	driver, err := NewLocalFSDriver(tempDir, "/uploads")
+	driver, err := NewLocalFSDriver(tempDir, "/uploads", "local-dev-secret", 15*time.Minute)
 	if err != nil {
 		t.Fatalf("failed to create driver: %v", err)
 	}
@@ -53,14 +54,13 @@ func TestLocalFSDriver_DirectoryHashing(t *testing.T) {
 		t.Errorf("expected content type application/pdf, got %s", contentType)
 	}
 
-	// Verify GetDownloadURL
-	url, err := driver.GetDownloadURL(ctx, key, 0)
+	// Verify GetDownloadURL: should be tokenized and include /uploads
+	url, err := driver.GetDownloadURL(ctx, key)
 	if err != nil {
 		t.Errorf("GetDownloadURL failed: %v", err)
 	}
-	expectedSuffix := key + "/content"
-	if !strings.HasSuffix(url, expectedSuffix) || !strings.Contains(url, "/uploads") {
-		t.Errorf("unexpected URL: %s", url)
+	if !strings.Contains(url, "/uploads") || !strings.Contains(url, "token=") || !strings.Contains(url, "expiresAt=") {
+		t.Errorf("unexpected URL format: %s", url)
 	}
 
 	// Test Delete
@@ -81,7 +81,7 @@ func TestLocalFSDriver_RejectsPathTraversal(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	driver, err := NewLocalFSDriver(tempDir, "/uploads")
+	driver, err := NewLocalFSDriver(tempDir, "/uploads", "local-dev-secret", 15*time.Minute)
 	if err != nil {
 		t.Fatalf("failed to create driver: %v", err)
 	}
@@ -113,7 +113,7 @@ func TestLocalFSDriver_ConcurrentWritesSameDir(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	driver, err := NewLocalFSDriver(tempDir, "/uploads")
+	driver, err := NewLocalFSDriver(tempDir, "/uploads", "local-dev-secret", 15*time.Minute)
 	if err != nil {
 		t.Fatalf("failed to create driver: %v", err)
 	}
@@ -168,7 +168,7 @@ func TestLocalFSDriver_RejectsKeyWithNullOrSpecialChars(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	driver, err := NewLocalFSDriver(tempDir, "/uploads")
+	driver, err := NewLocalFSDriver(tempDir, "/uploads", "local-dev-secret", 15*time.Minute)
 	if err != nil {
 		t.Fatalf("failed to create driver: %v", err)
 	}
@@ -196,7 +196,7 @@ func TestLocalFSDriver_PathTraversal(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	driver, err := NewLocalFSDriver(tempDir, "/uploads")
+	driver, err := NewLocalFSDriver(tempDir, "/uploads", "local-dev-secret", 15*time.Minute)
 	if err != nil {
 		t.Fatalf("failed to create driver: %v", err)
 	}
@@ -219,7 +219,7 @@ func BenchmarkLocalFSDriver_Get(b *testing.B) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	driver, err := NewLocalFSDriver(tempDir, "/uploads")
+	driver, err := NewLocalFSDriver(tempDir, "/uploads", "local-dev-secret", 15*time.Minute)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -228,7 +228,7 @@ func BenchmarkLocalFSDriver_Get(b *testing.B) {
 	key := "aabbccdd-1234-5678-90ab-cdef00000000.bin"
 	// 1MB payload
 	payload := bytes.Repeat([]byte("x"), 1024*1024)
-	err = driver.Save(ctx, key, bytes.NewReader(payload), "application/octet-stream")
+	err = driver.Save(ctx, key, bytes.NewReader(payload), DefaultMime)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -241,5 +241,36 @@ func BenchmarkLocalFSDriver_Get(b *testing.B) {
 		}
 		_, _ = io.Copy(io.Discard, r)
 		r.Close()
+	}
+}
+
+func TestLocalFSDriver_LinkVerification(t *testing.T) {
+	tempDir, _ := os.MkdirTemp("", "localfs-link")
+	defer os.RemoveAll(tempDir)
+
+	secret := "test-secret"
+	driver, _ := NewLocalFSDriver(tempDir, "/uploads", secret, 15*time.Minute)
+	key := "test-file.pdf"
+
+	// 1. Valid Link
+	expiresAt := time.Now().Add(time.Hour).Unix()
+	token := GenerateDownloadToken(key, secret, expiresAt)
+	if !driver.VerifyDownloadToken(key, token, expiresAt) {
+		t.Error("valid token failed verification")
+	}
+
+	// 2. Invalid Key
+	if driver.VerifyDownloadToken("wrong-key.pdf", token, expiresAt) {
+		t.Error("token verified for wrong key")
+	}
+
+	// 3. Modified Expiration
+	if driver.VerifyDownloadToken(key, token, expiresAt+1) {
+		t.Error("token verified despite modified expiration")
+	}
+
+	// 4. Invalid Signature
+	if driver.VerifyDownloadToken(key, "invalid-token", expiresAt) {
+		t.Error("invalid token signature was accepted")
 	}
 }

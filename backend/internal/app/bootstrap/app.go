@@ -292,9 +292,9 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	mux.Handle("POST /api/v1/payments/webhook", http.HandlerFunc(paymentHandler.HandleWebhook))
 	mux.Handle("POST /api/v1/payments/validate", http.HandlerFunc(paymentHandler.HandleValidateReference))
 
-	// When using local storage, this endpoint serves the actual file bytes.
-	// It's made public since it's the equivalent of a presigned URL when using S3.
+	// When using local storage, these endpoints serve as mocks for S3.
 	if _, ok := storageDriver.(*drivers.LocalFSDriver); ok {
+		mux.HandleFunc("PUT /api/v1/uploads/{key}/content", uploadHandler.UploadContentLocal)
 		mux.HandleFunc("GET /api/v1/uploads/{key}/content", uploadHandler.DownloadContent)
 	}
 

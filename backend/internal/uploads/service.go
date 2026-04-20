@@ -6,14 +6,18 @@ import (
 	"io"
 	"log/slog"
 	"path/filepath"
-	"time"
 
+	"github.com/OpenNSW/nsw/internal/uploads/drivers"
 	"github.com/google/uuid"
 )
 
 // UploadService coordinates file uploads and manages metadata
 type UploadService struct {
 	Driver StorageDriver
+}
+
+func NewUploadService(driver StorageDriver) *UploadService {
+	return &UploadService{Driver: driver}
 }
 
 type countingReader struct {
@@ -27,9 +31,6 @@ func (c *countingReader) Read(p []byte) (int, error) {
 	return n, err
 }
 
-// countingReadSeeker extends countingReader with seeking support.
-// Constructed only when the underlying reader is an io.Seeker, so callers
-// (e.g. the S3 SDK) that type-assert to io.ReadSeeker get a truthful answer.
 type countingReadSeeker struct {
 	*countingReader
 	s io.Seeker
@@ -43,27 +44,20 @@ func (c *countingReadSeeker) Seek(offset int64, whence int) (int64, error) {
 	return pos, err
 }
 
-func NewUploadService(driver StorageDriver) *UploadService {
-	return &UploadService{Driver: driver}
-}
-
-// Upload handles the incoming file, saves it via driver, and returns metadata
-func (s *UploadService) Upload(ctx context.Context, filename string, reader io.Reader, size int64, mime string) (*FileMetadata, error) {
+// UploadLegacy handles the incoming file, saves it via driver directly, and returns metadata.
+// Serves as a bridge for existing UI clients using multipart/form-data.
+func (s *UploadService) UploadLegacy(ctx context.Context, filename string, reader io.Reader, size int64, mime string) (*FileMetadata, error) {
 	if mime == "" {
-		mime = "application/octet-stream"
+		mime = drivers.DefaultMime
 	}
 	id := uuid.NewString()
 	ext := filepath.Ext(filename)
 	key := fmt.Sprintf("%s%s", id, ext)
 
-	// Wrap the reader so we can determine the actual number of bytes written,
-	// rather than trusting any client-supplied size hints.
-	// If the reader supports seeking (e.g. multipart.File), expose it so the
-	// S3 SDK can type-assert to io.ReadSeeker for retries and content-length.
 	cr := &countingReader{r: reader}
 	var body io.Reader = cr
-	if s, ok := reader.(io.Seeker); ok {
-		body = &countingReadSeeker{countingReader: cr, s: s}
+	if seeker, ok := reader.(io.Seeker); ok {
+		body = &countingReadSeeker{countingReader: cr, s: seeker}
 	}
 
 	err := s.Driver.Save(ctx, key, body, mime)
@@ -72,17 +66,44 @@ func (s *UploadService) Upload(ctx context.Context, filename string, reader io.R
 	}
 
 	metadata := &FileMetadata{
-		ID:   id,
-		Name: filename,
-		Key:  key,
-		// URL is not populated by default; clients should call GetDownloadURL
-		// when they need a time-limited or presigned URL for download.
+		ID:       id,
+		Name:     filename,
+		Key:      key,
 		URL:      "",
 		Size:     cr.n,
 		MimeType: mime,
 	}
 
-	slog.InfoContext(ctx, "File uploaded successfully", "id", id, "key", key)
+	slog.InfoContext(ctx, "File uploaded successfully (legacy)", "id", id, "key", key)
+	return metadata, nil
+}
+
+// Upload handles the preparation of a file upload by generating a unique key
+// and a presigned/upload URL via the storage driver.
+func (s *UploadService) Upload(ctx context.Context, filename string, size int64, mime string) (*FileMetadata, error) {
+	if mime == "" {
+		mime = drivers.DefaultMime
+	}
+	id := uuid.NewString()
+	ext := filepath.Ext(filename)
+	key := fmt.Sprintf("%s%s", id, ext)
+
+	// Generate a presigned URL for the upload
+	uploadURL, err := s.Driver.GetUploadURL(ctx, key, mime, size)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate upload URL: %w", err)
+	}
+
+	metadata := &FileMetadata{
+		ID:        id,
+		Name:      filename,
+		Key:       key,
+		UploadURL: uploadURL,
+		Size:      size,
+		MimeType:  mime,
+	}
+
+	slog.InfoContext(ctx, "File upload prepared", "id", id, "key", key)
 	return metadata, nil
 }
 
@@ -92,8 +113,8 @@ func (s *UploadService) Download(ctx context.Context, key string) (io.ReadCloser
 }
 
 // GetDownloadURL generates a time-limited or presigned URL for the given key
-func (s *UploadService) GetDownloadURL(ctx context.Context, key string, ttl time.Duration) (string, error) {
-	return s.Driver.GetDownloadURL(ctx, key, ttl)
+func (s *UploadService) GetDownloadURL(ctx context.Context, key string) (string, error) {
+	return s.Driver.GetDownloadURL(ctx, key)
 }
 
 // Delete removes a file from storage

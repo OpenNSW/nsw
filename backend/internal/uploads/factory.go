@@ -20,7 +20,7 @@ func NewStorageFromConfig(ctx context.Context, cfg config.StorageConfig) (Storag
 	switch strings.TrimSpace(cfg.Type) {
 	case "local":
 		slog.Info("Initializing local storage", "dir", cfg.LocalBaseDir)
-		return drivers.NewLocalFSDriver(cfg.LocalBaseDir, cfg.LocalPublicURL)
+		return drivers.NewLocalFSDriver(cfg.LocalBaseDir, cfg.LocalPublicURL, cfg.LocalPutSecret, cfg.PresignTTL)
 	case "s3":
 		slog.Info("Initializing S3 storage", "endpoint", cfg.S3Endpoint, "bucket", cfg.S3Bucket)
 
@@ -49,7 +49,7 @@ func NewStorageFromConfig(ctx context.Context, cfg config.StorageConfig) (Storag
 			o.RequestChecksumCalculation = aws.RequestChecksumCalculationWhenSupported
 		})
 
-		return drivers.NewS3Driver(client, cfg.S3Bucket, cfg.S3PublicURL), nil
+		return drivers.NewS3Driver(client, cfg.S3Bucket, cfg.S3PublicURL, cfg.PresignTTL), nil
 	default:
 		return nil, fmt.Errorf("unsupported storage type: %s", cfg.Type)
 	}
