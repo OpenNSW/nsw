@@ -1,8 +1,8 @@
-{{- define "nsw-api.name" -}}
+{{- define "nsw-db.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end }}
 
-{{- define "nsw-api.fullname" -}}
+{{- define "nsw-db.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -15,27 +15,16 @@
 {{- end }}
 {{- end }}
 
-
-{{- define "nsw-api.chart" -}}
-{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
-{{- end }}
-
-{{/*
-Common labels
-*/}}
-{{- define "nsw-api.labels" -}}
-helm.sh/chart: {{ include "nsw-api.chart" . }}
-{{ include "nsw-api.selectorLabels" . }}
+{{- define "nsw-db.labels" -}}
+helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+{{ include "nsw-db.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
-{{/*
-Selector labels
-*/}}
-{{- define "nsw-api.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "nsw-api.name" . }}
+{{- define "nsw-db.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "nsw-db.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
