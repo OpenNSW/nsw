@@ -144,7 +144,7 @@ func (d *LocalFSDriver) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
-func (d *LocalFSDriver) GetDownloadURL(ctx context.Context, key string) (string, error) {
+func (d *LocalFSDriver) GetDownloadURL(_ context.Context, key string) (string, error) {
 	if d.PublicURL == "" {
 		return key, nil
 	}
@@ -170,7 +170,7 @@ func (d *LocalFSDriver) VerifyDownloadToken(key, token string, expiresAt int64) 
 // Note: This method does NOT create the file on disk. It only signs the security constraints
 // (key, expiration, size limit). The actual resource allocation (file creation) happens in
 // Save() when the PUT request is eventually processed, matching S3's deferred behavior.
-func (d *LocalFSDriver) GetUploadURL(ctx context.Context, key string, contentType string, maxSizeBytes int64) (string, error) {
+func (d *LocalFSDriver) GetUploadURL(_ context.Context, key string, contentType string, maxSizeBytes int64) (string, error) {
 	if d.PublicURL == "" {
 		return "", fmt.Errorf("public URL not configured for local storage")
 	}
