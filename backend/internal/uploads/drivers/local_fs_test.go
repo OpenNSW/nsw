@@ -228,7 +228,7 @@ func BenchmarkLocalFSDriver_Get(b *testing.B) {
 	key := "aabbccdd-1234-5678-90ab-cdef00000000.bin"
 	// 1MB payload
 	payload := bytes.Repeat([]byte("x"), 1024*1024)
-	err = driver.Save(ctx, key, bytes.NewReader(payload), "application/octet-stream")
+	err = driver.Save(ctx, key, bytes.NewReader(payload), DefaultMime)
 	if err != nil {
 		b.Fatal(err)
 	}

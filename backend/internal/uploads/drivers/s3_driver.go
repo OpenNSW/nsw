@@ -55,7 +55,7 @@ func (d *S3Driver) Get(ctx context.Context, key string) (io.ReadCloser, string, 
 		return nil, "", fmt.Errorf("failed to get from S3: %w", err)
 	}
 
-	contentType := "application/octet-stream"
+	contentType := DefaultMime
 	if resp.ContentType != nil {
 		contentType = *resp.ContentType
 	}

@@ -124,7 +124,7 @@ func (d *LocalFSDriver) Get(ctx context.Context, key string) (io.ReadCloser, str
 	}
 
 	metaPath := fullAbs + ".meta"
-	contentType := "application/octet-stream"
+	contentType := DefaultMime
 	if metaBytes, err := os.ReadFile(metaPath); err == nil {
 		contentType = string(metaBytes)
 	}

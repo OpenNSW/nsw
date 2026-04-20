@@ -80,7 +80,7 @@ func (h *HTTPHandler) Upload(w http.ResponseWriter, r *http.Request) {
 
 		mimeType := header.Header.Get("Content-Type")
 		if mimeType == "" {
-			mimeType = "application/octet-stream"
+			mimeType = drivers.DefaultMime
 		}
 
 		if !isAllowedContentType(mimeType) {
@@ -88,6 +88,7 @@ func (h *HTTPHandler) Upload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// TODO: Remove legacy multipart upload support once all clients migrate to presigned URLs
 		metadata, err := h.Service.UploadLegacy(r.Context(), header.Filename, file, header.Size, mimeType)
 		if err != nil {
 			slog.ErrorContext(r.Context(), "Legacy upload failed", "error", err)
@@ -216,7 +217,7 @@ func (h *HTTPHandler) UploadContentLocal(w http.ResponseWriter, r *http.Request)
 	var contentType string
 	contentType = r.Header.Get("Content-Type")
 	if contentType == "" {
-		contentType = "application/octet-stream"
+		contentType = drivers.DefaultMime
 	}
 	if contentType != encodedContentType {
 		writeJSONError(w, http.StatusUnsupportedMediaType, "content-type mismatch")

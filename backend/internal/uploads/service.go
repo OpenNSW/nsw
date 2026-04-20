@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"path/filepath"
 
+	"github.com/OpenNSW/nsw/internal/uploads/drivers"
 	"github.com/google/uuid"
 )
 
@@ -47,7 +48,7 @@ func (c *countingReadSeeker) Seek(offset int64, whence int) (int64, error) {
 // Serves as a bridge for existing UI clients using multipart/form-data.
 func (s *UploadService) UploadLegacy(ctx context.Context, filename string, reader io.Reader, size int64, mime string) (*FileMetadata, error) {
 	if mime == "" {
-		mime = "application/octet-stream"
+		mime = drivers.DefaultMime
 	}
 	id := uuid.NewString()
 	ext := filepath.Ext(filename)
@@ -81,7 +82,7 @@ func (s *UploadService) UploadLegacy(ctx context.Context, filename string, reade
 // and a presigned/upload URL via the storage driver.
 func (s *UploadService) Upload(ctx context.Context, filename string, size int64, mime string) (*FileMetadata, error) {
 	if mime == "" {
-		mime = "application/octet-stream"
+		mime = drivers.DefaultMime
 	}
 	id := uuid.NewString()
 	ext := filepath.Ext(filename)
