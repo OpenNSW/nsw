@@ -11,6 +11,7 @@ import (
 	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/database"
 	"github.com/OpenNSW/nsw/internal/uploads"
+	"github.com/OpenNSW/nsw/internal/validation"
 )
 
 // Config holds all configuration for the application
@@ -130,6 +131,12 @@ func Load() (*Config, error) {
 
 // Validate checks that all required configuration is present
 func (c *Config) Validate() error {
+	if strings.TrimSpace(c.Server.ServiceURL) == "" {
+		return fmt.Errorf("SERVICE_URL is required")
+	}
+	if err := validation.HTTPURL("SERVICE_URL", c.Server.ServiceURL); err != nil {
+		return err
+	}
 	if err := c.Database.Validate(); err != nil {
 		return fmt.Errorf("invalid database configuration: %w", err)
 	}
@@ -139,14 +146,18 @@ func (c *Config) Validate() error {
 	if err := c.Auth.Validate(); err != nil {
 		return fmt.Errorf("invalid auth configuration: %w", err)
 	}
-	if !c.Server.Debug {
-		if len(c.CORS.AllowedOrigins) == 0 {
-			return fmt.Errorf("CORS_ALLOWED_ORIGINS must be explicitly configured in production")
-		}
-		for _, origin := range c.CORS.AllowedOrigins {
-			if origin == "*" {
+	if len(c.CORS.AllowedOrigins) == 0 {
+		return fmt.Errorf("CORS_ALLOWED_ORIGINS is required")
+	}
+	for _, origin := range c.CORS.AllowedOrigins {
+		if origin == "*" {
+			if !c.Server.Debug {
 				return fmt.Errorf("CORS_ALLOWED_ORIGINS cannot contain '*' in production (SERVER_DEBUG=false)")
 			}
+			continue
+		}
+		if err := validation.HTTPURL("CORS_ALLOWED_ORIGINS", origin); err != nil {
+			return err
 		}
 	}
 	return nil

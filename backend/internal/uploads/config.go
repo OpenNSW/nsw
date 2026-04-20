@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/OpenNSW/nsw/internal/validation"
 )
 
 type Config struct {
@@ -30,12 +32,18 @@ func (c *Config) Validate() error {
 		if strings.TrimSpace(c.LocalPublicURL) == "" {
 			return fmt.Errorf("STORAGE_LOCAL_PUBLIC_URL is required when STORAGE_TYPE=local")
 		}
+		if err := validation.HTTPURL("STORAGE_LOCAL_PUBLIC_URL", c.LocalPublicURL); err != nil {
+			return err
+		}
 		if strings.TrimSpace(c.LocalPutSecret) == "" {
 			return fmt.Errorf("STORAGE_LOCAL_PUT_SECRET is required when STORAGE_TYPE=local")
 		}
 	case "s3":
 		if strings.TrimSpace(c.S3Endpoint) == "" {
 			return fmt.Errorf("STORAGE_S3_ENDPOINT is required when STORAGE_TYPE=s3")
+		}
+		if err := validation.HTTPURL("STORAGE_S3_ENDPOINT", c.S3Endpoint); err != nil {
+			return err
 		}
 		if strings.TrimSpace(c.S3Bucket) == "" {
 			return fmt.Errorf("STORAGE_S3_BUCKET is required when STORAGE_TYPE=s3")
@@ -45,6 +53,11 @@ func (c *Config) Validate() error {
 		}
 		if (strings.TrimSpace(c.S3AccessKey) == "") != (strings.TrimSpace(c.S3SecretKey) == "") {
 			return fmt.Errorf("STORAGE_S3_ACCESS_KEY and STORAGE_S3_SECRET_KEY must be configured together")
+		}
+		if strings.TrimSpace(c.S3PublicURL) != "" {
+			if err := validation.HTTPURL("STORAGE_S3_PUBLIC_URL", c.S3PublicURL); err != nil {
+				return err
+			}
 		}
 	default:
 		return fmt.Errorf("unsupported STORAGE_TYPE: %s", c.Type)
