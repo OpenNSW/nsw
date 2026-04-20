@@ -67,7 +67,6 @@ UPDATE workflow_nodes SET workflow_id = COALESCE(consignment_id, pre_consignment
 
 ALTER TABLE workflow_nodes ALTER COLUMN workflow_id SET NOT NULL;
 
-ALTER TABLE workflow_nodes DROP CONSTRAINT IF EXISTS fk_workflow_nodes_workflow;
 ALTER TABLE workflow_nodes ADD CONSTRAINT fk_workflow_nodes_workflow
     FOREIGN KEY (workflow_id) REFERENCES workflows(id)
     ON UPDATE CASCADE ON DELETE CASCADE;

@@ -3,28 +3,26 @@ package bootstrap
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
-
-	workflowmanager "github.com/OpenNSW/go-temporal-workflow"
 
 	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/config"
 	"github.com/OpenNSW/nsw/internal/database"
 	"github.com/OpenNSW/nsw/internal/middleware"
 	"github.com/OpenNSW/nsw/internal/payments"
-	taskManager "github.com/OpenNSW/nsw/internal/task/manager"
+	taskmanager "github.com/OpenNSW/nsw/internal/task/manager"
 	"github.com/OpenNSW/nsw/internal/task/plugin"
+	temporalclient "github.com/OpenNSW/nsw/internal/temporal"
 	"github.com/OpenNSW/nsw/internal/uploads"
 	"github.com/OpenNSW/nsw/internal/uploads/drivers"
+	workflowbootstrap "github.com/OpenNSW/nsw/internal/workflow/bootstrap"
 	"github.com/OpenNSW/nsw/internal/workflow/router"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
 
 	"github.com/OpenNSW/nsw/pkg/notification"
 	"github.com/OpenNSW/nsw/pkg/notification/channels"
-
-	"go.temporal.io/sdk/client"
 )
 
 // App contains initialized HTTP server and cleanup hooks.
@@ -58,73 +56,6 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-func setupWorkflowManager(
-	ctx context.Context,
-	_ *config.Config,
-	tm taskManager.TaskManager,
-	templateService *service.TemplateService,
-) (workflowmanager.TemporalManager, error) {
-	// 1. Connect to the local Temporal Server (Needed for Workflow Manager Bridge)
-	c, err := client.Dial(client.Options{})
-	if err != nil {
-		return nil, fmt.Errorf("error creating temporal client: %w", err)
-	}
-	// ***************
-	// Note: You may need to manage closing the client gracefully elsewhere
-	// defer c.Close()
-
-	// 4. Define Handlers for Manager Bridge
-	activationHandler := func(payload workflowmanager.TaskPayload) error {
-		template, err := templateService.GetWorkflowNodeTemplateByID(ctx, payload.TaskTemplateID)
-		if err != nil {
-			return fmt.Errorf("error getting workflow node template: %w", err)
-		}
-
-		// TODO: We need to pass the TaskPayload.RunID in the future to avoid issues with
-		// task retries. For example, when retrying a task instance, a stale version might
-		// send a completion that will trigger the new version.
-		tmRequest := taskManager.InitTaskRequest{
-			TaskID:                 payload.NodeID,
-			WorkflowID:             payload.WorkflowID,
-			WorkflowNodeTemplateID: template.ID,
-			GlobalState:            payload.Inputs,
-			Type:                   template.Type,
-			Config:                 template.Config,
-		}
-		_, err = tm.InitTask(ctx, tmRequest)
-		if err != nil {
-			return fmt.Errorf("error initializing task manager: %w", err)
-		}
-		return nil
-	}
-
-	completionHandler := func(workflowID string, finalContext map[string]any) error {
-		slog.Info("Workflow logically completed", "workflowID", workflowID, "finalContext", finalContext)
-		// TODO: If consignment, need to call OnWorkflowStatusChanged
-		//       If pre-consignment, need to call OnPreWorkflowStatusChanged
-		return nil
-	}
-
-	// 5. Initialize Manager
-	workflowManager := workflowmanager.NewTemporalManager(c, "INTERPRETER_TASK_QUEUE", activationHandler, completionHandler)
-
-	taskDoneWrapper := func(ctx context.Context, workflowID string, taskID string, outputs map[string]any) {
-		err := workflowManager.TaskDone(ctx, workflowID, "", taskID, outputs)
-		if err != nil {
-			slog.Error("error completing task", "error", err)
-		}
-	}
-
-	tm.RegisterUpstreamDoneCallback(taskDoneWrapper)
-
-	// Start the workers.
-	if err := workflowManager.StartWorker(); err != nil {
-		return nil, fmt.Errorf("failed to start workflow manager worker: %w", err)
-	}
-
-	return workflowManager, nil
-}
-
 // Build initializes dependencies and returns a fully wired application server.
 func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	db, err := database.New(cfg.Database)
@@ -141,7 +72,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	paymentService := payments.NewPaymentService(paymentRepo)
 
 	factory := plugin.NewTaskFactory(cfg, db, paymentService)
-	tm, err := taskManager.NewTaskManager(db, factory)
+	tm, err := taskmanager.NewTaskManager(db, factory)
 	if err != nil {
 		_ = database.Close(db)
 		return nil, fmt.Errorf("failed to create task manager: %w", err)
@@ -151,13 +82,20 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	chaService := service.NewCHAService(db)
 	hsCodeService := service.NewHSCodeService(db)
 
-	wm, err := setupWorkflowManager(ctx, cfg, tm, templateService)
+	sharedTemporalClient, err := temporalclient.NewClient()
 	if err != nil {
 		_ = database.Close(db)
-		return nil, fmt.Errorf("failed to create workflow manager: %w", err)
+		return nil, fmt.Errorf("failed to create temporal client: %w", err)
 	}
 
-	consignmentService := service.NewConsignmentService(db, templateService, wm)
+	workflowRuntime, err := workflowbootstrap.NewRuntime(sharedTemporalClient, tm, templateService)
+	if err != nil {
+		sharedTemporalClient.Close()
+		_ = database.Close(db)
+		return nil, fmt.Errorf("failed to create workflow runtime: %w", err)
+	}
+
+	consignmentService := service.NewConsignmentService(db, templateService, workflowRuntime.Manager())
 	consignmentRouter := router.NewConsignmentRouter(consignmentService, chaService)
 
 	// TODO: Pre-consignment wiring is intentionally disabled until it is migrated to Temporal.
@@ -169,6 +107,8 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	storageDriver, err := uploads.NewStorageFromConfig(ctx, cfg.Storage)
 	if err != nil {
+		_ = workflowRuntime.Close()
+		sharedTemporalClient.Close()
 		_ = database.Close(db)
 		return nil, fmt.Errorf("failed to initialize storage: %w", err)
 	}
@@ -179,11 +119,15 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	authManager, err := auth.NewManager(db, cfg.Auth)
 	if err != nil {
+		_ = workflowRuntime.Close()
+		sharedTemporalClient.Close()
 		_ = database.Close(db)
 		return nil, fmt.Errorf("failed to create auth manager: %w", err)
 	}
 
 	if err := authManager.Health(); err != nil {
+		_ = workflowRuntime.Close()
+		sharedTemporalClient.Close()
 		_ = authManager.Close()
 		_ = database.Close(db)
 		return nil, fmt.Errorf("auth system health check failed: %w", err)
@@ -205,7 +149,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	// smsChannel := channels.NewSMSChannel(...)
 	// notificationManager.RegisterSMSChannel(smsChannel)
 
-	tmHandler := taskManager.NewHTTPHandler(tm)
+	tmHandler := taskmanager.NewHTTPHandler(tm)
 
 	// withAuth wraps an individual handler with the authentication middleware.
 	withAuth := authManager.Middleware()
@@ -278,20 +222,20 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	}
 
 	closeFn := func() error {
-		authErr := authManager.Close()
-		dbErr := database.Close(db)
-		if authErr != nil {
-			if dbErr != nil {
-				return fmt.Errorf("failed to close auth manager: %v; failed to close database: %v", authErr, dbErr)
-			}
-			return fmt.Errorf("failed to close auth manager: %w", authErr)
+		var closeErrs []error
+
+		if err := workflowRuntime.Close(); err != nil {
+			closeErrs = append(closeErrs, fmt.Errorf("failed to close workflow runtime: %w", err))
 		}
-		if dbErr != nil {
-			return fmt.Errorf("failed to close database: %w", dbErr)
+		sharedTemporalClient.Close()
+		if err := authManager.Close(); err != nil {
+			closeErrs = append(closeErrs, fmt.Errorf("failed to close auth manager: %w", err))
+		}
+		if err := database.Close(db); err != nil {
+			closeErrs = append(closeErrs, fmt.Errorf("failed to close database: %w", err))
 		}
 
-		wm.StopWorker()
-		return nil
+		return errors.Join(closeErrs...)
 	}
 
 	return &App{
