@@ -50,7 +50,7 @@ type ApplicationRecord struct {
 	ServiceURL         string           `gorm:"type:varchar(512);not null"`                  // URL to send response back to
 	Data               JSONB            `gorm:"type:text"`                                   // Injected data from service
 	ReviewerResponse   JSONB            `gorm:"type:text"`                                   // Response from reviewer
-	Status             string           `gorm:"type:varchar(50);not null;default:'PENDING'"` // PENDING, APPROVED, REJECTED
+	Status             string           `gorm:"type:varchar(50);not null;default:'PENDING'"` // PENDING, FEEDBACK_REQUESTED, DONE
 	OGAFeedbackHistory []map[string]any `gorm:"type:text;serializer:json"`
 	ReviewedAt         *time.Time       // When it was reviewed
 	CreatedAt          time.Time        `gorm:"autoCreateTime"`

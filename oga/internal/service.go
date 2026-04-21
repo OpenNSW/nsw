@@ -61,7 +61,7 @@ type InjectRequest struct {
 	WorkflowID         string           `json:"workflowId"`
 	Data               map[string]any   `json:"data"`
 	ServiceURL         string           `json:"serviceUrl"` // URL to send response back to
-	OGAFeedbackHistory []map[string]any `json:"ogafeedbackhistory,omitempty"`
+	OGAFeedbackHistory []map[string]any `json:"ogaFeedbackHistory,omitempty"`
 }
 
 // Application represents an application for display in the UI
