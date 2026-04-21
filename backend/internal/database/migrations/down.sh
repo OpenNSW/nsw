@@ -11,6 +11,10 @@ MIGRATION_DB_HOST="${MIGRATION_DB_HOST:-$DB_HOST}"
 MIGRATION_DB_HOST="${MIGRATION_DB_HOST//host.docker.internal/localhost}"
 
 DOWNS=(
+  "015_fcau_workflow_seed.down.sql"
+  "014_fcau_workflow_nodes_seed.down.sql"
+  "013_fcau_forms_seed.down.sql"
+  "012_create_task_workflow_tasks.down.sql"
   "011_workflow_tem_v2.down.sql"
   "010_workflow_table.down.sql"
   "009_insert_cha_entity.down.sql"

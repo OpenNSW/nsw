@@ -1,0 +1,203 @@
+{
+    "schema": {
+        "type": "object",
+        "properties": {
+            "nameOfApplicant": {
+                "type": "string",
+                "title": "Name of Applicant"
+            },
+            "addressOfApplicant": {
+                "type": "string",
+                "title": "Address of Applicant"
+            },
+            "nameOfConsignee": {
+                "type": "string",
+                "title": "Name of Consignee"
+            },
+            "addressOfConsignee": {
+                "type": "string",
+                "title": "Address of Consignee"
+            },
+            "descriptionOfConsignment": {
+                "type": "string",
+                "title": "Description of consignment and quantity"
+            },
+            "dateOfIntendedExport": {
+                "type": "string",
+                "format": "date",
+                "title": "Date of intended export"
+            },
+            "lcNo": {
+                "type": "string",
+                "title": "L/C No"
+            },
+            "containerNumbers": {
+                "type": "string",
+                "title": "Upload Container Numbers",
+                "format": "file"
+            },
+            "nameOfVessel": {
+                "type": "string",
+                "title": "Name of Vessel/ Number"
+            },
+            "addressConsignmentStored": {
+                "type": "string",
+                "title": "Address where consignment is stored"
+            },
+            "packageDetails": {
+                "type": "string",
+                "title": "Type of Package, Batch Codes and Total weight"
+            },
+            "ingredientDetails": {
+                "type": "string",
+                "title": "Upload or Enter Details of ingredients used in product",
+                "format": "file"
+            },
+            "qualityMonitoringDetails": {
+                "type": "string",
+                "title": "Details of in-house quality monitoring"
+            },
+            "analysisCertificates": {
+                "type": "string",
+                "title": "Upload Raw materials and product analysis certificates",
+                "format": "file"
+            },
+            "otherDeclarations": {
+                "type": "string",
+                "title": "Any other Declarations"
+            }
+        },
+        "required": [
+            "nameOfApplicant",
+            "addressOfApplicant",
+            "nameOfConsignee",
+            "addressOfConsignee",
+            "descriptionOfConsignment",
+            "dateOfIntendedExport",
+            "lcNo",
+            "containerNumbers",
+            "nameOfVessel",
+            "addressConsignmentStored",
+            "packageDetails",
+            "ingredientDetails",
+            "qualityMonitoringDetails",
+            "analysisCertificates"
+        ]
+    },
+    "uiSchema": {
+        "type": "Categorization",
+        "elements": [
+            {
+                "type": "Category",
+                "label": "Consignment",
+                "elements": [
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/nameOfApplicant"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/addressOfApplicant"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/nameOfConsignee"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/addressOfConsignee"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/dateOfIntendedExport"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/lcNo"
+                    },
+                    {
+                        "type": "VerticalLayout",
+                        "elements": [
+                            {
+                                "text": "Container Numbers (attach list if necessary)",
+                                "type": "Label"
+                            },
+                            {
+                                "type": "Control",
+                                "scope": "#/properties/containerNumbers"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "type": "Category",
+                "label": "Transport",
+                "elements": [
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/nameOfVessel"
+                    }
+                ]
+            },
+            {
+                "type": "Category",
+                "label": "Items",
+                "elements": [
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/descriptionOfConsignment"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/addressConsignmentStored"
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/packageDetails"
+                    },
+                    {
+                        "type": "VerticalLayout",
+                        "elements": [
+                            {
+                                "text": "Details of ingredients used in product",
+                                "type": "Label"
+                            },
+                            {
+                                "type": "Control",
+                                "scope": "#/properties/ingredientDetails"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/qualityMonitoringDetails",
+                        "options": {
+                            "multi": true
+                        }
+                    },
+                    {
+                        "type": "VerticalLayout",
+                        "elements": [
+                            {
+                                "text": "Raw materials and product analysis certificates (Attach)",
+                                "type": "Label"
+                            },
+                            {
+                                "type": "Control",
+                                "scope": "#/properties/analysisCertificates"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "Control",
+                        "scope": "#/properties/otherDeclarations",
+                        "options": {
+                            "multi": true
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+}
