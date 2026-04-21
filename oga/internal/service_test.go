@@ -30,7 +30,7 @@ func TestService_CreateUploadURL(t *testing.T) {
 
 	service := NewOGAService(nil, nil, client)
 
-	payload := []byte(`{"filename":"test.txt"}`)
+	payload := []byte(`{"filename":"test.txt","mime_type":"text/plain","size":123}`)
 	ctx := context.Background()
 
 	result, err := service.CreateUploadURL(ctx, payload)
@@ -55,7 +55,7 @@ func TestService_GetDownloadURL(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"download_url":"http://test/download"}`))
+		w.Write([]byte(`{"download_url":"http://test/download", "expires_at": 1234567890}`))
 	})
 
 	server := httptest.NewServer(mux)
@@ -68,12 +68,15 @@ func TestService_GetDownloadURL(t *testing.T) {
 	service := NewOGAService(nil, nil, client)
 	ctx := context.Background()
 
-	url, err := service.GetDownloadURL(ctx, "550e8400-e29b-41d4-a716-446655440000.pdf")
+	metadata, err := service.GetDownloadURL(ctx, "550e8400-e29b-41d4-a716-446655440000.pdf")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	if url != "http://test/download" {
-		t.Errorf("expected download_url 'http://test/download', got %v", url)
+	if metadata["download_url"] != "http://test/download" {
+		t.Errorf("expected download_url 'http://test/download', got %v", metadata["download_url"])
+	}
+	if metadata["expires_at"] != float64(1234567890) {
+		t.Errorf("expected expires_at 1234567890, got %v", metadata["expires_at"])
 	}
 }

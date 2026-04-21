@@ -16,7 +16,7 @@ type mockOGAService struct {
 	OGAService
 
 	mockCreateUploadURL func(ctx context.Context, payload []byte) (map[string]any, error)
-	mockGetDownloadURL  func(ctx context.Context, key string) (string, error)
+	mockGetDownloadURL  func(ctx context.Context, key string) (map[string]any, error)
 }
 
 func (m *mockOGAService) CreateUploadURL(ctx context.Context, payload []byte) (map[string]any, error) {
@@ -26,11 +26,11 @@ func (m *mockOGAService) CreateUploadURL(ctx context.Context, payload []byte) (m
 	return nil, nil
 }
 
-func (m *mockOGAService) GetDownloadURL(ctx context.Context, key string) (string, error) {
+func (m *mockOGAService) GetDownloadURL(ctx context.Context, key string) (map[string]any, error) {
 	if m.mockGetDownloadURL != nil {
 		return m.mockGetDownloadURL(ctx, key)
 	}
-	return "", nil
+	return nil, nil
 }
 
 func TestHandleCreateUpload(t *testing.T) {
@@ -45,7 +45,7 @@ func TestHandleCreateUpload(t *testing.T) {
 		}
 		handler := NewOGAHandler(mockSvc)
 
-		body := []byte(`{"filename":"test.txt"}`)
+		body := []byte(`{"filename":"test.txt","mime_type":"text/plain","size":123}`)
 		req := httptest.NewRequest(http.MethodPost, "/api/oga/uploads", bytes.NewBuffer(body))
 		rec := httptest.NewRecorder()
 
@@ -85,7 +85,7 @@ func TestHandleCreateUpload(t *testing.T) {
 		}
 		handler := NewOGAHandler(mockSvc)
 
-		body := []byte(`{"filename":"test.txt"}`)
+		body := []byte(`{"filename":"test.txt","mime_type":"text/plain","size":123}`)
 		req := httptest.NewRequest(http.MethodPost, "/api/oga/uploads", bytes.NewBuffer(body))
 		rec := httptest.NewRecorder()
 
@@ -100,8 +100,11 @@ func TestHandleCreateUpload(t *testing.T) {
 func TestHandleGetUploadURL(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mockSvc := &mockOGAService{
-			mockGetDownloadURL: func(ctx context.Context, key string) (string, error) {
-				return "http://test/download", nil
+			mockGetDownloadURL: func(ctx context.Context, key string) (map[string]any, error) {
+				return map[string]any{
+					"download_url": "http://test/download",
+					"expires_at":   float64(1234567890),
+				}, nil
 			},
 		}
 		handler := NewOGAHandler(mockSvc)
@@ -124,18 +127,8 @@ func TestHandleGetUploadURL(t *testing.T) {
 		if resp["download_url"] != "http://test/download" {
 			t.Errorf("expected download_url 'http://test/download', got %v", resp["download_url"])
 		}
-	})
-
-	t.Run("invalid key", func(t *testing.T) {
-		handler := NewOGAHandler(&mockOGAService{})
-		req := httptest.NewRequest(http.MethodGet, "/api/oga/uploads/invalid_key", nil)
-		req.SetPathValue("key", "invalid_key")
-		rec := httptest.NewRecorder()
-
-		handler.HandleGetUploadURL(rec, req)
-
-		if rec.Code != http.StatusBadRequest {
-			t.Errorf("expected status %d, got %d", http.StatusBadRequest, rec.Code)
+		if resp["expires_at"] != float64(1234567890) { // JSON unmarshals ints to float64
+			t.Errorf("expected expires_at 1234567890, got %v", resp["expires_at"])
 		}
 	})
 }

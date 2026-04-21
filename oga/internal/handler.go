@@ -5,22 +5,20 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"regexp"
 	"strconv"
-	"time"
 )
-
-var storageKeyRx = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(\.[a-zA-Z0-9]+)?$`)
 
 // OGAHandler handles HTTP requests for OGA portal operations
 type OGAHandler struct {
-	service OGAService
+	service         OGAService
+	MaxRequestBytes int64
 }
 
 // NewOGAHandler creates a new OGA handler instance
 func NewOGAHandler(service OGAService) *OGAHandler {
 	return &OGAHandler{
-		service: service,
+		service:         service,
+		MaxRequestBytes: 32 << 20, // Default to 32MB
 	}
 }
 
@@ -230,31 +228,28 @@ func (h *OGAHandler) HandleGetUploadURL(w http.ResponseWriter, r *http.Request) 
 		WriteJSONError(w, http.StatusBadRequest, "key is required")
 		return
 	}
-	if !storageKeyRx.MatchString(key) {
-		WriteJSONError(w, http.StatusBadRequest, "invalid key format")
-		return
-	}
-
-	downloadURL, err := h.service.GetDownloadURL(r.Context(), key)
+	metadata, err := h.service.GetDownloadURL(r.Context(), key)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "failed to get download URL from backend", "key", key, "error", err)
 		WriteJSONError(w, http.StatusInternalServerError, "failed to get download URL")
 		return
 	}
 
-	WriteJSONResponse(w, http.StatusOK, map[string]any{
-		"download_url": downloadURL,
-		"expires_at":   time.Now().Add(DefaultPresignTTL).Unix(),
-	})
+	WriteJSONResponse(w, http.StatusOK, metadata)
 }
 
 // HandleCreateUpload prepares an upload by requesting an upload URL from the main backend
 func (h *OGAHandler) HandleCreateUpload(w http.ResponseWriter, r *http.Request) {
+	// TODO: Add Authentication & Authorization middleware
+	// Access must be restricted to authorized OGA officers to prevent unauthorized users
+	// from generating proxy pre-signed upload URLs. Introduce a configuration flag (e.g. OGA_DISABLE_AUTH)
+	// to make bypassing explicit for specific environments
 	if r.Method != http.MethodPost {
 		WriteJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, h.MaxRequestBytes)
 	var body json.RawMessage
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		WriteJSONError(w, http.StatusBadRequest, "Invalid request body")

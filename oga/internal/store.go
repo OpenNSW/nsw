@@ -50,7 +50,7 @@ type ApplicationRecord struct {
 	Data               JSONB            `gorm:"type:text"`                                   // Injected data from service
 	Meta               JSONB            `gorm:"type:text"`                                   // Meta Information on Rendering the form
 	ReviewerResponse   JSONB            `gorm:"type:text"`                                   // Response from reviewer
-	Status             string           `gorm:"type:varchar(50);not null;default:'PENDING'"` // StatusPending, StatusApproved, StatusRejected, StatusFeedbackRequested
+	Status             string           `gorm:"type:varchar(50);not null;default:'PENDING'"` // PENDING, APPROVED, REJECTED
 	OGAFeedbackHistory []map[string]any `gorm:"type:text;serializer:json"`
 	ReviewedAt         *time.Time       // When it was reviewed
 	CreatedAt          time.Time        `gorm:"autoCreateTime"`
@@ -220,7 +220,7 @@ func (s *ApplicationStore) AppendFeedback(taskID string, entry map[string]any) e
 			Where("task_id = ?", taskID).
 			Updates(map[string]any{
 				"oga_feedback_history": string(updatedJSON),
-				"status":               StatusFeedbackRequested,
+				"status":               "FEEDBACK_REQUESTED",
 				"updated_at":           time.Now(),
 			}).Error
 	})
@@ -237,7 +237,7 @@ func (s *ApplicationStore) UpdateDataAndResetStatus(taskID string, data map[stri
 		Where("task_id = ?", taskID).
 		Updates(map[string]any{
 			"data":       string(dataJSON),
-			"status":     StatusPending,
+			"status":     "PENDING",
 			"updated_at": time.Now(),
 		}).Error
 }

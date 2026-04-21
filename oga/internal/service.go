@@ -40,7 +40,7 @@ type OGAService interface {
 	FeedbackApplication(ctx context.Context, taskID string, content map[string]any) error
 
 	// GetDownloadURL fetches a download URL for a key from the main backend.
-	GetDownloadURL(ctx context.Context, key string) (string, error)
+	GetDownloadURL(ctx context.Context, key string) (map[string]any, error)
 
 	// CreateUploadURL proxies an upload initialization request to the main backend.
 	CreateUploadURL(ctx context.Context, payload []byte) (map[string]any, error)
@@ -160,7 +160,7 @@ func (s *ogaService) CreateApplication(ctx context.Context, req *InjectRequest) 
 
 	// Re-submission after feedback: preserve history, only update data and reset status.
 	existing, err := s.store.GetByTaskID(req.TaskID)
-	if err == nil && existing.Status == StatusFeedbackRequested {
+	if err == nil && existing.Status == "FEEDBACK_REQUESTED" {
 		slog.InfoContext(ctx, "trader resubmitted after feedback, resetting to PENDING",
 			"taskID", req.TaskID)
 		return s.store.UpdateDataAndResetStatus(req.TaskID, req.Data)
@@ -177,7 +177,7 @@ func (s *ogaService) CreateApplication(ctx context.Context, req *InjectRequest) 
 		ServiceURL: req.ServiceURL,
 		Data:       req.Data,
 		Meta:       metaJSON,
-		Status:     StatusPending,
+		Status:     "PENDING",
 	}
 
 	if err := s.store.CreateOrUpdate(appRecord); err != nil {
@@ -317,10 +317,6 @@ func (s *ogaService) ReviewApplication(ctx context.Context, taskID string, revie
 	}
 	status := decision
 
-	if err := s.store.UpdateStatus(taskID, status, reviewerResponse); err != nil {
-		return fmt.Errorf("failed to update application status: %w", err)
-	}
-
 	// Prepare response payload for the service
 	response := TaskResponse{
 		TaskID:     app.TaskID,
@@ -338,6 +334,12 @@ func (s *ogaService) ReviewApplication(ctx context.Context, taskID string, revie
 			"serviceURL", app.ServiceURL,
 			"error", err)
 		return fmt.Errorf("failed to send response to service: %w", err)
+	}
+
+	if err := s.store.UpdateStatus(taskID, status, reviewerResponse); err != nil {
+		// TODO: If this fails, we have already sent the response to the service but failed to update our record of it. We should consider how to handle this edge case - for now we just log an error.
+		slog.ErrorContext(ctx, "failed to update application status in database after successful service call", "taskID", taskID, "status", status, "error", err)
+		return fmt.Errorf("failed to update application status in database after successful service call: %w", err)
 	}
 
 	slog.InfoContext(ctx, "application reviewed and response sent",
@@ -370,10 +372,6 @@ func (s *ogaService) FeedbackApplication(ctx context.Context, taskID string, con
 		return fmt.Errorf("failed to convert feedback entry: %w", err)
 	}
 
-	if err := s.store.AppendFeedback(taskID, entryMap); err != nil {
-		return fmt.Errorf("failed to store feedback: %w", err)
-	}
-
 	response := TaskResponse{
 		TaskID:     app.TaskID,
 		WorkflowID: app.WorkflowID,
@@ -389,43 +387,59 @@ func (s *ogaService) FeedbackApplication(ctx context.Context, taskID string, con
 		return fmt.Errorf("failed to send feedback to service: %w", err)
 	}
 
+	if err := s.store.AppendFeedback(taskID, entryMap); err != nil {
+		// TODO: If this fails, we have already sent the feedback to the service but failed to update our record of it. We should consider how to handle this edge case - for now we just log an error.
+		slog.ErrorContext(ctx, "failed to store feedback in database after successful service call", "taskID", taskID, "round", entry.Round, "error", err)
+		return fmt.Errorf("failed to store feedback in database after successful service call: %w", err)
+	}
+
 	slog.InfoContext(ctx, "feedback sent", "taskID", taskID, "round", entry.Round)
 	return nil
 }
 
 // GetDownloadURL returns a download URL for a file stored in the main backend.
 // It calls the backend's metadata endpoint to retrieve a (possibly presigned) download URL.
-func (s *ogaService) GetDownloadURL(ctx context.Context, key string) (string, error) {
+func (s *ogaService) GetDownloadURL(ctx context.Context, key string) (map[string]any, error) {
 	apiURL := fmt.Sprintf("uploads/%s", key)
 	resp, err := s.httpClient.Get(apiURL)
 	if err != nil {
-		return "", fmt.Errorf("failed to fetch upload metadata: %w", err)
+		return nil, fmt.Errorf("failed to fetch upload metadata: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		slog.WarnContext(ctx, "failed to fetch upload metadata, falling back to local content URL",
+		slog.WarnContext(ctx, "failed to fetch upload metadata",
 			"key", key, "status", resp.Status)
-		return "", fmt.Errorf("failed to fetch upload metadata, status code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("failed to fetch upload metadata, status code: %d", resp.StatusCode)
 	}
 
-	var metadata struct {
-		DownloadURL string `json:"download_url"`
-	}
+	var metadata map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&metadata); err != nil {
-		return "", fmt.Errorf("failed to decode upload metadata: %w", err)
+		return nil, fmt.Errorf("failed to decode upload metadata: %w", err)
 	}
 
-	if metadata.DownloadURL == "" {
-		return "", fmt.Errorf("metadata response missing download_url")
+	if metadata["download_url"] == nil || metadata["download_url"] == "" {
+		return nil, fmt.Errorf("metadata response missing download_url")
 	}
 
-	slog.InfoContext(ctx, "resolved download URL from metadata", "key", key, "downloadURL", metadata.DownloadURL)
-	return metadata.DownloadURL, nil
+	slog.InfoContext(ctx, "resolved download URL from metadata", "key", key, "downloadURL", metadata["download_url"])
+	return metadata, nil
 }
 
 // CreateUploadURL proxies an upload initialization request to the main backend.
 func (s *ogaService) CreateUploadURL(ctx context.Context, payload []byte) (map[string]any, error) {
+	var req struct {
+		Filename string `json:"filename"`
+		MimeType string `json:"mime_type"`
+		Size     int64  `json:"size"`
+	}
+	if err := json.Unmarshal(payload, &req); err != nil {
+		return nil, fmt.Errorf("invalid upload request format: %w", err)
+	}
+	if req.Filename == "" || req.MimeType == "" || req.Size <= 0 {
+		return nil, fmt.Errorf("invalid upload request: missing required fields")
+	}
+
 	resp, err := s.httpClient.Post("uploads", "application/json", payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to POST upload metadata: %w", err)
@@ -433,9 +447,11 @@ func (s *ogaService) CreateUploadURL(ctx context.Context, payload []byte) (map[s
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		slog.WarnContext(ctx, "failed to fetch upload metadata from backend",
-			"status", resp.Status)
-		return nil, fmt.Errorf("failed to POST upload metadata, status code: %d", resp.StatusCode)
+		var errResp map[string]string
+		_ = json.NewDecoder(resp.Body).Decode(&errResp)
+		errMsg := errResp["error"]
+		slog.WarnContext(ctx, "failed to fetch upload metadata from backend", "status", resp.Status, "error", errMsg)
+		return nil, fmt.Errorf("backend error (status %d): %s", resp.StatusCode, errMsg)
 	}
 
 	var metadata map[string]any
