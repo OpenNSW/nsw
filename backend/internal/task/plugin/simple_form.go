@@ -94,6 +94,16 @@ type SubmissionConfig struct {
 	Response  *Response `json:"response,omitempty"` // Expected response mapping after submission
 }
 
+// SimpleFormExternalServiceRequest represents the payload sent to the external service.
+type SimpleFormExternalServiceRequest struct {
+	TaskCode           string             `json:"taskCode,omitempty"` // Code to identify task config on external service side
+	TaskID             string             `json:"taskId"`
+	WorkflowID         string             `json:"workflowId"`
+	ServiceURL         string             `json:"serviceUrl"`
+	Data               map[string]any     `json:"data"` // Submitted trader form data
+	OGAFeedbackHistory []OGAFeedbackEntry `json:"ogaFeedbackHistory,omitempty"`
+}
+
 type CallbackConfig struct {
 	Transition *TransitionConfig `json:"transition,omitempty"`
 	Response   *Response         `json:"response,omitempty"`
@@ -431,18 +441,18 @@ func (s *SimpleForm) submitHandler(ctx context.Context, content any) (*Execution
 		}, nil
 	}
 
-	requestPayload := map[string]any{
-		"data":       formData,
-		"taskId":     s.api.GetTaskID(),
-		"workflowId": s.api.GetWorkflowID(),
-		"serviceUrl": strings.TrimRight(s.cfg.Server.ServiceURL, "/") + TasksAPIPath,
+	requestPayload := SimpleFormExternalServiceRequest{
+		TaskID:     s.api.GetTaskID(),
+		WorkflowID: s.api.GetWorkflowID(),
+		ServiceURL: strings.TrimRight(s.cfg.Server.ServiceURL, "/") + TasksAPIPath,
+		Data:       formData,
 	}
 	if s.config.Submission != nil && s.config.Submission.Request != nil {
-		requestPayload["taskCode"] = s.config.Submission.Request.TaskCode
+		requestPayload.TaskCode = s.config.Submission.Request.TaskCode
 	}
 
 	if history, err := s.readOGAFeedbackHistory(); err == nil && len(history) > 0 {
-		requestPayload["ogaFeedbackHistory"] = history
+		requestPayload.OGAFeedbackHistory = history
 	}
 
 	var serviceID string
@@ -888,11 +898,11 @@ func (s *SimpleForm) mergeFormData(prepopulated, existing map[string]interface{}
 
 // sendFormSubmission sends the form data to the specified service or URL.
 // It uses the remote Manager to identify the service (by ID or URL) and apply its configuration.
-func (s *SimpleForm) sendFormSubmission(ctx context.Context, serviceID, path string, formData map[string]interface{}) (map[string]interface{}, error) {
+func (s *SimpleForm) sendFormSubmission(ctx context.Context, serviceID, path string, payload any) (map[string]interface{}, error) {
 	req := remote.Request{
 		Method: "POST",
 		Path:   path,
-		Body:   formData,
+		Body:   payload,
 		Retry:  &remote.DefaultRetryConfig,
 	}
 
