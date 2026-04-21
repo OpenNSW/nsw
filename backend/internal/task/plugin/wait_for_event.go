@@ -80,8 +80,8 @@ func (t *WaitForEventTask) Init(api API) {
 	t.api = api
 }
 
-// ExternalServiceRequest represents the payload sent to the external service
-type ExternalServiceRequest struct {
+// WaitForEventExternalServiceRequest represents the payload sent to the external service
+type WaitForEventExternalServiceRequest struct {
 	TaskCode   string `json:"taskCode"` // Code to identify task config on External service side
 	TaskID     string `json:"taskId"`
 	WorkflowID string `json:"workflowId"`
@@ -229,7 +229,7 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID str
 	target := t.config.Submission.Url
 	serviceID := t.config.Submission.ServiceID
 
-	extReq := ExternalServiceRequest{
+	extReq := WaitForEventExternalServiceRequest{
 		WorkflowID: workflowID,
 		TaskID:     taskID,
 		ServiceURL: strings.TrimRight(t.serviceBaseURL, "/") + TasksAPIPath,
