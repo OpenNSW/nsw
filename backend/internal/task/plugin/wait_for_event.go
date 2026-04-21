@@ -82,11 +82,11 @@ func (t *WaitForEventTask) Init(api API) {
 
 // ExternalServiceRequest represents the payload sent to the external service
 type ExternalServiceRequest struct {
-	Data       any    `json:"data"` // Resolved data from global context
-	WorkflowID string `json:"workflowId"`
+	TaskCode   string `json:"taskCode"` // Code to identify task config on External service side
 	TaskID     string `json:"taskId"`
+	WorkflowID string `json:"workflowId"`
 	ServiceURL string `json:"serviceUrl"`
-	Meta       *Meta  `json:"meta,omitempty"`
+	Data       any    `json:"data"` // Resolved data from global context
 }
 
 // NewWaitForEventFSM returns the state graph for WaitForEventTask.
@@ -237,7 +237,7 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID str
 	}
 
 	if t.config.Submission.Request != nil {
-		extReq.Meta = t.config.Submission.Request.Meta
+		extReq.TaskCode = t.config.Submission.Request.TaskCode
 	}
 
 	req := remote.Request{

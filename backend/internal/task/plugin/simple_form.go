@@ -73,16 +73,11 @@ type Config struct {
 	RequiresOgaVerification bool              `json:"requiresOgaVerification,omitempty"` // If true, waits for OGA_VERIFICATION action; if false, completes after submission response
 }
 
-type Meta struct {
-	// TODO: After adapting to TemplateKey, VerificationType and VerificationId should be removed.
-	VerificationType string `json:"type,omitempty"`
-	VerificationId   string `json:"verificationId,omitempty"`
-	TemplateKey      string `json:"templateKey,omitempty"`
-}
 type Request struct {
-	Meta     *Meta           `json:"meta,omitempty"`
+	TaskCode string          `json:"taskCode"` // Code to identify task config on External service side
 	Template json.RawMessage `json:"template,omitempty"`
 }
+
 type Response struct {
 	Mapping map[string]string `json:"mapping,omitempty"` // Data to be mapped to global context after submission
 	Display *Display          `json:"display,omitempty"`
@@ -443,7 +438,7 @@ func (s *SimpleForm) submitHandler(ctx context.Context, content any) (*Execution
 		"serviceUrl": strings.TrimRight(s.cfg.Server.ServiceURL, "/") + TasksAPIPath,
 	}
 	if s.config.Submission != nil && s.config.Submission.Request != nil {
-		requestPayload["meta"] = s.config.Submission.Request.Meta
+		requestPayload["taskCode"] = s.config.Submission.Request.TaskCode
 	}
 
 	if history, err := s.readOGAFeedbackHistory(); err == nil && len(history) > 0 {
