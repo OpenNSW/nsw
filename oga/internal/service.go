@@ -276,12 +276,6 @@ func (s *ogaService) ReviewApplication(ctx context.Context, taskID string, revie
 		return err
 	}
 
-	decision, ok := reviewerResponse["decision"].(string)
-	if !ok || decision == "" {
-		return fmt.Errorf("reviewerResponse must contain a non-empty 'decision' string")
-	}
-	status := decision
-
 	// Prepare response payload for the service
 	response := TaskResponse{
 		TaskID:     app.TaskID,
@@ -300,6 +294,10 @@ func (s *ogaService) ReviewApplication(ctx context.Context, taskID string, revie
 			"error", err)
 		return fmt.Errorf("failed to send response to service: %w", err)
 	}
+
+	// TODO: Should remove this hardcoded status and determine it based on reviewerResponse content in the future, once we define a standard config to determine it from reviewerResponse.
+	// For now assume any review action results in "DONE" status.
+	status := "DONE"
 
 	if err := s.store.UpdateStatus(taskID, status, reviewerResponse); err != nil {
 		// TODO: If this fails, we have already sent the response to the service but failed to update our record of it. We should consider how to handle this edge case - for now we just log an error.
