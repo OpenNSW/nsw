@@ -10,18 +10,14 @@
                 "title": "Decision",
                 "oneOf": [
                     {
-                        "const": "APPROVED",
-                        "title": "Approved"
+                        "const": "PASSED",
+                        "title": "Pass"
                     },
                     {
-                        "const": "REJECTED",
-                        "title": "Rejected"
+                        "const": "FAILED",
+                        "title": "Fail"
                     }
                 ]
-            },
-            "remarks": {
-                "type": "string",
-                "title": "Remarks"
             }
         }
     },
@@ -31,13 +27,6 @@
             {
                 "type": "Control",
                 "scope": "#/properties/decision"
-            },
-            {
-                "type": "Control",
-                "scope": "#/properties/remarks",
-                "options": {
-                    "multi": true
-                }
             }
         ]
     }
