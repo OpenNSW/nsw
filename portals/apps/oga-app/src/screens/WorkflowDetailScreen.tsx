@@ -4,9 +4,43 @@ import { Button, Badge, Spinner, Text, Card, Flex, Box, Callout, Tabs } from '@r
 import { ArrowLeftIcon, CheckCircledIcon, ExclamationTriangleIcon, InfoCircledIcon, ChatBubbleIcon } from '@radix-ui/react-icons'
 import { fetchApplicationDetail, submitReview, submitFeedback, type OGAApplication } from '../api'
 import { JsonForms } from '@jsonforms/react';
-import { radixRenderers } from '@opennsw/jsonforms-renderers';
+import { radixRenderers, useUpload } from '@opennsw/jsonforms-renderers';
 import type { JsonSchema, UISchemaElement } from '@jsonforms/core';
 import { useApi } from '../services/useApi'
+
+function DataValue({ value }: { value: any }) {
+  const uploadContext = useUpload();
+  
+  if (typeof value !== 'string') {
+    return <Text size="2" weight="medium">{JSON.stringify(value)}</Text>;
+  }
+
+  // Detect file key (ENDS with extension OR matches UUID)
+  const isFileKey = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(value) || 
+                   /\.(pdf|png|jpg|jpeg|doc|docx|xls|xlsx)$/i.test(value);
+
+  if (isFileKey) {
+    const handleView = async () => {
+      const result = await uploadContext?.getDownloadUrl?.(value);
+      if (result?.url) {
+        window.open(result.url, '_blank', 'noopener,noreferrer');
+      }
+    };
+
+    return (
+      <Flex align="center" gap="2" justify="between" width="100%">
+        <Text size="2" weight="medium" className="truncate" style={{ flex: 1, marginRight: '8px' }}>
+          {value}
+        </Text>
+        <Button variant="soft" color="blue" size="1" onClick={handleView} style={{ flexShrink: 0 }}>
+          View
+        </Button>
+      </Flex>
+    );
+  }
+
+  return <Text size="2" weight="medium">{value}</Text>;
+}
 
 export function WorkflowDetailScreen() {
   const navigate = useNavigate()
@@ -261,9 +295,7 @@ export function WorkflowDetailScreen() {
                           <Text size="1" color="gray" as="div" className="capitalize mb-1">
                             {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
                           </Text>
-                          <Text size="2" weight="medium">
-                            {typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value)}
-                          </Text>
+                          <DataValue value={value} />
                         </Box>
                       ))}
                     </div>
