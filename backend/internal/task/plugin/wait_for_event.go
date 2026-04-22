@@ -239,6 +239,9 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID str
 	if t.config.Submission.Request != nil {
 		extReq.TaskCode = t.config.Submission.Request.TaskCode
 	}
+	if extReq.TaskCode == "" {
+		return fmt.Errorf("taskCode is required for external service submission. Please configure submission.request.taskCode in the plugin config")
+	}
 
 	req := remote.Request{
 		Method: "POST",

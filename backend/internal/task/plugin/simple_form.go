@@ -96,7 +96,7 @@ type SubmissionConfig struct {
 
 // SimpleFormExternalServiceRequest represents the payload sent to the external service.
 type SimpleFormExternalServiceRequest struct {
-	TaskCode           string             `json:"taskCode,omitempty"` // Code to identify task config on external service side
+	TaskCode           string             `json:"taskCode"` // Code to identify task config on external service side
 	TaskID             string             `json:"taskId"`
 	WorkflowID         string             `json:"workflowId"`
 	ServiceURL         string             `json:"serviceUrl"`
@@ -458,7 +458,7 @@ func (s *SimpleForm) submitHandler(ctx context.Context, content any) (*Execution
 				Success: false,
 				Error: &ApiError{
 					Code:    "MISSING_TASK_CODE",
-					Message: "TaskCode is required for external service submission. Please configure either submission.request.taskCode or ensure formId is set.",
+					Message: "TaskCode is required for external service submission. Please configure submission.request.taskCode in the plugin config.",
 				},
 			},
 		}, nil
