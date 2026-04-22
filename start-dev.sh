@@ -199,90 +199,42 @@ start_service "backend" "$ROOT_DIR/backend" env \
   AUTH_JWKS_INSECURE_SKIP_VERIFY="$AUTH_JWKS_INSECURE_SKIP_VERIFY" \
   go run ./cmd/server/main.go
 
-start_service "oga-npqs" "$ROOT_DIR/oga" env \
-  OGA_PORT="$OGA_NPQS_PORT" \
-  OGA_DB_DRIVER="$OGA_DB_DRIVER" \
-  OGA_DB_PATH="$OGA_NPQS_DB_PATH" \
-  OGA_DB_HOST="$OGA_DB_HOST" \
-  OGA_DB_PORT="$OGA_DB_PORT" \
-  OGA_DB_USER="$OGA_DB_USER" \
-  OGA_DB_PASSWORD="$OGA_DB_PASSWORD" \
-  OGA_DB_NAME="$OGA_DB_NAME" \
-  OGA_DB_SSLMODE="$OGA_DB_SSLMODE" \
-  OGA_FORMS_PATH="$OGA_FORMS_PATH" \
-  OGA_DEFAULT_FORM_ID="$OGA_DEFAULT_FORM_ID" \
-  OGA_ALLOWED_ORIGINS="$OGA_ALLOWED_ORIGINS" \
-  OGA_NSW_API_BASE_URL="http://localhost:${BACKEND_PORT}/api/v1" \
-  OGA_NSW_CLIENT_ID="$OGA_NSW_NPQS_CLIENT_ID" \
-  OGA_NSW_CLIENT_SECRET="$OGA_NSW_NPQS_CLIENT_SECRET" \
-  OGA_NSW_TOKEN_URL="$OGA_NSW_TOKEN_URL" \
-  OGA_NSW_SCOPES="$OGA_NSW_SCOPES" \
-  OGA_NSW_TOKEN_INSECURE_SKIP_VERIFY="$OGA_NSW_TOKEN_INSECURE_SKIP_VERIFY" \
-  go run ./cmd/server
+# OGA instance registry
+# Each row: name | backend_port | db_path | nsw_client_id | nsw_client_secret | app_port | instance_config | idp_client_id
+OGA_INSTANCES=(
+  "npqs|$OGA_NPQS_PORT|$OGA_NPQS_DB_PATH|$OGA_NSW_NPQS_CLIENT_ID|$OGA_NSW_NPQS_CLIENT_SECRET|$OGA_APP_NPQS_PORT|$OGA_APP_NPQS_INSTANCE_CONFIG|$NPQS_IDP_CLIENT_ID"
+  "fcau|$OGA_FCAU_PORT|$OGA_FCAU_DB_PATH|$OGA_NSW_FCAU_CLIENT_ID|$OGA_NSW_FCAU_CLIENT_SECRET|$OGA_APP_FCAU_PORT|$OGA_APP_FCAU_INSTANCE_CONFIG|$FCAU_IDP_CLIENT_ID"
+  "ird|$OGA_IRD_PORT|$OGA_IRD_DB_PATH|$OGA_NSW_IRD_CLIENT_ID|$OGA_NSW_IRD_CLIENT_SECRET|$OGA_APP_IRD_PORT|$OGA_APP_IRD_INSTANCE_CONFIG|$IRD_IDP_CLIENT_ID"
+  "cda|$OGA_CDA_PORT|$OGA_CDA_DB_PATH|$OGA_NSW_CDA_CLIENT_ID|$OGA_NSW_CDA_CLIENT_SECRET|$OGA_APP_CDA_PORT|$OGA_APP_CDA_INSTANCE_CONFIG|$CDA_IDP_CLIENT_ID"
+)
 
-start_service "oga-fcau" "$ROOT_DIR/oga" env \
-  OGA_PORT="$OGA_FCAU_PORT" \
-  OGA_DB_DRIVER="$OGA_DB_DRIVER" \
-  OGA_DB_PATH="$OGA_FCAU_DB_PATH" \
-  OGA_DB_HOST="$OGA_DB_HOST" \
-  OGA_DB_PORT="$OGA_DB_PORT" \
-  OGA_DB_USER="$OGA_DB_USER" \
-  OGA_DB_PASSWORD="$OGA_DB_PASSWORD" \
-  OGA_DB_NAME="$OGA_DB_NAME" \
-  OGA_DB_SSLMODE="$OGA_DB_SSLMODE" \
-  OGA_FORMS_PATH="$OGA_FORMS_PATH" \
-  OGA_DEFAULT_FORM_ID="$OGA_DEFAULT_FORM_ID" \
-  OGA_ALLOWED_ORIGINS="$OGA_ALLOWED_ORIGINS" \
-  OGA_NSW_API_BASE_URL="http://localhost:${BACKEND_PORT}/api/v1" \
-  OGA_NSW_CLIENT_ID="$OGA_NSW_FCAU_CLIENT_ID" \
-  OGA_NSW_CLIENT_SECRET="$OGA_NSW_FCAU_CLIENT_SECRET" \
-  OGA_NSW_TOKEN_URL="$OGA_NSW_TOKEN_URL" \
-  OGA_NSW_SCOPES="$OGA_NSW_SCOPES" \
-  OGA_NSW_TOKEN_INSECURE_SKIP_VERIFY="$OGA_NSW_TOKEN_INSECURE_SKIP_VERIFY" \
-  go run ./cmd/server
+# Launch OGA backends
+for entry in "${OGA_INSTANCES[@]}"; do
+  IFS='|' read -r name port db_path nsw_client_id nsw_client_secret app_port instance_config idp_client_id <<< "$entry"
 
-start_service "oga-ird" "$ROOT_DIR/oga" env \
-  OGA_PORT="$OGA_IRD_PORT" \
-  OGA_DB_DRIVER="$OGA_DB_DRIVER" \
-  OGA_DB_PATH="$OGA_IRD_DB_PATH" \
-  OGA_DB_HOST="$OGA_DB_HOST" \
-  OGA_DB_PORT="$OGA_DB_PORT" \
-  OGA_DB_USER="$OGA_DB_USER" \
-  OGA_DB_PASSWORD="$OGA_DB_PASSWORD" \
-  OGA_DB_NAME="$OGA_DB_NAME" \
-  OGA_DB_SSLMODE="$OGA_DB_SSLMODE" \
-  OGA_FORMS_PATH="$OGA_FORMS_PATH" \
-  OGA_DEFAULT_FORM_ID="$OGA_DEFAULT_FORM_ID" \
-  OGA_ALLOWED_ORIGINS="$OGA_ALLOWED_ORIGINS" \
-  OGA_NSW_API_BASE_URL="http://localhost:${BACKEND_PORT}/api/v1" \
-  OGA_NSW_CLIENT_ID="$OGA_NSW_IRD_CLIENT_ID" \
-  OGA_NSW_CLIENT_SECRET="$OGA_NSW_IRD_CLIENT_SECRET" \
-  OGA_NSW_TOKEN_URL="$OGA_NSW_TOKEN_URL" \
-  OGA_NSW_SCOPES="$OGA_NSW_SCOPES" \
-  OGA_NSW_TOKEN_INSECURE_SKIP_VERIFY="$OGA_NSW_TOKEN_INSECURE_SKIP_VERIFY" \
-  go run ./cmd/server
+  start_service "oga-${name}" "$ROOT_DIR/oga" env \
+    OGA_PORT="$port" \
+    OGA_DB_DRIVER="$OGA_DB_DRIVER" \
+    OGA_DB_PATH="$db_path" \
+    OGA_DB_HOST="$OGA_DB_HOST" \
+    OGA_DB_PORT="$OGA_DB_PORT" \
+    OGA_DB_USER="$OGA_DB_USER" \
+    OGA_DB_PASSWORD="$OGA_DB_PASSWORD" \
+    OGA_DB_NAME="$OGA_DB_NAME" \
+    OGA_DB_SSLMODE="$OGA_DB_SSLMODE" \
+    OGA_FORMS_PATH="$OGA_FORMS_PATH" \
+    OGA_DEFAULT_FORM_ID="$OGA_DEFAULT_FORM_ID" \
+    OGA_ALLOWED_ORIGINS="$OGA_ALLOWED_ORIGINS" \
+    OGA_NSW_API_BASE_URL="http://localhost:${BACKEND_PORT}/api/v1" \
+    OGA_NSW_CLIENT_ID="$nsw_client_id" \
+    OGA_NSW_CLIENT_SECRET="$nsw_client_secret" \
+    OGA_NSW_TOKEN_URL="$OGA_NSW_TOKEN_URL" \
+    OGA_NSW_SCOPES="$OGA_NSW_SCOPES" \
+    OGA_NSW_TOKEN_INSECURE_SKIP_VERIFY="$OGA_NSW_TOKEN_INSECURE_SKIP_VERIFY" \
+    go run ./cmd/server
+done
 
-start_service "oga-cda" "$ROOT_DIR/oga" env \
-  OGA_PORT="$OGA_CDA_PORT" \
-  OGA_DB_DRIVER="$OGA_DB_DRIVER" \
-  OGA_DB_PATH="$OGA_CDA_DB_PATH" \
-  OGA_DB_HOST="$OGA_DB_HOST" \
-  OGA_DB_PORT="$OGA_DB_PORT" \
-  OGA_DB_USER="$OGA_DB_USER" \
-  OGA_DB_PASSWORD="$OGA_DB_PASSWORD" \
-  OGA_DB_NAME="$OGA_DB_NAME" \
-  OGA_DB_SSLMODE="$OGA_DB_SSLMODE" \
-  OGA_FORMS_PATH="$OGA_FORMS_PATH" \
-  OGA_DEFAULT_FORM_ID="$OGA_DEFAULT_FORM_ID" \
-  OGA_ALLOWED_ORIGINS="$OGA_ALLOWED_ORIGINS" \
-  OGA_NSW_API_BASE_URL="http://localhost:${BACKEND_PORT}/api/v1" \
-  OGA_NSW_CLIENT_ID="$OGA_NSW_CDA_CLIENT_ID" \
-  OGA_NSW_CLIENT_SECRET="$OGA_NSW_CDA_CLIENT_SECRET" \
-  OGA_NSW_TOKEN_URL="$OGA_NSW_TOKEN_URL" \
-  OGA_NSW_SCOPES="$OGA_NSW_SCOPES" \
-  OGA_NSW_TOKEN_INSECURE_SKIP_VERIFY="$OGA_NSW_TOKEN_INSECURE_SKIP_VERIFY" \
-  go run ./cmd/server
-
+# Trader portal
 start_service "trader-app" "$ROOT_DIR/portals/apps/trader-app" env \
   VITE_API_BASE_URL="http://localhost:${BACKEND_PORT}/api/v1" \
   VITE_IDP_BASE_URL="$IDP_PUBLIC_URL" \
@@ -295,68 +247,38 @@ start_service "trader-app" "$ROOT_DIR/portals/apps/trader-app" env \
   VITE_SHOW_AUTOFILL_BUTTON="$SHOW_AUTOFILL_BUTTON" \
   pnpm run dev -- --port "$TRADER_APP_PORT"
 
-start_service "oga-app-npqs" "$ROOT_DIR/portals/apps/oga-app" env \
-  VITE_PORT="$OGA_APP_NPQS_PORT" \
-  VITE_INSTANCE_CONFIG="$OGA_APP_NPQS_INSTANCE_CONFIG" \
-  VITE_API_BASE_URL="http://localhost:${OGA_NPQS_PORT}" \
-  VITE_IDP_BASE_URL="$IDP_PUBLIC_URL" \
-  VITE_IDP_CLIENT_ID="$NPQS_IDP_CLIENT_ID" \
-  VITE_APP_URL="http://localhost:${OGA_APP_NPQS_PORT}" \
-  VITE_IDP_SCOPES="$IDP_SCOPES" \
-  VITE_IDP_PLATFORM="$IDP_PLATFORM" \
-  pnpm run dev
+# Launch OGA portals
+for entry in "${OGA_INSTANCES[@]}"; do
+  IFS='|' read -r name port db_path nsw_client_id nsw_client_secret app_port instance_config idp_client_id <<< "$entry"
 
-start_service "oga-app-fcau" "$ROOT_DIR/portals/apps/oga-app" env \
-  VITE_PORT="$OGA_APP_FCAU_PORT" \
-  VITE_INSTANCE_CONFIG="$OGA_APP_FCAU_INSTANCE_CONFIG" \
-  VITE_API_BASE_URL="http://localhost:${OGA_FCAU_PORT}" \
-  VITE_IDP_BASE_URL="$IDP_PUBLIC_URL" \
-  VITE_IDP_CLIENT_ID="$FCAU_IDP_CLIENT_ID" \
-  VITE_APP_URL="http://localhost:${OGA_APP_FCAU_PORT}" \
-  VITE_IDP_SCOPES="$IDP_SCOPES" \
-  VITE_IDP_PLATFORM="$IDP_PLATFORM" \
-  pnpm run dev
+  start_service "oga-app-${name}" "$ROOT_DIR/portals/apps/oga-app" env \
+    VITE_PORT="$app_port" \
+    VITE_INSTANCE_CONFIG="$instance_config" \
+    VITE_API_BASE_URL="http://localhost:${port}" \
+    VITE_IDP_BASE_URL="$IDP_PUBLIC_URL" \
+    VITE_IDP_CLIENT_ID="$idp_client_id" \
+    VITE_APP_URL="http://localhost:${app_port}" \
+    VITE_IDP_SCOPES="$IDP_SCOPES" \
+    VITE_IDP_PLATFORM="$IDP_PLATFORM" \
+    pnpm run dev
+done
 
-start_service "oga-app-ird" "$ROOT_DIR/portals/apps/oga-app" env \
-  VITE_PORT="$OGA_APP_IRD_PORT" \
-  VITE_INSTANCE_CONFIG="$OGA_APP_IRD_INSTANCE_CONFIG" \
-  VITE_API_BASE_URL="http://localhost:${OGA_IRD_PORT}" \
-  VITE_IDP_BASE_URL="$IDP_PUBLIC_URL" \
-  VITE_IDP_CLIENT_ID="$IRD_IDP_CLIENT_ID" \
-  VITE_APP_URL="http://localhost:${OGA_APP_IRD_PORT}" \
-  VITE_IDP_SCOPES="$IDP_SCOPES" \
-  VITE_IDP_PLATFORM="$IDP_PLATFORM" \
-  pnpm run dev
-
-start_service "oga-app-cda" "$ROOT_DIR/portals/apps/oga-app" env \
-  VITE_PORT="$OGA_APP_CDA_PORT" \
-  VITE_INSTANCE_CONFIG="$OGA_APP_CDA_INSTANCE_CONFIG" \
-  VITE_API_BASE_URL="http://localhost:${OGA_CDA_PORT}" \
-  VITE_IDP_BASE_URL="$IDP_PUBLIC_URL" \
-  VITE_IDP_CLIENT_ID="$CDA_IDP_CLIENT_ID" \
-  VITE_APP_URL="http://localhost:${OGA_APP_CDA_PORT}" \
-  VITE_IDP_SCOPES="$IDP_SCOPES" \
-  VITE_IDP_PLATFORM="$IDP_PLATFORM" \
-  pnpm run dev
-
-cat <<EOF
-
-Started local services:
-  - backend       -> http://localhost:${BACKEND_PORT}
-  - trader-app    -> http://localhost:${TRADER_APP_PORT}
-  - oga-npqs      -> http://localhost:${OGA_NPQS_PORT}
-  - oga-fcau      -> http://localhost:${OGA_FCAU_PORT}
-  - oga-ird       -> http://localhost:${OGA_IRD_PORT}
-  - oga-cda       -> http://localhost:${OGA_CDA_PORT}
-  - oga-app-npqs  -> http://localhost:${OGA_APP_NPQS_PORT}
-  - oga-app-fcau  -> http://localhost:${OGA_APP_FCAU_PORT}
-  - oga-app-ird   -> http://localhost:${OGA_APP_IRD_PORT}
-  - oga-app-cda   -> http://localhost:${OGA_APP_CDA_PORT}
-
-IDP start: $RUN_IDP
-Migrations run: $RUN_MIGRATIONS
-
-Press Ctrl+C to stop all services started by this script.
-EOF
+# Status banner (generated from registry)
+{
+  echo
+  echo "Started local services:"
+  echo "  - backend       -> http://localhost:${BACKEND_PORT}"
+  echo "  - trader-app    -> http://localhost:${TRADER_APP_PORT}"
+  for entry in "${OGA_INSTANCES[@]}"; do
+    IFS='|' read -r name port _ _ _ app_port _ _ <<< "$entry"
+    printf "  - oga-%-9s -> http://localhost:%s\n" "$name" "$port"
+    printf "  - oga-app-%-5s -> http://localhost:%s\n" "$name" "$app_port"
+  done
+  echo
+  echo "IDP start: $RUN_IDP"
+  echo "Migrations run: $RUN_MIGRATIONS"
+  echo
+  echo "Press Ctrl+C to stop all services started by this script."
+}
 
 wait
