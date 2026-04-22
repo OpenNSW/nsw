@@ -3,34 +3,25 @@ package config
 import (
 	"fmt"
 	"log/slog"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/OpenNSW/nsw/internal/auth"
+	"github.com/OpenNSW/nsw/internal/database"
+	"github.com/OpenNSW/nsw/internal/uploads"
+	"github.com/OpenNSW/nsw/internal/validation"
 )
 
 // Config holds all configuration for the application
 type Config struct {
-	Database     DatabaseConfig
+	Database     database.Config
 	Server       ServerConfig
 	CORS         CORSConfig
-	Storage      StorageConfig
-	Auth         AuthConfig
+	Storage      uploads.Config
+	Auth         auth.Config
 	Notification NotificationConfig
-}
-
-// DatabaseConfig holds database connection configuration
-type DatabaseConfig struct {
-	Host                   string
-	Port                   int
-	Username               string
-	Password               string
-	Name                   string
-	SSLMode                string
-	MaxIdleConns           int
-	MaxOpenConns           int
-	MaxConnLifetimeSeconds int
 }
 
 // ServerConfig holds server configuration
@@ -49,29 +40,6 @@ type CORSConfig struct {
 	AllowedHeaders   []string
 	AllowCredentials bool
 	MaxAge           int
-}
-
-type StorageConfig struct {
-	Type           string // "local" or "s3"
-	LocalBaseDir   string
-	LocalPublicURL string
-	S3Endpoint     string
-	S3Bucket       string
-	S3Region       string
-	S3AccessKey    string
-	S3SecretKey    string
-	S3UseSSL       bool
-	S3PublicURL    string
-	LocalPutSecret string
-	PresignTTL     time.Duration
-}
-
-type AuthConfig struct {
-	JWKSURL               string
-	Issuer                string
-	Audience              string
-	ClientIDs             []string
-	InsecureSkipTLSVerify bool
 }
 
 type NotificationConfig struct {
@@ -95,11 +63,8 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid SERVER_PORT: %w", err)
 	}
 
-	authJWKSURL := getEnvOrDefault("AUTH_JWKS_URL", "https://localhost:8090/oauth2/jwks")
-	defaultInsecureJWKS := getDefaultInsecureJWKS(authJWKSURL)
-
 	cfg := &Config{
-		Database: DatabaseConfig{
+		Database: database.Config{
 			Host:                   getEnvOrDefault("DB_HOST", "localhost"),
 			Port:                   dbPort,
 			Username:               getEnvOrDefault("DB_USERNAME", "postgres"),
@@ -124,10 +89,10 @@ func Load() (*Config, error) {
 			AllowCredentials: getBoolOrDefault("CORS_ALLOW_CREDENTIALS", true),
 			MaxAge:           getIntOrDefault("CORS_MAX_AGE", 3600),
 		},
-		Storage: StorageConfig{
+		Storage: uploads.Config{
 			Type:           strings.TrimSpace(getEnvOrDefault("STORAGE_TYPE", "local")),
 			LocalBaseDir:   getEnvOrDefault("STORAGE_LOCAL_BASE_DIR", "./bucket"),
-			LocalPublicURL: getEnvOrDefault("SERVICE_URL", fmt.Sprintf("http://localhost:%d", serverPort)),
+			LocalPublicURL: getEnvOrDefault("STORAGE_LOCAL_PUBLIC_URL", getEnvOrDefault("SERVICE_URL", fmt.Sprintf("http://localhost:%d", serverPort))),
 			S3Endpoint:     os.Getenv("STORAGE_S3_ENDPOINT"),
 			S3Bucket:       getEnvOrDefault("STORAGE_S3_BUCKET", "nsw-uploads"),
 			S3Region:       getEnvOrDefault("STORAGE_S3_REGION", "us-east-1"),
@@ -138,12 +103,12 @@ func Load() (*Config, error) {
 			LocalPutSecret: getEnvOrDefault("STORAGE_LOCAL_PUT_SECRET", "local-dev-secret"),
 			PresignTTL:     parseDurationOrDefault(getEnvOrDefault("STORAGE_PRESIGN_TTL", "15m"), 15*time.Minute),
 		},
-		Auth: AuthConfig{
+		Auth: auth.Config{
 			JWKSURL:               getEnvOrDefault("AUTH_JWKS_URL", "https://localhost:8090/oauth2/jwks"),
 			Issuer:                getEnvOrDefault("AUTH_ISSUER", "https://localhost:8090"),
 			Audience:              getEnvOrDefault("AUTH_AUDIENCE", "NSW_API"),
 			ClientIDs:             parseCommaSeparated(getEnvOrDefault("AUTH_CLIENT_IDS", "TRADER_PORTAL_APP,FCAU_TO_NSW,NPQS_TO_NSW,IRD_TO_NSW")),
-			InsecureSkipTLSVerify: getBoolOrDefault("AUTH_JWKS_INSECURE_SKIP_VERIFY", defaultInsecureJWKS),
+			InsecureSkipTLSVerify: getBoolOrDefault("AUTH_JWKS_INSECURE_SKIP_VERIFY", false),
 		},
 		Notification: NotificationConfig{
 			SMTPHost:     getEnvOrDefault("EMAIL_SMTP_HOST", "localhost"),
@@ -165,57 +130,36 @@ func Load() (*Config, error) {
 
 // Validate checks that all required configuration is present
 func (c *Config) Validate() error {
-	if c.Database.Host == "" {
-		return fmt.Errorf("DB_HOST is required")
+	if strings.TrimSpace(c.Server.ServiceURL) == "" {
+		return fmt.Errorf("SERVICE_URL is required")
 	}
-	if c.Database.Username == "" {
-		return fmt.Errorf("DB_USERNAME is required")
+	if err := validation.HTTPURL("SERVICE_URL", c.Server.ServiceURL); err != nil {
+		return err
 	}
-	if c.Database.Password == "" {
-		return fmt.Errorf("DB_PASSWORD is required")
+	if err := c.Database.Validate(); err != nil {
+		return fmt.Errorf("invalid database configuration: %w", err)
 	}
-	if c.Database.Name == "" {
-		return fmt.Errorf("DB_NAME is required")
+	if err := c.Storage.Validate(); err != nil {
+		return fmt.Errorf("invalid storage configuration: %w", err)
 	}
-	if c.Auth.JWKSURL == "" {
-		return fmt.Errorf("AUTH_JWKS_URL is required")
+	if err := c.Auth.Validate(); err != nil {
+		return fmt.Errorf("invalid auth configuration: %w", err)
 	}
-	if c.Auth.Issuer == "" {
-		return fmt.Errorf("AUTH_ISSUER is required")
+	if len(c.CORS.AllowedOrigins) == 0 {
+		return fmt.Errorf("CORS_ALLOWED_ORIGINS is required")
 	}
-	if c.Auth.Audience == "" {
-		return fmt.Errorf("AUTH_AUDIENCE is required")
-	}
-	if len(c.Auth.ClientIDs) == 0 {
-		return fmt.Errorf("AUTH_CLIENT_IDS is required")
-	}
-	if !c.Server.Debug {
-		if len(c.CORS.AllowedOrigins) == 0 {
-			return fmt.Errorf("CORS_ALLOWED_ORIGINS must be explicitly configured in production")
-		}
-		for _, origin := range c.CORS.AllowedOrigins {
-			if origin == "*" {
+	for _, origin := range c.CORS.AllowedOrigins {
+		if origin == "*" {
+			if !c.Server.Debug {
 				return fmt.Errorf("CORS_ALLOWED_ORIGINS cannot contain '*' in production (SERVER_DEBUG=false)")
 			}
+			continue
+		}
+		if err := validation.HTTPURL("CORS_ALLOWED_ORIGINS", origin); err != nil {
+			return err
 		}
 	}
 	return nil
-}
-
-// DSN returns the database connection string
-func (c *DatabaseConfig) DSN() string {
-	// Using the URL format is more robust for handling special characters in passwords.
-	// format: postgres://user:password@host:port/dbname?sslmode=disable
-	dsn := url.URL{
-		Scheme: "postgres",
-		User:   url.UserPassword(c.Username, c.Password),
-		Host:   fmt.Sprintf("%s:%d", c.Host, c.Port),
-		Path:   c.Name,
-	}
-	query := dsn.Query()
-	query.Add("sslmode", c.SSLMode)
-	dsn.RawQuery = query.Encode()
-	return dsn.String()
 }
 
 // getEnvOrDefault returns the value of an environment variable or a default value
@@ -244,11 +188,6 @@ func getBoolOrDefault(key string, defaultValue bool) bool {
 		}
 	}
 	return defaultValue
-}
-
-// getDefaultInsecureJWKS returns true if the JWKS URL is a localhost URL, indicating that TLS verification can be skipped in development
-func getDefaultInsecureJWKS(jwksURL string) bool {
-	return strings.HasPrefix(jwksURL, "https://localhost") || strings.HasPrefix(jwksURL, "https://127.0.0.1")
 }
 
 // parseDurationOrDefault returns the time.Duration value of a string or a default value

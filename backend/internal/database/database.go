@@ -8,16 +8,10 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-
-	"github.com/OpenNSW/nsw/internal/config"
 )
 
 // New creates a new database connection using the provided configuration
-func New(cfg *config.DatabaseConfig) (*gorm.DB, error) {
-	if cfg == nil {
-		return nil, fmt.Errorf("database config cannot be nil")
-	}
-
+func New(cfg Config) (*gorm.DB, error) {
 	// Configure GORM logger
 	gormLogger := logger.Default.LogMode(logger.Info)
 
