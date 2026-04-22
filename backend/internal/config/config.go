@@ -75,12 +75,19 @@ type AuthConfig struct {
 }
 
 type NotificationConfig struct {
-	SMTPHost     string
-	SMTPPort     int
-	SMTPUsername string
-	SMTPPassword string
-	SMTPSender   string
-	TemplateRoot string
+	// External email HTTP service
+	EmailServiceURL   string
+	EmailServiceToken string
+
+	// GovSMS
+	GovSMSBaseURL  string
+	GovSMSUsername string
+	GovSMSPassword string
+	GovSMSSIDCode  string
+
+	// Template roots
+	EmailTemplateRoot string
+	SMSTemplateRoot   string
 }
 
 // Load reads configuration from environment variables
@@ -146,12 +153,16 @@ func Load() (*Config, error) {
 			InsecureSkipTLSVerify: getBoolOrDefault("AUTH_JWKS_INSECURE_SKIP_VERIFY", defaultInsecureJWKS),
 		},
 		Notification: NotificationConfig{
-			SMTPHost:     getEnvOrDefault("EMAIL_SMTP_HOST", "localhost"),
-			SMTPPort:     getIntOrDefault("EMAIL_SMTP_PORT", 587),
-			SMTPUsername: os.Getenv("EMAIL_SMTP_USERNAME"),
-			SMTPPassword: os.Getenv("EMAIL_SMTP_PASSWORD"),
-			SMTPSender:   getEnvOrDefault("EMAIL_SMTP_SENDER", "noreply@nsw.local"),
-			TemplateRoot: getEnvOrDefault("EMAIL_TEMPLATE_ROOT", "./configs/email-templates"),
+			EmailServiceURL:   os.Getenv("EMAIL_SERVICE_URL"),
+			EmailServiceToken: os.Getenv("EMAIL_SERVICE_TOKEN"),
+
+			GovSMSBaseURL:  os.Getenv("GOVSMS_BASE_URL"),
+			GovSMSUsername: os.Getenv("GOVSMS_USERNAME"),
+			GovSMSPassword: os.Getenv("GOVSMS_PASSWORD"),
+			GovSMSSIDCode:  os.Getenv("GOVSMS_SID_CODE"),
+
+			EmailTemplateRoot: getEnvOrDefault("EMAIL_TEMPLATE_ROOT", "./configs/email-templates"),
+			SMSTemplateRoot:   getEnvOrDefault("SMS_TEMPLATE_ROOT", "./configs/sms-templates"),
 		},
 	}
 
