@@ -245,26 +245,21 @@ func (s *ogaService) GetApplication(ctx context.Context, taskID string) (*Applic
 
 	// Attach oga form: look up by meta, fall back to default
 	formID := FormIDFromTaskCode(record.TaskCode)
-	if formID != "" {
-		if ogaForm, err := s.formStore.GetForm(formID); err == nil {
-			app.OgaForm = ogaForm
-		} else {
-			slog.WarnContext(ctx, "form not found for application, using default", "taskID", taskID, "formID", formID)
-			if ogaForm, err := s.formStore.GetDefaultForm(); err == nil {
-				app.OgaForm = ogaForm
-			}
-		}
-		// Try to load a separate "view" form for rendering the data in read-only mode in the UI, using a naming convention "{formID}.view"
-		dataViewFormID := formID + ".view"
-		if dataForm, err := s.formStore.GetForm(dataViewFormID); err == nil {
-			app.DataForm = dataForm
-		}
+	if ogaForm, err := s.formStore.GetForm(formID); err == nil {
+		app.OgaForm = ogaForm
 	} else {
+		slog.WarnContext(ctx, "form not found for application, using default", "taskID", taskID, "formID", formID)
 		if ogaForm, err := s.formStore.GetDefaultForm(); err == nil {
 			app.OgaForm = ogaForm
 		}
 	}
 
+	// TODO: This is a temporary implementation to get the Read Only form UI schema. The OGA form and dataView form will be stored in same template definition in the future, and we can get rid of this special handling to look for a separate form for data view.
+	// Try to load a separate "view" form for rendering the data in read-only mode in the UI, using a naming convention "{formID}.view"
+	dataViewFormID := formID + ".view"
+	if dataForm, err := s.formStore.GetForm(dataViewFormID); err == nil {
+		app.DataForm = dataForm
+	}
 	return app, nil
 }
 
