@@ -10,7 +10,7 @@ type Config struct {
 	JWKSURL               string
 	Issuer                string
 	Audience              string
-	ClientID              string
+	ClientIDs             []string
 	InsecureSkipTLSVerify bool
 }
 
@@ -30,8 +30,9 @@ func (c *Config) Validate() error {
 	if c.Audience == "" {
 		return fmt.Errorf("AUTH_AUDIENCE is required")
 	}
-	if c.ClientID == "" {
-		return fmt.Errorf("AUTH_CLIENT_ID is required")
+
+	if len(c.ClientIDs) == 0 {
+		return fmt.Errorf("AUTH_CLIENT_IDS is required")
 	}
 	return nil
 }

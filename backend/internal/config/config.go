@@ -16,13 +16,12 @@ import (
 
 // Config holds all configuration for the application
 type Config struct {
-	Database             database.Config
-	Server               ServerConfig
-	CORS                 CORSConfig
-	Storage              uploads.Config
-	Auth                 auth.Config
-	Notification         NotificationConfig
-	UseWorkflowManagerV2 bool
+	Database     database.Config
+	Server       ServerConfig
+	CORS         CORSConfig
+	Storage      uploads.Config
+	Auth         auth.Config
+	Notification NotificationConfig
 }
 
 // ServerConfig holds server configuration
@@ -107,8 +106,8 @@ func Load() (*Config, error) {
 		Auth: auth.Config{
 			JWKSURL:               getEnvOrDefault("AUTH_JWKS_URL", "https://localhost:8090/oauth2/jwks"),
 			Issuer:                getEnvOrDefault("AUTH_ISSUER", "https://localhost:8090"),
-			Audience:              getEnvOrDefault("AUTH_AUDIENCE", "TRADER_PORTAL_APP"),
-			ClientID:              getEnvOrDefault("AUTH_CLIENT_ID", "TRADER_PORTAL_APP"),
+			Audience:              getEnvOrDefault("AUTH_AUDIENCE", "NSW_API"),
+			ClientIDs:             parseCommaSeparated(getEnvOrDefault("AUTH_CLIENT_IDS", "TRADER_PORTAL_APP,FCAU_TO_NSW,NPQS_TO_NSW,IRD_TO_NSW")),
 			InsecureSkipTLSVerify: getBoolOrDefault("AUTH_JWKS_INSECURE_SKIP_VERIFY", false),
 		},
 		Notification: NotificationConfig{
