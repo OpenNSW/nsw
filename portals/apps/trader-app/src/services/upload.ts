@@ -12,37 +12,51 @@ export interface UploadResponse {
 }
 
 export async function uploadFile(apiClient: ApiClient, file: File): Promise<UploadResponse> {
-  const formData = new FormData()
-  formData.append('file', file)
-
-  const response = await fetch(`${API_BASE_URL}/uploads`, {
+  // Request presigned URL and metadata from backend
+  const metadataResponse = await fetch(`${API_BASE_URL}/uploads`, {
     method: 'POST',
-    headers: await apiClient.getAuthHeaders(false),
-    body: formData,
+    headers: {
+      ...(await apiClient.getAuthHeaders(false)),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      filename: file.name,
+      mime_type: file.type || 'application/octet-stream',
+      size: file.size,
+    }),
   })
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    console.error(`Upload error ${response.status}: ${errorText}`)
-    throw new Error(`Failed to upload file: ${response.status} ${response.statusText}`)
+  if (!metadataResponse.ok) {
+    const errorText = await metadataResponse.text()
+    console.error(`Metadata request error ${metadataResponse.status}: ${errorText}`)
+    throw new Error(`Failed to initialize upload: ${metadataResponse.status} ${metadataResponse.statusText}`)
   }
 
-  const meta = (await response.json()) as { key: string; name: string }
+  const meta = (await metadataResponse.json()) as { key: string; name: string; upload_url: string }
+
+  // Upload file bytes directly to the storage destination (presigned URL)
+  const uploadResponse = await fetch(meta.upload_url, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': file.type || 'application/octet-stream',
+    },
+    body: file,
+  })
+
+  if (!uploadResponse.ok) {
+    const errorText = await uploadResponse.text()
+    console.error(`Direct storage upload error ${uploadResponse.status}: ${errorText}`)
+    throw new Error(`Failed to upload file to storage: ${uploadResponse.status} ${uploadResponse.statusText}`)
+  }
+
   return { key: meta.key, name: meta.name }
 }
 
 export async function getDownloadUrl(apiClient: ApiClient, key: string): Promise<{ url: string; expiresAt: number }> {
-  const response = await fetch(`${API_BASE_URL}/uploads/${key}`, {
-    headers: await apiClient.getAuthHeaders(false),
-  })
-
-  if (!response.ok) {
-    throw new Error(`Failed to get download URL: ${response.status} ${response.statusText}`)
-  }
-
-  const data = (await response.json()) as { download_url: string; expires_at: number }
-  const url = data.download_url.startsWith('/')
-    ? `${new URL(API_BASE_URL).origin}${data.download_url}`
-    : data.download_url
-  return { url, expiresAt: data.expires_at }
+  // Use the API client to fetch the download metadata (download_url and expires_at)
+  // The endpoint matches the OGA portal backend's expectation.
+  const response = await apiClient.get<{ download_url: string; expires_at: number }>(
+    `/api/oga/uploads/${key}`
+  )
+  return { url: response.download_url, expiresAt: response.expires_at }
 }
