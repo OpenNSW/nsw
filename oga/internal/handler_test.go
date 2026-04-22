@@ -43,7 +43,10 @@ func TestHandleCreateUpload(t *testing.T) {
 				}, nil
 			},
 		}
-		handler := NewOGAHandler(mockSvc)
+		handler, err := NewOGAHandler(mockSvc, 32<<20)
+		if err != nil {
+			t.Fatalf("failed to create handler: %v", err)
+		}
 
 		body := []byte(`{"filename":"test.txt","mime_type":"text/plain","size":123}`)
 		req := httptest.NewRequest(http.MethodPost, "/api/oga/uploads", bytes.NewBuffer(body))
@@ -66,7 +69,10 @@ func TestHandleCreateUpload(t *testing.T) {
 	})
 
 	t.Run("invalid method", func(t *testing.T) {
-		handler := NewOGAHandler(&mockOGAService{})
+		handler, err := NewOGAHandler(&mockOGAService{}, 32<<20)
+		if err != nil {
+			t.Fatalf("failed to create handler: %v", err)
+		}
 		req := httptest.NewRequest(http.MethodGet, "/api/oga/uploads", nil)
 		rec := httptest.NewRecorder()
 
@@ -83,7 +89,10 @@ func TestHandleCreateUpload(t *testing.T) {
 				return nil, errors.New("upstream error")
 			},
 		}
-		handler := NewOGAHandler(mockSvc)
+		handler, err := NewOGAHandler(mockSvc, 32<<20)
+		if err != nil {
+			t.Fatalf("failed to create handler: %v", err)
+		}
 
 		body := []byte(`{"filename":"test.txt","mime_type":"text/plain","size":123}`)
 		req := httptest.NewRequest(http.MethodPost, "/api/oga/uploads", bytes.NewBuffer(body))
@@ -107,7 +116,10 @@ func TestHandleGetUploadURL(t *testing.T) {
 				}, nil
 			},
 		}
-		handler := NewOGAHandler(mockSvc)
+		handler, err := NewOGAHandler(mockSvc, 32<<20)
+		if err != nil {
+			t.Fatalf("failed to create handler: %v", err)
+		}
 
 		req := httptest.NewRequest(http.MethodGet, "/api/oga/uploads/550e8400-e29b-41d4-a716-446655440000.pdf", nil)
 		req.SetPathValue("key", "550e8400-e29b-41d4-a716-446655440000.pdf") // Set the mux path value
@@ -129,6 +141,35 @@ func TestHandleGetUploadURL(t *testing.T) {
 		}
 		if resp["expires_at"] != float64(1234567890) { // JSON unmarshals ints to float64
 			t.Errorf("expected expires_at 1234567890, got %v", resp["expires_at"])
+		}
+	})
+}
+
+func TestNewOGAHandler(t *testing.T) {
+	t.Run("valid config", func(t *testing.T) {
+		handler, err := NewOGAHandler(&mockOGAService{}, 32<<20)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if handler == nil {
+			t.Fatalf("expected handler to be non-nil")
+		}
+		if handler.MaxRequestBytes != 32<<20 {
+			t.Errorf("expected MaxRequestBytes %d, got %d", 32<<20, handler.MaxRequestBytes)
+		}
+	})
+
+	t.Run("invalid config - negative", func(t *testing.T) {
+		_, err := NewOGAHandler(&mockOGAService{}, -1)
+		if err == nil {
+			t.Error("expected error for negative MaxRequestBytes, got nil")
+		}
+	})
+
+	t.Run("invalid config - zero", func(t *testing.T) {
+		_, err := NewOGAHandler(&mockOGAService{}, 0)
+		if err == nil {
+			t.Error("expected error for zero MaxRequestBytes, got nil")
 		}
 	})
 }

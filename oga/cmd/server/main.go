@@ -65,8 +65,10 @@ func main() {
 	}()
 
 	// Initialize handlers
-	handler := internal.NewOGAHandler(service)
-	handler.MaxRequestBytes = cfg.MaxRequestBytes
+	handler, err := internal.NewOGAHandler(service, cfg.MaxRequestBytes)
+	if err != nil {
+		log.Fatalf("failed to create OGA handler: %v", err)
+	}
 	feedbackHandler := feedback.NewHandler(service)
 
 	// Set up HTTP routes

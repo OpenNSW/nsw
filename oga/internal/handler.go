@@ -3,6 +3,7 @@ package internal
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -15,11 +16,14 @@ type OGAHandler struct {
 }
 
 // NewOGAHandler creates a new OGA handler instance
-func NewOGAHandler(service OGAService) *OGAHandler {
+func NewOGAHandler(service OGAService, maxRequestBytes int64) (*OGAHandler, error) {
+	if maxRequestBytes <= 0 {
+		return nil, fmt.Errorf("invalid MaxRequestBytes: %d (must be greater than 0)", maxRequestBytes)
+	}
 	return &OGAHandler{
 		service:         service,
-		MaxRequestBytes: 32 << 20, // Default to 32MB
-	}
+		MaxRequestBytes: maxRequestBytes,
+	}, nil
 }
 
 // parseTaskID extracts the taskId from the request path.
