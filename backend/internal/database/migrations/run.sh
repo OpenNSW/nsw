@@ -28,6 +28,7 @@ MIGRATION_DB_HOST="${MIGRATION_DB_HOST//host.docker.internal/localhost}"
 NPQS_OGA_SUBMISSION_URL="${NPQS_OGA_SUBMISSION_URL:-http://localhost:8081/api/oga/inject}"
 FCAU_OGA_SUBMISSION_URL="${FCAU_OGA_SUBMISSION_URL:-http://localhost:8082/api/oga/inject}"
 PRECONSIGNMENT_OGA_SUBMISSION_URL="${PRECONSIGNMENT_OGA_SUBMISSION_URL:-http://localhost:8083/api/oga/inject}"
+CDA_OGA_SUBMISSION_URL="${CDA_OGA_SUBMISSION_URL:-http://localhost:8084/api/oga/inject}"
 
 # Force disconnect other users and drop the database
 # Using the 'postgres' database as a maintenance DB to execute the drop
@@ -64,6 +65,7 @@ for FILE in "${MIGRATIONS[@]}"; do
             -v NPQS_OGA_SUBMISSION_URL="$NPQS_OGA_SUBMISSION_URL" \
             -v FCAU_OGA_SUBMISSION_URL="$FCAU_OGA_SUBMISSION_URL" \
             -v PRECONSIGNMENT_OGA_SUBMISSION_URL="$PRECONSIGNMENT_OGA_SUBMISSION_URL" \
+            -v CDA_OGA_SUBMISSION_URL="$CDA_OGA_SUBMISSION_URL" \
             -h "$MIGRATION_DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_NAME" -f "$FILE"
         
         if [ $? -ne 0 ]; then
