@@ -14,11 +14,11 @@ import (
 	"github.com/OpenNSW/nsw/internal/payments"
 	taskmanager "github.com/OpenNSW/nsw/internal/task/manager"
 	"github.com/OpenNSW/nsw/internal/task/plugin"
-	temporalclient "github.com/OpenNSW/nsw/internal/temporal"
+	"github.com/OpenNSW/nsw/internal/temporal"
 	"github.com/OpenNSW/nsw/internal/uploads"
 	"github.com/OpenNSW/nsw/internal/uploads/drivers"
-	workflowbootstrap "github.com/OpenNSW/nsw/internal/workflow/bootstrap"
 	"github.com/OpenNSW/nsw/internal/workflow/router"
+	workflowruntime "github.com/OpenNSW/nsw/internal/workflow/runtime"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
 
 	"github.com/OpenNSW/nsw/pkg/notification"
@@ -82,15 +82,15 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	chaService := service.NewCHAService(db)
 	hsCodeService := service.NewHSCodeService(db)
 
-	sharedTemporalClient, err := temporalclient.NewClient()
+	temporalClient, err := temporal.NewClient()
 	if err != nil {
 		_ = database.Close(db)
 		return nil, fmt.Errorf("failed to create temporal client: %w", err)
 	}
 
-	workflowRuntime, err := workflowbootstrap.NewRuntime(sharedTemporalClient, tm, templateService)
+	workflowRuntime, err := workflowruntime.NewRuntime(temporalClient, tm, templateService)
 	if err != nil {
-		sharedTemporalClient.Close()
+		temporalClient.Close()
 		_ = database.Close(db)
 		return nil, fmt.Errorf("failed to create workflow runtime: %w", err)
 	}
@@ -108,7 +108,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	storageDriver, err := uploads.NewStorageFromConfig(ctx, cfg.Storage)
 	if err != nil {
 		_ = workflowRuntime.Close()
-		sharedTemporalClient.Close()
+		temporalClient.Close()
 		_ = database.Close(db)
 		return nil, fmt.Errorf("failed to initialize storage: %w", err)
 	}
@@ -120,14 +120,14 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	authManager, err := auth.NewManager(db, cfg.Auth)
 	if err != nil {
 		_ = workflowRuntime.Close()
-		sharedTemporalClient.Close()
+		temporalClient.Close()
 		_ = database.Close(db)
 		return nil, fmt.Errorf("failed to create auth manager: %w", err)
 	}
 
 	if err := authManager.Health(); err != nil {
 		_ = workflowRuntime.Close()
-		sharedTemporalClient.Close()
+		temporalClient.Close()
 		_ = authManager.Close()
 		_ = database.Close(db)
 		return nil, fmt.Errorf("auth system health check failed: %w", err)
@@ -227,7 +227,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		if err := workflowRuntime.Close(); err != nil {
 			closeErrs = append(closeErrs, fmt.Errorf("failed to close workflow runtime: %w", err))
 		}
-		sharedTemporalClient.Close()
+		temporalClient.Close()
 		if err := authManager.Close(); err != nil {
 			closeErrs = append(closeErrs, fmt.Errorf("failed to close auth manager: %w", err))
 		}
