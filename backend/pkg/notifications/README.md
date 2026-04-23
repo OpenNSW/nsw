@@ -5,7 +5,8 @@
 It handles:
 - routing requests to the correct provider by channel
 - rendering templates (email and SMS) when a `TemplateID` is provided
-- returning an error if delivery fails
+- dispatching delivery in a background goroutine so callers are not blocked on the external HTTP call
+- logging provider errors via `slog` (template errors are still returned to the caller immediately)
 
 It does not handle:
 - batching
@@ -96,13 +97,17 @@ manager := notifications.New(
 ```text
 caller
   -> Manager.SendEmail / SendSMS
-  -> render template (if TemplateID set)
-  -> Manager.Send
-  -> provider selected by channel
-  -> external service
+  -> render template (if TemplateID set)  ← errors returned here
+  -> goroutine fires
+       -> Manager.Send
+       -> provider selected by channel
+       -> external service               ← errors logged via slog
 ```
 
-Callers can also call `Manager.Send` directly with pre-rendered content.
+`SendEmail` and `SendSMS` return immediately after template rendering succeeds.
+Provider/network errors are logged but not propagated to the caller.
+
+Callers can also call `Manager.Send` directly with pre-rendered content — this is synchronous and does return provider errors.
 
 ## Templates
 

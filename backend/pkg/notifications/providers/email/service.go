@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/OpenNSW/nsw/pkg/notifications"
@@ -56,7 +57,12 @@ func (p *ServiceProvider) Send(ctx context.Context, req notifications.Request) e
 		return fmt.Errorf("failed to marshal email payload: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, p.config.BaseURL+"/emails", bytes.NewBuffer(jsonData))
+	endpoint, err := url.JoinPath(p.config.BaseURL, "emails")
+	if err != nil {
+		return fmt.Errorf("failed to construct email service URL: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return fmt.Errorf("failed to create email request: %w", err)
 	}
@@ -69,10 +75,14 @@ func (p *ServiceProvider) Send(ctx context.Context, req notifications.Request) e
 	if err != nil {
 		return fmt.Errorf("email service request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			slog.WarnContext(ctx, "failed to close email response body", "error", err)
+		}
+	}()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
 		return fmt.Errorf("email service returned status %d: %s", resp.StatusCode, string(body))
 	}
 

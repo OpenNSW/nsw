@@ -75,10 +75,14 @@ func (p *GovSMSProvider) Send(ctx context.Context, req notifications.Request) er
 	if err != nil {
 		return fmt.Errorf("GovSMS request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			slog.WarnContext(ctx, "failed to close GovSMS response body", "error", err)
+		}
+	}()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
 		return fmt.Errorf("GovSMS returned status %d: %s", resp.StatusCode, string(body))
 	}
 

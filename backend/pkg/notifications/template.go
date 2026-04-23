@@ -3,6 +3,7 @@ package notifications
 import (
 	"bytes"
 	"fmt"
+	htmltmpl "html/template"
 	"path/filepath"
 	"sync"
 	"text/template"
@@ -12,9 +13,10 @@ type templateCache struct {
 	emailRoot string
 	smsRoot   string
 
-	mu           sync.RWMutex
-	emailParsed  map[string]*template.Template
-	smsParsed    map[string]*template.Template
+	mu          sync.RWMutex
+	emailParsed map[string]*template.Template // text/template: subject + plainBody
+	emailHTML   map[string]*htmltmpl.Template // html/template: htmlBody (context-aware escaping)
+	smsParsed   map[string]*template.Template
 }
 
 func newTemplateCache(emailRoot, smsRoot string) *templateCache {
@@ -22,13 +24,16 @@ func newTemplateCache(emailRoot, smsRoot string) *templateCache {
 		emailRoot:   emailRoot,
 		smsRoot:     smsRoot,
 		emailParsed: make(map[string]*template.Template),
+		emailHTML:   make(map[string]*htmltmpl.Template),
 		smsParsed:   make(map[string]*template.Template),
 	}
 }
 
 // renderEmail executes the named email template and returns subject, plain body, and optional HTML body.
+// subject and plainBody use text/template (no HTML escaping needed).
+// htmlBody uses html/template for context-aware escaping to prevent XSS.
 func (c *templateCache) renderEmail(id string, data map[string]any) (subject, plainBody, htmlBody string, err error) {
-	tmpl, err := c.loadEmail(id)
+	tmpl, htmlTmpl, err := c.loadEmail(id)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -40,8 +45,8 @@ func (c *templateCache) renderEmail(id string, data map[string]any) (subject, pl
 	if err = tmpl.ExecuteTemplate(&plainBuf, "plainBody", data); err != nil {
 		return "", "", "", fmt.Errorf("execute plainBody: %w", err)
 	}
-	if tmpl.Lookup("htmlBody") != nil {
-		if err = tmpl.ExecuteTemplate(&htmlBuf, "htmlBody", data); err != nil {
+	if htmlTmpl.Lookup("htmlBody") != nil {
+		if err = htmlTmpl.ExecuteTemplate(&htmlBuf, "htmlBody", data); err != nil {
 			return "", "", "", fmt.Errorf("execute htmlBody: %w", err)
 		}
 	}
@@ -61,27 +66,33 @@ func (c *templateCache) renderSMS(id string, data map[string]any) (string, error
 	return buf.String(), nil
 }
 
-func (c *templateCache) loadEmail(id string) (*template.Template, error) {
+func (c *templateCache) loadEmail(id string) (*template.Template, *htmltmpl.Template, error) {
 	c.mu.RLock()
 	tmpl, ok := c.emailParsed[id]
+	htmlTmpl := c.emailHTML[id]
 	c.mu.RUnlock()
 	if ok {
-		return tmpl, nil
+		return tmpl, htmlTmpl, nil
 	}
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if tmpl, ok = c.emailParsed[id]; ok {
-		return tmpl, nil
+		return tmpl, c.emailHTML[id], nil
 	}
 
 	path := filepath.Join(c.emailRoot, id+".tmpl")
 	tmpl, err := template.New("").ParseFiles(path)
 	if err != nil {
-		return nil, fmt.Errorf("load email template %q: %w", id, err)
+		return nil, nil, fmt.Errorf("load email template %q: %w", id, err)
+	}
+	htmlT, err := htmltmpl.New("").ParseFiles(path)
+	if err != nil {
+		return nil, nil, fmt.Errorf("load email HTML template %q: %w", id, err)
 	}
 	c.emailParsed[id] = tmpl
-	return tmpl, nil
+	c.emailHTML[id] = htmlT
+	return tmpl, htmlT, nil
 }
 
 func (c *templateCache) loadSMS(id string) (*template.Template, error) {

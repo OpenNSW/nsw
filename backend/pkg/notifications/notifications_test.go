@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/OpenNSW/nsw/pkg/notifications"
@@ -178,11 +179,16 @@ func TestManager_Send_ForwardsRequest(t *testing.T) {
 }
 
 func TestManager_SendEmail_RawContent(t *testing.T) {
-	var got notifications.Request
+	var (
+		got notifications.Request
+		wg  sync.WaitGroup
+	)
+	wg.Add(1)
 	n := notifications.New(noConfig(), &mockProvider{
 		channelType: notifications.ChannelEmail,
 		sendFn: func(_ context.Context, req notifications.Request) error {
 			got = req
+			wg.Done()
 			return nil
 		},
 	})
@@ -196,6 +202,7 @@ func TestManager_SendEmail_RawContent(t *testing.T) {
 	if err := n.SendEmail(context.Background(), req); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	wg.Wait()
 
 	if got.Channel != notifications.ChannelEmail {
 		t.Errorf("Channel = %q, want %q", got.Channel, notifications.ChannelEmail)
@@ -215,13 +222,18 @@ func TestManager_SendEmail_RawContent(t *testing.T) {
 }
 
 func TestManager_SendEmail_WithTemplate(t *testing.T) {
-	var got notifications.Request
+	var (
+		got notifications.Request
+		wg  sync.WaitGroup
+	)
+	wg.Add(1)
 	n := notifications.New(
 		notifications.Config{EmailTemplateRoot: "testdata/email"},
 		&mockProvider{
 			channelType: notifications.ChannelEmail,
 			sendFn: func(_ context.Context, req notifications.Request) error {
 				got = req
+				wg.Done()
 				return nil
 			},
 		},
@@ -235,6 +247,7 @@ func TestManager_SendEmail_WithTemplate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	wg.Wait()
 
 	if got.Subject != "Your OTP Code" {
 		t.Errorf("Subject = %q, want %q", got.Subject, "Your OTP Code")
@@ -269,11 +282,16 @@ func TestManager_SendEmail_MissingTemplate(t *testing.T) {
 }
 
 func TestManager_SendSMS_RawContent(t *testing.T) {
-	var got notifications.Request
+	var (
+		got notifications.Request
+		wg  sync.WaitGroup
+	)
+	wg.Add(1)
 	n := notifications.New(noConfig(), &mockProvider{
 		channelType: notifications.ChannelSMS,
 		sendFn: func(_ context.Context, req notifications.Request) error {
 			got = req
+			wg.Done()
 			return nil
 		},
 	})
@@ -285,6 +303,7 @@ func TestManager_SendSMS_RawContent(t *testing.T) {
 	if err := n.SendSMS(context.Background(), req); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	wg.Wait()
 
 	if got.Channel != notifications.ChannelSMS {
 		t.Errorf("Channel = %q, want %q", got.Channel, notifications.ChannelSMS)
@@ -298,13 +317,18 @@ func TestManager_SendSMS_RawContent(t *testing.T) {
 }
 
 func TestManager_SendSMS_WithTemplate(t *testing.T) {
-	var got notifications.Request
+	var (
+		got notifications.Request
+		wg  sync.WaitGroup
+	)
+	wg.Add(1)
 	n := notifications.New(
 		notifications.Config{SMSTemplateRoot: "testdata/sms"},
 		&mockProvider{
 			channelType: notifications.ChannelSMS,
 			sendFn: func(_ context.Context, req notifications.Request) error {
 				got = req
+				wg.Done()
 				return nil
 			},
 		},
@@ -318,6 +342,7 @@ func TestManager_SendSMS_WithTemplate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	wg.Wait()
 
 	if !strings.Contains(got.Body, "654321") {
 		t.Errorf("Body %q does not contain OTP", got.Body)
