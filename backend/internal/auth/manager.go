@@ -149,7 +149,7 @@ func (m *Manager) UpdateUserContext(userID string, ctx interface{}) error {
 // Health checks if the auth system is functioning properly.
 // Performs a sample database query to verify:
 // 1. Database connection is alive
-// 2. user_contexts table exists
+// 2. user_records table is accessible
 // 3. Auth service can perform lookups
 //
 // Usage in server startup:
@@ -161,11 +161,11 @@ func (m *Manager) UpdateUserContext(userID string, ctx interface{}) error {
 //
 // Returns an error if anything is wrong, allowing graceful failure at startup.
 func (m *Manager) Health() error {
-	var count int64
-	if err := m.service.db.Model(&UserContext{}).Count(&count).Error; err != nil {
+	var probe int
+	if err := m.service.db.Raw("SELECT 1 FROM user_records LIMIT 1").Scan(&probe).Error; err != nil {
 		return err
 	}
-	slog.Info("auth health check passed", "user_context_count", count)
+	slog.Info("auth health check passed", "user_records_accessible", true)
 	return nil
 }
 
