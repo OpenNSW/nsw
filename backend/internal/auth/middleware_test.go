@@ -12,7 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/golang-jwt/jwt/v5"
+	"gorm.io/gorm"
 )
 
 // Note: These are integration test examples. To run them, you need:
@@ -193,10 +195,9 @@ func TestBuildAuthContext_UserPrincipalOnly(t *testing.T) {
 	principal := &Principal{
 		Type: UserPrincipalType,
 		UserPrincipal: &UserPrincipal{
-			UserID:   "TRADER-001",
-			Email:    "trader@example.com",
-			OUHandle: "ou-handle",
-			OUID:     "ou-id",
+			UserID: "TRADER-001",
+			Email:  "trader@example.com",
+			OUID:   "ou-id",
 		},
 	}
 
@@ -298,6 +299,100 @@ func TestAuthMiddleware_ValidClientCredentialsToken(t *testing.T) {
 	}
 	if !testHandlerCalled {
 		t.Fatalf("expected handler to be called for valid token")
+	}
+}
+
+func TestAuthMiddleware_ValidUserTokenCreatesContext(t *testing.T) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("failed to generate rsa key: %v", err)
+	}
+
+	jwksServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"keys": []map[string]any{{
+				"kid": "user-kid",
+				"kty": "RSA",
+				"alg": "RS256",
+				"use": "sig",
+				"n":   base64.RawURLEncoding.EncodeToString(privateKey.N.Bytes()),
+				"e":   base64.RawURLEncoding.EncodeToString(big.NewInt(int64(privateKey.PublicKey.E)).Bytes()),
+			}},
+		})
+	}))
+	defer jwksServer.Close()
+
+	db, mock := setupAuthTestDB(t)
+	authService := NewAuthService(db)
+	tokenExtractor, err := NewTokenExtractor(jwksServer.URL, "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", []string{"TRADER_PORTAL_APP"})
+	if err != nil {
+		t.Fatalf("failed to create token extractor: %v", err)
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
+		"sub":          "TRADER-001",
+		"iss":          "https://localhost:8090/oauth2/token",
+		"aud":          "TRADER_PORTAL_APP",
+		"client_id":    "TRADER_PORTAL_APP",
+		"grant_type":   "authorization_code",
+		"email":        "trader@example.com",
+		"phone_number": "+61400111222",
+		"ouId":         "OU-001",
+		"roles":        []string{"exporter"},
+		"iat":          time.Now().Add(-1 * time.Minute).Unix(),
+		"nbf":          time.Now().Add(-1 * time.Minute).Unix(),
+		"exp":          time.Now().Add(10 * time.Minute).Unix(),
+	})
+	token.Header["kid"] = "user-kid"
+	signedToken, err := token.SignedString(privateKey)
+	if err != nil {
+		t.Fatalf("failed to sign token: %v", err)
+	}
+
+	mock.ExpectQuery(`SELECT .* FROM "user_records" WHERE user_id = \$1 ORDER BY "user_records"\."user_id" LIMIT \$2`).
+		WithArgs("TRADER-001", 1).
+		WillReturnError(gorm.ErrRecordNotFound)
+	mock.ExpectQuery(`SELECT .* FROM "user_records" WHERE user_id = \$1 ORDER BY "user_records"\."user_id" LIMIT \$2`).
+		WithArgs("TRADER-001", 1).
+		WillReturnError(gorm.ErrRecordNotFound)
+	mock.ExpectBegin()
+	mock.ExpectExec(`INSERT INTO "user_records" .* ON CONFLICT \("user_id"\) DO UPDATE SET .*`).
+		WithArgs("TRADER-001", "trader@example.com", "+61400111222", "OU-001", []byte(`{}`)).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	handlerCalled := false
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handlerCalled = true
+		authCtx := GetAuthContext(r.Context())
+		if authCtx == nil || authCtx.User == nil {
+			t.Fatalf("expected auth context for user token")
+		}
+		if authCtx.User.UserID != "TRADER-001" || authCtx.User.PhoneNumber != "+61400111222" {
+			t.Fatalf("unexpected user context: %#v", authCtx.User)
+		}
+		if len(authCtx.User.Roles) != 1 || authCtx.User.Roles[0] != "exporter" {
+			t.Fatalf("unexpected roles: %#v", authCtx.User.Roles)
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/test", nil)
+	req.Header.Set("Authorization", "Bearer "+signedToken)
+
+	Middleware(authService, tokenExtractor)(handler).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rec.Code)
+	}
+	if !handlerCalled {
+		t.Fatalf("expected handler to be called")
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("expectations not met: %v", err)
 	}
 }
 
