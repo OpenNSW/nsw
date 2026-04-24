@@ -112,10 +112,6 @@ export interface OGAApplication {
   serviceUrl: string;
   data: Record<string, unknown>;
   ogaActionData?: Record<string, unknown>;
-  meta?: {
-    type: string;
-    verificationId: string;
-  };
   dataForm?: {
     schema: JsonSchema;
     uiSchema: UISchemaElement;
