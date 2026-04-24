@@ -123,7 +123,8 @@ export function WorkflowTasksScreen() {
                       {app.taskId}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-700 capitalize">
-                      {app.meta?.type || 'Standard'}
+                      {/* TODO: For now we only have one verification type, but this should be dynamic in the future */}
+                      Standard
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Badge
