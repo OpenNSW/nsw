@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Badge, Text, TextField, Spinner, IconButton } from '@radix-ui/themes'
-import { MagnifyingGlassIcon, ChevronLeftIcon, ChevronRightIcon } from '@radix-ui/react-icons'
+import { MagnifyingGlassIcon, ChevronLeftIcon, ChevronRightIcon, ArchiveIcon } from '@radix-ui/react-icons'
 import { fetchWorkflows, type WorkflowSummary } from '../api'
 import { useApi } from '../services/useApi'
 
@@ -27,8 +27,13 @@ export function WorkflowListScreen() {
           pageSize: PAGE_SIZE,
           q: searchQuery 
         })
-        setWorkflows(result.items)
-        setTotal(result.total)
+        setWorkflows(result.items || [])
+        setTotal(result.total || 0)
+        // Reset to page 1 if current page is out of bounds
+        const maxPages = Math.max(1, Math.ceil((result.total || 0) / PAGE_SIZE))
+        if (page > maxPages) {
+          setPage(1)
+        }
       } catch (error) {
         console.error('Failed to fetch workflows:', error)
       } finally {
@@ -193,19 +198,5 @@ export function WorkflowListScreen() {
         )}
       </div>
     </div>
-  )
-}
-
-function ArchiveIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-    </svg>
   )
 }
