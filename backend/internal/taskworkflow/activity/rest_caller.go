@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"reflect"
 	"strings"
 
 	"github.com/OpenNSW/nsw/pkg/jsonutils"
@@ -63,7 +64,10 @@ func (a *RESTCaller) Execute(ctx context.Context, request Request) (*Result, err
 func (a *RESTCaller) buildRequest(request Request) (string, remote.Request, string, error) {
 	var cfg RESTCallerConfig
 
-	configBytes, _ := json.Marshal(request.Config)
+	configBytes, err := json.Marshal(request.Config)
+	if err != nil {
+		return "", remote.Request{}, "", fmt.Errorf("rest caller: marshal config: %w", err)
+	}
 	if len(configBytes) == 0 || string(configBytes) == "null" {
 		return "", remote.Request{}, "", fmt.Errorf("rest caller: config is required")
 	}
@@ -87,9 +91,9 @@ func (a *RESTCaller) buildRequest(request Request) (string, remote.Request, stri
 	}
 
 	resolvedPath := jsonutils.ResolveTemplateWithPlaceholders(cfg.Path, lookup)
-	path, ok := resolvedPath.(string)
-	if !ok {
-		path = fmt.Sprint(resolvedPath)
+	path, err := stringifyScalarValue("path", resolvedPath)
+	if err != nil {
+		return "", remote.Request{}, "", fmt.Errorf("rest caller: resolve path: %w", err)
 	}
 
 	resolvedQuery, err := resolveStringMap(jsonutils.ResolveTemplateWithPlaceholders(cfg.Query, lookup))
@@ -129,10 +133,42 @@ func resolveStringMap(value any) (map[string]string, error) {
 
 	out := make(map[string]string, len(resolvedMap))
 	for key, rawValue := range resolvedMap {
-		out[key] = fmt.Sprint(rawValue)
+		stringValue, err := stringifyScalarValue(key, rawValue)
+		if err != nil {
+			return nil, err
+		}
+		out[key] = stringValue
 	}
 
 	return out, nil
+}
+
+func stringifyScalarValue(key string, value any) (string, error) {
+	if value == nil {
+		return "", fmt.Errorf("%q must resolve to a scalar value, got nil", key)
+	}
+
+	switch resolved := value.(type) {
+	case string:
+		return resolved, nil
+	case bool:
+		return fmt.Sprint(resolved), nil
+	case int, int8, int16, int32, int64:
+		return fmt.Sprint(resolved), nil
+	case uint, uint8, uint16, uint32, uint64:
+		return fmt.Sprint(resolved), nil
+	case float32, float64:
+		return fmt.Sprint(resolved), nil
+	case json.Number:
+		return resolved.String(), nil
+	}
+
+	kind := reflect.TypeOf(value).Kind()
+	if kind == reflect.Slice || kind == reflect.Array || kind == reflect.Map || kind == reflect.Struct {
+		return "", fmt.Errorf("%q must resolve to a scalar value, got %T", key, value)
+	}
+
+	return fmt.Sprint(value), nil
 }
 
 func toURLValues(values map[string]string) url.Values {

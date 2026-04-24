@@ -105,6 +105,63 @@ func TestRESTCallerBuildRequest(t *testing.T) {
 		assert.Equal(t, "true", req.Headers["X-Active"])
 	})
 
+	t.Run("returns error when path resolves to complex value", func(t *testing.T) {
+		caller := NewRESTCaller(nil)
+
+		_, _, _, err := caller.buildRequest(Request{
+			Config: map[string]any{
+				"path": "$path",
+			},
+			Inputs: map[string]any{
+				"path": map[string]any{"invalid": true},
+			},
+		})
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "resolve path")
+		assert.Contains(t, err.Error(), "must resolve to a scalar value")
+	})
+
+	t.Run("returns error when query value resolves to complex value", func(t *testing.T) {
+		caller := NewRESTCaller(nil)
+
+		_, _, _, err := caller.buildRequest(Request{
+			Config: map[string]any{
+				"path": "/search",
+				"query": map[string]any{
+					"filters": "$filters",
+				},
+			},
+			Inputs: map[string]any{
+				"filters": []any{"a", "b"},
+			},
+		})
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "resolve query")
+		assert.Contains(t, err.Error(), "must resolve to a scalar value")
+	})
+
+	t.Run("returns error when header value resolves to complex value", func(t *testing.T) {
+		caller := NewRESTCaller(nil)
+
+		_, _, _, err := caller.buildRequest(Request{
+			Config: map[string]any{
+				"path": "/search",
+				"headers": map[string]any{
+					"X-Filters": "$filters",
+				},
+			},
+			Inputs: map[string]any{
+				"filters": map[string]any{"status": "open"},
+			},
+		})
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "resolve headers")
+		assert.Contains(t, err.Error(), "must resolve to a scalar value")
+	})
+
 	t.Run("requires path in config", func(t *testing.T) {
 		caller := NewRESTCaller(nil)
 
@@ -189,6 +246,14 @@ func TestResolveStringMap(t *testing.T) {
 		_, err := resolveStringMap("invalid")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "expected object")
+	})
+
+	t.Run("returns error for object values that are not scalar", func(t *testing.T) {
+		_, err := resolveStringMap(map[string]any{
+			"filters": map[string]any{"status": "open"},
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "must resolve to a scalar value")
 	})
 }
 
