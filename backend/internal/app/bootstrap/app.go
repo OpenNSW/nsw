@@ -21,8 +21,9 @@ import (
 	"github.com/OpenNSW/nsw/internal/workflow/router"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
 
-	"github.com/OpenNSW/nsw/pkg/notification"
-	"github.com/OpenNSW/nsw/pkg/notification/channels"
+	"github.com/OpenNSW/nsw/pkg/notifications"
+	"github.com/OpenNSW/nsw/pkg/notifications/providers/email"
+	"github.com/OpenNSW/nsw/pkg/notifications/providers/sms"
 
 	"go.temporal.io/sdk/client"
 )
@@ -30,7 +31,7 @@ import (
 // App contains initialized HTTP server and cleanup hooks.
 type App struct {
 	Server              *http.Server
-	NotificationManager *notification.Manager
+	NotificationManager *notifications.Manager
 	close               func() error
 }
 
@@ -189,21 +190,26 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("auth system health check failed: %w", err)
 	}
 
-	// Initialize notification manager
-	notificationManager := notification.NewManager()
-	emailChannel := channels.NewEmailChannel(notification.EmailConfig{
-		SMTPHost:     cfg.Notification.SMTPHost,
-		SMTPPort:     cfg.Notification.SMTPPort,
-		SMTPUsername: cfg.Notification.SMTPUsername,
-		SMTPPassword: cfg.Notification.SMTPPassword,
-		SMTPSender:   cfg.Notification.SMTPSender,
-		TemplateRoot: cfg.Notification.TemplateRoot,
+	emailProvider := email.NewService(email.ServiceConfig{
+		BaseURL: cfg.Notification.EmailServiceURL,
+		Token:   cfg.Notification.EmailServiceToken,
 	})
-	notificationManager.RegisterEmailChannel(emailChannel)
 
-	// TODO: Add SMS channel if needed
-	// smsChannel := channels.NewSMSChannel(...)
-	// notificationManager.RegisterSMSChannel(smsChannel)
+	govsmsProvider := sms.NewGovSMS(sms.GovSMSConfig{
+		BaseURL:  cfg.Notification.GovSMSBaseURL,
+		UserName: cfg.Notification.GovSMSUsername,
+		Password: cfg.Notification.GovSMSPassword,
+		SIDCode:  cfg.Notification.GovSMSSIDCode,
+	})
+
+	notificationManager := notifications.New(
+		notifications.Config{
+			EmailTemplateRoot: cfg.Notification.EmailTemplateRoot,
+			SMSTemplateRoot:   cfg.Notification.SMSTemplateRoot,
+		},
+		emailProvider,
+		govsmsProvider,
+	)
 
 	tmHandler := taskManager.NewHTTPHandler(tm)
 
