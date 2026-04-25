@@ -52,6 +52,9 @@ MIGRATIONS=(
     "009_insert_cha_entity.up.sql"
     "010_workflow_table.up.sql"
     "011_workflow_tem_v2.up.sql"
+    "012_fcau_forms_seed.up.sql"
+    "013_fcau_workflow_nodes_seed.up.sql"
+    "014_fcau_workflow_seed.up.sql"
 )
 
 echo "Starting database migrations..."
