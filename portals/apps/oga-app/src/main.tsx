@@ -1,4 +1,4 @@
-import { StrictMode } from 'react'
+import { StrictMode, type ComponentProps, type ReactElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { Theme } from '@radix-ui/themes'
@@ -7,6 +7,12 @@ import "@radix-ui/themes/styles.css"
 import './index.css'
 import App from './App.tsx'
 import { getEnv, getRequiredEnv } from './runtimeConfig'
+
+type OgaAsgardeoProviderProps = ComponentProps<typeof AsgardeoProvider> & {
+  periodicTokenRefresh?: boolean
+}
+
+const OgaAsgardeoProvider = AsgardeoProvider as unknown as (props: OgaAsgardeoProviderProps) => ReactElement
 
 const normalizeIdpPlatform = (value: string): 'AsgardeoV2' | 'Asgardeo' | 'IdentityServer' | 'Unknown' => {
   if (value === 'AsgardeoV2' || value === 'Asgardeo' || value === 'IdentityServer' || value === 'Unknown') {
@@ -23,23 +29,25 @@ const IDP_PLATFORM = normalizeIdpPlatform(getEnv('VITE_IDP_PLATFORM', 'AsgardeoV
 const rawScopes = getEnv('VITE_IDP_SCOPES')
 const IDP_SCOPES = rawScopes
   ? rawScopes.split(',').map((scope: string) => scope.trim())
-  : ['openid', 'profile', 'email']
+  : ['openid', 'profile', 'email', 'offline_access']
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AsgardeoProvider
+    <OgaAsgardeoProvider
       clientId={CLIENT_ID}
       baseUrl={IDP_BASE_URL}
       platform={IDP_PLATFORM}
       afterSignInUrl={APP_URL}
       afterSignOutUrl={APP_URL}
       scopes={IDP_SCOPES}
+      storage="sessionStorage"
+      periodicTokenRefresh
     >
       <Theme scaling="110%">
         <BrowserRouter>
           <App />
         </BrowserRouter>
       </Theme>
-    </AsgardeoProvider>
+    </OgaAsgardeoProvider>
   </StrictMode>,
 )
