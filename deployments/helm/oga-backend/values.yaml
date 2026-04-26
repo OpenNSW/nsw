@@ -1,0 +1,58 @@
+# Default values for oga-backend.
+global:
+  namespace: "national-single-window-platform"
+  clusterDomain: "apps.sovecloud1.akaza.lk"
+# This is a base file for the three OGA agency deployments.
+
+config:
+  port: 8081
+  database:
+    driver: postgres
+    host: nsw-db.national-single-window-platform.svc.cluster.local
+    port: 5432
+    sslMode: disable
+  defaultFormId: default
+  nswApiBaseUrl: "http://nsw-api.national-single-window-platform.svc.cluster.local/api/v1"
+
+# The specific DB name and Allowed Origins should be overridden in agency values files.
+
+route:
+  enabled: false
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
+migrations:
+  enabled: false
+  image:
+    repository: registry.developers.crunchydata.com/crunchydata/crunchy-postgres
+    tag: "ubi8-15.4-0"
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: oga-backend
+          topologyKey: kubernetes.io/hostname
+

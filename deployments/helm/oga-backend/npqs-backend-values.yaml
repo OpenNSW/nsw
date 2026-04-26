@@ -1,0 +1,155 @@
+# OGA-NPQS Backend Values
+nameOverride: oga-npqs-backend
+fullnameOverride: ""
+
+port: 8081
+
+# Resource Management (Akaza Quotas)
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+image:
+  tag: latest
+imagePullSecrets:
+  - name: ghcr-secret
+
+# Isolated Database Configuration
+config:
+  port: 8081
+  database:
+    name: "oga-backend-npqs"
+    credentialsSecretName: "nsw-db-credentials"
+  allowedOrigins: "https://dev-oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  nswApiBaseUrl: "https://dev-nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"
+
+route:
+  enabled: true
+  host: ""
+  tls:
+    enabled: true
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
+seeding:
+  enabled: false
+
+forms:
+  "default.json": |-
+    {
+      "schema": {
+        "type": "object",
+        "required": [
+          "decision"
+        ],
+        "properties": {
+          "decision": {
+            "type": "string",
+            "title": "Decision",
+            "oneOf": [
+              {
+                "const": "APPROVED",
+                "title": "Approved"
+              },
+              {
+                "const": "REJECTED",
+                "title": "Rejected"
+              }
+            ]
+          },
+          "remarks": {
+            "type": "string",
+            "title": "Remarks"
+          }
+        }
+      },
+      "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/decision"
+          },
+          {
+            "type": "Control",
+            "scope": "#/properties/remarks",
+            "options": {
+              "multi": true
+            }
+          }
+        ]
+      }
+    }
+  "preconsignment.npqs.phytosanitary-certificate.001.view.json": |-
+    {
+        "title": "Phytosanitary Certificate (Submitted)",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "countryOfOrigin": {
+                    "type": "string",
+                    "title": "Country of Origin",
+                    "readOnly": true
+                },
+                "countryOfDestination": {
+                    "type": "string",
+                    "title": "Country of Destination",
+                    "readOnly": true
+                },
+                "distinguishingMarks": {
+                    "type": "string",
+                    "title": "Distinguishing Marks",
+                    "readOnly": true
+                },
+                "disinfestationTreatment": {
+                    "type": "string",
+                    "title": "Disinfestation Treatment",
+                    "readOnly": true
+                },
+                "supportingDocuments": {
+                    "type": "string",
+                    "title": "Supporting Documents",
+                    "format": "file",
+                    "readOnly": true
+                }
+            }
+        },
+        "uiSchema": {
+            "type": "VerticalLayout",
+            "elements": [
+                {
+                    "type": "Label",
+                    "text": "Phytosanitary Certificate"
+                },
+                {
+                    "type": "HorizontalLayout",
+                    "elements": [
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/countryOfOrigin"
+                        },
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/countryOfDestination"
+                        }
+                    ]
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/distinguishingMarks"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/disinfestationTreatment"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/supportingDocuments"
+                }
+            ]
+        }
+    }
