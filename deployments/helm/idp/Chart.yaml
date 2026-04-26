@@ -1,0 +1,10 @@
+apiVersion: v2
+name: idp-umbrella
+description: A Helm chart wrapper for Asgardeo Thunder Identity Provider
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+dependencies:
+  - name: thunder
+    version: 0.34.0
+    repository: "oci://ghcr.io/asgardeo/helm-charts"
