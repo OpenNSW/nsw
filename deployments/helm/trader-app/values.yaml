@@ -1,41 +1,78 @@
-# Default values for trader-app.
+# deployments/helm/trader-app/values.yaml (Base Schema)
 
+global:
+  clusterDomain: "apps.sovecloud1.akaza.lk"
+  namespace: "national-single-window-platform"
+
+fullnameOverride: ""
 replicaCount: 1
+
+podSecurityContext:
+  runAsNonRoot: true
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
 
 image:
   repository: ghcr.io/opennsw/trader-app
   pullPolicy: IfNotPresent
   tag: latest
 
-imagePullSecrets:
-  - name: ghcr-pull-secret
+imagePullSecrets: []
+#  - name: ghcr-secret
 
 service:
   type: ClusterIP
   port: 80
-  targetPort: 80
+  targetPort: 8080
 
+# Generic defaults. Overridden by environment files.
 config:
-  apiBaseUrl: "https://nsw-api-national-single-window-platform.lgc.gov.lk/api/v1"
-  idpBaseUrl: "https://idp-route.national-single-window-platform.lgc.gov.lk"
-  idpClientId: "TRADER_PORTAL_APP"
-  appUrl: "https://trader-portal-national-single-window-platform.lgc.gov.lk"
-  idpScopes: "openid,profile,email"
+  apiBaseUrl: ""
+  idpBaseUrl: ""
+  idpClientId: "DEFAULT_CLIENT_ID"
+  appUrl: ""
+  idpScopes: "openid,profile,email,group,role"
   idpPlatform: "AsgardeoV2"
+  idpTraderGroupName: "Traders"
+  idpCHAGroupName: "CHA"
   showAutofillButton: "false"
 
 resources:
   limits:
     cpu: 200m
-    memory: 128Mi
+    memory: 256Mi
   requests:
     cpu: 50m
-    memory: 64Mi
+    memory: 128Mi
 
 route:
   enabled: true
-  host: trader-portal-national-single-window-platform.lgc.gov.lk
+  host: "" # Leave empty to let OpenShift auto-generate the hyphenated route
   tls:
     enabled: true
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: trader-app
+          topologyKey: kubernetes.io/hostname
