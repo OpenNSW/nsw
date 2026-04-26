@@ -32,6 +32,32 @@ Example:
 
 This allows IdP-level user access restriction per OGA app registration.
 
+## Configuration
+
+OGA instance branding and feature configuration is defined via YAML files in `src/configs/`.
+
+### How it works
+
+1. `src/configs/default.yaml` provides base fallback values for all instances.
+2. `src/configs/<instance>.yaml` overrides specific values for each OGA.
+3. At build time, the default config and instance config are loaded and merged.
+4. The merged config is validated before the app renders.
+
+### Adding a new OGA instance
+
+1. Copy `src/configs/example.yaml` to `src/configs/<instance-id>.yaml`
+2. Edit the `branding.appName` field (required)
+3. Set `VITE_INSTANCE_CONFIG=<instance-id>` in your environment
+
+### Config schema
+
+```yaml
+branding:
+  appName: "My OGA Name"       # Required
+  logoUrl: ""                   # Optional
+  favicon: ""                   # Optional
+```
+
 ## Local development
 
 ```bash
