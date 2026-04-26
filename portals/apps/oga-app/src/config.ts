@@ -29,7 +29,7 @@ function loadConfig(): UIConfig {
   if (!instanceYaml) {
     throw new Error(
       `Config not found for instance: ${instance}. ` +
-      `Available: ${Object.keys(yamlModules).filter(k => k !== './configs/default.yaml' && k !== './configs/example.yaml').join(', ')}`
+      "Available: " + Object.keys(yamlModules).map(k => k.replace('./configs/', '').replace('.yaml', '')).filter(k => k !== 'default' && k !== 'example').join(', ')
     );
   }
 
