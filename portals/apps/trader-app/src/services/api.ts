@@ -1,6 +1,4 @@
-import { getEnv } from '../runtimeConfig'
-
-const API_BASE_URL = getEnv('VITE_API_BASE_URL', 'http://localhost:8080/api/v1')!
+import { API_BASE_URL } from '../constants'
 
 export type QueryParams = Record<string, string | number | undefined>
 export type AccessTokenProvider = () => Promise<string | null | undefined>

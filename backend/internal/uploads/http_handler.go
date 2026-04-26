@@ -9,7 +9,6 @@ import (
 	"os"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/OpenNSW/nsw/internal/auth"
@@ -55,52 +54,6 @@ func (h *HTTPHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	if auth.GetAuthContext(r.Context()) == nil {
 		slog.WarnContext(r.Context(), "authentication required but not provided for upload")
 		writeJSONError(w, http.StatusUnauthorized, "Unauthorized")
-		return
-	}
-
-	contentType := r.Header.Get("Content-Type")
-
-	// Legacy backward compatibility for existing UI
-	if strings.Contains(contentType, "multipart/form-data") {
-		// Parse multipart form
-		// Enforce 32MB limit as per requirements
-		r.Body = http.MaxBytesReader(w, r.Body, 32<<20)
-		if err := r.ParseMultipartForm(32 << 20); err != nil {
-			slog.ErrorContext(r.Context(), "Failed to parse multipart form", "error", err)
-			writeJSONError(w, http.StatusBadRequest, "file size exceeds 32MB limit or invalid form")
-			return
-		}
-
-		file, header, err := r.FormFile("file")
-		if err != nil {
-			writeJSONError(w, http.StatusBadRequest, "file is required")
-			return
-		}
-		defer func() { _ = file.Close() }()
-
-		mimeType := header.Header.Get("Content-Type")
-		if mimeType == "" {
-			mimeType = drivers.DefaultMime
-		}
-
-		if !isAllowedContentType(mimeType) {
-			writeJSONError(w, http.StatusUnsupportedMediaType, "invalid or prohibited file type")
-			return
-		}
-
-		// TODO: Remove legacy multipart upload support once all clients migrate to presigned URLs
-		metadata, err := h.Service.UploadLegacy(r.Context(), header.Filename, file, header.Size, mimeType)
-		if err != nil {
-			slog.ErrorContext(r.Context(), "Legacy upload failed", "error", err)
-			writeJSONError(w, http.StatusInternalServerError, "failed to process legacy upload")
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		if err := json.NewEncoder(w).Encode(metadata); err != nil {
-			slog.ErrorContext(r.Context(), "Failed to encode legacy response", "error", err)
-		}
 		return
 	}
 

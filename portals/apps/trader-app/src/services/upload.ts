@@ -3,8 +3,24 @@
  * when the API or auth changes, only this file is updated.
  */
 import type { ApiClient } from './api'
+import { API_BASE_URL } from '../constants'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1'
+interface UploadMetadataRequest {
+  filename: string
+  mime_type: string
+  size: number
+}
+
+interface UploadMetadataResponse {
+  key: string
+  name: string
+  upload_url: string
+}
+
+interface DownloadMetadataResponse {
+  download_url: string
+  expires_at: number
+}
 
 export interface UploadResponse {
   key: string
@@ -12,37 +28,40 @@ export interface UploadResponse {
 }
 
 export async function uploadFile(apiClient: ApiClient, file: File): Promise<UploadResponse> {
-  const formData = new FormData()
-  formData.append('file', file)
+  const metadata = await apiClient.post<UploadMetadataRequest, UploadMetadataResponse>(
+    '/uploads',
+    {
+      filename: file.name,
+      mime_type: file.type || 'application/octet-stream',
+      size: file.size,
+    }
+  )
 
-  const response = await fetch(`${API_BASE_URL}/uploads`, {
-    method: 'POST',
-    headers: await apiClient.getAuthHeaders(false),
-    body: formData,
+  // Upload file bytes directly to the storage destination (presigned URL)
+  const uploadResponse = await fetch(metadata.upload_url, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': file.type || 'application/octet-stream',
+    },
+    body: file,
   })
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    console.error(`Upload error ${response.status}: ${errorText}`)
-    throw new Error(`Failed to upload file: ${response.status} ${response.statusText}`)
+  if (!uploadResponse.ok) {
+    const errorText = await uploadResponse.text()
+    console.error(`Direct storage upload error ${uploadResponse.status}: ${errorText}`)
+    throw new Error(`Failed to upload file to storage: ${uploadResponse.status} ${uploadResponse.statusText}`)
   }
 
-  const meta = (await response.json()) as { key: string; name: string }
-  return { key: meta.key, name: meta.name }
+  return { key: metadata.key, name: metadata.name }
 }
 
 export async function getDownloadUrl(apiClient: ApiClient, key: string): Promise<{ url: string; expiresAt: number }> {
-  const response = await fetch(`${API_BASE_URL}/uploads/${key}`, {
-    headers: await apiClient.getAuthHeaders(false),
-  })
+  const response = await apiClient.get<DownloadMetadataResponse>(`/uploads/${key}`)
 
-  if (!response.ok) {
-    throw new Error(`Failed to get download URL: ${response.status} ${response.statusText}`)
-  }
+  // Normalize the URL if it's a relative path (common in local dev)
+  const url = response.download_url.startsWith('/')
+    ? new URL(API_BASE_URL).origin + response.download_url
+    : response.download_url
 
-  const data = (await response.json()) as { download_url: string; expires_at: number }
-  const url = data.download_url.startsWith('/')
-    ? `${new URL(API_BASE_URL).origin}${data.download_url}`
-    : data.download_url
-  return { url, expiresAt: data.expires_at }
+  return { url, expiresAt: response.expires_at }
 }

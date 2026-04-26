@@ -2,14 +2,13 @@
  * Application-wide constants
  */
 
-import { getEnv } from '../runtimeConfig'
+import { getRequiredEnv } from '../runtimeConfig'
 
-// TODO: Replace with actual auth context
-export const DEFAULT_TRADER_ID = 'trader-123'
+export const API_BASE_URL = getRequiredEnv('VITE_API_BASE_URL')
 
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: getEnv('VITE_API_BASE_URL', 'http://localhost:8080/api/v1')!,
+  BASE_URL: API_BASE_URL,
   TIMEOUT: 30000, // 30 seconds
 } as const
 

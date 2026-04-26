@@ -43,8 +43,8 @@ func NewStorageFromConfig(ctx context.Context, cfg Config) (StorageDriver, error
 			}
 			o.UsePathStyle = true
 			// Allow uploads over HTTP (e.g. local MinIO) where TLS is unavailable.
-			// Without this, the SDK requires a seekable stream to compute checksums
-			// upfront, which fails when the reader has been wrapped (e.g. countingReader).
+			// Without this, the SDK may require a seekable stream to compute checksums
+			// upfront if the reader is wrapped.
 			o.RequestChecksumCalculation = aws.RequestChecksumCalculationWhenSupported
 		})
 

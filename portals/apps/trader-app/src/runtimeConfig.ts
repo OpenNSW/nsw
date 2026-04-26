@@ -40,6 +40,15 @@ export function getEnv(name: string, fallback?: string): string | undefined {
   return fallback
 }
 
+export function getRequiredEnv(name: string): string {
+  const value = getEnv(name)
+  if (!value || value.trim() === '') {
+    throw new Error(`Missing required environment variable: ${name}`)
+  }
+
+  return value
+}
+
 export function getBooleanEnv(name: string, fallback = false): boolean {
   const value = getEnv(name)
   if (!value) {
