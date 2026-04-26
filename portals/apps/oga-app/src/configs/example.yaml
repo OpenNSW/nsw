@@ -1,0 +1,8 @@
+# OGA Instance Configuration Template
+# Copy this file and rename to <instance-id>.yaml
+# Set VITE_INSTANCE_CONFIG=<instance-id> to use it
+
+branding:
+  appName: "My OGA Name"       # Required: Display name shown in the UI
+  logoUrl: ""                   # Optional: URL to logo image
+  favicon: ""                   # Optional: URL to favicon

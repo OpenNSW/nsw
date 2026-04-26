@@ -1,10 +1,11 @@
-import type {UIConfig} from "./configs/types.ts";
+import { parse as parseYaml } from 'yaml';
+import { validateConfig } from './configs/types';
+import type { UIConfig } from './configs/types';
 import { getEnv } from './runtimeConfig';
 
-
-const configModules = import.meta.glob<{ config: UIConfig }>(
-  './configs/*.config.ts',
-  { eager: true }
+const yamlModules = import.meta.glob<string>(
+  './configs/*.yaml',
+  { query: '?raw', import: 'default', eager: true }
 );
 
 function loadConfig(): UIConfig {
@@ -13,22 +14,45 @@ function loadConfig(): UIConfig {
   if (!instance) {
     throw new Error(
       'VITE_INSTANCE_CONFIG environment variable is not set. ' +
-      'Please specify which instance to build (e.g., client-a, client-b)'
+      'Please specify which instance to load (e.g., npqs, fcau, ird)'
     );
   }
 
-  const configPath = `./configs/${instance}.config.ts`;
+  // Load and parse default config
+  const defaultYaml = yamlModules['./configs/default.yaml'];
+  const defaults = defaultYaml ? parseYaml(defaultYaml) as Record<string, unknown> : {};
 
+  // Load and parse instance config
+  const instancePath = `./configs/${instance}.yaml`;
+  const instanceYaml = yamlModules[instancePath];
 
-  const configModule = configModules[configPath];
-
-  if (!configModule) {
+  if (!instanceYaml) {
     throw new Error(
-      `Config not found for environment: ${instance}. Available: ${Object.keys(configModules).join(', ')}`
+      `Config not found for instance: ${instance}. ` +
+      `Available: ${Object.keys(yamlModules).filter(k => k !== './configs/default.yaml' && k !== './configs/example.yaml').join(', ')}`
     );
   }
 
-  return configModule.config;
+  const instanceConfig = parseYaml(instanceYaml) as Record<string, unknown>;
+
+  // Deep merge: instance overrides defaults
+  const merged = deepMerge(defaults, instanceConfig);
+  return validateConfig(merged, instance);
+}
+
+function deepMerge(base: Record<string, unknown>, override: Record<string, unknown>): Record<string, unknown> {
+  const result = { ...base };
+  for (const key of Object.keys(override)) {
+    if (
+      override[key] && typeof override[key] === 'object' && !Array.isArray(override[key]) &&
+      base[key] && typeof base[key] === 'object' && !Array.isArray(base[key])
+    ) {
+      result[key] = deepMerge(base[key] as Record<string, unknown>, override[key] as Record<string, unknown>);
+    } else {
+      result[key] = override[key];
+    }
+  }
+  return result;
 }
 
 export const appConfig = loadConfig();
