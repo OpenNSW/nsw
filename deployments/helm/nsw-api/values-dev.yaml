@@ -1,0 +1,77 @@
+# Dev Overrides for nsw-api
+
+global:
+  clusterDomain: "apps.sovecloud1.akaza.lk"
+  namespace: "national-single-window-platform"
+
+replicaCount: 1
+
+service:
+  useWorkflowManagerV2: "TRUE"
+
+dbMigrations:
+  enabled: true
+  image:
+    repository: ghcr.io/opennsw/nsw-api-migrations
+    tag: latest
+    pullPolicy: IfNotPresent
+  host: "nsw-db"
+  database: "nsw_dev"
+  secretName: "nsw-db-credentials"
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: ["ALL"]
+
+config:
+  nswApiBaseUrl: "https://dev-nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk/api/v1"
+  serviceUrl: "https://dev-nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  database:
+    host: "nsw-db"
+    name: "nsw_dev"
+    user: "postgres"
+    credentialsSecretName: "nsw-db-credentials"
+  auth:
+    issuer: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"
+    jwksUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk/oauth2/jwks"
+    clientId: "TRADER_PORTAL_APP"
+    credentialsSecretName: "nsw-api-auth-credentials"
+  cors:
+    allowedOrigins: "https://dev-trader-app-national-single-window-platform.apps.sovecloud1.akaza.lk,https://dev-oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk,https://dev-oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk,https://dev-oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  storage:
+    type: "s3"
+    s3Endpoint: "https://ptdstore078.hcppt01.sltidc.lk:8000"
+    s3Bucket: "storage01"
+    s3Region: "ap-south-1"
+    s3UseSsl: true
+    credentialsSecretName: "s3-credentials"
+
+service:
+  services:
+    - id: "npqs"
+      url: "http://dev-oga-npqs-backend.national-single-window-platform.svc.cluster.local:8081"
+      timeout: "30s"
+    - id: "fcau"
+      url: "http://dev-oga-fcau-backend.national-single-window-platform.svc.cluster.local:8081"
+      timeout: "30s"
+    - id: "ird"
+      url: "http://dev-oga-ird-backend.national-single-window-platform.svc.cluster.local:8081"
+      timeout: "30s"
+    - id: "customs-asycuda"
+      url: "https://7b0eb5f0-1ee3-4a0c-8946-82a893cb60c2.mock.pstmn.io"
+      timeout: "10s"
+    - id: "customs-app"
+      url: "http://dev-trader-app.national-single-window-platform.svc.cluster.local:80"
+      timeout: "5s"
+
+route:
+  enabled: true
+  host: ""
+  tls:
+    enabled: true
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

@@ -1,0 +1,56 @@
+# Staging Overrides for nsw-api
+
+global:
+  clusterDomain: "apps.sovecloud1.akaza.lk"
+  namespace: "national-single-window-platform"
+
+replicaCount: 2
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1024Mi
+  requests:
+    cpu: 200m
+    memory: 512Mi
+
+config:
+  serviceUrl: "https://staging-nsw-api-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  database:
+    host: "nsw-db"
+    name: "nsw_staging"
+    user: "postgres"
+    credentialsSecretName: "nsw-db-credentials"
+  auth:
+    issuer: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk"
+    jwksUrl: "https://idp-thunder-national-single-window-platform.apps.sovecloud1.akaza.lk/oauth2/jwks"
+    clientId: "nsw-staging-client"
+    clientSecret: "nsw-staging-secret"
+  cors:
+    allowedOrigins: "https://staging-trader-app-national-single-window-platform.apps.sovecloud1.akaza.lk,https://staging-oga-fcau-national-single-window-platform.apps.sovecloud1.akaza.lk,https://staging-oga-ird-national-single-window-platform.apps.sovecloud1.akaza.lk,https://staging-oga-npqs-national-single-window-platform.apps.sovecloud1.akaza.lk"
+  storage:
+    type: "s3"
+    s3Endpoint: "https://ptdstore078.hcppt01.sltidc.lk:8000"
+    s3Bucket: "storage01"
+    s3Region: "ap-south-1"
+    s3UseSsl: true
+    credentialsSecretName: "nsw-s3-credentials"
+
+dbMigrations:
+  enabled: true
+  database: "nsw_staging"
+  host: "nsw-db"
+  secretName: "nsw-db-credentials"
+  image:
+    repository: ghcr.io/opennsw/nsw-api-migrations
+    tag: latest
+    pullPolicy: IfNotPresent
+
+service:
+  temporalHost: "temporal-server:7233"
+  temporalNamespace: "national-single-window-platform"
+  useWorkflowManagerV2: "TRUE"
+
+route:
+  enabled: true
+  host: ""
