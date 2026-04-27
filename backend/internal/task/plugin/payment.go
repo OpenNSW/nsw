@@ -337,9 +337,8 @@ func (t *PaymentTask) initiateHandler(ctx context.Context, content any) (*Execut
 
 	// Create real checkout session via PaymentService
 	resp, err := t.paymentService.CreateCheckoutSession(ctx, payments.CreateCheckoutRequest{
-		Amount:          totalAmount,
-		Currency:        t.config.Currency,
-		ReferenceNumber: session.ReferenceNumber,
+		Amount:   totalAmount,
+		Currency: t.config.Currency,
 		Metadata: map[string]string{
 			"task_id":      t.api.GetTaskID(),
 			"method_id":    methodID,
