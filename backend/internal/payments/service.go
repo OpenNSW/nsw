@@ -45,7 +45,7 @@ func (s *paymentService) CreateCheckoutSession(ctx context.Context, req CreateCh
 	// 3. Call provider.CreateSession(ctx, req, generatedRef)
 	// 4. Persist transaction via repo including the generatedRef
 	// 5. Return CreateCheckoutResponse containing the generatedRef
-	return nil, nil
+	return nil, fmt.Errorf("multi-provider checkout orchestration not yet implemented")
 }
 
 func (s *paymentService) ValidateReference(ctx context.Context, providerID string, req ValidateReferenceRequest) (*ValidateReferenceResponse, error) {
@@ -78,5 +78,5 @@ func (s *paymentService) ValidateReference(ctx context.Context, providerID strin
 
 func (s *paymentService) ProcessWebhook(ctx context.Context, providerID string, body []byte, headers map[string][]string) error {
 	// TODO: Implement provider-based webhook processing
-	return nil
+	return fmt.Errorf("webhook processing not yet implemented for provider: %s", providerID)
 }
