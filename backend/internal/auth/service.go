@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // AuthService provides business logic for authentication and user context operations.
@@ -32,8 +33,8 @@ func (as *AuthService) GetUserContext(userID string) (*UserContext, error) {
 		return nil, fmt.Errorf("user ID is empty")
 	}
 
-	var uc UserContext
-	result := as.db.Where("user_id = ?", userID).First(&uc)
+	var userRecord UserRecord
+	result := as.db.Where("user_id = ?", userID).First(&userRecord)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			slog.Debug("user context not found", "user_id", userID)
@@ -42,7 +43,14 @@ func (as *AuthService) GetUserContext(userID string) (*UserContext, error) {
 		return nil, fmt.Errorf("failed to fetch user context: %w", result.Error)
 	}
 
-	return &uc, nil
+	return &UserContext{
+		UserID:      userRecord.UserID,
+		Email:       userRecord.Email,
+		PhoneNumber: userRecord.PhoneNumber,
+		OUID:        userRecord.OUID,
+		Roles:       []string{},
+		NSWData:     userRecord.NSWData,
+	}, nil
 }
 
 // UpdateUserContext updates the user context for a given user ID.
@@ -75,7 +83,7 @@ func (as *AuthService) UpdateUserContext(userID string, ctx json.RawMessage) err
 		return fmt.Errorf("invalid JSON in user context: %w", err)
 	}
 
-	result := as.db.Model(&UserContext{}).
+	result := as.db.Model(&UserRecord{}).
 		Where("user_id = ?", userID).
 		Update("nsw_data", ctx)
 	if result.Error != nil {
@@ -88,10 +96,10 @@ func (as *AuthService) UpdateUserContext(userID string, ctx json.RawMessage) err
 }
 
 type UpsertUserContextPayload struct {
-	Email    *string
-	OUHandle *string
-	OUID     *string
-	NSWData  json.RawMessage
+	Email       *string
+	PhoneNumber *string
+	OUID        *string
+	NSWData     json.RawMessage
 }
 
 // UpsertUserContext creates or updates the user context.
@@ -108,9 +116,15 @@ func (as *AuthService) UpsertUserContext(userID string, payload UpsertUserContex
 	if userID == "" {
 		return fmt.Errorf("user ID is empty")
 	}
+
 	defaultNSWData := json.RawMessage(`{}`)
 	if len(payload.NSWData) == 0 {
 		payload.NSWData = defaultNSWData
+	}
+
+	userRecord := &UserRecord{
+		UserID:  userID,
+		NSWData: payload.NSWData,
 	}
 
 	userContext, err := as.GetUserContext(userID)
@@ -118,41 +132,26 @@ func (as *AuthService) UpsertUserContext(userID string, payload UpsertUserContex
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return fmt.Errorf("failed to upsert user context: %w", err)
 		}
-
-		email := ""
-		if payload.Email != nil {
-			email = *payload.Email
-		}
-		ouHandle := ""
-		if payload.OUHandle != nil {
-			ouHandle = *payload.OUHandle
-		}
-		ouID := ""
-		if payload.OUID != nil {
-			ouID = *payload.OUID
-		}
-
-		userContext = &UserContext{
-			UserID:   userID,
-			Email:    email,
-			OUHandle: ouHandle,
-			OUID:     ouID,
-			NSWData:  payload.NSWData,
-		}
 	} else {
-		if payload.Email != nil {
-			userContext.Email = *payload.Email
-		}
-		if payload.OUHandle != nil {
-			userContext.OUHandle = *payload.OUHandle
-		}
-		if payload.OUID != nil {
-			userContext.OUID = *payload.OUID
-		}
-		userContext.NSWData = payload.NSWData
+		userRecord.Email = userContext.Email
+		userRecord.PhoneNumber = userContext.PhoneNumber
+		userRecord.OUID = userContext.OUID
 	}
 
-	result := as.db.Save(userContext)
+	if payload.Email != nil {
+		userRecord.Email = *payload.Email
+	}
+	if payload.PhoneNumber != nil {
+		userRecord.PhoneNumber = *payload.PhoneNumber
+	}
+	if payload.OUID != nil {
+		userRecord.OUID = *payload.OUID
+	}
+
+	result := as.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "user_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"email", "phone_number", "ou_id", "nsw_data"}),
+	}).Create(userRecord)
 	if result.Error != nil {
 		return fmt.Errorf("failed to upsert user context: %w", result.Error)
 	}

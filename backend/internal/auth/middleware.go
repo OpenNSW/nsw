@@ -79,10 +79,10 @@ func Middleware(authService *AuthService, tokenExtractor *TokenExtractor) func(h
 						slog.Debug("no stored user context, creating default context",
 							"user_id", principal.UserPrincipal.UserID)
 						err = authService.UpsertUserContext(principal.UserPrincipal.UserID, UpsertUserContextPayload{
-							Email:    &principal.UserPrincipal.Email,
-							OUHandle: &principal.UserPrincipal.OUHandle,
-							OUID:     &principal.UserPrincipal.OUID,
-							NSWData:  []byte(`{}`),
+							Email:       &principal.UserPrincipal.Email,
+							PhoneNumber: principal.UserPrincipal.PhoneNumber,
+							OUID:        &principal.UserPrincipal.OUID,
+							NSWData:     []byte(`{}`),
 						})
 						if err != nil {
 							slog.Error("failed to create default user context", "user_id", principal.UserPrincipal.UserID, "error", err)
@@ -99,11 +99,14 @@ func Middleware(authService *AuthService, tokenExtractor *TokenExtractor) func(h
 						return
 					}
 					userCtx = &UserContext{
-						UserID:   principal.UserPrincipal.UserID,
-						Email:    principal.UserPrincipal.Email,
-						OUHandle: principal.UserPrincipal.OUHandle,
-						OUID:     principal.UserPrincipal.OUID,
-						NSWData:  []byte(`{}`),
+						UserID:  principal.UserPrincipal.UserID,
+						Email:   principal.UserPrincipal.Email,
+						OUID:    principal.UserPrincipal.OUID,
+						Roles:   principal.UserPrincipal.Roles,
+						NSWData: []byte(`{}`),
+					}
+					if principal.UserPrincipal.PhoneNumber != nil {
+						userCtx.PhoneNumber = *principal.UserPrincipal.PhoneNumber
 					}
 				}
 				authCtx.User = userCtx
@@ -124,12 +127,16 @@ func buildAuthContext(principal *Principal) *AuthContext {
 		if principal.UserPrincipal == nil {
 			return &AuthContext{}
 		}
+		phoneNumber := ""
+		if principal.UserPrincipal.PhoneNumber != nil {
+			phoneNumber = *principal.UserPrincipal.PhoneNumber
+		}
 		return &AuthContext{
 			User: &UserContext{
-				UserID:   principal.UserPrincipal.UserID,
-				Email:    principal.UserPrincipal.Email,
-				OUHandle: principal.UserPrincipal.OUHandle,
-				OUID:     principal.UserPrincipal.OUID,
+				UserID:      principal.UserPrincipal.UserID,
+				Email:       principal.UserPrincipal.Email,
+				PhoneNumber: phoneNumber,
+				OUID:        principal.UserPrincipal.OUID,
 			},
 		}
 	case ClientPrincipalType:
@@ -141,12 +148,16 @@ func buildAuthContext(principal *Principal) *AuthContext {
 		}
 	default:
 		if principal.UserPrincipal != nil {
+			phoneNumber := ""
+			if principal.UserPrincipal.PhoneNumber != nil {
+				phoneNumber = *principal.UserPrincipal.PhoneNumber
+			}
 			return &AuthContext{
 				User: &UserContext{
-					UserID:   principal.UserPrincipal.UserID,
-					Email:    principal.UserPrincipal.Email,
-					OUHandle: principal.UserPrincipal.OUHandle,
-					OUID:     principal.UserPrincipal.OUID,
+					UserID:      principal.UserPrincipal.UserID,
+					Email:       principal.UserPrincipal.Email,
+					PhoneNumber: phoneNumber,
+					OUID:        principal.UserPrincipal.OUID,
 				},
 			}
 		}
