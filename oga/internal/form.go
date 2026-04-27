@@ -71,10 +71,9 @@ func (fs *FormStore) GetDefaultForm() (json.RawMessage, error) {
 	return fs.GetForm(fs.defaultFormID)
 }
 
-// FormIDFromMeta constructs a form ID from Meta fields: "type:verificationId".
-func FormIDFromMeta(m *Meta) string {
-	if m == nil {
-		return ""
-	}
-	return m.VerificationType + ":" + m.VerificationId
+// FormIDFromTaskCode returns the form ID associated with the given task code.
+func FormIDFromTaskCode(taskCode string) string {
+	// TODO: this is a temporary implementation. The form ID construction logic may evolve as we support more complex scenarios.
+	// For example, we might want to include the task code, or have a mapping of task codes to form IDs in the config.
+	return taskCode
 }

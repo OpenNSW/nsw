@@ -80,13 +80,13 @@ func (t *WaitForEventTask) Init(api API) {
 	t.api = api
 }
 
-// ExternalServiceRequest represents the payload sent to the external service
-type ExternalServiceRequest struct {
-	Data       any    `json:"data"` // Resolved data from global context
-	WorkflowID string `json:"workflowId"`
+// WaitForEventExternalServiceRequest represents the payload sent to the external service
+type WaitForEventExternalServiceRequest struct {
+	TaskCode   string `json:"taskCode"` // Code to identify task config on External service side
 	TaskID     string `json:"taskId"`
+	WorkflowID string `json:"workflowId"`
 	ServiceURL string `json:"serviceUrl"`
-	Meta       *Meta  `json:"meta,omitempty"`
+	Data       any    `json:"data"` // Resolved data from global context
 }
 
 // NewWaitForEventFSM returns the state graph for WaitForEventTask.
@@ -229,7 +229,7 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID str
 	target := t.config.Submission.Url
 	serviceID := t.config.Submission.ServiceID
 
-	extReq := ExternalServiceRequest{
+	extReq := WaitForEventExternalServiceRequest{
 		WorkflowID: workflowID,
 		TaskID:     taskID,
 		ServiceURL: strings.TrimRight(t.serviceBaseURL, "/") + TasksAPIPath,
@@ -237,7 +237,10 @@ func (t *WaitForEventTask) notifyExternalService(ctx context.Context, taskID str
 	}
 
 	if t.config.Submission.Request != nil {
-		extReq.Meta = t.config.Submission.Request.Meta
+		extReq.TaskCode = t.config.Submission.Request.TaskCode
+	}
+	if extReq.TaskCode == "" {
+		return fmt.Errorf("taskCode is required for external service submission. Please configure submission.request.taskCode in the plugin config")
 	}
 
 	req := remote.Request{

@@ -168,11 +168,7 @@ VALUES
             "submission": {
                 "url": ' || to_jsonb((:'NPQS_OGA_SUBMISSION_URL')::text)::text || ',
                 "request": {
-                    "meta": {
-                        "type": "consignment",
-                        "verificationId": "moa:npqs:phytosanitary:001",
-                        "templateKey": "npqs:phytosanitary:v1"
-                    }
+                    "taskCode": "npqs:phytosanitary:v1"
                 }
             }
         }')::jsonb,
@@ -207,11 +203,7 @@ VALUES
             "submission": {
                 "url": ' || to_jsonb((:'FCAU_OGA_SUBMISSION_URL')::text)::text || ',
                 "request": {
-                    "meta": {
-                        "type": "consignment",
-                        "verificationId": "edb:fcau:health-certificate:001",
-                        "templateKey": "fcau:health_certificate:v1"
-                    }
+                    "taskCode": "fcau:health_certificate:v1"
                 }
             }
         }')::jsonb,
@@ -240,9 +232,7 @@ VALUES
             "submission": {
                 "url": ' || to_jsonb((:'NPQS_OGA_SUBMISSION_URL')::text)::text || ',
                 "request": {
-                    "meta": {
-                        "templateKey": "npqs:manual_inspection:v1"
-                    },
+                    "taskCode": "npqs:manual_inspection:v1",
                     "template": {
                         "consignee_name": "consignee:consignee_name",
                         "consigneeAddress": "consignee:address"
@@ -292,21 +282,19 @@ VALUES
             "submission": {
                 "url": "http://localhost:8081/api/oga/inject",
                 "request": {
-                    "meta": {
-                    "templateKey": "ship_departure_v1"
+                    "taskCode": "ship_departure_v1",
+                    "template": {
+                        "port_code": "departure_port",
+                        "vessel_id": "ship_identifier"
+                    }
                 },
-                "template": {
-                    "port_code": "departure_port",
-                    "vessel_id": "ship_identifier"
-                }
-            },
-            "response": {
-                "display": {
-                    "formId": "95d7e7fe-5be0-43cb-ac71-94bc70d3a01d"
+                "response": {
+                    "display": {
+                        "formId": "95d7e7fe-5be0-43cb-ac71-94bc70d3a01d"
+                    }
                 }
             }
-        }
-}',
+        }',
         '[
             "c0000003-0003-0003-0003-000000000003",
             "c0000003-0003-0003-0003-000000000004",

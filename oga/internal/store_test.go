@@ -51,10 +51,10 @@ func seedRecord(t *testing.T, store *ApplicationStore, taskID string, data JSONB
 	}
 	err := store.CreateOrUpdate(&ApplicationRecord{
 		TaskID:     taskID,
+		TaskCode:   "verification:123",
 		WorkflowID: "wf-seed",
 		ServiceURL: "http://test",
 		Data:       data,
-		Meta:       JSONB{"type": "test"},
 		Status:     "PENDING",
 	})
 	if err != nil {
@@ -213,10 +213,10 @@ func TestApplicationStore_JSONB_NilData(t *testing.T) {
 
 	err := store.CreateOrUpdate(&ApplicationRecord{
 		TaskID:     "task-nil-data",
+		TaskCode:   "verification:123",
 		WorkflowID: "wf-1",
 		ServiceURL: "http://test",
 		Data:       nil,
-		Meta:       nil,
 	})
 	if err != nil {
 		t.Fatalf("CreateOrUpdate with nil JSONB failed: %v", err)

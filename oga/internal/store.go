@@ -45,12 +45,12 @@ func (j *JSONB) Scan(value any) error {
 // ApplicationRecord represents an application in the OGA database
 type ApplicationRecord struct {
 	TaskID             string           `gorm:"type:text;primaryKey"`
+	TaskCode           string           `gorm:"type:varchar(100);not null"`
 	WorkflowID         string           `gorm:"type:text;index;not null"`
 	ServiceURL         string           `gorm:"type:varchar(512);not null"`                  // URL to send response back to
 	Data               JSONB            `gorm:"type:text"`                                   // Injected data from service
-	Meta               JSONB            `gorm:"type:text"`                                   // Meta Information on Rendering the form
 	ReviewerResponse   JSONB            `gorm:"type:text"`                                   // Response from reviewer
-	Status             string           `gorm:"type:varchar(50);not null;default:'PENDING'"` // PENDING, APPROVED, REJECTED
+	Status             string           `gorm:"type:varchar(50);not null;default:'PENDING'"` // PENDING, FEEDBACK_REQUESTED, DONE
 	OGAFeedbackHistory []map[string]any `gorm:"type:text;serializer:json"`
 	ReviewedAt         *time.Time       // When it was reviewed
 	CreatedAt          time.Time        `gorm:"autoCreateTime"`

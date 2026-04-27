@@ -73,16 +73,11 @@ type Config struct {
 	RequiresOgaVerification bool              `json:"requiresOgaVerification,omitempty"` // If true, waits for OGA_VERIFICATION action; if false, completes after submission response
 }
 
-type Meta struct {
-	// TODO: After adapting to TemplateKey, VerificationType and VerificationId should be removed.
-	VerificationType string `json:"type,omitempty"`
-	VerificationId   string `json:"verificationId,omitempty"`
-	TemplateKey      string `json:"templateKey,omitempty"`
-}
 type Request struct {
-	Meta     *Meta           `json:"meta,omitempty"`
+	TaskCode string          `json:"taskCode"` // Code to identify task config on External service side
 	Template json.RawMessage `json:"template,omitempty"`
 }
+
 type Response struct {
 	Mapping map[string]string `json:"mapping,omitempty"` // Data to be mapped to global context after submission
 	Display *Display          `json:"display,omitempty"`
@@ -97,6 +92,16 @@ type SubmissionConfig struct {
 	Url       string    `json:"url"` // URL to submit form data to
 	Request   *Request  `json:"request,omitempty"`
 	Response  *Response `json:"response,omitempty"` // Expected response mapping after submission
+}
+
+// SimpleFormExternalServiceRequest represents the payload sent to the external service.
+type SimpleFormExternalServiceRequest struct {
+	TaskCode           string             `json:"taskCode"` // Code to identify task config on external service side
+	TaskID             string             `json:"taskId"`
+	WorkflowID         string             `json:"workflowId"`
+	ServiceURL         string             `json:"serviceUrl"`
+	Data               map[string]any     `json:"data"` // Submitted trader form data
+	OGAFeedbackHistory []OGAFeedbackEntry `json:"ogaFeedbackHistory,omitempty"`
 }
 
 type CallbackConfig struct {
@@ -436,18 +441,31 @@ func (s *SimpleForm) submitHandler(ctx context.Context, content any) (*Execution
 		}, nil
 	}
 
-	requestPayload := map[string]any{
-		"data":       formData,
-		"taskId":     s.api.GetTaskID(),
-		"workflowId": s.api.GetWorkflowID(),
-		"serviceUrl": strings.TrimRight(s.cfg.Server.ServiceURL, "/") + TasksAPIPath,
+	requestPayload := SimpleFormExternalServiceRequest{
+		TaskID:     s.api.GetTaskID(),
+		WorkflowID: s.api.GetWorkflowID(),
+		ServiceURL: strings.TrimRight(s.cfg.Server.ServiceURL, "/") + TasksAPIPath,
+		Data:       formData,
 	}
 	if s.config.Submission != nil && s.config.Submission.Request != nil {
-		requestPayload["meta"] = s.config.Submission.Request.Meta
+		requestPayload.TaskCode = s.config.Submission.Request.TaskCode
+	}
+
+	// Validate that TaskCode is non-empty (required by OGA service)
+	if requestPayload.TaskCode == "" {
+		return &ExecutionResponse{
+			ApiResponse: &ApiResponse{
+				Success: false,
+				Error: &ApiError{
+					Code:    "MISSING_TASK_CODE",
+					Message: "TaskCode is required for external service submission. Please configure submission.request.taskCode in the plugin config.",
+				},
+			},
+		}, nil
 	}
 
 	if history, err := s.readOGAFeedbackHistory(); err == nil && len(history) > 0 {
-		requestPayload["ogaFeedbackHistory"] = history
+		requestPayload.OGAFeedbackHistory = history
 	}
 
 	var serviceID string
@@ -893,11 +911,11 @@ func (s *SimpleForm) mergeFormData(prepopulated, existing map[string]interface{}
 
 // sendFormSubmission sends the form data to the specified service or URL.
 // It uses the remote Manager to identify the service (by ID or URL) and apply its configuration.
-func (s *SimpleForm) sendFormSubmission(ctx context.Context, serviceID, path string, formData map[string]interface{}) (map[string]interface{}, error) {
+func (s *SimpleForm) sendFormSubmission(ctx context.Context, serviceID, path string, payload any) (map[string]interface{}, error) {
 	req := remote.Request{
 		Method: "POST",
 		Path:   path,
-		Body:   formData,
+		Body:   payload,
 		Retry:  &remote.DefaultRetryConfig,
 	}
 

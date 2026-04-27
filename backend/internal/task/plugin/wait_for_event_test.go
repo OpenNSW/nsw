@@ -95,6 +95,9 @@ func newWFETask(t *testing.T, serverURL string) (*WaitForEventTask, *wfeAPI) {
 	raw, err := json.Marshal(WaitForEventConfig{
 		Submission: &SubmissionConfig{
 			Url: serverURL,
+			Request: &Request{
+				TaskCode: "test-task-code",
+			},
 		},
 	})
 	if err != nil {
