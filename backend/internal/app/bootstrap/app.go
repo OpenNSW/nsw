@@ -69,7 +69,8 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	}
 
 	paymentRepo := payments.NewPaymentRepository(db)
-	paymentService := payments.NewPaymentService(paymentRepo)
+	// TODO: Register the payment registry once implemented.
+	paymentService := payments.NewPaymentService(paymentRepo, nil)
 
 	factory := plugin.NewTaskFactory(cfg, db, paymentService)
 	tm, err := taskmanager.NewTaskManager(db, factory)

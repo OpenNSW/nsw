@@ -38,6 +38,7 @@ func TestRepository_Create(t *testing.T) {
 		ID:              uuid.New().String(),
 		ReferenceNumber: "REF-123",
 		TaskID:          "TASK-123",
+		ProviderID:      "lankapay",
 		Amount:          decimal.NewFromFloat(100.0),
 		Status:          PaymentStatusPending,
 		CreatedAt:       time.Now(),
@@ -46,7 +47,7 @@ func TestRepository_Create(t *testing.T) {
 
 	mock.ExpectBegin()
 	mock.ExpectExec(`INSERT INTO "payment_transactions"`).
-		WithArgs(tx.ID, tx.ReferenceNumber, tx.TaskID, tx.SessionID, tx.Amount, tx.Currency, tx.Status, tx.PaymentMethod, tx.ExpiryDate, sqlmock.AnyArg(), tx.CreatedAt, tx.UpdatedAt).
+		WithArgs(tx.ID, tx.ReferenceNumber, tx.TaskID, tx.ProviderID, tx.SessionID, tx.Amount, tx.Currency, tx.Status, tx.PaymentMethod, tx.ExpiryDate, sqlmock.AnyArg(), tx.CreatedAt, tx.UpdatedAt).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 

@@ -4,65 +4,60 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"time"
-
-	"github.com/google/uuid"
 )
 
-// PaymentService defines the business logic operations for Payments.
+// PaymentService defines the high-level orchestration for payments.
 type PaymentService interface {
+	// ListAvailableMethods returns the rendering information for all active payment gateways.
+	ListAvailableMethods(ctx context.Context) ([]PaymentProviderInfo, error)
+
+	// CreateCheckoutSession initializes a payment session and generates a ReferenceNumber.
 	CreateCheckoutSession(ctx context.Context, req CreateCheckoutRequest) (*CreateCheckoutResponse, error)
-	ValidateReference(ctx context.Context, req ValidateReferenceRequest) (*ValidateReferenceResponse, error)
-	ProcessWebhook(ctx context.Context, payload WebhookPayload) error
+
+	// ValidateReference is used for real-time validation requests from gateways.
+	ValidateReference(ctx context.Context, providerID string, req ValidateReferenceRequest) (*ValidateReferenceResponse, error)
+
+	// ProcessWebhook handles asynchronous notifications from payment gateways.
+	ProcessWebhook(ctx context.Context, providerID string, body []byte, headers map[string][]string) error
 }
 
 type paymentService struct {
-	repo PaymentRepository
-	// In the future, we may inject event publishers or task managers here.
+	repo     PaymentRepository
+	registry PaymentRegistry
 }
 
 // NewPaymentService initializes a new payment service.
-func NewPaymentService(repo PaymentRepository) PaymentService {
-	return &paymentService{repo: repo}
+func NewPaymentService(repo PaymentRepository, registry PaymentRegistry) PaymentService {
+	return &paymentService{
+		repo:     repo,
+		registry: registry,
+	}
 }
 
-// CreateCheckoutSession saves the initial intent and returns mocked LankaPay session details.
+func (s *paymentService) ListAvailableMethods(ctx context.Context) ([]PaymentProviderInfo, error) {
+	return s.registry.ListInfo(), nil
+}
+
 func (s *paymentService) CreateCheckoutSession(ctx context.Context, req CreateCheckoutRequest) (*CreateCheckoutResponse, error) {
-	sessionID := "sess_" + fmt.Sprintf("%d", time.Now().UnixNano())
-	taskID, ok := req.Metadata["task_id"]
-	if !ok {
-		return nil, fmt.Errorf("task_id is required in metadata")
-	}
-
-	tx := &PaymentTransaction{
-		ID:              uuid.NewString(),
-		ReferenceNumber: req.ReferenceNumber,
-		TaskID:          taskID,
-		SessionID:       sessionID,
-		Amount:          req.Amount,
-		Currency:        req.Currency,
-		Status:          PaymentStatusPending,
-		ExpiryDate:      req.ExpiresAt,
-		GatewayMetadata: req.Metadata,
-	}
-
-	if err := s.repo.Create(ctx, tx); err != nil {
-		return nil, fmt.Errorf("failed to create payment transaction: %w", err)
-	}
-
-	slog.Info("created checkout session", "reference_number", req.ReferenceNumber, "session_id", sessionID)
-
-	return &CreateCheckoutResponse{
-		SessionID:   sessionID,
-		CheckoutURL: "https://sandbox.govpay.lk/checkout/" + sessionID,
-		ExpiresIn:   int(time.Until(req.ExpiresAt).Seconds()),
-	}, nil
+	// TODO: Implement multi-provider orchestration logic:
+	// 1. Select provider from registry
+	// 2. Generate a unique NSW ReferenceNumber (e.g., NSW-PR-YYYY-XXXXX)
+	// 3. Call provider.CreateSession(ctx, req, generatedRef)
+	// 4. Persist transaction via repo including the generatedRef
+	// 5. Return CreateCheckoutResponse containing the generatedRef
+	return nil, fmt.Errorf("multi-provider checkout orchestration not yet implemented")
 }
 
-// ValidateReference is called by GovPay when a user searches for their reference number.
-func (s *paymentService) ValidateReference(ctx context.Context, req ValidateReferenceRequest) (*ValidateReferenceResponse, error) {
-	slog.Info("validating incoming payment reference", "reference", req.PaymentReference)
+func (s *paymentService) ValidateReference(ctx context.Context, providerID string, req ValidateReferenceRequest) (*ValidateReferenceResponse, error) {
+	slog.Info("validating incoming payment reference", "provider", providerID, "reference", req.PaymentReference)
 
+	// 1. Get the provider from the registry using the ID from the URL
+	provider, err := s.registry.Get(providerID)
+	if err != nil {
+		return nil, fmt.Errorf("provider %s not found: %w", providerID, err)
+	}
+
+	// 2. Look up the transaction metadata from the DB
 	tx, err := s.repo.GetByReferenceNumber(ctx, req.PaymentReference)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve payment reference: %w", err)
@@ -71,55 +66,17 @@ func (s *paymentService) ValidateReference(ctx context.Context, req ValidateRefe
 		return &ValidateReferenceResponse{IsPayable: false, Remarks: "Invalid reference number"}, nil
 	}
 
-	isPayable := tx.Status == PaymentStatusPending && time.Now().Before(tx.ExpiryDate)
+	// 3. Security/Consistency check: ensure the transaction was actually intended for this provider
+	if tx.ProviderID != providerID {
+		slog.Warn("provider mismatch during validation", "expected", tx.ProviderID, "received", providerID, "reference", tx.ReferenceNumber)
+		return &ValidateReferenceResponse{IsPayable: false, Remarks: "Reference mismatch"}, nil
+	}
 
-	return &ValidateReferenceResponse{
-		Amount:     tx.Amount,
-		Currency:   tx.Currency,
-		TraderName: "Sample Trader", // TODO: Fetch from actual domain models/context
-		OGAName:    "Sample OGA",    // TODO: Fetch from actual domain models/context
-		ExpiryDate: tx.ExpiryDate.Format(time.RFC3339),
-		IsPayable:  isPayable,
-		Remarks:    fmt.Sprintf("Current status: %s", tx.Status),
-	}, nil
+	// 4. Delegate final validation response to the provider, injecting the transaction metadata
+	return provider.HandleValidateReference(ctx, tx)
 }
 
-// ProcessWebhook processes asynchronous success/failure updates from GovPay.
-func (s *paymentService) ProcessWebhook(ctx context.Context, payload WebhookPayload) error {
-	slog.Info("processing payment webhook", "reference_number", payload.ReferenceNumber, "status", payload.Status)
-
-	tx, err := s.repo.GetByReferenceNumber(ctx, payload.ReferenceNumber)
-	if err != nil {
-		return fmt.Errorf("failed to retrieve payment by reference: %w", err)
-	}
-	if tx == nil {
-		return fmt.Errorf("payment reference not found: %s", payload.ReferenceNumber)
-	}
-
-	// Idempotency: Ignore if we already recorded a final status
-	if tx.Status == payload.Status || tx.Status == PaymentStatusSuccess {
-		slog.Info("webhook ignored (idempotent)", "reference", tx.ReferenceNumber, "current_status", tx.Status)
-		return nil
-	}
-
-	tx.Status = payload.Status
-	tx.PaymentMethod = payload.PaymentMethod
-
-	if tx.GatewayMetadata == nil {
-		tx.GatewayMetadata = make(map[string]string)
-	}
-	tx.GatewayMetadata["gateway_transaction_id"] = payload.GatewayTransactionID
-	tx.GatewayMetadata["webhook_timestamp"] = payload.Timestamp
-
-	if err := s.repo.Update(ctx, tx); err != nil {
-		return fmt.Errorf("failed to update payment transaction status: %w", err)
-	}
-
-	slog.Info("payment transaction updated successfully", "reference", tx.ReferenceNumber, "status", tx.Status)
-
-	// In a complete implementation, we'd emit an internal event here:
-	// "PaymentConfirmedEvent" for the Task Engine to pick up.
-	// We leave this uncoupled as requested ("ONLY focus first on implementing Payment Service").
-
-	return nil
+func (s *paymentService) ProcessWebhook(ctx context.Context, providerID string, body []byte, headers map[string][]string) error {
+	// TODO: Implement provider-based webhook processing
+	return fmt.Errorf("webhook processing not yet implemented for provider: %s", providerID)
 }
