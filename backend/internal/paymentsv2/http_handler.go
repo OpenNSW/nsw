@@ -23,7 +23,8 @@ func (h *HTTPHandler) HandleValidateReference(w http.ResponseWriter, r *http.Req
 	// TODO: Extract providerID from URL parameters
 	providerID := r.PathValue("providerId")
 	if providerID == "" {
-		providerID = "lankapay" // Default for now
+		http.Error(w, "provider ID is required in URL", http.StatusBadRequest)
+		return
 	}
 
 	var req ValidateReferenceRequest
@@ -51,7 +52,8 @@ func (h *HTTPHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	// TODO: Extract providerID from URL parameters
 	providerID := r.PathValue("providerId")
 	if providerID == "" {
-		providerID = "lankapay"
+		http.Error(w, "provider ID is required in URL", http.StatusBadRequest)
+		return
 	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1MB limit

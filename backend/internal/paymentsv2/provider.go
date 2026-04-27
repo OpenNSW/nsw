@@ -22,9 +22,6 @@ type PaymentProviderInfo struct {
 
 // PaymentProvider defines the interface for external payment gateway integration.
 type PaymentProvider interface {
-	// RenderInfo returns the UI-specific metadata for this provider.
-	RenderInfo() PaymentRenderInfo
-
 	// CreateSession initializes a payment session with the gateway.
 	CreateSession(ctx context.Context, req CreateCheckoutRequest) (*CreateCheckoutResponse, error)
 
