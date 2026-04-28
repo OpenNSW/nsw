@@ -28,6 +28,16 @@ func (m *mockStore) GetByTaskID(taskID string) (*TaskWorkflowTask, error) {
 	return args.Get(0).(*TaskWorkflowTask), args.Error(1)
 }
 
+func (m *mockStore) GetStateByTaskID(taskID string) (plugin.State, error) {
+	args := m.Called(taskID)
+	return args.Get(0).(plugin.State), args.Error(1)
+}
+
+func (m *mockStore) GetDataByTaskID(taskID string) (json.RawMessage, error) {
+	args := m.Called(taskID)
+	return args.Get(0).(json.RawMessage), args.Error(1)
+}
+
 func (m *mockStore) GetByMacroWorkflowID(macroWorkflowID string) ([]TaskWorkflowTask, error) {
 	args := m.Called(macroWorkflowID)
 	return args.Get(0).([]TaskWorkflowTask), args.Error(1)
@@ -105,10 +115,7 @@ func TestTaskScopedStoreGet(t *testing.T) {
 
 func TestTaskScopedStoreGetState(t *testing.T) {
 	store := new(mockStore)
-	store.On("GetByTaskID", "task-1").Return(&TaskWorkflowTask{
-		TaskID: "task-1",
-		State:  plugin.Completed,
-	}, nil).Once()
+	store.On("GetStateByTaskID", "task-1").Return(plugin.Completed, nil).Once()
 
 	scoped, err := NewTaskScopedStore(store, "task-1")
 	assert.NoError(t, err)
@@ -136,10 +143,7 @@ func TestTaskScopedStoreSetState(t *testing.T) {
 func TestTaskScopedStoreGetData(t *testing.T) {
 	store := new(mockStore)
 	data := json.RawMessage(`{"field":"value"}`)
-	store.On("GetByTaskID", "task-1").Return(&TaskWorkflowTask{
-		TaskID: "task-1",
-		Data:   data,
-	}, nil).Once()
+	store.On("GetDataByTaskID", "task-1").Return(data, nil).Once()
 
 	scoped, err := NewTaskScopedStore(store, "task-1")
 	assert.NoError(t, err)

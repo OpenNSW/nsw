@@ -61,12 +61,7 @@ func (s *taskScopedStore) Get() (*TaskScopedRecord, error) {
 }
 
 func (s *taskScopedStore) GetState() (plugin.State, error) {
-	task, err := s.store.GetByTaskID(s.taskID)
-	if err != nil {
-		return "", err
-	}
-
-	return task.State, nil
+	return s.store.GetStateByTaskID(s.taskID)
 }
 
 func (s *taskScopedStore) SetState(state plugin.State) error {
@@ -74,12 +69,7 @@ func (s *taskScopedStore) SetState(state plugin.State) error {
 }
 
 func (s *taskScopedStore) GetData() (json.RawMessage, error) {
-	task, err := s.store.GetByTaskID(s.taskID)
-	if err != nil {
-		return nil, err
-	}
-
-	return task.Data, nil
+	return s.store.GetDataByTaskID(s.taskID)
 }
 
 func (s *taskScopedStore) SetData(data json.RawMessage) error {

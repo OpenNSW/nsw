@@ -34,6 +34,8 @@ func (TaskWorkflowTask) TableName() string {
 type Store interface {
 	Create(*TaskWorkflowTask) error
 	GetByTaskID(string) (*TaskWorkflowTask, error)
+	GetStateByTaskID(string) (plugin.State, error)
+	GetDataByTaskID(string) (json.RawMessage, error)
 	GetByMacroWorkflowID(string) ([]TaskWorkflowTask, error)
 	Update(*TaskWorkflowTask) error
 	UpdateState(string, plugin.State) error
@@ -65,6 +67,22 @@ func (s *TaskWorkflowStore) GetByTaskID(taskID string) (*TaskWorkflowTask, error
 	return &task, nil
 }
 
+func (s *TaskWorkflowStore) GetStateByTaskID(taskID string) (plugin.State, error) {
+	var task TaskWorkflowTask
+	if err := s.db.Select("state").First(&task, "task_id = ?", taskID).Error; err != nil {
+		return "", err
+	}
+	return task.State, nil
+}
+
+func (s *TaskWorkflowStore) GetDataByTaskID(taskID string) (json.RawMessage, error) {
+	var task TaskWorkflowTask
+	if err := s.db.Select("data").First(&task, "task_id = ?", taskID).Error; err != nil {
+		return nil, err
+	}
+	return task.Data, nil
+}
+
 func (s *TaskWorkflowStore) GetByMacroWorkflowID(macroWorkflowID string) ([]TaskWorkflowTask, error) {
 	var tasks []TaskWorkflowTask
 	if err := s.db.Where("macro_workflow_id = ?", macroWorkflowID).Find(&tasks).Error; err != nil {
@@ -74,7 +92,17 @@ func (s *TaskWorkflowStore) GetByMacroWorkflowID(macroWorkflowID string) ([]Task
 }
 
 func (s *TaskWorkflowStore) Update(task *TaskWorkflowTask) error {
-	return s.db.Save(task).Error
+	result := s.db.Model(&TaskWorkflowTask{}).
+		Where("task_id = ?", task.TaskID).
+		Select("*").
+		Updates(task)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 func (s *TaskWorkflowStore) UpdateState(taskID string, state plugin.State) error {
@@ -86,5 +114,12 @@ func (s *TaskWorkflowStore) UpdateData(taskID string, data json.RawMessage) erro
 }
 
 func (s *TaskWorkflowStore) Delete(taskID string) error {
-	return s.db.Delete(&TaskWorkflowTask{}, "task_id = ?", taskID).Error
+	result := s.db.Delete(&TaskWorkflowTask{}, "task_id = ?", taskID)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }

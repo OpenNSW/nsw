@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -124,6 +125,40 @@ func TestTaskWorkflowStoreGetByTaskID(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestTaskWorkflowStoreGetStateByTaskID(t *testing.T) {
+	db, mock := setupStoreTestDB(t)
+	store, err := NewTaskWorkflowStore(db)
+	assert.NoError(t, err)
+
+	mock.ExpectQuery(`SELECT "state" FROM "task_workflow_tasks" WHERE task_id = \$1 ORDER BY "task_workflow_tasks"."task_id" LIMIT \$2`).
+		WithArgs("task-1", 1).
+		WillReturnRows(sqlmock.NewRows([]string{"state"}).AddRow(plugin.Completed))
+
+	state, err := store.GetStateByTaskID("task-1")
+
+	assert.NoError(t, err)
+	assert.Equal(t, plugin.Completed, state)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestTaskWorkflowStoreGetDataByTaskID(t *testing.T) {
+	db, mock := setupStoreTestDB(t)
+	store, err := NewTaskWorkflowStore(db)
+	assert.NoError(t, err)
+
+	data := []byte(`{"field":"value"}`)
+
+	mock.ExpectQuery(`SELECT "data" FROM "task_workflow_tasks" WHERE task_id = \$1 ORDER BY "task_workflow_tasks"."task_id" LIMIT \$2`).
+		WithArgs("task-1", 1).
+		WillReturnRows(sqlmock.NewRows([]string{"data"}).AddRow(data))
+
+	got, err := store.GetDataByTaskID("task-1")
+
+	assert.NoError(t, err)
+	assert.JSONEq(t, string(data), string(got))
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestTaskWorkflowStoreGetByMacroWorkflowID(t *testing.T) {
 	db, mock := setupStoreTestDB(t)
 	store, err := NewTaskWorkflowStore(db)
@@ -168,6 +203,7 @@ func TestTaskWorkflowStoreUpdate(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectExec(`UPDATE "task_workflow_tasks" SET`).
 		WithArgs(
+			task.TaskID,
 			task.MacroWorkflowID,
 			task.TaskTemplateID,
 			task.State,
@@ -182,6 +218,42 @@ func TestTaskWorkflowStoreUpdate(t *testing.T) {
 	err = store.Update(task)
 
 	assert.NoError(t, err)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestTaskWorkflowStoreUpdateReturnsNotFoundWhenNoRowsUpdated(t *testing.T) {
+	db, mock := setupStoreTestDB(t)
+	store, err := NewTaskWorkflowStore(db)
+	assert.NoError(t, err)
+
+	task := &TaskWorkflowTask{
+		TaskID:          "missing-task",
+		MacroWorkflowID: "macro-1",
+		TaskTemplateID:  "template-1",
+		State:           plugin.Completed,
+		Data:            json.RawMessage(`{"done":true}`),
+		CreatedAt:       time.Now().UTC(),
+		UpdatedAt:       time.Now().UTC(),
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectExec(`UPDATE "task_workflow_tasks" SET`).
+		WithArgs(
+			task.TaskID,
+			task.MacroWorkflowID,
+			task.TaskTemplateID,
+			task.State,
+			sqlmock.AnyArg(),
+			sqlmock.AnyArg(),
+			sqlmock.AnyArg(),
+			task.TaskID,
+		).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectCommit()
+
+	err = store.Update(task)
+
+	assert.True(t, errors.Is(err, gorm.ErrRecordNotFound))
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -235,5 +307,22 @@ func TestTaskWorkflowStoreDelete(t *testing.T) {
 	err = store.Delete("task-1")
 
 	assert.NoError(t, err)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestTaskWorkflowStoreDeleteReturnsNotFoundWhenNoRowsDeleted(t *testing.T) {
+	db, mock := setupStoreTestDB(t)
+	store, err := NewTaskWorkflowStore(db)
+	assert.NoError(t, err)
+
+	mock.ExpectBegin()
+	mock.ExpectExec(`DELETE FROM "task_workflow_tasks" WHERE task_id = \$1`).
+		WithArgs("missing-task").
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectCommit()
+
+	err = store.Delete("missing-task")
+
+	assert.True(t, errors.Is(err, gorm.ErrRecordNotFound))
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
