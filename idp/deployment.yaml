@@ -11,31 +11,36 @@ tls:
 database:
   config:
     type: "sqlite"
-    path: "repository/database/configdb.db"
-    options: "_journal_mode=WAL&_busy_timeout=5000&_pragma=foreign_keys(1)"
-    max_open_conns: 500
-    max_idle_conns: 100
-    conn_max_lifetime: 3600
+    sqlite:
+      path: "repository/database/configdb.db"
+      options: "_journal_mode=WAL&_busy_timeout=5000&_pragma=foreign_keys(1)"
+      max_open_conns: 500
+      max_idle_conns: 100
+      conn_max_lifetime: 3600
 
   runtime:
     type: "sqlite"
-    path: "repository/database/runtimedb.db"
-    options: "_journal_mode=WAL&_busy_timeout=5000&_pragma=foreign_keys(1)"
-    max_open_conns: 500
-    max_idle_conns: 100
-    conn_max_lifetime: 3600
+    sqlite:
+      path: "repository/database/runtimedb.db"
+      options: "_journal_mode=WAL&_busy_timeout=5000&_pragma=foreign_keys(1)"
+      max_open_conns: 500
+      max_idle_conns: 100
+      conn_max_lifetime: 3600
 
   user:
     type: "sqlite"
-    path: "repository/database/userdb.db"
-    options: "_journal_mode=WAL&_busy_timeout=5000&_pragma=foreign_keys(1)"
-    max_open_conns: 500
-    max_idle_conns: 100
-    conn_max_lifetime: 3600
+    sqlite:
+      path: "repository/database/userdb.db"
+      options: "_journal_mode=WAL&_busy_timeout=5000&_pragma=foreign_keys(1)"
+      max_open_conns: 500
+      max_idle_conns: 100
+      conn_max_lifetime: 3600
 
 crypto:
   encryption:
     key: "file://repository/resources/security/crypto.key"
+  password_hashing:
+    algorithm: "PBKDF2"
   keys:
     - id: "default-key"
       cert_file: "repository/resources/security/signing.cert"
@@ -61,3 +66,7 @@ cors:
 passkey:
   allowed_origins:
     - "https://localhost:8090"
+
+consent:
+  enabled: true
+  base_url: "http://localhost:9090/api/v1"
