@@ -224,7 +224,7 @@ create_spa_application() {
                 "public_client": true,
                 "token": {
                     "access_token": {
-                        "validity_period": 600,
+                        "validity_period": 3600,
                         "user_attributes": [
                             "email",
                             "family_name",
@@ -238,7 +238,7 @@ create_spa_application() {
                         ]
                     },
                     "id_token": {
-                        "validity_period": 600,
+                        "validity_period": 3600,
                         "user_attributes": [
                             "email",
                             "family_name",

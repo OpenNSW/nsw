@@ -29,7 +29,7 @@ const IDP_PLATFORM = normalizeIdpPlatform(getEnv('VITE_IDP_PLATFORM', 'AsgardeoV
 const rawScopes = getEnv('VITE_IDP_SCOPES')
 const IDP_SCOPES = rawScopes
   ? rawScopes.split(',').map((scope: string) => scope.trim())
-  : ['openid', 'profile', 'email', 'offline_access']
+  : ['openid', 'profile', 'email']
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
