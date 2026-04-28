@@ -116,7 +116,7 @@ export function ActionListView({
                   ))}
                 </Box>
               </Box>
-            ) : groups.finished.length === filteredSteps.length && filteredSteps.length > 0 ? (
+            ) : filteredSteps.length > 0 && filteredSteps.every((s) => s.state === 'COMPLETED') ? (
                 <Box py="10" px="6" mb="6" className="text-center bg-green-50/50 rounded-xl border border-green-100 shadow-sm relative">
                     {onRefresh && (
                       <div className="absolute top-3 right-3">
