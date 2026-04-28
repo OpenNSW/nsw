@@ -2,22 +2,19 @@ package paymentsv2
 
 import (
 	"context"
+
+	"github.com/OpenNSW/nsw/internal/paymentsv2/registry"
 )
 
-// PaymentRenderInfo contains UI-specific metadata for displaying a payment method.
-type PaymentRenderInfo struct {
-	DisplayName  string `json:"display_name"`
-	Description  string `json:"description"`
-	LogoURL      string `json:"logo_url"`
-	DisplayOrder int    `json:"display_order"`
-	PrimaryColor string `json:"primary_color,omitempty"`
-}
+// PaymentRenderInfo is re-exported from registry package
+type PaymentRenderInfo = registry.PaymentRenderInfo
 
 // PaymentProviderInfo is the aggregate DTO used for provider discovery.
 type PaymentProviderInfo struct {
-	ID         string            `json:"id"`
-	IsActive   bool              `json:"is_active"`
-	RenderInfo PaymentRenderInfo `json:"render_info"`
+	ID           string            `json:"id"`
+	ProviderType string            `json:"provider_type"`
+	IsActive     bool              `json:"is_active"`
+	RenderInfo   PaymentRenderInfo `json:"render_info"`
 }
 
 // PaymentProvider defines the interface for external payment gateway integration.
@@ -37,6 +34,9 @@ type PaymentProvider interface {
 type PaymentRegistry interface {
 	// Get retrieves a provider implementation by its ID.
 	Get(id string) (PaymentProvider, error)
+
+	// GetByType retrieves a provider implementation by its configured provider type.
+	GetByType(providerType string) (PaymentProvider, error)
 
 	// ListInfo returns the aggregated metadata for all supported providers.
 	ListInfo() []PaymentProviderInfo
