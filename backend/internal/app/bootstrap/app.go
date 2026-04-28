@@ -82,7 +82,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	chaService := service.NewCHAService(db)
 	hsCodeService := service.NewHSCodeService(db)
 
-	temporalClient, err := temporal.NewClient()
+	temporalClient, err := temporal.NewClient(cfg.Temporal)
 	if err != nil {
 		_ = database.Close(db)
 		return nil, fmt.Errorf("failed to create temporal client: %w", err)

@@ -22,6 +22,7 @@ type Config struct {
 	Storage      uploads.Config
 	Auth         auth.Config
 	Notification NotificationConfig
+	Temporal     TemporalConfig
 }
 
 // ServerConfig holds server configuration
@@ -49,6 +50,11 @@ type NotificationConfig struct {
 	SMTPPassword string
 	SMTPSender   string
 	TemplateRoot string
+}
+
+type TemporalConfig struct {
+	HostPort  string
+	Namespace string
 }
 
 // Load reads configuration from environment variables
@@ -117,6 +123,10 @@ func Load() (*Config, error) {
 			SMTPPassword: os.Getenv("EMAIL_SMTP_PASSWORD"),
 			SMTPSender:   getEnvOrDefault("EMAIL_SMTP_SENDER", "noreply@nsw.local"),
 			TemplateRoot: getEnvOrDefault("EMAIL_TEMPLATE_ROOT", "./configs/email-templates"),
+		},
+		Temporal: TemporalConfig{
+			HostPort:  strings.TrimSpace(getEnvOrDefault("TEMPORAL_HOST_PORT", "localhost:7233")),
+			Namespace: strings.TrimSpace(getEnvOrDefault("TEMPORAL_NAMESPACE", "default")),
 		},
 	}
 
