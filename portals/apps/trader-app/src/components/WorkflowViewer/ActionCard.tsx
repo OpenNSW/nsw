@@ -16,7 +16,7 @@ import {
   ClockIcon,
   ReaderIcon,
   InfoCircledIcon,
-  LockClosedIcon
+  LockClosedIcon, CrossCircledIcon
 } from '@radix-ui/react-icons'
 import type { WorkflowNode, WorkflowNodeState } from '../../services/types/consignment'
 
@@ -55,10 +55,10 @@ const statusConfig: Record<
     label: 'Locked',
     icon: <LockClosedIcon className="w-3 h-3" />,
   },
-  REJECTED: {
+  FAILED: {
     color: 'red',
-    label: 'Rejected',
-    icon: <CheckCircledIcon className="w-4 h-4" />,
+    label: 'Failed',
+    icon: <CrossCircledIcon className="w-4 h-4" />,
   },
 }
 
