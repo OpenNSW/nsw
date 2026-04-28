@@ -5,11 +5,13 @@ import {
   Flex,
   Box,
   Heading,
+  Button,
 } from '@radix-ui/themes'
 import {
   CheckCircledIcon,
   UpdateIcon,
   ClockIcon,
+  ReloadIcon,
 } from '@radix-ui/react-icons'
 import type { WorkflowNode } from '../../services/types/consignment'
 import { ActionCard } from './ActionCard'
@@ -27,6 +29,7 @@ interface ActionListViewProps {
 export function ActionListView({ 
   steps, 
   consignmentId, 
+  onRefresh,
   refreshing = false, 
   className = "",
   consignmentState
@@ -55,19 +58,35 @@ export function ActionListView({
     return filteredSteps;
   }, [filteredSteps, isConsignmentTerminal]);
 
+  const RefreshButton = (onRefresh && !isConsignmentTerminal) ? (
+    <Button
+      variant="soft"
+      color="gray"
+      size="2"
+      onClick={onRefresh}
+      disabled={refreshing}
+      className="cursor-pointer"
+    >
+      <ReloadIcon className={refreshing ? 'animate-spin' : ''} />
+      Refresh
+    </Button>
+  ) : null;
+
   return (
     <div className={`w-full flex flex-col min-h-0 relative ${className}`}>
       <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar min-h-0">
         {isConsignmentTerminal ? (
           <Box mb="6">
-            <Flex align="center" gap="2" mb="4" px="1">
-               <div className={`w-1.5 h-5 ${consignmentState === 'FINISHED' ? 'bg-green-500' : 'bg-red-500'} rounded-full`} />
-               <Heading size="4" color={consignmentState === 'FINISHED' ? 'green' : 'red'} weight="bold">
-                 Task History
-               </Heading>
-               <Badge color={consignmentState === 'FINISHED' ? 'green' : 'red'} variant="solid" radius="full">
-                 {displaySteps.length}
-               </Badge>
+            <Flex align="center" justify="between" my="4" px="3">
+               <Flex align="center" gap="2">
+                 <div className={`w-1.5 h-5 ${consignmentState === 'FINISHED' ? 'bg-green-500' : 'bg-red-500'} rounded-full`} />
+                 <Heading size="4" color={consignmentState === 'FINISHED' ? 'green' : 'red'} weight="bold">
+                   Task History
+                 </Heading>
+                 <Badge color={consignmentState === 'FINISHED' ? 'green' : 'red'} variant="solid" radius="full">
+                   {displaySteps.length}
+                 </Badge>
+               </Flex>
             </Flex>
             <Box px="0.5">
               {displaySteps.map((step) => (
@@ -79,14 +98,17 @@ export function ActionListView({
           <>
             {groups.active.length > 0 ? (
               <Box mb="6">
-                <Flex align="center" gap="2" mb="4" px="1">
-                   <div className="w-1.5 h-5 bg-blue-500 rounded-full" />
-                   <Heading size="4" color="blue" weight="bold">
-                     Action Required
-                   </Heading>
-                   <Badge color="blue" variant="solid" radius="full">
-                     {groups.active.length}
-                   </Badge>
+                <Flex align="center" justify="between" my="4" px="3">
+                   <Flex align="center" gap="2">
+                     <div className="w-1.5 h-5 bg-blue-500 rounded-full" />
+                     <Heading size="4" color="blue" weight="bold">
+                       Action Required
+                     </Heading>
+                     <Badge color="blue" variant="solid" radius="full">
+                       {groups.active.length}
+                     </Badge>
+                   </Flex>
+                   {RefreshButton}
                 </Flex>
                 <Box px="0.5">
                   {groups.active.map((step) => (
@@ -95,7 +117,12 @@ export function ActionListView({
                 </Box>
               </Box>
             ) : groups.finished.length === filteredSteps.length && filteredSteps.length > 0 ? (
-                <Box py="10" px="6" className="text-center bg-green-50/50 rounded-xl border border-green-100 shadow-sm">
+                <Box py="10" px="6" mb="6" className="text-center bg-green-50/50 rounded-xl border border-green-100 shadow-sm relative">
+                    {onRefresh && (
+                      <div className="absolute top-3 right-3">
+                        {RefreshButton}
+                      </div>
+                    )}
                     <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-200">
                       <CheckCircledIcon className="w-10 h-10 text-green-600" />
                     </div>
@@ -103,7 +130,12 @@ export function ActionListView({
                     <Text size="3" color="green" className="opacity-80">All workflow steps have been finished successfully. No further actions are required.</Text>
                 </Box>
             ) : filteredSteps.length > 0 ? (
-              <Box py="8" px="6" className="text-center bg-white rounded-xl border border-gray-200 border-dashed shadow-sm">
+              <Box py="8" px="6" mb="6" className="text-center bg-white rounded-xl border border-gray-200 border-dashed shadow-sm relative">
+                {onRefresh && (
+                  <div className="absolute top-3 right-3">
+                    {RefreshButton}
+                  </div>
+                )}
                 <ClockIcon className="w-12 h-12 text-slate-400 mx-auto mb-3" />
                 <Heading size="3" color="gray" mb="1">Waiting for Updates</Heading>
                 <Text size="2" color="gray">Current steps are being processed. Next tasks will unlock automatically.</Text>
