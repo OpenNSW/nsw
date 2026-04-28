@@ -73,7 +73,15 @@ func (s *paymentService) ValidateReference(ctx context.Context, providerID strin
 	}
 
 	// 4. Delegate final validation response to the provider, injecting the transaction metadata
-	return provider.HandleValidateReference(ctx, tx)
+	res, err := provider.HandleValidateReference(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	// provider implementations return an opaque value (registry contract). Assert to expected type.
+	if v, ok := res.(*ValidateReferenceResponse); ok {
+		return v, nil
+	}
+	return nil, fmt.Errorf("provider returned unexpected type for HandleValidateReference")
 }
 
 func (s *paymentService) ProcessWebhook(ctx context.Context, providerID string, body []byte, headers map[string][]string) error {

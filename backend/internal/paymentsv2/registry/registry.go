@@ -18,6 +18,8 @@ type Configured struct {
 	infos     map[string]PaymentProviderInfo
 	types     map[string][]string
 	defaultID string
+	// cached sorted infos populated during LoadConfig to avoid recomputing on every ListInfo call
+	sortedInfos []PaymentProviderInfo
 }
 
 // NewConfigured creates an empty registry with no factories registered.
@@ -111,6 +113,18 @@ func (r *Configured) LoadConfig(cfg Config) error {
 	r.infos = infos
 	r.types = types
 	r.defaultID = defaultID
+	// build and cache sorted infos slice
+	sorted := make([]PaymentProviderInfo, 0, len(infos))
+	for _, info := range infos {
+		sorted = append(sorted, info)
+	}
+	sort.SliceStable(sorted, func(i, j int) bool {
+		if sorted[i].RenderInfo.DisplayOrder == sorted[j].RenderInfo.DisplayOrder {
+			return sorted[i].ID < sorted[j].ID
+		}
+		return sorted[i].RenderInfo.DisplayOrder < sorted[j].RenderInfo.DisplayOrder
+	})
+	r.sortedInfos = sorted
 	return nil
 }
 
@@ -161,17 +175,10 @@ func (r *Configured) ListInfo() []PaymentProviderInfo {
 	}
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	infos := make([]PaymentProviderInfo, 0, len(r.infos))
-	for _, info := range r.infos {
-		infos = append(infos, info)
-	}
-	sort.SliceStable(infos, func(i, j int) bool {
-		if infos[i].RenderInfo.DisplayOrder == infos[j].RenderInfo.DisplayOrder {
-			return infos[i].ID < infos[j].ID
-		}
-		return infos[i].RenderInfo.DisplayOrder < infos[j].RenderInfo.DisplayOrder
-	})
-	return infos
+	// return a copy of the cached sorted infos to avoid mutation by caller
+	out := make([]PaymentProviderInfo, len(r.sortedInfos))
+	copy(out, r.sortedInfos)
+	return out
 }
 
 // GetDefault returns the primary provider implementation resolved during config loading.
