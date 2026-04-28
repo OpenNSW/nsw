@@ -2,7 +2,6 @@ package temporal
 
 import (
 	"log/slog"
-	"strings"
 
 	"github.com/OpenNSW/nsw/internal/config"
 	"go.temporal.io/sdk/client"
@@ -15,19 +14,9 @@ func NewClient(cfg config.TemporalConfig) (client.Client, error) {
 }
 
 func optionsFromConfig(cfg config.TemporalConfig) client.Options {
-	hostPort := strings.TrimSpace(cfg.HostPort)
-	if hostPort == "" {
-		hostPort = "localhost:7233"
-	}
-
-	namespace := strings.TrimSpace(cfg.Namespace)
-	if namespace == "" {
-		namespace = "default"
-	}
-
 	return client.Options{
-		HostPort:  hostPort,
-		Namespace: namespace,
+		HostPort:  cfg.HostPort,
+		Namespace: cfg.Namespace,
 		Logger:    temporallog.NewStructuredLogger(slog.Default()),
 	}
 }
