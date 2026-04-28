@@ -17,8 +17,8 @@ type TaskWorkflowTask struct {
 	TaskTemplateID  string          `gorm:"type:text;column:task_template_id;not null;index" json:"taskTemplateId"`
 	State           plugin.State    `gorm:"type:varchar(50);column:state;not null;index" json:"state"`
 	Data            json.RawMessage `gorm:"type:jsonb;column:data;serializer:json;not null" json:"data"`
-	CreatedAt       time.Time       `gorm:"type:timestamptz;column:created_at;not null" json:"createdAt"`
-	UpdatedAt       time.Time       `gorm:"type:timestamptz;column:updated_at;not null" json:"updatedAt"`
+	CreatedAt       time.Time       `gorm:"type:timestamptz;column:created_at;not null;autoCreateTime" json:"createdAt"`
+	UpdatedAt       time.Time       `gorm:"type:timestamptz;column:updated_at;not null;autoUpdateTime" json:"updatedAt"`
 }
 
 func (TaskWorkflowTask) TableName() string {
