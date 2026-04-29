@@ -2,16 +2,10 @@ package temporal
 
 import (
 	"testing"
-
-	"github.com/OpenNSW/nsw/internal/config"
 )
 
 func TestOptionsFromConfigMapping(t *testing.T) {
-	cfg := config.TemporalConfig{
-		Host:      "localhost",
-		Port:      7233,
-		Namespace: "default",
-	}
+	cfg := Config{Host: "localhost", Port: 7233, Namespace: "default"}
 	opts := optionsFromConfig(cfg)
 
 	if opts.HostPort != "localhost:7233" {
@@ -23,11 +17,7 @@ func TestOptionsFromConfigMapping(t *testing.T) {
 }
 
 func TestOptionsFromConfigOverrides(t *testing.T) {
-	cfg := config.TemporalConfig{
-		Host:      "temporal.example",
-		Port:      7233,
-		Namespace: "staging",
-	}
+	cfg := Config{Host: "temporal.example", Port: 7233, Namespace: "staging"}
 	opts := optionsFromConfig(cfg)
 
 	if opts.HostPort != "temporal.example:7233" {

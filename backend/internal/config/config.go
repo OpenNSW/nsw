@@ -10,6 +10,7 @@ import (
 
 	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/database"
+	"github.com/OpenNSW/nsw/internal/temporal"
 	"github.com/OpenNSW/nsw/internal/uploads"
 	"github.com/OpenNSW/nsw/internal/validation"
 )
@@ -22,7 +23,7 @@ type Config struct {
 	Storage      uploads.Config
 	Auth         auth.Config
 	Notification NotificationConfig
-	Temporal     TemporalConfig
+	Temporal     temporal.Config
 }
 
 // ServerConfig holds server configuration
@@ -50,12 +51,6 @@ type NotificationConfig struct {
 	SMTPPassword string
 	SMTPSender   string
 	TemplateRoot string
-}
-
-type TemporalConfig struct {
-	Host      string
-	Port      int
-	Namespace string
 }
 
 // Load reads configuration from environment variables
@@ -130,7 +125,7 @@ func Load() (*Config, error) {
 			SMTPSender:   getEnvOrDefault("EMAIL_SMTP_SENDER", "noreply@nsw.local"),
 			TemplateRoot: getEnvOrDefault("EMAIL_TEMPLATE_ROOT", "./configs/email-templates"),
 		},
-		Temporal: TemporalConfig{
+		Temporal: temporal.Config{
 			Host:      strings.TrimSpace(getEnvOrDefault("TEMPORAL_HOST", "localhost")),
 			Port:      temporalPort,
 			Namespace: strings.TrimSpace(getEnvOrDefault("TEMPORAL_NAMESPACE", "default")),
