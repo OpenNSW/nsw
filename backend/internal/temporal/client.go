@@ -2,6 +2,8 @@ package temporal
 
 import (
 	"log/slog"
+	"net"
+	"strconv"
 
 	"github.com/OpenNSW/nsw/internal/config"
 	"go.temporal.io/sdk/client"
@@ -15,7 +17,7 @@ func NewClient(cfg config.TemporalConfig) (client.Client, error) {
 
 func optionsFromConfig(cfg config.TemporalConfig) client.Options {
 	return client.Options{
-		HostPort:  cfg.HostPort,
+		HostPort:  net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port)),
 		Namespace: cfg.Namespace,
 		Logger:    temporallog.NewStructuredLogger(slog.Default()),
 	}

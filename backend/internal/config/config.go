@@ -53,7 +53,8 @@ type NotificationConfig struct {
 }
 
 type TemporalConfig struct {
-	HostPort  string
+	Host      string
+	Port      int
 	Namespace string
 }
 
@@ -67,6 +68,11 @@ func Load() (*Config, error) {
 	serverPort, err := strconv.Atoi(getEnvOrDefault("SERVER_PORT", "8080"))
 	if err != nil {
 		return nil, fmt.Errorf("invalid SERVER_PORT: %w", err)
+	}
+
+	temporalPort, err := strconv.Atoi(strings.TrimSpace(getEnvOrDefault("TEMPORAL_PORT", "7233")))
+	if err != nil {
+		return nil, fmt.Errorf("invalid TEMPORAL_PORT: %w", err)
 	}
 
 	cfg := &Config{
@@ -125,7 +131,8 @@ func Load() (*Config, error) {
 			TemplateRoot: getEnvOrDefault("EMAIL_TEMPLATE_ROOT", "./configs/email-templates"),
 		},
 		Temporal: TemporalConfig{
-			HostPort:  strings.TrimSpace(getEnvOrDefault("TEMPORAL_HOST_PORT", "localhost:7233")),
+			Host:      strings.TrimSpace(getEnvOrDefault("TEMPORAL_HOST", "localhost")),
+			Port:      temporalPort,
 			Namespace: strings.TrimSpace(getEnvOrDefault("TEMPORAL_NAMESPACE", "default")),
 		},
 	}

@@ -8,7 +8,8 @@ import (
 
 func TestOptionsFromConfigMapping(t *testing.T) {
 	cfg := config.TemporalConfig{
-		HostPort:  "localhost:7233",
+		Host:      "localhost",
+		Port:      7233,
 		Namespace: "default",
 	}
 	opts := optionsFromConfig(cfg)
@@ -23,7 +24,8 @@ func TestOptionsFromConfigMapping(t *testing.T) {
 
 func TestOptionsFromConfigOverrides(t *testing.T) {
 	cfg := config.TemporalConfig{
-		HostPort:  "temporal.example:7233",
+		Host:      "temporal.example",
+		Port:      7233,
 		Namespace: "staging",
 	}
 	opts := optionsFromConfig(cfg)
