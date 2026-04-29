@@ -9,31 +9,32 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/OpenNSW/nsw/pkg/notifications"
 )
 
-// ServiceConfig holds configuration for the external email HTTP service.
-type ServiceConfig struct {
-	BaseURL    string
-	Token      string
-	HTTPClient *http.Client
+// Config holds configuration for the external email HTTP service.
+type Config struct {
+	BaseURL    string       `json:"baseURL"`
+	Token      string       `json:"token"`
+	HTTPClient *http.Client `json:"-"`
 }
 
-// ServiceProvider sends email via an external HTTP email service.
-type ServiceProvider struct {
-	config ServiceConfig
+// Provider sends email via an external HTTP email service.
+type Provider struct {
+	config Config
 }
 
-func NewService(config ServiceConfig) *ServiceProvider {
+func New(config Config) *Provider {
 	if config.HTTPClient == nil {
 		config.HTTPClient = &http.Client{Timeout: 10 * time.Second}
 	}
-	return &ServiceProvider{config: config}
+	return &Provider{config: config}
 }
 
-func (p *ServiceProvider) Type() notifications.ChannelType {
+func (p *Provider) Type() notifications.ChannelType {
 	return notifications.ChannelEmail
 }
 
@@ -44,7 +45,11 @@ type serviceEmailPayload struct {
 	HTMLBody string `json:"html_body,omitempty"`
 }
 
-func (p *ServiceProvider) Send(ctx context.Context, req notifications.Request) error {
+func (p *Provider) Send(ctx context.Context, req notifications.Request) error {
+	if !strings.HasPrefix(strings.ToLower(p.config.BaseURL), "https://") {
+		return fmt.Errorf("insecure email service BaseURL: HTTPS is required to protect credentials")
+	}
+
 	payload := serviceEmailPayload{
 		To:       req.To,
 		Subject:  req.Subject,

@@ -22,8 +22,7 @@ import (
 	"github.com/OpenNSW/nsw/internal/workflow/service"
 
 	"github.com/OpenNSW/nsw/pkg/notifications"
-	"github.com/OpenNSW/nsw/pkg/notifications/providers/email"
-	"github.com/OpenNSW/nsw/pkg/notifications/providers/sms"
+	"github.com/OpenNSW/nsw/pkg/notifications/loader"
 )
 
 // App contains initialized HTTP server and cleanup hooks.
@@ -134,26 +133,12 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("auth system health check failed: %w", err)
 	}
 
-	emailProvider := email.NewService(email.ServiceConfig{
-		BaseURL: cfg.Notification.EmailServiceURL,
-		Token:   cfg.Notification.EmailServiceToken,
-	})
-
-	govsmsProvider := sms.NewGovSMS(sms.GovSMSConfig{
-		BaseURL:  cfg.Notification.GovSMSBaseURL,
-		UserName: cfg.Notification.GovSMSUsername,
-		Password: cfg.Notification.GovSMSPassword,
-		SIDCode:  cfg.Notification.GovSMSSIDCode,
-	})
-
-	notificationManager := notifications.New(
-		notifications.Config{
-			EmailTemplateRoot: cfg.Notification.EmailTemplateRoot,
-			SMSTemplateRoot:   cfg.Notification.SMSTemplateRoot,
-		},
-		emailProvider,
-		govsmsProvider,
-	)
+	notificationManager, err := loader.LoadFromFile(cfg.Notification.ConfigPath)
+	if err != nil {
+		_ = authManager.Close()
+		_ = database.Close(db)
+		return nil, fmt.Errorf("notifications init: %w", err)
+	}
 
 	tmHandler := taskmanager.NewHTTPHandler(tm)
 
@@ -228,7 +213,6 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	}
 
 	closeFn := func() error {
-
 		notificationManager.Wait()
 
 		var closeErrs []error

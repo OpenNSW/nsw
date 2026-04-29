@@ -1,74 +1,49 @@
 # pkg/notifications
 
-`pkg/notifications` is the single notification package for the NSW backend.
+Single notification package for the NSW backend.
 
-It handles:
+Handles:
 - routing requests to the correct provider by channel
 - rendering templates (email and SMS) when a `TemplateID` is provided
-- dispatching delivery in a background goroutine so callers are not blocked on the external HTTP call
-- logging provider errors via `slog` (template errors are still returned to the caller immediately)
+- dispatching delivery in a background goroutine so callers are not blocked
+- logging provider errors via `slog` (template errors are returned to the caller immediately)
 
-It does not handle:
-- batching
-- queues
-- retries
+Does not handle: batching, queues, retries.
 
 ## Package layout
 
 ```text
 pkg/notifications/
-├── notifications.go   — types, Manager, Send/SendEmail/SendSMS
-├── template.go        — template cache and rendering
+├── notifications.go      — types, Manager, Send/SendEmail/SendSMS
+├── template.go           — template cache and rendering
+├── loader/
+│   └── loader.go         — LoadFromFile: reads notifications.json, expands ${VAR}, builds Manager
 └── providers/
     ├── email/
-    │   └── service.go — external HTTP email service provider
+    │   └── service.go    — external HTTP email service provider
     └── sms/
-        └── govsms.go  — GovSMS provider
+        └── govsms.go     — GovSMS provider
 ```
+
+## Wiring
+
+Bootstrap loads configuration from a JSON file:
+
+```go
+import "github.com/OpenNSW/nsw/pkg/notifications/loader"
+
+nm, err := loader.LoadFromFile(cfg.Notification.ConfigPath) // NOTIFICATIONS_CONFIG_PATH
+```
+
+See `configs/notifications.example.json` for the file format.
+`${VAR}` placeholders in the JSON are expanded from environment variables before parsing.
+Any unset variable is a hard error at startup.
+
+`notifications.New(cfg, providers...)` remains available for tests.
 
 ## Core types
 
-### Request
-
-Low-level type passed to providers:
-
-```go
-type Request struct {
-    Channel  ChannelType
-    To       string
-    Subject  string // email only
-    Body     string
-    HTMLBody string // email only, optional
-}
-```
-
-### EmailRequest / SMSRequest
-
-Typed convenience types for `SendEmail` and `SendSMS`:
-
-```go
-type EmailRequest struct {
-    To           string
-    Subject      string
-    Body         string
-    HTMLBody     string
-    TemplateID   string
-    TemplateData map[string]any
-}
-
-type SMSRequest struct {
-    To           string
-    Body         string
-    TemplateID   string
-    TemplateData map[string]any
-}
-```
-
-When `TemplateID` is set, the Manager renders the template and ignores the raw `Body`/`Subject`/`HTMLBody` fields.
-
-### Provider
-
-Every delivery backend implements:
+### Provider interface
 
 ```go
 type Provider interface {
@@ -79,7 +54,7 @@ type Provider interface {
 
 ### Manager
 
-`Manager` is the package entry point. It stores providers by channel and owns the template cache.
+Entry point. Stores providers by channel, owns the template cache.
 
 ```go
 manager := notifications.New(
@@ -94,7 +69,7 @@ manager := notifications.New(
 
 ## How it works
 
-```text
+```
 caller
   -> Manager.SendEmail / SendSMS
   -> render template (if TemplateID set)  ← errors returned here
@@ -104,111 +79,65 @@ caller
        -> external service               ← errors logged via slog
 ```
 
-`SendEmail` and `SendSMS` return immediately after template rendering succeeds.
-Provider/network errors are logged but not propagated to the caller.
-
-Callers can also call `Manager.Send` directly with pre-rendered content — this is synchronous and does return provider errors.
+`SendEmail` and `SendSMS` return immediately after template rendering.
+Callers can call `Manager.Send` directly — synchronous, returns provider errors.
 
 ## Templates
 
-### Email templates
+### Email
 
 Files: `<EmailTemplateRoot>/<id>.tmpl`
-
-Each file must define three named templates:
 
 ```
 {{define "subject"}}...{{end}}
 {{define "plainBody"}}...{{end}}
-{{define "htmlBody"}}...{{end}}
+{{define "htmlBody"}}...{{end}}  // optional
 ```
 
-`htmlBody` is optional — omitted from the request if not defined.
+### SMS
 
-### SMS templates
+Files: `<SMSTemplateRoot>/<id>.txt` — entire file is the template body.
 
-Files: `<SMSTemplateRoot>/<id>.txt`
+Templates are parsed on first use and cached.
 
-The entire file is the template body. Rendered output becomes `req.Body`.
+## Providers
 
-Templates are parsed on first use and cached in memory.
+### email.Provider
 
-## Included providers
-
-### Email: external HTTP service
-
-File: `providers/email/service.go`
-
-POSTs to `{BaseURL}/emails`:
-
-```json
-{
-  "to": "...",
-  "subject": "...",
-  "text_body": "...",
-  "html_body": "..."   // omitted if empty
-}
-```
-
-Config:
+POSTs to `{BaseURL}/emails`. BaseURL must use `https://`.
 
 ```go
-type ServiceConfig struct {
-    BaseURL    string
-    Token      string       // optional bearer token
-    HTTPClient *http.Client // defaults to 10s timeout
+type Config struct {
+    BaseURL    string       `json:"baseURL"`  // https:// required
+    Token      string       `json:"token"`    // optional bearer token
+    HTTPClient *http.Client `json:"-"`        // defaults to 10s timeout
 }
 ```
 
-Any 2xx response is a success. Non-2xx returns an error containing the status code and response body.
+Request payload:
 
-### SMS: GovSMS
+```json
+{ "to": "...", "subject": "...", "text_body": "...", "html_body": "..." }
+```
 
-File: `providers/sms/govsms.go`
+Any 2xx is success. Non-2xx returns an error with status code and body.
 
-POSTs JSON to the GovSMS API.
+### sms.GovSMSProvider
 
-Config:
+POSTs JSON to the GovSMS API. BaseURL must use `https://`.
 
 ```go
 type GovSMSConfig struct {
-    UserName   string
-    Password   string
-    SIDCode    string
-    BaseURL    string       // must use https://
-    HTTPClient *http.Client // defaults to 10s timeout
+    BaseURL    string       `json:"baseURL"`  // https:// required
+    UserName   string       `json:"userName"`
+    Password   string       `json:"password"`
+    SIDCode    string       `json:"sidCode"`
+    HTTPClient *http.Client `json:"-"`        // defaults to 10s timeout
 }
 ```
 
-## Wiring example
-
-```go
-import (
-    "github.com/OpenNSW/nsw/pkg/notifications"
-    "github.com/OpenNSW/nsw/pkg/notifications/providers/email"
-    "github.com/OpenNSW/nsw/pkg/notifications/providers/sms"
-)
-
-manager := notifications.New(
-    notifications.Config{
-        EmailTemplateRoot: cfg.Notification.EmailTemplateRoot,
-        SMSTemplateRoot:   cfg.Notification.SMSTemplateRoot,
-    },
-    email.NewService(email.ServiceConfig{
-        BaseURL: cfg.Notification.EmailServiceURL,
-        Token:   cfg.Notification.EmailServiceToken,
-    }),
-    sms.NewGovSMS(sms.GovSMSConfig{
-        BaseURL:  cfg.Notification.GovSMSBaseURL,
-        UserName: cfg.Notification.GovSMSUsername,
-        Password: cfg.Notification.GovSMSPassword,
-        SIDCode:  cfg.Notification.GovSMSSIDCode,
-    }),
-)
-```
-
-## Adding a new provider
+## Adding a provider
 
 1. Add a `ChannelType` constant in `notifications.go` if needed
-2. Implement `Provider`
-3. Pass it to `notifications.New(...)`
+2. Implement the `Provider` interface
+3. Add a `case` in `loader/loader.go` to wire it from JSON config

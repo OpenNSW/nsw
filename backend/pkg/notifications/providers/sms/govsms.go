@@ -15,11 +15,11 @@ import (
 )
 
 type GovSMSConfig struct {
-	UserName   string
-	Password   string
-	SIDCode    string
-	BaseURL    string
-	HTTPClient *http.Client
+	UserName   string       `json:"userName"`
+	Password   string       `json:"password"`
+	SIDCode    string       `json:"sidCode"`
+	BaseURL    string       `json:"baseURL"`
+	HTTPClient *http.Client `json:"-"`
 }
 
 type GovSMSProvider struct {

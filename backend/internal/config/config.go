@@ -43,19 +43,7 @@ type CORSConfig struct {
 }
 
 type NotificationConfig struct {
-	// External email HTTP service
-	EmailServiceURL   string
-	EmailServiceToken string
-
-	// GovSMS
-	GovSMSBaseURL  string
-	GovSMSUsername string
-	GovSMSPassword string
-	GovSMSSIDCode  string
-
-	// Template roots
-	EmailTemplateRoot string
-	SMSTemplateRoot   string
+	ConfigPath string
 }
 
 // Load reads configuration from environment variables
@@ -118,16 +106,7 @@ func Load() (*Config, error) {
 			InsecureSkipTLSVerify: getBoolOrDefault("AUTH_JWKS_INSECURE_SKIP_VERIFY", false),
 		},
 		Notification: NotificationConfig{
-			EmailServiceURL:   os.Getenv("EMAIL_SERVICE_URL"),
-			EmailServiceToken: os.Getenv("EMAIL_SERVICE_TOKEN"),
-
-			GovSMSBaseURL:  os.Getenv("GOVSMS_BASE_URL"),
-			GovSMSUsername: os.Getenv("GOVSMS_USERNAME"),
-			GovSMSPassword: os.Getenv("GOVSMS_PASSWORD"),
-			GovSMSSIDCode:  os.Getenv("GOVSMS_SID_CODE"),
-
-			EmailTemplateRoot: getEnvOrDefault("EMAIL_TEMPLATE_ROOT", "./configs/email-templates"),
-			SMSTemplateRoot:   getEnvOrDefault("SMS_TEMPLATE_ROOT", "./configs/sms-templates"),
+			ConfigPath: os.Getenv("NOTIFICATIONS_CONFIG_PATH"),
 		},
 	}
 
