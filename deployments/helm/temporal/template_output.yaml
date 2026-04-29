@@ -1,0 +1,1555 @@
+---
+# Source: temporal/charts/temporal/templates/server-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "temporal-prod-config"
+  labels:
+    app.kubernetes.io/name: temporal
+    helm.sh/chart: temporal-1.0.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: temporal-prod
+    app.kubernetes.io/version: "1.30.3"
+    app.kubernetes.io/part-of: temporal
+data:
+  config_template.yaml: |-
+    # enable-template
+    log:
+      stdout: true
+      level: "debug,info"
+
+    persistence:
+      datastores:
+        default:
+          sql:
+            connectAddr: nsw-db:5432
+            connectProtocol: tcp
+            databaseName: temporal_db
+            driverName: postgres12
+            maxConnLifetime: 1h
+            maxConns: 20
+            maxIdleConns: 20
+            password: {{ env "TEMPORAL_DEFAULT_STORE_PASSWORD" | quote }}
+            pluginName: postgres12
+            user: postgres
+        visibility:
+          sql:
+            connectAddr: nsw-db:5432
+            connectProtocol: tcp
+            databaseName: temporal_visibility_db
+            driverName: postgres12
+            maxConnLifetime: 1h
+            maxConns: 20
+            maxIdleConns: 20
+            password: {{ env "TEMPORAL_VISIBILITY_STORE_PASSWORD" | quote }}
+            pluginName: postgres12
+            user: postgres
+      defaultStore: default
+      numHistoryShards: 512
+      visibilityStore: visibility
+
+    global:
+      membership:
+        name: temporal
+        maxJoinDuration: 30s
+        broadcastAddress: {{ env "POD_IP" | quote }}
+
+      pprof:
+        port: 7936
+
+      metrics:
+        tags:
+          type: {{ env "TEMPORAL_SERVICES" | quote }}
+        prometheus:
+          listenAddress: 0.0.0.0:9090
+          timerType: histogram
+
+    services:
+      frontend:
+        rpc:
+          grpcPort: 7233
+          httpPort: 7243
+          membershipPort: 6933
+          bindOnIP: "0.0.0.0"
+
+      history:
+        rpc:
+          grpcPort: 7234
+          membershipPort: 6934
+          bindOnIP: "0.0.0.0"
+
+      matching:
+        rpc:
+          grpcPort: 7235
+          membershipPort: 6935
+          bindOnIP: "0.0.0.0"
+
+      worker:
+        rpc:
+          membershipPort: 6939
+          bindOnIP: "0.0.0.0"
+
+    clusterMetadata:
+      enableGlobalNamespace: false
+      failoverVersionIncrement: 10
+      masterClusterName: "active"
+      currentClusterName: "active"
+      clusterInformation:
+        active:
+          enabled: true
+          initialFailoverVersion: 1
+          rpcName: "temporal-frontend"
+          rpcAddress: "127.0.0.1:7233"
+          httpAddress: "127.0.0.1:7243"
+
+    dcRedirectionPolicy:
+      policy: "noop"
+      toDC: ""
+
+    archival:
+      status: "disabled"
+    publicClient:
+      hostPort: "temporal-prod-frontend:7233"
+
+    dynamicConfigClient:
+      filepath: "/etc/temporal/dynamic_config/dynamic_config.yaml"
+      pollInterval: "10s"
+---
+# Source: temporal/charts/temporal/templates/server-dynamicconfigmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "temporal-prod-dynamic-config"
+  labels:
+    app.kubernetes.io/name: temporal
+    helm.sh/chart: temporal-1.0.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: temporal-prod
+    app.kubernetes.io/version: "1.30.3"
+    app.kubernetes.io/part-of: temporal
+data:
+  dynamic_config.yaml: |-
+---
+# Source: temporal/charts/temporal/templates/shim-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "temporal-prod-shims"
+  labels:
+    app.kubernetes.io/name: temporal
+    helm.sh/chart: temporal-1.0.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: temporal-prod
+    app.kubernetes.io/version: "1.30.3"
+    app.kubernetes.io/part-of: temporal
+data:
+  temporal-elasticsearch-tool: |-
+    #!/bin/sh
+    set -e
+
+    if [ -x /usr/local/bin/temporal-elasticsearch-tool ]; then
+        exec /usr/local/bin/temporal-elasticsearch-tool "$@"
+    fi
+
+    # Build base URL from environment variables
+    ES_URL="${ES_SCHEME}://${ES_HOST}:${ES_PORT}"
+
+    # Build curl auth string if credentials are provided
+    CURL_AUTH=""
+    if [ -n "$ES_USER" ] && [ -n "$ES_PWD" ]; then
+        CURL_AUTH="--user ${ES_USER}:${ES_PWD}"
+    fi
+
+    # Helper function to make curl requests
+    curl_request() {
+        local method="$1"
+        local path="$2"
+        local data_file="$3"
+        local fail_silently="$4"
+
+        local curl_cmd="curl -X ${method} --silent --show-error ${CURL_AUTH} ${ES_URL}${path}"
+
+        if [ -n "$data_file" ]; then
+            curl_cmd="${curl_cmd} -H 'Content-Type: application/json' --data-binary @${data_file}"
+        fi
+
+        if [ "$fail_silently" != "true" ]; then
+            curl_cmd="${curl_cmd} --fail"
+        fi
+
+        curl_cmd="${curl_cmd} 2>&1"
+
+        eval "$curl_cmd"
+    }
+
+    # Parse command
+    COMMAND="${1:-}"
+    shift || true
+
+    case "$COMMAND" in
+        setup-schema)
+            # Setup cluster settings and index template
+            if [ -z "$ES_VERSION" ]; then
+                echo "Error: ES_VERSION environment variable is required" >&2
+                exit 1
+            fi
+
+            CLUSTER_SETTINGS_FILE="schema/elasticsearch/visibility/cluster_settings_v7.json"
+            TEMPLATE_FILE="schema/elasticsearch/visibility/index_template_${ES_VERSION}.json"
+
+            if [ ! -f "$TEMPLATE_FILE" ]; then
+                echo "Error: Template file not found: $TEMPLATE_FILE" >&2
+                exit 1
+            fi
+
+            FAIL_SILENTLY="false"
+            while [ $# -gt 0 ]; do
+                case "$1" in
+                    --fail)
+                        FAIL_SILENTLY="true"
+                        shift
+                        ;;
+                    *)
+                        shift
+                        ;;
+                esac
+            done
+
+            # Setup cluster settings if file exists
+            if [ -f "$CLUSTER_SETTINGS_FILE" ]; then
+                echo "Setting up cluster settings..."
+                curl_request "PUT" "/_cluster/settings" "$CLUSTER_SETTINGS_FILE" "$FAIL_SILENTLY" >/dev/null
+                echo "Cluster settings setup complete"
+            else
+                echo "Warning: Cluster settings file not found: $CLUSTER_SETTINGS_FILE, skipping cluster settings"
+            fi
+
+            echo "Setting up index template..."
+            curl_request "PUT" "/_template/temporal_visibility_v1_template" "$TEMPLATE_FILE" "$FAIL_SILENTLY" >/dev/null
+            echo "Template setup complete"
+            ;;
+
+        update-schema)
+            # Update index template and optionally index mappings
+            if [ -z "$ES_VERSION" ]; then
+                echo "Error: ES_VERSION environment variable is required" >&2
+                exit 1
+            fi
+
+            TEMPLATE_FILE="schema/elasticsearch/visibility/index_template_${ES_VERSION}.json"
+            if [ ! -f "$TEMPLATE_FILE" ]; then
+                echo "Error: Template file not found: $TEMPLATE_FILE" >&2
+                exit 1
+            fi
+
+            INDEX_NAME=""
+            FAIL_SILENTLY="false"
+            while [ $# -gt 0 ]; do
+                case "$1" in
+                    --index)
+                        shift
+                        INDEX_NAME="$1"
+                        shift
+                        ;;
+                    --fail)
+                        FAIL_SILENTLY="true"
+                        shift
+                        ;;
+                    *)
+                        shift
+                        ;;
+                esac
+            done
+
+            echo "Updating index template..."
+            curl_request "PUT" "/_template/temporal_visibility_v1_template" "$TEMPLATE_FILE" "$FAIL_SILENTLY" >/dev/null
+
+            if [ -n "$INDEX_NAME" ]; then
+                echo "Updating index mappings for $INDEX_NAME..."
+
+                # Check if index exists
+                HTTP_CODE=$(curl --head --silent --write-out "%{http_code}" --output /dev/null ${CURL_AUTH} ${ES_URL}/${INDEX_NAME} 2>/dev/null)
+                if [ "$HTTP_CODE" != "200" ]; then
+                    echo "Error: Index $INDEX_NAME does not exist" >&2
+                    exit 1
+                fi
+
+                # Extract mappings from template using jq
+                MAPPINGS=$(jq -c '.mappings' "$TEMPLATE_FILE")
+                if [ -z "$MAPPINGS" ] || [ "$MAPPINGS" = "null" ]; then
+                    echo "Error: No mappings found in template file" >&2
+                    exit 1
+                fi
+
+                # Create temporary file with mappings
+                MAPPINGS_FILE=$(mktemp)
+                echo "$MAPPINGS" > "$MAPPINGS_FILE"
+
+                # Update index mappings
+                curl_request "PUT" "/${INDEX_NAME}/_mapping" "$MAPPINGS_FILE" "$FAIL_SILENTLY" >/dev/null
+
+                # Clean up temporary file
+                rm -f "$MAPPINGS_FILE"
+
+                echo "Index mappings updated successfully"
+            fi
+            echo "Schema update complete"
+            ;;
+
+        create-index)
+            # Create visibility index
+            INDEX_NAME=""
+            FAIL_SILENTLY="false"
+            while [ $# -gt 0 ]; do
+                case "$1" in
+                    --index)
+                        shift
+                        INDEX_NAME="$1"
+                        shift
+                        ;;
+                    --fail)
+                        FAIL_SILENTLY="true"
+                        shift
+                        ;;
+                    *)
+                        shift
+                        ;;
+                esac
+            done
+
+            # Use ES_VISIBILITY_INDEX env var if --index not provided
+            if [ -z "$INDEX_NAME" ]; then
+                INDEX_NAME="$ES_VISIBILITY_INDEX"
+            fi
+
+            if [ -z "$INDEX_NAME" ]; then
+                echo "Error: Index name required (use --index or ES_VISIBILITY_INDEX env var)" >&2
+                exit 1
+            fi
+
+            # Check if index already exists
+            HTTP_CODE=$(curl --head --silent --write-out "%{http_code}" --output /dev/null ${CURL_AUTH} ${ES_URL}/${INDEX_NAME} 2>/dev/null)
+            if [ "$HTTP_CODE" = "200" ]; then
+                echo "Index $INDEX_NAME already exists, skipping creation"
+                exit 0
+            fi
+
+            echo "Creating index $INDEX_NAME..."
+            # Create the index, handling the case where it already exists
+            # (as a fallback if the HEAD check above didn't catch it)
+            CREATE_OUTPUT=$(curl -X PUT --silent --show-error --write-out "\n%{http_code}" ${CURL_AUTH} ${ES_URL}/${INDEX_NAME} -H "Content-Type: application/json" 2>&1)
+            HTTP_CODE=$(echo "$CREATE_OUTPUT" | tail -n1)
+            CREATE_BODY=$(echo "$CREATE_OUTPUT" | head -n-1)
+
+            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
+                echo "Index created successfully"
+            elif [ "$HTTP_CODE" = "400" ] && echo "$CREATE_BODY" | jq -e '.error.type == "resource_already_exists_exception"' >/dev/null 2>&1; then
+                echo "Index $INDEX_NAME already exists, skipping creation"
+                exit 0
+            else
+                if [ "$FAIL_SILENTLY" != "true" ]; then
+                    echo "Error: Failed to create index (HTTP $HTTP_CODE): $CREATE_BODY" >&2
+                    exit 1
+                fi
+            fi
+            ;;
+
+        drop-index)
+            # Delete visibility index
+            INDEX_NAME=""
+            FAIL_SILENTLY="false"
+            while [ $# -gt 0 ]; do
+                case "$1" in
+                    --index)
+                        shift
+                        INDEX_NAME="$1"
+                        shift
+                        ;;
+                    --fail)
+                        FAIL_SILENTLY="true"
+                        shift
+                        ;;
+                    *)
+                        shift
+                        ;;
+                esac
+            done
+
+            # Use ES_VISIBILITY_INDEX env var if --index not provided
+            if [ -z "$INDEX_NAME" ]; then
+                INDEX_NAME="$ES_VISIBILITY_INDEX"
+            fi
+
+            if [ -z "$INDEX_NAME" ]; then
+                echo "Error: Index name required (use --index or ES_VISIBILITY_INDEX env var)" >&2
+                exit 1
+            fi
+
+            echo "Dropping index $INDEX_NAME..."
+            curl_request "DELETE" "/${INDEX_NAME}" "" "$FAIL_SILENTLY" >/dev/null
+            echo "Index dropped successfully"
+            ;;
+
+        ping)
+            # Ping elasticsearch host
+            echo "Pinging Elasticsearch at ${ES_URL}..."
+            if curl --fail --silent --show-error ${CURL_AUTH} ${ES_URL} >/dev/null 2>&1; then
+                echo "Pong - Elasticsearch is reachable"
+                exit 0
+            else
+                echo "Ping failed - Elasticsearch is not reachable" >&2
+                exit 1
+            fi
+            ;;
+
+        *)
+            echo "Usage: $0 {setup-schema|update-schema|create-index|drop-index|ping} [options]" >&2
+            echo "" >&2
+            echo "Commands:" >&2
+            echo "  setup-schema    Setup elasticsearch index template" >&2
+            echo "  update-schema   Update elasticsearch index template (and optionally index mappings with --index)" >&2
+            echo "  create-index    Create elasticsearch visibility index" >&2
+            echo "  drop-index      Delete elasticsearch visibility index" >&2
+            echo "  ping            Ping the elasticsearch host" >&2
+            echo "" >&2
+            echo "Environment variables:" >&2
+            echo "  ES_SCHEME, ES_HOST, ES_PORT, ES_USER, ES_PWD, ES_VERSION, ES_VISIBILITY_INDEX" >&2
+            exit 1
+            ;;
+    esac
+---
+# Source: temporal/charts/temporal/templates/server-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: temporal-prod-frontend
+  labels:
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/name: temporal
+    helm.sh/chart: temporal-1.0.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: temporal-prod
+    app.kubernetes.io/version: "1.30.3"
+    app.kubernetes.io/part-of: temporal
+spec:
+  type: ClusterIP
+  ports:
+    - port: 7233
+      targetPort: rpc
+      # For Istio service mesh - make sure all ports are defined here and in the deployment:
+      # Also for Istio - make sure to set the `appProtocol` property, see:
+      # https://istio.io/latest/docs/ops/configuration/traffic-management/protocol-selection/#explicit-protocol-selection
+      # Note when two services expose the same port, it is necessary that the appProtocol of both is the same.
+      appProtocol: tcp
+      protocol: TCP
+      name: grpc-rpc
+    - port: 7243
+      targetPort: http
+      appProtocol: http
+      protocol: TCP
+      name: http
+      # TODO: Allow customizing the node HTTP port
+  selector:
+    app.kubernetes.io/name: temporal
+    app.kubernetes.io/instance: temporal-prod
+    app.kubernetes.io/component: frontend
+---
+# Source: temporal/charts/temporal/templates/server-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: temporal-prod-frontend-headless
+  labels:
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/name: temporal
+    helm.sh/chart: temporal-1.0.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: temporal-prod
+    app.kubernetes.io/version: "1.30.3"
+    app.kubernetes.io/part-of: temporal
+    app.kubernetes.io/headless: 'true'
+  annotations:
+    # Use this annotation in addition to the actual field below because the
+    # annotation will stop being respected soon but the field is broken in
+    # some versions of Kubernetes:
+    # https://github.com/kubernetes/kubernetes/issues/58662
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+    prometheus.io/job: temporal-frontend
+    prometheus.io/scrape: 'true'
+    prometheus.io/scheme: http
+    prometheus.io/port: "9090"
+
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  # For Istio service mesh - make sure all ports are defined here and in the deployment:
+  # https://istio.io/latest/docs/ops/configuration/traffic-management/traffic-routing/#headless-services
+  # Also for Istio - make sure to set the `appProtocol` property, see:
+  # https://istio.io/latest/docs/ops/configuration/traffic-management/protocol-selection/#explicit-protocol-selection
+  # Note that only the monitoring port is used for discovery (by prometheus).
+  # The other ports are listed here solely to allow Istio to configure itself to intercept traffic.
+  # https://istio.io/latest/docs/ops/configuration/traffic-management/traffic-routing/#headless-services
+  ports:
+    - port: 7233
+      targetPort: rpc
+      appProtocol: tcp
+      protocol: TCP
+      name: grpc-rpc
+    - port: 6933
+      targetPort: membership
+      appProtocol: tcp
+      protocol: TCP
+      name: grpc-membership
+    - port: 9090
+      targetPort: metrics
+      appProtocol: http
+      protocol: TCP
+      name: metrics
+  selector:
+    app.kubernetes.io/name: temporal
+    app.kubernetes.io/instance: temporal-prod
+    app.kubernetes.io/component: frontend
+---
+# Source: temporal/charts/temporal/templates/server-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: temporal-prod-matching-headless
+  labels:
+    app.kubernetes.io/component: matching
+    app.kubernetes.io/name: temporal
+    helm.sh/chart: temporal-1.0.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: temporal-prod
+    app.kubernetes.io/version: "1.30.3"
+    app.kubernetes.io/part-of: temporal
+    app.kubernetes.io/headless: 'true'
+  annotations:
+    # Use this annotation in addition to the actual field below because the
+    # annotation will stop being respected soon but the field is broken in
+    # some versions of Kubernetes:
+    # https://github.com/kubernetes/kubernetes/issues/58662
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+    prometheus.io/job: temporal-matching
+    prometheus.io/scrape: 'true'
+    prometheus.io/scheme: http
+    prometheus.io/port: "9090"
+
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  # For Istio service mesh - make sure all ports are defined here and in the deployment:
+  # https://istio.io/latest/docs/ops/configuration/traffic-management/traffic-routing/#headless-services
+  # Also for Istio - make sure to set the `appProtocol` property, see:
+  # https://istio.io/latest/docs/ops/configuration/traffic-management/protocol-selection/#explicit-protocol-selection
+  # Note that only the monitoring port is used for discovery (by prometheus).
+  # The other ports are listed here solely to allow Istio to configure itself to intercept traffic.
+  # https://istio.io/latest/docs/ops/configuration/traffic-management/traffic-routing/#headless-services
+  ports:
+    - port: 7235
+      targetPort: rpc
+      appProtocol: tcp
+      protocol: TCP
+      name: grpc-rpc
+    - port: 6935
+      targetPort: membership
+      appProtocol: tcp
+      protocol: TCP
+      name: grpc-membership
+    - port: 9090
+      targetPort: metrics
+      appProtocol: http
+      protocol: TCP
+      name: metrics
+  selector:
+    app.kubernetes.io/name: temporal
+    app.kubernetes.io/instance: temporal-prod
+    app.kubernetes.io/component: matching
+---
+# Source: temporal/charts/temporal/templates/server-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: temporal-prod-history-headless
+  labels:
+    app.kubernetes.io/component: history
+    app.kubernetes.io/name: temporal
+    helm.sh/chart: temporal-1.0.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: temporal-prod
+    app.kubernetes.io/version: "1.30.3"
+    app.kubernetes.io/part-of: temporal
+    app.kubernetes.io/headless: 'true'
+  annotations:
+    # Use this annotation in addition to the actual field below because the
+    # annotation will stop being respected soon but the field is broken in
+    # some versions of Kubernetes:
+    # https://github.com/kubernetes/kubernetes/issues/58662
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+    prometheus.io/job: temporal-history
+    prometheus.io/scrape: 'true'
+    prometheus.io/scheme: http
+    prometheus.io/port: "9090"
+
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  # For Istio service mesh - make sure all ports are defined here and in the deployment:
+  # https://istio.io/latest/docs/ops/configuration/traffic-management/traffic-routing/#headless-services
+  # Also for Istio - make sure to set the `appProtocol` property, see:
+  # https://istio.io/latest/docs/ops/configuration/traffic-management/protocol-selection/#explicit-protocol-selection
+  # Note that only the monitoring port is used for discovery (by prometheus).
+  # The other ports are listed here solely to allow Istio to configure itself to intercept traffic.
+  # https://istio.io/latest/docs/ops/configuration/traffic-management/traffic-routing/#headless-services
+  ports:
+    - port: 7234
+      targetPort: rpc
+      appProtocol: tcp
+      protocol: TCP
+      name: grpc-rpc
+    - port: 6934
+      targetPort: membership
+      appProtocol: tcp
+      protocol: TCP
+      name: grpc-membership
+    - port: 9090
+      targetPort: metrics
+      appProtocol: http
+      protocol: TCP
+      name: metrics
+  selector:
+    app.kubernetes.io/name: temporal
+    app.kubernetes.io/instance: temporal-prod
+    app.kubernetes.io/component: history
+---
+# Source: temporal/charts/temporal/templates/server-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: temporal-prod-worker-headless
+  labels:
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/name: temporal
+    helm.sh/chart: temporal-1.0.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: temporal-prod
+    app.kubernetes.io/version: "1.30.3"
+    app.kubernetes.io/part-of: temporal
+    app.kubernetes.io/headless: 'true'
+  annotations:
+    # Use this annotation in addition to the actual field below because the
+    # annotation will stop being respected soon but the field is broken in
+    # some versions of Kubernetes:
+    # https://github.com/kubernetes/kubernetes/issues/58662
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+    prometheus.io/job: temporal-worker
+    prometheus.io/scrape: 'true'
+    prometheus.io/scheme: http
+    prometheus.io/port: "9090"
+
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  # For Istio service mesh - make sure all ports are defined here and in the deployment:
+  # https://istio.io/latest/docs/ops/configuration/traffic-management/traffic-routing/#headless-services
+  # Also for Istio - make sure to set the `appProtocol` property, see:
+  # https://istio.io/latest/docs/ops/configuration/traffic-management/protocol-selection/#explicit-protocol-selection
+  # Note that only the monitoring port is used for discovery (by prometheus).
+  # The other ports are listed here solely to allow Istio to configure itself to intercept traffic.
+  # https://istio.io/latest/docs/ops/configuration/traffic-management/traffic-routing/#headless-services
+  ports:
+    - port: 7239
+      targetPort: rpc
+      appProtocol: tcp
+      protocol: TCP
+      name: grpc-rpc
+    - port: 6939
+      targetPort: membership
+      appProtocol: tcp
+      protocol: TCP
+      name: grpc-membership
+    - port: 9090
+      targetPort: metrics
+      appProtocol: http
+      protocol: TCP
+      name: metrics
+  selector:
+    app.kubernetes.io/name: temporal
+    app.kubernetes.io/instance: temporal-prod
+    app.kubernetes.io/component: worker
+---
+# Source: temporal/charts/temporal/templates/web-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: temporal-prod-web
+  labels:
+    app.kubernetes.io/component: web
+    app.kubernetes.io/name: temporal
+    helm.sh/chart: temporal-1.0.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: temporal-prod
+    app.kubernetes.io/version: "1.30.3"
+    app.kubernetes.io/part-of: temporal
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: http
+      protocol: TCP
+      appProtocol: http
+      name: http
+  selector:
+    app.kubernetes.io/name: temporal
+    app.kubernetes.io/instance: temporal-prod
+    app.kubernetes.io/component: web
+---
+# Source: temporal/charts/temporal/templates/admintools-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal-prod-admintools
+  annotations:
+    
+  labels:
+    app.kubernetes.io/component: admintools
+    app.kubernetes.io/name: temporal
+    helm.sh/chart: temporal-1.0.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: temporal-prod
+    app.kubernetes.io/version: "1.30.3"
+    app.kubernetes.io/part-of: temporal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: temporal
+      app.kubernetes.io/instance: temporal-prod
+      app.kubernetes.io/component: admintools
+  template:
+    metadata:
+      annotations:
+        
+      labels:
+        app.kubernetes.io/component: admintools
+        app.kubernetes.io/name: temporal
+        helm.sh/chart: temporal-1.0.0
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/instance: temporal-prod
+        app.kubernetes.io/version: "1.30.3"
+        app.kubernetes.io/part-of: temporal
+    spec:
+      serviceAccountName: default
+      containers:
+        - name: admin-tools
+          command: ["sh", "-c", "sleep infinity"]
+          image: "ghcr.io/opennsw/temporal-auto-setup:1.28.3"
+          imagePullPolicy: IfNotPresent
+          env:
+            # TEMPORAL_CLI_ADDRESS is deprecated, use TEMPORAL_ADDRESS instead
+            - name: TEMPORAL_CLI_ADDRESS
+              value: temporal-prod-frontend:7233
+            - name: TEMPORAL_ADDRESS
+              value: temporal-prod-frontend:7233
+          livenessProbe:
+              exec:
+                command:
+                - ls
+                - /
+              initialDelaySeconds: 5
+              periodSeconds: 5
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+---
+# Source: temporal/charts/temporal/templates/server-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal-prod-frontend
+  annotations:
+    
+  labels:
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/name: temporal
+    helm.sh/chart: temporal-1.0.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: temporal-prod
+    app.kubernetes.io/version: "1.30.3"
+    app.kubernetes.io/part-of: temporal
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: temporal
+      app.kubernetes.io/instance: temporal-prod
+      app.kubernetes.io/component: frontend
+  template:
+    metadata:
+      annotations:
+        checksum/config: e8325ef1539d2f927e3b9bbf5f38cf3b5e8d4be0139e055a4de6e919c607728f
+        prometheus.io/job: temporal-frontend
+        prometheus.io/scrape: 'true'
+        prometheus.io/scheme: http
+        prometheus.io/port: '9090'
+        
+      labels:
+        app.kubernetes.io/component: frontend
+        app.kubernetes.io/name: temporal
+        helm.sh/chart: temporal-1.0.0
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/instance: temporal-prod
+        app.kubernetes.io/version: "1.30.3"
+        app.kubernetes.io/part-of: temporal
+    spec:
+      serviceAccountName: default
+      containers:
+        - name: temporal-frontend
+          command: ["sh", "-c"]
+          args: ["mkdir -p /tmp/config && export DB=postgresql && export POSTGRES_SEEDS=nsw-db && export POSTGRES_USER=postgres && export POSTGRES_PWD=${TEMPORAL_DEFAULT_STORE_PASSWORD} && export DBPORT=5432 && dockerize -template /etc/temporal/config/config_template.yaml:/tmp/config/docker.yaml && /usr/local/bin/temporal-server --root / --config /tmp/config --env docker start --service ${SERVICES}"]
+          image: "ghcr.io/opennsw/temporal-auto-setup:1.28.3"
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: SERVICES
+              value: frontend
+            - name: TEMPORAL_SERVICES
+              value: frontend
+            - name: TEMPORAL_SERVER_CONFIG_FILE_PATH
+              value: /etc/temporal/config/config_template.yaml
+            - name: TEMPORAL_DEFAULT_STORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nsw-db-credentials
+                  key: password
+            - name: TEMPORAL_VISIBILITY_STORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nsw-db-credentials
+                  key: password
+          # For Istio service mesh - make sure ports are defined here and in the headless service, see:
+          # https://istio.io/latest/docs/ops/configuration/traffic-management/traffic-routing/#headless-services
+          ports:
+            - name: rpc
+              containerPort: 7233
+              protocol: TCP
+            - name: membership
+              containerPort: 6933
+              protocol: TCP
+            - name: http
+              containerPort: 7243
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+          livenessProbe:
+            initialDelaySeconds: 150
+            tcpSocket:
+              port: rpc
+          readinessProbe:
+            grpc:
+              port: 7233
+              service: temporal.api.workflowservice.v1.WorkflowService
+          volumeMounts:
+            - name: config
+              mountPath: /etc/temporal/config/config_template.yaml
+              subPath: config_template.yaml
+            - name: dynamic-config
+              mountPath: /etc/temporal/dynamic_config
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 200m
+              memory: 256Mi
+      volumes:
+        - name: config
+          configMap:
+            name: "temporal-prod-config"
+        - name: dynamic-config
+          configMap:
+            name: "temporal-prod-dynamic-config"
+            items:
+            - key: dynamic_config.yaml
+              path: dynamic_config.yaml
+      terminationGracePeriodSeconds:
+---
+# Source: temporal/charts/temporal/templates/server-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal-prod-history
+  annotations:
+    
+  labels:
+    app.kubernetes.io/component: history
+    app.kubernetes.io/name: temporal
+    helm.sh/chart: temporal-1.0.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: temporal-prod
+    app.kubernetes.io/version: "1.30.3"
+    app.kubernetes.io/part-of: temporal
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: temporal
+      app.kubernetes.io/instance: temporal-prod
+      app.kubernetes.io/component: history
+  template:
+    metadata:
+      annotations:
+        checksum/config: e8325ef1539d2f927e3b9bbf5f38cf3b5e8d4be0139e055a4de6e919c607728f
+        prometheus.io/job: temporal-history
+        prometheus.io/scrape: 'true'
+        prometheus.io/scheme: http
+        prometheus.io/port: '9090'
+        
+      labels:
+        app.kubernetes.io/component: history
+        app.kubernetes.io/name: temporal
+        helm.sh/chart: temporal-1.0.0
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/instance: temporal-prod
+        app.kubernetes.io/version: "1.30.3"
+        app.kubernetes.io/part-of: temporal
+    spec:
+      serviceAccountName: default
+      containers:
+        - name: temporal-history
+          command: ["sh", "-c"]
+          args: ["mkdir -p /tmp/config && export DB=postgresql && export POSTGRES_SEEDS=nsw-db && export POSTGRES_USER=postgres && export POSTGRES_PWD=${TEMPORAL_DEFAULT_STORE_PASSWORD} && export DBPORT=5432 && dockerize -template /etc/temporal/config/config_template.yaml:/tmp/config/docker.yaml && /usr/local/bin/temporal-server --root / --config /tmp/config --env docker start --service ${SERVICES}"]
+          image: "ghcr.io/opennsw/temporal-auto-setup:1.28.3"
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: SERVICES
+              value: history
+            - name: TEMPORAL_SERVICES
+              value: history
+            - name: TEMPORAL_SERVER_CONFIG_FILE_PATH
+              value: /etc/temporal/config/config_template.yaml
+            - name: TEMPORAL_DEFAULT_STORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nsw-db-credentials
+                  key: password
+            - name: TEMPORAL_VISIBILITY_STORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nsw-db-credentials
+                  key: password
+          # For Istio service mesh - make sure ports are defined here and in the headless service, see:
+          # https://istio.io/latest/docs/ops/configuration/traffic-management/traffic-routing/#headless-services
+          ports:
+            - name: rpc
+              containerPort: 7234
+              protocol: TCP
+            - name: membership
+              containerPort: 6934
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+          livenessProbe:
+            initialDelaySeconds: 150
+            tcpSocket:
+              port: rpc
+          volumeMounts:
+            - name: config
+              mountPath: /etc/temporal/config/config_template.yaml
+              subPath: config_template.yaml
+            - name: dynamic-config
+              mountPath: /etc/temporal/dynamic_config
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 1024Mi
+            requests:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: config
+          configMap:
+            name: "temporal-prod-config"
+        - name: dynamic-config
+          configMap:
+            name: "temporal-prod-dynamic-config"
+            items:
+            - key: dynamic_config.yaml
+              path: dynamic_config.yaml
+      terminationGracePeriodSeconds:
+---
+# Source: temporal/charts/temporal/templates/server-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal-prod-matching
+  annotations:
+    
+  labels:
+    app.kubernetes.io/component: matching
+    app.kubernetes.io/name: temporal
+    helm.sh/chart: temporal-1.0.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: temporal-prod
+    app.kubernetes.io/version: "1.30.3"
+    app.kubernetes.io/part-of: temporal
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: temporal
+      app.kubernetes.io/instance: temporal-prod
+      app.kubernetes.io/component: matching
+  template:
+    metadata:
+      annotations:
+        checksum/config: e8325ef1539d2f927e3b9bbf5f38cf3b5e8d4be0139e055a4de6e919c607728f
+        prometheus.io/job: temporal-matching
+        prometheus.io/scrape: 'true'
+        prometheus.io/scheme: http
+        prometheus.io/port: '9090'
+        
+      labels:
+        app.kubernetes.io/component: matching
+        app.kubernetes.io/name: temporal
+        helm.sh/chart: temporal-1.0.0
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/instance: temporal-prod
+        app.kubernetes.io/version: "1.30.3"
+        app.kubernetes.io/part-of: temporal
+    spec:
+      serviceAccountName: default
+      containers:
+        - name: temporal-matching
+          command: ["sh", "-c"]
+          args: ["mkdir -p /tmp/config && export DB=postgresql && export POSTGRES_SEEDS=nsw-db && export POSTGRES_USER=postgres && export POSTGRES_PWD=${TEMPORAL_DEFAULT_STORE_PASSWORD} && export DBPORT=5432 && dockerize -template /etc/temporal/config/config_template.yaml:/tmp/config/docker.yaml && /usr/local/bin/temporal-server --root / --config /tmp/config --env docker start --service ${SERVICES}"]
+          image: "ghcr.io/opennsw/temporal-auto-setup:1.28.3"
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: SERVICES
+              value: matching
+            - name: TEMPORAL_SERVICES
+              value: matching
+            - name: TEMPORAL_SERVER_CONFIG_FILE_PATH
+              value: /etc/temporal/config/config_template.yaml
+            - name: TEMPORAL_DEFAULT_STORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nsw-db-credentials
+                  key: password
+            - name: TEMPORAL_VISIBILITY_STORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nsw-db-credentials
+                  key: password
+          # For Istio service mesh - make sure ports are defined here and in the headless service, see:
+          # https://istio.io/latest/docs/ops/configuration/traffic-management/traffic-routing/#headless-services
+          ports:
+            - name: rpc
+              containerPort: 7235
+              protocol: TCP
+            - name: membership
+              containerPort: 6935
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+          livenessProbe:
+            initialDelaySeconds: 150
+            tcpSocket:
+              port: rpc
+          volumeMounts:
+            - name: config
+              mountPath: /etc/temporal/config/config_template.yaml
+              subPath: config_template.yaml
+            - name: dynamic-config
+              mountPath: /etc/temporal/dynamic_config
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 200m
+              memory: 256Mi
+      volumes:
+        - name: config
+          configMap:
+            name: "temporal-prod-config"
+        - name: dynamic-config
+          configMap:
+            name: "temporal-prod-dynamic-config"
+            items:
+            - key: dynamic_config.yaml
+              path: dynamic_config.yaml
+      terminationGracePeriodSeconds:
+---
+# Source: temporal/charts/temporal/templates/server-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal-prod-worker
+  annotations:
+    
+  labels:
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/name: temporal
+    helm.sh/chart: temporal-1.0.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: temporal-prod
+    app.kubernetes.io/version: "1.30.3"
+    app.kubernetes.io/part-of: temporal
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: temporal
+      app.kubernetes.io/instance: temporal-prod
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      annotations:
+        checksum/config: e8325ef1539d2f927e3b9bbf5f38cf3b5e8d4be0139e055a4de6e919c607728f
+        prometheus.io/job: temporal-worker
+        prometheus.io/scrape: 'true'
+        prometheus.io/scheme: http
+        prometheus.io/port: '9090'
+        
+      labels:
+        app.kubernetes.io/component: worker
+        app.kubernetes.io/name: temporal
+        helm.sh/chart: temporal-1.0.0
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/instance: temporal-prod
+        app.kubernetes.io/version: "1.30.3"
+        app.kubernetes.io/part-of: temporal
+    spec:
+      serviceAccountName: default
+      containers:
+        - name: temporal-worker
+          command: ["sh", "-c"]
+          args: ["mkdir -p /tmp/config && export DB=postgresql && export POSTGRES_SEEDS=nsw-db && export POSTGRES_USER=postgres && export POSTGRES_PWD=${TEMPORAL_DEFAULT_STORE_PASSWORD} && export DBPORT=5432 && dockerize -template /etc/temporal/config/config_template.yaml:/tmp/config/docker.yaml && /usr/local/bin/temporal-server --root / --config /tmp/config --env docker start --service ${SERVICES}"]
+          image: "ghcr.io/opennsw/temporal-auto-setup:1.28.3"
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: SERVICES
+              value: worker
+            - name: TEMPORAL_SERVICES
+              value: worker
+            - name: TEMPORAL_SERVER_CONFIG_FILE_PATH
+              value: /etc/temporal/config/config_template.yaml
+            - name: TEMPORAL_DEFAULT_STORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nsw-db-credentials
+                  key: password
+            - name: TEMPORAL_VISIBILITY_STORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nsw-db-credentials
+                  key: password
+          # For Istio service mesh - make sure ports are defined here and in the headless service, see:
+          # https://istio.io/latest/docs/ops/configuration/traffic-management/traffic-routing/#headless-services
+          ports:
+            - name: membership
+              containerPort: 6939
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+          volumeMounts:
+            - name: config
+              mountPath: /etc/temporal/config/config_template.yaml
+              subPath: config_template.yaml
+            - name: dynamic-config
+              mountPath: /etc/temporal/dynamic_config
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 200m
+              memory: 256Mi
+      volumes:
+        - name: config
+          configMap:
+            name: "temporal-prod-config"
+        - name: dynamic-config
+          configMap:
+            name: "temporal-prod-dynamic-config"
+            items:
+            - key: dynamic_config.yaml
+              path: dynamic_config.yaml
+      terminationGracePeriodSeconds:
+---
+# Source: temporal/charts/temporal/templates/web-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal-prod-web
+  annotations:
+    
+  labels:
+    app.kubernetes.io/component: web
+    app.kubernetes.io/name: temporal
+    helm.sh/chart: temporal-1.0.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: temporal-prod
+    app.kubernetes.io/version: "1.30.3"
+    app.kubernetes.io/part-of: temporal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: temporal
+      app.kubernetes.io/instance: temporal-prod
+      app.kubernetes.io/component: web
+  template:
+    metadata:
+      annotations:
+        
+      labels:
+        app.kubernetes.io/component: web
+        app.kubernetes.io/name: temporal
+        helm.sh/chart: temporal-1.0.0
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/instance: temporal-prod
+        app.kubernetes.io/version: "1.30.3"
+        app.kubernetes.io/part-of: temporal
+    spec:
+      serviceAccountName: default
+      containers:
+        - name: temporal-web
+          image: "ghcr.io/opennsw/temporal-ui:2.48.0"
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TEMPORAL_ADDRESS
+              value: "temporal-prod-frontend.national-single-window-platform.svc:7233"
+          livenessProbe:
+            initialDelaySeconds: 10
+            tcpSocket:
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 200m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+---
+# Source: temporal/charts/temporal/templates/server-job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: temporal-prod-schema-1-0-0-1
+  labels:
+    app.kubernetes.io/component: database
+    app.kubernetes.io/name: temporal
+    helm.sh/chart: temporal-1.0.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: temporal-prod
+    app.kubernetes.io/version: "1.30.3"
+    app.kubernetes.io/part-of: temporal
+spec:
+  backoffLimit: 100
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      name: temporal-prod-schema-1-0-0-1
+      labels:
+        app.kubernetes.io/component: database
+        app.kubernetes.io/name: temporal
+        helm.sh/chart: temporal-1.0.0
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/instance: temporal-prod
+        app.kubernetes.io/version: "1.30.3"
+        app.kubernetes.io/part-of: temporal
+    spec:
+      serviceAccountName: default
+      restartPolicy: OnFailure
+      initContainers:
+        - name: create-default-store
+          image: "ghcr.io/opennsw/temporal-auto-setup:1.28.3"
+          imagePullPolicy: IfNotPresent
+          command: ['temporal-sql-tool', 'create-database']
+          env:
+            - name: SQL_PLUGIN
+              value: postgres12
+            - name: SQL_HOST
+              value: nsw-db
+            - name: SQL_PORT
+              value: "5432"
+            - name: SQL_DATABASE
+              value: temporal_db
+            - name: SQL_USER
+              value: "postgres"
+            - name: SQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nsw-db-credentials
+                  key: password
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+        - name: manage-schema-default-store
+          image: "ghcr.io/opennsw/temporal-auto-setup:1.28.3"
+          imagePullPolicy: IfNotPresent
+          command: ['sh', '-c']
+          args:
+            - temporal-sql-tool setup-schema -v 0.0 && temporal-sql-tool update-schema --schema-dir /etc/temporal/schema/postgresql/v12/temporal/versioned
+          env:
+            - name: SQL_PLUGIN
+              value: postgres12
+            - name: SQL_HOST
+              value: nsw-db
+            - name: SQL_PORT
+              value: "5432"
+            - name: SQL_DATABASE
+              value: temporal_db
+            - name: SQL_USER
+              value: "postgres"
+            - name: SQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nsw-db-credentials
+                  key: password
+          volumeMounts:
+            - name: shims
+              mountPath: /usr/local/sbin/temporal-elasticsearch-tool
+              subPath: temporal-elasticsearch-tool
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+        - name: create-visibility-store
+          image: "ghcr.io/opennsw/temporal-auto-setup:1.28.3"
+          imagePullPolicy: IfNotPresent
+          command: ['temporal-sql-tool', 'create-database']
+          env:
+            - name: SQL_PLUGIN
+              value: postgres12
+            - name: SQL_HOST
+              value: nsw-db
+            - name: SQL_PORT
+              value: "5432"
+            - name: SQL_DATABASE
+              value: temporal_visibility_db
+            - name: SQL_USER
+              value: "postgres"
+            - name: SQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nsw-db-credentials
+                  key: password
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+        - name: manage-schema-visibility-store
+          image: "ghcr.io/opennsw/temporal-auto-setup:1.28.3"
+          imagePullPolicy: IfNotPresent
+          command: ['sh', '-c']
+          args:
+            - temporal-sql-tool setup-schema -v 0.0 && temporal-sql-tool update-schema --schema-dir /etc/temporal/schema/postgresql/v12/visibility/versioned
+          env:
+            - name: SQL_PLUGIN
+              value: postgres12
+            - name: SQL_HOST
+              value: nsw-db
+            - name: SQL_PORT
+              value: "5432"
+            - name: SQL_DATABASE
+              value: temporal_visibility_db
+            - name: SQL_USER
+              value: "postgres"
+            - name: SQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nsw-db-credentials
+                  key: password
+          volumeMounts:
+            - name: shims
+              mountPath: /usr/local/sbin/temporal-elasticsearch-tool
+              subPath: temporal-elasticsearch-tool
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+      containers:
+        - name: done
+          image: "ghcr.io/opennsw/temporal-auto-setup:1.28.3"
+          imagePullPolicy: IfNotPresent
+          command: ['sh', '-c', 'echo "Store setup completed"']
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+      volumes:
+        - name: shims
+          configMap:
+            name: "temporal-prod-shims"
+            defaultMode: 0555
+---
+# Source: temporal/charts/temporal/templates/server-pdb.yaml
+---
+---
+# Source: temporal/charts/temporal/templates/server-pdb.yaml
+---
+---
+# Source: temporal/templates/route.yaml
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: temporal-prod-ui
+  labels:
+    helm.sh/chart: temporal-0.2.0
+    app.kubernetes.io/name: temporal
+    app.kubernetes.io/instance: temporal-prod
+    app.kubernetes.io/version: "1.28.3"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  to:
+    kind: Service
+    name: temporal-web
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+---
+# Source: temporal/charts/temporal/templates/test.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "temporal-prod-test-cluster-health"
+  labels:
+    app.kubernetes.io/component: test
+    app.kubernetes.io/name: temporal
+    helm.sh/chart: temporal-1.0.0
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/instance: temporal-prod
+    app.kubernetes.io/version: "1.30.3"
+    app.kubernetes.io/part-of: temporal
+  annotations:
+    "helm.sh/hook": test
+spec:
+  serviceAccountName: default
+  containers:
+  - name: cluster-health
+    image: "ghcr.io/opennsw/temporal-auto-setup:1.28.3"
+    imagePullPolicy: IfNotPresent
+    command: ["temporal", "operator", "cluster", "health"]
+    env:
+      - name: TEMPORAL_ADDRESS
+        value: temporal-prod-frontend:7233
+  restartPolicy: Never
+---
+# Source: temporal/templates/register-namespace-job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "temporal-prod-register-namespaces"
+  labels:
+    helm.sh/chart: temporal-0.2.0
+    app.kubernetes.io/name: temporal
+    app.kubernetes.io/instance: temporal-prod
+    app.kubernetes.io/version: "1.28.3"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      name: "temporal-prod-register-namespaces"
+      labels:
+        helm.sh/chart: temporal-0.2.0
+        app.kubernetes.io/name: temporal
+        app.kubernetes.io/instance: temporal-prod
+        app.kubernetes.io/version: "1.28.3"
+        app.kubernetes.io/managed-by: Helm
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      restartPolicy: OnFailure
+      containers:
+      - name: register
+        image: "ghcr.io/opennsw/temporal-auto-setup:1.28.3"
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+        command:
+          - /bin/sh
+          - -c
+          - |
+            echo "Waiting for Temporal Frontend to respond..."
+            until temporal operator --address temporal-frontend:7233 cluster describe; do sleep 2; done;
+            echo "Registering namespace default..."
+            temporal operator --address temporal-frontend:7233 namespace create --namespace default || echo "Namespace already exists."
+            echo "Registering namespace nsw-health..."
+            temporal operator --address temporal-frontend:7233 namespace create --namespace nsw-health || echo "Namespace already exists."
+            echo "Registering namespace nsw-platform..."
+            temporal operator --address temporal-frontend:7233 namespace create --namespace nsw-platform || echo "Namespace already exists."
+            echo "Registering namespace national-single-window-platform..."
+            temporal operator --address temporal-frontend:7233 namespace create --namespace national-single-window-platform || echo "Namespace already exists."

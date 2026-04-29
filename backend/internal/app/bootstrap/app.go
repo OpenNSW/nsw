@@ -56,6 +56,74 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
+func setupWorkflowManagerV2(
+	ctx context.Context,
+	cfg *config.Config,
+	tm taskManager.TaskManager,
+	templateService *service.TemplateService,
+) (workflowManagerV2.TemporalManager, error) {
+	// 1. Connect to the local Temporal Server (Needed for Workflow Manager V2)
+	c, err := client.Dial(client.Options{
+		HostPort: cfg.TemporalHostPort,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error creating temporal client: %w", err)
+	}
+	// ***************
+	// Note: You may need to manage closing the client gracefully elsewhere
+	// defer c.Close()
+
+	// 4. Define Handlers for Manager Bridge
+	activationHandler := func(payload workflowManagerV2.TaskPayload) error {
+		template, err := templateService.GetWorkflowNodeTemplateByID(ctx, payload.TaskTemplateID)
+		if err != nil {
+			return fmt.Errorf("error getting workflow node template: %w", err)
+		}
+
+		// TODO: We need to pass the TaskPayload.RunID in the future to avoid issues with
+		// task retries. For example, when retrying a task instance, a stale version might
+		// send a completion that will trigger the new version.
+		tmRequest := taskManager.InitTaskRequest{
+			TaskID:                 payload.NodeID,
+			WorkflowID:             payload.WorkflowID,
+			WorkflowNodeTemplateID: template.ID,
+			GlobalState:            payload.Inputs,
+			Type:                   template.Type,
+			Config:                 template.Config,
+		}
+		_, err = tm.InitTask(ctx, tmRequest)
+		if err != nil {
+			return fmt.Errorf("error initializing task manager: %w", err)
+		}
+		return nil
+	}
+
+	completionHandler := func(workflowID string, finalContext map[string]any) error {
+		slog.Info("Workflow logically completed", "workflowID", workflowID, "finalContext", finalContext)
+		// TODO: If consignment, need to call OnWorkflowStatusChanged
+		//       If pre-consignment, need to call OnPreWorkflowStatusChanged
+		return nil
+	}
+
+	// 5. Initialize Manager
+	workflowManager := workflowManagerV2.NewTemporalManager(c, "INTERPRETER_TASK_QUEUE", activationHandler, completionHandler)
+
+	taskDoneWrapper := func(ctx context.Context, workflowID string, taskID string, outputs map[string]any) {
+		err := workflowManager.TaskDone(ctx, workflowID, "", taskID, outputs)
+		if err != nil {
+			slog.Error("error completing task", "error", err)
+		}
+	}
+
+	tm.RegisterUpstreamDoneCallback(taskDoneWrapper)
+
+	// Start the workers.
+	if err := workflowManager.StartWorker(); err != nil {
+		return nil, fmt.Errorf("failed to start workflow manager worker: %w", err)
+	}
+
+	return workflowManager, nil
+}
 // Build initializes dependencies and returns a fully wired application server.
 func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	db, err := database.New(cfg.Database)

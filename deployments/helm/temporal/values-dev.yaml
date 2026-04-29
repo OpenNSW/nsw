@@ -1,18 +1,22 @@
 # Dev Overrides for temporal
-global:
-  namespace: "national-single-window-platform"
-  clusterDomain: "apps.sovecloud1.akaza.lk"
+temporal:
+  server:
+    replicaCount: 1
+    frontend:
+      replicaCount: 1
+    history:
+      replicaCount: 1
+    matching:
+      replicaCount: 1
+    worker:
+      replicaCount: 1
 
-replicaCount: 1
-
-env:
-  dbName: "temporal_db_dev"
-
-persistence:
-  host: "nsw-db"
-  credentialsSecretName: "nsw-db-credentials"
-
-ui:
-  route:
-    name: "temporal-ui"
-    host: ""
+    config:
+      persistence:
+        datastores:
+          default:
+            sql:
+              databaseName: temporal_db_dev
+          visibility:
+            sql:
+              databaseName: temporal_visibility_db_dev

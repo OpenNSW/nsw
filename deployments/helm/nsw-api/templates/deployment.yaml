@@ -37,6 +37,10 @@ spec:
               value: {{ .Values.config.server.debug | quote }}
             - name: SERVER_LOG_LEVEL
               value: {{ .Values.config.server.logLevel | quote }}
+            - name: TEMPORAL_HOSTPORT
+              value: {{ .Values.config.temporal.hostPort | quote }}
+            - name: USE_WORKFLOW_MANAGER_V2
+              value: {{ .Values.config.server.useWorkflowManagerV2 | quote }}
 
             # --- Database ---
             - name: DB_HOST

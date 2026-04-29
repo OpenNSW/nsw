@@ -15,14 +15,14 @@ spec:
       labels:
         {{- include "temporal.labels" . | nindent 8 }}
     spec:
-      {{- if .Values.imagePullSecrets }}
+      {{- if (index .Values "temporal" "global" "imagePullSecrets") }}
       imagePullSecrets:
-        {{- toYaml .Values.imagePullSecrets | nindent 8 }}
+        {{- toYaml (index .Values "temporal" "global" "imagePullSecrets") | nindent 8 }}
       {{- end }}
       restartPolicy: OnFailure
       containers:
       - name: register
-        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        image: "{{ (index .Values "temporal" "server" "image" "repository") }}:{{ (index .Values "temporal" "server" "image" "tag") }}"
         resources:
           limits:
             cpu: 100m
@@ -34,9 +34,9 @@ spec:
           - /bin/sh
           - -c
           - |
-            echo "Waiting for Temporal to respond..."
-            until temporal operator --address {{ include "temporal.fullname" . }}-server:7233 cluster describe; do sleep 2; done;
-            {{- range .Values.temporalNamespaces | default (list "default") }}
+            echo "Waiting for Temporal Frontend to respond..."
+            until temporal operator --address {{ .Release.Name }}-frontend:7233 cluster describe; do sleep 2; done;
+            {{- range .Values.nsw.namespaces | default (list "default") }}
             echo "Registering namespace {{ . }}..."
-            temporal operator --address {{ include "temporal.fullname" $ }}-server:7233 namespace create --namespace {{ . }} || echo "Namespace already exists."
+            temporal operator --address {{ $.Release.Name }}-frontend:7233 namespace create --namespace {{ . }} || echo "Namespace already exists."
             {{- end }}

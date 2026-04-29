@@ -20,6 +20,10 @@ config:
     port: 8080
     debug: false
     logLevel: "info"
+    useWorkflowManagerV2: true
+
+  temporal:
+    hostPort: "temporal-temporal-frontend:7233"
 
   database:
     host: "nsw-db"
