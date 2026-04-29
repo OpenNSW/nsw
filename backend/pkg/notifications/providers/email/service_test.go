@@ -12,31 +12,31 @@ import (
 	"github.com/OpenNSW/nsw/pkg/notifications"
 )
 
-func newServiceProvider(t *testing.T, h http.HandlerFunc) (*ServiceProvider, *httptest.Server) {
+func newProvider(t *testing.T, h http.HandlerFunc) (*Provider, *httptest.Server) {
 	t.Helper()
-	srv := httptest.NewServer(h)
+	srv := httptest.NewTLSServer(h)
 	t.Cleanup(srv.Close)
-	return NewService(ServiceConfig{
+	return New(Config{
 		BaseURL:    srv.URL,
 		HTTPClient: srv.Client(),
 	}), srv
 }
 
-func TestServiceProvider_Type(t *testing.T) {
-	p := NewService(ServiceConfig{BaseURL: "http://example.com"})
+func TestProvider_Type(t *testing.T) {
+	p := New(Config{BaseURL: "http://example.com"})
 	if p.Type() != notifications.ChannelEmail {
 		t.Errorf("Type() = %q, want %q", p.Type(), notifications.ChannelEmail)
 	}
 }
 
-func TestNewService_DefaultsHTTPClient(t *testing.T) {
-	p := NewService(ServiceConfig{BaseURL: "http://example.com"})
+func TestNew_DefaultsHTTPClient(t *testing.T) {
+	p := New(Config{BaseURL: "http://example.com"})
 	if p.config.HTTPClient == nil {
 		t.Fatal("expected default HTTPClient, got nil")
 	}
 }
 
-func TestServiceProvider_Send(t *testing.T) {
+func TestProvider_Send(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
@@ -96,7 +96,7 @@ func TestServiceProvider_Send(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p, _ := newServiceProvider(t, tt.handler)
+			p, _ := newProvider(t, tt.handler)
 			err := p.Send(ctx, notifications.Request{
 				Channel: notifications.ChannelEmail,
 				To:      "user@example.com",
@@ -119,10 +119,10 @@ func TestServiceProvider_Send(t *testing.T) {
 	}
 }
 
-func TestServiceProvider_Send_PayloadShape(t *testing.T) {
+func TestProvider_Send_PayloadShape(t *testing.T) {
 	var captured serviceEmailPayload
 
-	p, _ := newServiceProvider(t, func(w http.ResponseWriter, r *http.Request) {
+	p, _ := newProvider(t, func(w http.ResponseWriter, r *http.Request) {
 		if err := json.NewDecoder(r.Body).Decode(&captured); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -155,10 +155,10 @@ func TestServiceProvider_Send_PayloadShape(t *testing.T) {
 	}
 }
 
-func TestServiceProvider_Send_HTMLBodyOmittedWhenEmpty(t *testing.T) {
+func TestProvider_Send_HTMLBodyOmittedWhenEmpty(t *testing.T) {
 	var rawPayload map[string]any
 
-	p, _ := newServiceProvider(t, func(w http.ResponseWriter, r *http.Request) {
+	p, _ := newProvider(t, func(w http.ResponseWriter, r *http.Request) {
 		if err := json.NewDecoder(r.Body).Decode(&rawPayload); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -180,16 +180,16 @@ func TestServiceProvider_Send_HTMLBodyOmittedWhenEmpty(t *testing.T) {
 	}
 }
 
-func TestServiceProvider_Send_BearerTokenHeader(t *testing.T) {
+func TestProvider_Send_BearerTokenHeader(t *testing.T) {
 	var capturedAuth string
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedAuth = r.Header.Get("Authorization")
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()
 
-	p := NewService(ServiceConfig{
+	p := New(Config{
 		BaseURL:    srv.URL,
 		Token:      "secret-token",
 		HTTPClient: srv.Client(),
@@ -209,16 +209,16 @@ func TestServiceProvider_Send_BearerTokenHeader(t *testing.T) {
 	}
 }
 
-func TestServiceProvider_Send_NoTokenHeader(t *testing.T) {
+func TestProvider_Send_NoTokenHeader(t *testing.T) {
 	var capturedAuth string
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedAuth = r.Header.Get("Authorization")
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()
 
-	p := NewService(ServiceConfig{BaseURL: srv.URL, HTTPClient: srv.Client()})
+	p := New(Config{BaseURL: srv.URL, HTTPClient: srv.Client()})
 
 	if err := p.Send(context.Background(), notifications.Request{
 		Channel: notifications.ChannelEmail,
@@ -234,8 +234,24 @@ func TestServiceProvider_Send_NoTokenHeader(t *testing.T) {
 	}
 }
 
-func TestServiceProvider_Send_ContextCancellation(t *testing.T) {
-	p, _ := newServiceProvider(t, func(w http.ResponseWriter, r *http.Request) {
+func TestProvider_Send_InsecureURLRejected(t *testing.T) {
+	p := New(Config{BaseURL: "http://email.svc.local", Token: "tok"})
+	err := p.Send(context.Background(), notifications.Request{
+		Channel: notifications.ChannelEmail,
+		To:      "to@example.com",
+		Subject: "Hi",
+		Body:    "Text",
+	})
+	if err == nil {
+		t.Fatal("expected error for HTTP URL, got nil")
+	}
+	if !strings.Contains(err.Error(), "HTTPS") {
+		t.Errorf("error %q should mention HTTPS", err.Error())
+	}
+}
+
+func TestProvider_Send_ContextCancellation(t *testing.T) {
+	p, _ := newProvider(t, func(w http.ResponseWriter, r *http.Request) {
 		<-r.Context().Done()
 		w.WriteHeader(http.StatusOK)
 	})

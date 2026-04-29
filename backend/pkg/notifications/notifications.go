@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 )
 
 type ChannelType string
@@ -53,6 +54,7 @@ type Config struct {
 type Manager struct {
 	providers map[ChannelType]Provider
 	templates *templateCache
+	wg        sync.WaitGroup
 }
 
 func New(cfg Config, providers ...Provider) *Manager {
@@ -93,9 +95,12 @@ func (m *Manager) SendEmail(ctx context.Context, req EmailRequest) error {
 		Body:     body,
 		HTMLBody: htmlBody,
 	}
+	m.wg.Add(1)
 	go func() {
-		if err := m.Send(context.WithoutCancel(ctx), r); err != nil {
-			slog.ErrorContext(ctx, "email send failed", "recipient", req.To, "error", err)
+		defer m.wg.Done()
+		detachedCtx := context.WithoutCancel(ctx)
+		if err := m.Send(detachedCtx, r); err != nil {
+			slog.ErrorContext(detachedCtx, "email send failed", "recipient", req.To, "error", err)
 		}
 	}()
 	return nil
@@ -118,10 +123,19 @@ func (m *Manager) SendSMS(ctx context.Context, req SMSRequest) error {
 		To:      req.To,
 		Body:    body,
 	}
+	m.wg.Add(1)
 	go func() {
-		if err := m.Send(context.WithoutCancel(ctx), r); err != nil {
-			slog.ErrorContext(ctx, "SMS send failed", "recipient", req.To, "error", err)
+		defer m.wg.Done()
+		detachedCtx := context.WithoutCancel(ctx)
+		if err := m.Send(detachedCtx, r); err != nil {
+			slog.ErrorContext(detachedCtx, "SMS send failed", "recipient", req.To, "error", err)
 		}
 	}()
 	return nil
+}
+
+// Wait blocks until all background send goroutines have completed.
+// Call during graceful shutdown before exiting.
+func (m *Manager) Wait() {
+	m.wg.Wait()
 }
