@@ -14,21 +14,9 @@ services:
     command: ./setup.sh
     env_file:
       - .env
-    environment:
-      - THUNDER_ADMIN_USERNAME=${THUNDER_ADMIN_USERNAME:-admin}
-      - THUNDER_ADMIN_PASSWORD=${THUNDER_ADMIN_PASSWORD:-1234}
-      - THUNDER_SAMPLE_USER_PASSWORD=${THUNDER_SAMPLE_USER_PASSWORD:-1234}
-      - THUNDER_M2M_CLIENT_SECRET=${THUNDER_M2M_CLIENT_SECRET:-1234}
-      - THUNDER_M2M_NPQS_SECRET=${THUNDER_M2M_NPQS_SECRET:-${THUNDER_M2M_CLIENT_SECRET:-1234}}
-      - THUNDER_M2M_FCAU_SECRET=${THUNDER_M2M_FCAU_SECRET:-${THUNDER_M2M_CLIENT_SECRET:-1234}}
-      - THUNDER_M2M_IRD_SECRET=${THUNDER_M2M_IRD_SECRET:-${THUNDER_M2M_CLIENT_SECRET:-1234}}
-      - THUNDER_M2M_CDA_SECRET=${THUNDER_M2M_CDA_SECRET:-${THUNDER_M2M_CLIENT_SECRET:-1234}}
-      - THUNDER_API_BASE=${THUNDER_API_BASE:-https://localhost:8090}
-      - THUNDER_PUBLIC_URL=${THUNDER_PUBLIC_URL:-https://localhost:8090}
     volumes:
       - thunder-db:/opt/thunder/repository/database
       - consent-db:/opt/thunder/consent/repository/database
-      - ./.env:/opt/thunder/bootstrap/.env:ro
       - ./01-default-resources.sh:/opt/thunder/bootstrap/01-default-resources.sh
       - ./02-sample-resources.sh:/opt/thunder/bootstrap/02-sample-resources.sh
     depends_on:
@@ -43,7 +31,9 @@ services:
       thunder-setup:
         condition: service_completed_successfully
     ports:
-      - "8090:8090"
+      - "${THUNDER_PORT:-8090}:${THUNDER_PORT:-8090}"
+    env_file:
+      - .env
     volumes:
       - thunder-db:/opt/thunder/repository/database
       - consent-db:/opt/thunder/consent/repository/database
