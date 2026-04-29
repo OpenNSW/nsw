@@ -1,0 +1,20 @@
+apiVersion: v2
+name: oga-backend
+description: A standardized, generic Helm chart for NSW OGA (Other Government Agency) backend services
+type: application
+version: 0.1.1
+appVersion: "1.0.0"
+
+# Standardizing maintainers and source for team clarity
+maintainers:
+  - name: nsw-dev-team
+    email: dev@opennsw.gov.lk
+
+keywords:
+  - nsw
+  - oga
+  - backend
+  - microservice
+
+# Optional: If you want to enforce a minimum Helm version
+engine: gotpl

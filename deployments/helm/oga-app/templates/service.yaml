@@ -3,8 +3,7 @@ kind: Service
 metadata:
   name: {{ include "oga-app.fullname" . }}
   labels:
-    app.kubernetes.io/name: {{ include "oga-app.name" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "oga-app.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   ports:
@@ -13,5 +12,4 @@ spec:
       protocol: TCP
       name: http
   selector:
-    app.kubernetes.io/name: {{ include "oga-app.name" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- include "oga-app.selectorLabels" . | nindent 4 }}
