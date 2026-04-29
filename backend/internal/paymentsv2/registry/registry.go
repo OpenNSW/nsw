@@ -10,40 +10,40 @@ import (
 	"sync"
 )
 
-// Configured loads enabled payment options from JSON and resolves providers via factories.
+// Configured loads enabled payment options from JSON and resolves providers via configured instances.
 type Configured struct {
-	mu        sync.RWMutex
-	factories map[string]ProviderFactory
-	providers map[string]PaymentProvider
-	infos     map[string]PaymentProviderInfo
-	types     map[string][]string
-	defaultID string
+	mu              sync.RWMutex
+	providersByType map[string]PaymentProvider
+	providers       map[string]PaymentProvider
+	infos           map[string]PaymentProviderInfo
+	types           map[string][]string
+	defaultID       string
 	// cached sorted infos populated during LoadConfig to avoid recomputing on every ListInfo call
 	sortedInfos []PaymentProviderInfo
 }
 
-// NewConfigured creates an empty registry with no factories registered.
+// NewConfigured creates an empty registry with no providers registered.
 func NewConfigured() *Configured {
 	return &Configured{
-		factories: make(map[string]ProviderFactory),
-		providers: make(map[string]PaymentProvider),
-		infos:     make(map[string]PaymentProviderInfo),
-		types:     make(map[string][]string),
+		providersByType: make(map[string]PaymentProvider),
+		providers:       make(map[string]PaymentProvider),
+		infos:           make(map[string]PaymentProviderInfo),
+		types:           make(map[string][]string),
 	}
 }
 
-// RegisterFactory adds a provider factory keyed by configured provider type.
-func (r *Configured) RegisterFactory(providerType string, factory ProviderFactory) {
+// RegisterProvider adds a provider implementation keyed by configured provider type.
+func (r *Configured) RegisterProvider(providerType string, provider PaymentProvider) {
 	if r == nil {
 		return
 	}
 	providerType = strings.TrimSpace(providerType)
-	if providerType == "" || factory == nil {
+	if providerType == "" || provider == nil {
 		return
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.factories[providerType] = factory
+	r.providersByType[providerType] = provider
 }
 
 // LoadFromFile loads a registry configuration from a JSON file path and instantiates all enabled providers.
@@ -77,20 +77,19 @@ func (r *Configured) LoadConfig(cfg Config) error {
 	types := make(map[string][]string)
 
 	r.mu.RLock()
-	factories := make(map[string]ProviderFactory, len(r.factories))
-	for k, v := range r.factories {
-		factories[k] = v
+	providersByType := make(map[string]PaymentProvider, len(r.providersByType))
+	for k, v := range r.providersByType {
+		providersByType[k] = v
 	}
 	r.mu.RUnlock()
 
 	for _, opt := range active {
-		factory, ok := factories[opt.ProviderType]
+		provider, ok := providersByType[opt.ProviderType]
 		if !ok {
 			return fmt.Errorf("unsupported provider type %q for enabled payment option %q", opt.ProviderType, opt.ID)
 		}
-		provider := factory()
 		if provider == nil {
-			return fmt.Errorf("provider factory for type %q returned nil", opt.ProviderType)
+			return fmt.Errorf("provider for type %q is nil", opt.ProviderType)
 		}
 		providers[opt.ID] = provider
 		infos[opt.ID] = PaymentProviderInfo{
@@ -195,11 +194,11 @@ func (r *Configured) GetDefault() (PaymentProvider, error) {
 	return r.Get(defaultID)
 }
 
-// NewFromFile is a convenience helper for loading a registry from JSON with registered factories.
-func NewFromFile(path string, factories map[string]ProviderFactory) (*Configured, error) {
+// NewFromFile is a convenience helper for loading a registry from JSON with registered providers.
+func NewFromFile(path string, providersByType map[string]PaymentProvider) (*Configured, error) {
 	reg := NewConfigured()
-	for providerType, factory := range factories {
-		reg.RegisterFactory(providerType, factory)
+	for providerType, provider := range providersByType {
+		reg.RegisterProvider(providerType, provider)
 	}
 	if err := reg.LoadFromFile(path); err != nil {
 		return nil, err

@@ -79,7 +79,7 @@ func TestConfiguredLoadsFromJSONAndResolvesByIDAndType(t *testing.T) {
 	}`)
 
 	registry := NewConfigured()
-	registry.RegisterFactory("redirect", func() PaymentProvider { return &stubProvider{name: "redirect-provider"} })
+	registry.RegisterProvider("redirect", &stubProvider{name: "redirect-provider"})
 	require.NoError(t, registry.LoadFromFile(path))
 
 	defaultProvider, err := registry.GetDefault()
@@ -121,7 +121,7 @@ func TestConfiguredRejectsInvalidDefault(t *testing.T) {
 	t.Parallel()
 
 	registry := NewConfigured()
-	registry.RegisterFactory("alpha", func() PaymentProvider { return &stubProvider{name: "alpha"} })
+	registry.RegisterProvider("alpha", &stubProvider{name: "alpha"})
 
 	err := registry.LoadConfig(Config{
 		Version:   "1.0",

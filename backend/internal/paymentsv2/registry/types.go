@@ -2,9 +2,6 @@ package registry
 
 import "context"
 
-// ProviderFactory creates a payment provider instance for a configured provider type.
-type ProviderFactory func() PaymentProvider
-
 // PaymentProvider represents the provider interface
 type PaymentProvider interface {
 	CreateSession(ctx context.Context, req interface{}) (interface{}, error)
