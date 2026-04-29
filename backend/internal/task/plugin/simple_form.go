@@ -453,15 +453,7 @@ func (s *SimpleForm) submitHandler(ctx context.Context, content any) (*Execution
 
 	// Validate that TaskCode is non-empty (required by OGA service)
 	if requestPayload.TaskCode == "" {
-		return &ExecutionResponse{
-			ApiResponse: &ApiResponse{
-				Success: false,
-				Error: &ApiError{
-					Code:    "MISSING_TASK_CODE",
-					Message: "TaskCode is required for external service submission. Please configure submission.request.taskCode in the plugin config.",
-				},
-			},
-		}, nil
+		return nil, fmt.Errorf("taskCode is required in submission request configuration")
 	}
 
 	if history, err := s.readOGAFeedbackHistory(); err == nil && len(history) > 0 {
