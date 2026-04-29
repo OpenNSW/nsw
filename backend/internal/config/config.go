@@ -157,6 +157,9 @@ func (c *Config) Validate() error {
 	if err := c.Auth.Validate(); err != nil {
 		return fmt.Errorf("invalid auth configuration: %w", err)
 	}
+	if err := c.Temporal.Validate(); err != nil {
+		return fmt.Errorf("invalid temporal configuration: %w", err)
+	}
 	if len(c.CORS.AllowedOrigins) == 0 {
 		return fmt.Errorf("CORS_ALLOWED_ORIGINS is required")
 	}

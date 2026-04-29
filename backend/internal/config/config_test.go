@@ -45,3 +45,12 @@ func TestLoadTemporalOverrides(t *testing.T) {
 		t.Fatalf("Namespace override = %q, want %q", cfg.Temporal.Namespace, "staging")
 	}
 }
+
+func TestLoadTemporalInvalidPort(t *testing.T) {
+	t.Setenv("DB_PASSWORD", "test")
+	t.Setenv("TEMPORAL_PORT", "not-a-number")
+
+	if _, err := Load(); err == nil {
+		t.Fatalf("Load() expected error")
+	}
+}
