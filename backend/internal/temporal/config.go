@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/OpenNSW/nsw/internal/validation"
 )
 
 // Config holds configuration required to connect to Temporal.
@@ -24,10 +26,14 @@ type Config struct {
 
 // Validate ensures the Temporal configuration is usable.
 func (c *Config) Validate() error {
-	if strings.TrimSpace(c.Host) == "" {
+	c.Host = strings.TrimSpace(c.Host)
+	c.Namespace = strings.TrimSpace(c.Namespace)
+	c.PortRaw = strings.TrimSpace(c.PortRaw)
+
+	if c.Host == "" {
 		return fmt.Errorf("TEMPORAL_HOST is required")
 	}
-	portStr := strings.TrimSpace(c.PortRaw)
+	portStr := c.PortRaw
 	if portStr == "" {
 		return fmt.Errorf("TEMPORAL_PORT is required")
 	}
@@ -35,10 +41,10 @@ func (c *Config) Validate() error {
 	if err != nil {
 		return fmt.Errorf("invalid TEMPORAL_PORT: %w", err)
 	}
-	if port < 1 || port > 65535 {
-		return fmt.Errorf("TEMPORAL_PORT must be between 1 and 65535")
+	if err := validation.TCPPort("TEMPORAL_PORT", port); err != nil {
+		return err
 	}
-	if strings.TrimSpace(c.Namespace) == "" {
+	if c.Namespace == "" {
 		return fmt.Errorf("TEMPORAL_NAMESPACE is required")
 	}
 

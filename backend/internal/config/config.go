@@ -121,9 +121,9 @@ func Load() (*Config, error) {
 			TemplateRoot: getEnvOrDefault("EMAIL_TEMPLATE_ROOT", "./configs/email-templates"),
 		},
 		Temporal: temporal.Config{
-			Host:      strings.TrimSpace(getEnvOrDefault("TEMPORAL_HOST", "localhost")),
-			PortRaw:   strings.TrimSpace(getEnvOrDefault("TEMPORAL_PORT", "7233")),
-			Namespace: strings.TrimSpace(getEnvOrDefault("TEMPORAL_NAMESPACE", "default")),
+			Host:      getEnvOrDefault("TEMPORAL_HOST", "localhost"),
+			PortRaw:   getEnvOrDefault("TEMPORAL_PORT", "7233"),
+			Namespace: getEnvOrDefault("TEMPORAL_NAMESPACE", "default"),
 		},
 	}
 

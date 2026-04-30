@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestLoadTemporalDefaults(t *testing.T) {
 	t.Setenv("DB_PASSWORD", "test")
@@ -15,6 +18,9 @@ func TestLoadTemporalDefaults(t *testing.T) {
 
 	if cfg.Temporal.Host != "localhost" {
 		t.Fatalf("Host default = %q, want %q", cfg.Temporal.Host, "localhost")
+	}
+	if cfg.Temporal.PortRaw != "7233" {
+		t.Fatalf("PortRaw default = %q, want %q", cfg.Temporal.PortRaw, "7233")
 	}
 	if cfg.Temporal.Port != 7233 {
 		t.Fatalf("Port default = %d, want %d", cfg.Temporal.Port, 7233)
@@ -38,6 +44,9 @@ func TestLoadTemporalOverrides(t *testing.T) {
 	if cfg.Temporal.Host != "temporal.example" {
 		t.Fatalf("Host override = %q, want %q", cfg.Temporal.Host, "temporal.example")
 	}
+	if cfg.Temporal.PortRaw != "7234" {
+		t.Fatalf("PortRaw override = %q, want %q", cfg.Temporal.PortRaw, "7234")
+	}
 	if cfg.Temporal.Port != 7234 {
 		t.Fatalf("Port override = %d, want %d", cfg.Temporal.Port, 7234)
 	}
@@ -52,5 +61,7 @@ func TestLoadTemporalInvalidPort(t *testing.T) {
 
 	if _, err := Load(); err == nil {
 		t.Fatalf("Load() expected error")
+	} else if !strings.Contains(err.Error(), "invalid TEMPORAL_PORT") {
+		t.Fatalf("Load() error = %q, want to contain %q", err.Error(), "invalid TEMPORAL_PORT")
 	}
 }
