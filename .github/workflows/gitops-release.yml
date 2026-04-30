@@ -12,6 +12,8 @@ on:
 permissions:
   contents: read
   packages: write
+  id-token: write         # Required for SBOM/Provenance signing
+  security-events: write  # Required for Trivy SARIF uploads
 
 env:
   REGISTRY: ghcr.io
@@ -87,6 +89,24 @@ jobs:
             ${{ env.REGISTRY }}/${{ steps.repo_owner.outputs.owner }}/${{ matrix.image_name }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
+
+      - name: Run Trivy vulnerability scanner
+        id: trivy-scan
+        uses: aquasecurity/trivy-action@0.24.0
+        continue-on-error: true
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ steps.repo_owner.outputs.owner }}/${{ matrix.image_name }}:${{ steps.version.outputs.version }}
+          format: sarif
+          output: trivy-${{ matrix.image_name }}.sarif
+          severity: CRITICAL,HIGH
+
+      - name: Upload Trivy results to GitHub Security tab
+        if: always() && steps.trivy-scan.outcome == 'success'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-${{ matrix.image_name }}.sarif
 
   # The GitOps Bridge (Cross-Repo Commit)
   update-gitops-state:
@@ -160,8 +180,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
+          git add .
+          
           if [[ -n "$(git status --porcelain)" ]]; then
-            git add .
             git commit -m "chore(cd): update dev/staging tags to v${{ steps.version.outputs.version }}"
             git push origin main
             echo "Successfully pushed updates to GitOps repository."
