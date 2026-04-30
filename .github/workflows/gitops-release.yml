@@ -15,7 +15,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  GITOPS_REPO: OpenNSW/nsw-gitops 
+  GITOPS_REPO: opennsw/nsw-gitops 
 
 jobs:
   # Build and publish all images in parallel
