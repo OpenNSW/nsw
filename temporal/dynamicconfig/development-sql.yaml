@@ -1,0 +1,8 @@
+# Dynamic config for local Temporal (PostgreSQL default visibility)
+# This file is loaded by the temporal server container.
+# See: https://docs.temporal.io/self-hosted-guide/dynamic-config
+
+frontend.enableClientVersionCheck:
+  - value: false
+    constraints: {}
+
