@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/OpenNSW/nsw/internal/auth"
@@ -21,14 +22,13 @@ import (
 	workflowruntime "github.com/OpenNSW/nsw/internal/workflow/runtime"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
 
-	"github.com/OpenNSW/nsw/pkg/notifications"
-	"github.com/OpenNSW/nsw/pkg/notifications/loader"
+	"github.com/OpenNSW/nsw/pkg/notification"
 )
 
 // App contains initialized HTTP server and cleanup hooks.
 type App struct {
 	Server              *http.Server
-	NotificationManager *notifications.Manager
+	NotificationManager *notification.Manager
 	close               func() error
 }
 
@@ -133,11 +133,12 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("auth system health check failed: %w", err)
 	}
 
-	notificationManager, err := loader.LoadFromFile(cfg.Notification.ConfigPath)
-	if err != nil {
-		_ = authManager.Close()
-		_ = database.Close(db)
-		return nil, fmt.Errorf("notifications init: %w", err)
+	var notificationManager *notification.Manager
+	if cfg.Notification.ConfigPath != "" {
+		notificationManager, err = notification.NewManager(cfg.Notification.ConfigPath)
+		if err != nil {
+			log.Printf("notifications init failed, continuing without notifications: %v", err)
+		}
 	}
 
 	tmHandler := taskmanager.NewHTTPHandler(tm)
@@ -213,8 +214,6 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	}
 
 	closeFn := func() error {
-		notificationManager.Wait()
-
 		var closeErrs []error
 
 		if err := workflowRuntime.Close(); err != nil {

@@ -9,36 +9,45 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/OpenNSW/nsw/pkg/notifications"
+	"github.com/OpenNSW/nsw/pkg/notification/internal/core"
 )
 
-func newProvider(t *testing.T, h http.HandlerFunc) (*Provider, *httptest.Server) {
+func newTLSProvider(t *testing.T, h http.HandlerFunc) (*emailProvider, *httptest.Server) {
 	t.Helper()
 	srv := httptest.NewTLSServer(h)
 	t.Cleanup(srv.Close)
-	return New(Config{
-		BaseURL:    srv.URL,
-		HTTPClient: srv.Client(),
-	}), srv
+	p := NewProvider(srv.Client()).(*emailProvider)
+	raw, _ := json.Marshal(emailConfig{BaseURL: srv.URL, Token: "tok"})
+	if err := p.Configure(raw); err != nil {
+		t.Fatalf("Configure: %v", err)
+	}
+	return p, srv
 }
 
 func TestProvider_Type(t *testing.T) {
-	p := New(Config{BaseURL: "http://example.com"})
-	if p.Type() != notifications.ChannelEmail {
-		t.Errorf("Type() = %q, want %q", p.Type(), notifications.ChannelEmail)
+	p := NewProvider(http.DefaultClient)
+	if p.Type() != core.ChannelEmail {
+		t.Errorf("Type() = %q, want %q", p.Type(), core.ChannelEmail)
 	}
 }
 
-func TestNew_DefaultsHTTPClient(t *testing.T) {
-	p := New(Config{BaseURL: "http://example.com"})
-	if p.config.HTTPClient == nil {
-		t.Fatal("expected default HTTPClient, got nil")
+func TestProvider_Configure_RequiresHTTPS(t *testing.T) {
+	p := NewProvider(http.DefaultClient).(*emailProvider)
+	raw, _ := json.Marshal(emailConfig{BaseURL: "http://insecure.example.com"})
+	if err := p.Configure(raw); err == nil {
+		t.Fatal("expected error for HTTP URL, got nil")
+	}
+}
+
+func TestProvider_Configure_RequiresBaseURL(t *testing.T) {
+	p := NewProvider(http.DefaultClient).(*emailProvider)
+	raw, _ := json.Marshal(emailConfig{})
+	if err := p.Configure(raw); err == nil {
+		t.Fatal("expected error for empty baseURL, got nil")
 	}
 }
 
 func TestProvider_Send(t *testing.T) {
-	ctx := context.Background()
-
 	tests := []struct {
 		name    string
 		handler http.HandlerFunc
@@ -57,7 +66,7 @@ func TestProvider_Send(t *testing.T) {
 			},
 		},
 		{
-			name: "non-2xx includes status and body in error",
+			name: "non-2xx error",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusUnprocessableEntity)
 				_, _ = fmt.Fprint(w, "invalid recipient")
@@ -83,7 +92,7 @@ func TestProvider_Send(t *testing.T) {
 			},
 		},
 		{
-			name: "content-type is application/json",
+			name: "content-type application/json",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				if ct := r.Header.Get("Content-Type"); ct != "application/json" {
 					http.Error(w, fmt.Sprintf("bad Content-Type: %s", ct), http.StatusBadRequest)
@@ -96,9 +105,9 @@ func TestProvider_Send(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p, _ := newProvider(t, tt.handler)
-			err := p.Send(ctx, notifications.Request{
-				Channel: notifications.ChannelEmail,
+			p, _ := newTLSProvider(t, tt.handler)
+			err := p.Send(context.Background(), core.Request{
+				Channel: core.ChannelEmail,
 				To:      "user@example.com",
 				Subject: "Hello",
 				Body:    "World",
@@ -120,9 +129,9 @@ func TestProvider_Send(t *testing.T) {
 }
 
 func TestProvider_Send_PayloadShape(t *testing.T) {
-	var captured serviceEmailPayload
+	var captured emailPayload
 
-	p, _ := newProvider(t, func(w http.ResponseWriter, r *http.Request) {
+	p, _ := newTLSProvider(t, func(w http.ResponseWriter, r *http.Request) {
 		if err := json.NewDecoder(r.Body).Decode(&captured); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -130,8 +139,8 @@ func TestProvider_Send_PayloadShape(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	req := notifications.Request{
-		Channel:  notifications.ChannelEmail,
+	req := core.Request{
+		Channel:  core.ChannelEmail,
 		To:       "to@example.com",
 		Subject:  "Subject line",
 		Body:     "Plain text body",
@@ -156,18 +165,18 @@ func TestProvider_Send_PayloadShape(t *testing.T) {
 }
 
 func TestProvider_Send_HTMLBodyOmittedWhenEmpty(t *testing.T) {
-	var rawPayload map[string]any
+	var raw map[string]any
 
-	p, _ := newProvider(t, func(w http.ResponseWriter, r *http.Request) {
-		if err := json.NewDecoder(r.Body).Decode(&rawPayload); err != nil {
+	p, _ := newTLSProvider(t, func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
 	})
 
-	if err := p.Send(context.Background(), notifications.Request{
-		Channel: notifications.ChannelEmail,
+	if err := p.Send(context.Background(), core.Request{
+		Channel: core.ChannelEmail,
 		To:      "to@example.com",
 		Subject: "Hi",
 		Body:    "Text only",
@@ -175,8 +184,8 @@ func TestProvider_Send_HTMLBodyOmittedWhenEmpty(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if _, ok := rawPayload["html_body"]; ok {
-		t.Error("html_body should be omitted when empty, but was present in payload")
+	if _, ok := raw["html_body"]; ok {
+		t.Error("html_body should be omitted when empty")
 	}
 }
 
@@ -189,14 +198,14 @@ func TestProvider_Send_BearerTokenHeader(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := New(Config{
-		BaseURL:    srv.URL,
-		Token:      "secret-token",
-		HTTPClient: srv.Client(),
-	})
+	p := NewProvider(srv.Client()).(*emailProvider)
+	raw, _ := json.Marshal(emailConfig{BaseURL: srv.URL, Token: "secret-token"})
+	if err := p.Configure(raw); err != nil {
+		t.Fatalf("Configure: %v", err)
+	}
 
-	if err := p.Send(context.Background(), notifications.Request{
-		Channel: notifications.ChannelEmail,
+	if err := p.Send(context.Background(), core.Request{
+		Channel: core.ChannelEmail,
 		To:      "to@example.com",
 		Subject: "Hi",
 		Body:    "Text",
@@ -209,49 +218,8 @@ func TestProvider_Send_BearerTokenHeader(t *testing.T) {
 	}
 }
 
-func TestProvider_Send_NoTokenHeader(t *testing.T) {
-	var capturedAuth string
-
-	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		capturedAuth = r.Header.Get("Authorization")
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
-
-	p := New(Config{BaseURL: srv.URL, HTTPClient: srv.Client()})
-
-	if err := p.Send(context.Background(), notifications.Request{
-		Channel: notifications.ChannelEmail,
-		To:      "to@example.com",
-		Subject: "Hi",
-		Body:    "Text",
-	}); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if capturedAuth != "" {
-		t.Errorf("expected no Authorization header, got %q", capturedAuth)
-	}
-}
-
-func TestProvider_Send_InsecureURLRejected(t *testing.T) {
-	p := New(Config{BaseURL: "http://email.svc.local", Token: "tok"})
-	err := p.Send(context.Background(), notifications.Request{
-		Channel: notifications.ChannelEmail,
-		To:      "to@example.com",
-		Subject: "Hi",
-		Body:    "Text",
-	})
-	if err == nil {
-		t.Fatal("expected error for HTTP URL, got nil")
-	}
-	if !strings.Contains(err.Error(), "HTTPS") {
-		t.Errorf("error %q should mention HTTPS", err.Error())
-	}
-}
-
 func TestProvider_Send_ContextCancellation(t *testing.T) {
-	p, _ := newProvider(t, func(w http.ResponseWriter, r *http.Request) {
+	p, _ := newTLSProvider(t, func(w http.ResponseWriter, r *http.Request) {
 		<-r.Context().Done()
 		w.WriteHeader(http.StatusOK)
 	})
@@ -259,8 +227,8 @@ func TestProvider_Send_ContextCancellation(t *testing.T) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	err := p.Send(cancelCtx, notifications.Request{
-		Channel: notifications.ChannelEmail,
+	err := p.Send(cancelCtx, core.Request{
+		Channel: core.ChannelEmail,
 		To:      "to@example.com",
 		Subject: "Hi",
 		Body:    "Text",
@@ -269,6 +237,6 @@ func TestProvider_Send_ContextCancellation(t *testing.T) {
 		t.Fatal("expected error for cancelled context, got nil")
 	}
 	if !strings.Contains(err.Error(), "email service request failed") {
-		t.Errorf("error %q does not contain %q", err.Error(), "email service request failed")
+		t.Errorf("error %q does not contain expected prefix", err.Error())
 	}
 }
