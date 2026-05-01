@@ -14,7 +14,9 @@ else
     exit 1
 fi
 
-# Ensure environment variables are set
+CLEAN_RUN="${CLEAN_RUN:-false}"
+
+# Validate required DB environment variables
 for VAR in DB_HOST DB_PORT DB_USERNAME DB_PASSWORD DB_NAME; do
     if [ -z "${!VAR:-}" ]; then
         echo "Error: Required environment variable $VAR is not set."
@@ -30,16 +32,19 @@ FCAU_OGA_SUBMISSION_URL="${FCAU_OGA_SUBMISSION_URL:-http://localhost:8082/api/og
 PRECONSIGNMENT_OGA_SUBMISSION_URL="${PRECONSIGNMENT_OGA_SUBMISSION_URL:-http://localhost:8083/api/oga/inject}"
 CDA_OGA_SUBMISSION_URL="${CDA_OGA_SUBMISSION_URL:-http://localhost:8084/api/oga/inject}"
 
-# Force disconnect other users and drop the database
-# Using the 'postgres' database as a maintenance DB to execute the drop
-echo "Dropping database $DB_NAME..."
-PGPASSWORD=$DB_PASSWORD psql -h "$MIGRATION_DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d postgres -c "DROP DATABASE IF EXISTS $DB_NAME WITH (FORCE);"
+if [[ "$CLEAN_RUN" == "true" ]]; then
+    echo "Dropping database $DB_NAME..."
+    PGPASSWORD=$DB_PASSWORD psql -h "$MIGRATION_DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d postgres \
+        -c "DROP DATABASE IF EXISTS $DB_NAME WITH (FORCE);"
 
-# Recreate the database
-echo "Creating database $DB_NAME..."
-PGPASSWORD=$DB_PASSWORD psql -h "$MIGRATION_DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d postgres -c "CREATE DATABASE $DB_NAME;"
+    echo "Creating database $DB_NAME..."
+    PGPASSWORD=$DB_PASSWORD psql -h "$MIGRATION_DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d postgres \
+        -c "CREATE DATABASE $DB_NAME;"
+else
+    echo "Skipping database drop/recreate. Run with --clean-run to wipe."
+    exit 0
+fi
 
-# Define the file paths
 MIGRATIONS=(
     "001_initial_schema.up.sql"
     "002_insert_seed_hscodes.up.sql"
@@ -67,11 +72,6 @@ for FILE in "${MIGRATIONS[@]}"; do
             -v PRECONSIGNMENT_OGA_SUBMISSION_URL="$PRECONSIGNMENT_OGA_SUBMISSION_URL" \
             -v CDA_OGA_SUBMISSION_URL="$CDA_OGA_SUBMISSION_URL" \
             -h "$MIGRATION_DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_NAME" -f "$FILE"
-        
-        if [ $? -ne 0 ]; then
-            echo "Error executing $FILE. Aborting."
-            exit 1
-        fi
     else
         echo "Warning: File $FILE not found, skipping."
     fi
