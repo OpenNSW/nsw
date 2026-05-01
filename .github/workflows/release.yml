@@ -9,24 +9,39 @@ name: Release - Build and Publish All Images
 #   Images are only pushed when triggered by a tag push OR a manual dispatch
 #   from the main branch. Any other trigger (e.g. branch push) runs in dry-run
 #   mode: images are built but not pushed and no GitHub Release is created.
+#
+# Outputs for gitops.yaml:
+#   Each service's image digest is written to the GitHub Release as a JSON asset
+#   (release-digests.json). gitops.yaml reads this file to verify images before
+#   updating ArgoCD manifests — no rebuild, no guesswork.
 
 on:
   push:
     tags:
-      - 'v*.*.*'  # matches semantic version tags: v1.0.0, v1.2.3-rc.1, etc.
+      - 'v*.*.*'   # matches semantic version tags: v1.0.0, v1.2.3-rc.1, etc.
+  # TODO: Remove workflow_dispatch trigger once this workflow is validated and the PR is approved.
   workflow_dispatch:
     inputs:
       version:
         description: 'Release version (e.g., v1.0.0)'
         required: true
         type: string
+      branch:
+        description: 'Branch to run against (for testing only)'
+        required: false
+        default: 'main'
+        type: string
 
 env:
   REGISTRY: ghcr.io
 
 jobs:
+  # ---------------------------------------------------------------------------
   # STAGE 1: Build, tag, and publish all images in parallel.
   # fail-fast: false means one failing image does not cancel the others.
+  # Each leg writes its image digest to a per-service file so Stage 3 can
+  # collate them into release-digests.json and attach it to the GitHub Release.
+  # ---------------------------------------------------------------------------
   build-and-publish:
     name: Build and Publish - ${{ matrix.service_name }}
     runs-on: ubuntu-latest
@@ -43,16 +58,25 @@ jobs:
             context: ./backend
             dockerfile: ./backend/Dockerfile
             description: NSW Backend API Service
+
+          - service_name: NSW DB Migrations
+            image_name: nsw-api-migrations
+            context: .
+            dockerfile: ./backend/migrations.Dockerfile
+            description: NSW Database Migrations
+
           - service_name: OGA Backend
             image_name: nsw-oga-backend
             context: ./oga
             dockerfile: ./oga/Dockerfile
             description: NSW OGA Backend Service
+
           - service_name: Trader Portal
             image_name: nsw-trader-portal
             context: ./portals
             dockerfile: ./portals/apps/trader-app/Dockerfile
             description: NSW Trader Portal Frontend
+
           - service_name: OGA Portal
             image_name: nsw-oga-portal
             context: ./portals
@@ -62,9 +86,6 @@ jobs:
     env:
       GIT_COMMIT: ${{ github.sha }}
 
-    # Expose release-mode as a job-level output so create-release can read it.
-    # Only the last matrix leg's value is used (they are all identical), but
-    # GitHub requires at least one leg to set the output for the job to expose it.
     outputs:
       release_enabled: ${{ steps.release-mode.outputs.enabled }}
 
@@ -72,14 +93,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # full history needed for accurate git metadata
+          fetch-depth: 0   # full history needed for accurate git metadata
 
       - name: Set build time
         id: build-time
         run: |
           # repository.pushed_at is reliably populated on both push and workflow_dispatch.
           # github.event.head_commit.timestamp is NOT available on workflow_dispatch
-          # so we skip it and fall back to the current time if pushed_at is also empty.
+          # so we fall back to the current time if pushed_at is also empty.
           TIMESTAMP="${{ github.event.repository.pushed_at }}"
           if [ -z "$TIMESTAMP" ]; then
             TIMESTAMP=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -90,11 +111,10 @@ jobs:
       - name: Determine release mode
         id: release-mode
         run: |
-          # Release mode: tag push OR manual dispatch from main.
-          # All other cases (e.g. accidental branch push) become a dry run —
-          # images are built but not pushed and no GitHub Release is created.
+          # Release mode: tag push OR manual dispatch from any branch (testing allowed).
+          # Pure branch pushes without a version input remain a dry run.
           if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == refs/tags/* ]] || \
-             [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+             [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ github.event.inputs.version }}" ]]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
             echo "Release mode enabled - images will be pushed"
           else
@@ -127,18 +147,21 @@ jobs:
           echo "tag=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Resolved version: ${VERSION}"
 
+      - name: Convert repository owner to lowercase
+        id: repo_owner
+        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image_name }}
+          images: ${{ env.REGISTRY }}/${{ steps.repo_owner.outputs.owner }}/${{ matrix.image_name }}
           tags: |
             # semver tags for tag-push releases: 1.2.3, 1.2, 1
             type=semver,pattern={{version}},enable=${{ github.event_name == 'push' }}
             type=semver,pattern={{major}}.{{minor}},enable=${{ github.event_name == 'push' }}
             type=semver,pattern={{major}},enable=${{ github.event_name == 'push' }}
-            # For manual dispatch, raw tag covers the exact version supplied;
-            # semver patterns also run so major/minor aliases are written.
+            # For manual dispatch, raw tag covers the exact version supplied.
             type=raw,value=${{ steps.version.outputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
             type=semver,pattern={{version}},enable=${{ github.event_name == 'workflow_dispatch' }}
             type=semver,pattern={{major}}.{{minor}},enable=${{ github.event_name == 'workflow_dispatch' }}
@@ -164,19 +187,31 @@ jobs:
           push: ${{ steps.release-mode.outputs.enabled == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # provenance and sbom attach SLSA build attestations to the image in GHCR,
-          # making the build verifiable and traceable back to this workflow run.
+          # provenance and sbom attach SLSA build attestations to the image in GHCR.
           provenance: mode=max
           sbom: true
-          # GHA cache is keyed per image name; the two portals sharing the same
-          # context (./portals) use different image names so caches don't collide.
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Write this service's digest to a file so the collate job can bundle
+      # all five digests into release-digests.json for gitops.yaml to consume.
+      - name: Save image digest
+        if: steps.release-mode.outputs.enabled == 'true' && steps.build.outputs.digest != ''
+        run: |
+          mkdir -p /tmp/digests
+          echo '${{ steps.build.outputs.digest }}' > /tmp/digests/${{ matrix.image_name }}.txt
+          echo "Saved digest for ${{ matrix.image_name }}: ${{ steps.build.outputs.digest }}"
+
+      - name: Upload digest artifact
+        if: steps.release-mode.outputs.enabled == 'true' && steps.build.outputs.digest != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.image_name }}
+          path: /tmp/digests/${{ matrix.image_name }}.txt
+          retention-days: 1
+
       # Trivy scans the pushed image for CRITICAL/HIGH CVEs.
-      # continue-on-error keeps the release moving if Trivy itself fails,
-      # but the SARIF upload is only attempted when the scan actually succeeded
-      # (outcome == 'success'), preventing the 'path does not exist' error.
+      # continue-on-error keeps the release moving if Trivy itself fails.
       - name: Run Trivy vulnerability scanner
         id: trivy-scan
         if: steps.release-mode.outputs.enabled == 'true'
@@ -184,8 +219,6 @@ jobs:
         continue-on-error: true
         with:
           image-ref: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
-          # Pin Trivy and pass token for setup to reduce flaky install failures.
-          # This mainly helps when setup-trivy hits unauthenticated API/download limits.
           version: v0.69.3
           token-setup-trivy: ${{ secrets.GITHUB_TOKEN }}
           format: sarif
@@ -199,8 +232,6 @@ jobs:
         with:
           sarif_file: trivy-${{ matrix.image_name }}.sarif
 
-      # Always runs (even on failure) to give a per-service build summary.
-      # Digest is only available when the image was actually pushed.
       - name: Generate service summary
         if: always()
         run: |
@@ -210,29 +241,26 @@ jobs:
           echo "- Version: ${{ steps.version.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Dockerfile: ${{ matrix.dockerfile }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Context: ${{ matrix.context }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Image: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.image_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Image: ${{ env.REGISTRY }}/${{ steps.repo_owner.outputs.owner }}/${{ matrix.image_name }}" >> "$GITHUB_STEP_SUMMARY"
           if [ -n "${{ steps.build.outputs.digest }}" ]; then
             echo "- Digest: ${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-  # STAGE 2: Create the GitHub Release entry after all images are published.
-  # Runs after build-and-publish completes (needs: build-and-publish).
-  # Skipped on dry runs — only fires on tag push or manual dispatch.
-  create-release:
-    name: Create GitHub Release
+  # ---------------------------------------------------------------------------
+  # STAGE 2: Collate all five per-service digest artifacts into one JSON file
+  # and attach it to the GitHub Release so gitops.yaml can fetch it.
+  # Runs only in release mode after all matrix legs finish.
+  # ---------------------------------------------------------------------------
+  collate-digests:
+    name: Collate Image Digests
     runs-on: ubuntu-latest
     needs: build-and-publish
-    permissions:
-      contents: write  # required to create a GitHub Release
-    if: |
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
-      needs.build-and-publish.outputs.release_enabled == 'true'
+    if: needs.build-and-publish.outputs.release_enabled == 'true'
+    outputs:
+      # Pass the resolved version forward to create-release without re-deriving it.
+      version: ${{ steps.version.outputs.tag }}
+      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - name: Determine version
         id: version
         run: |
@@ -243,18 +271,73 @@ jobs:
           fi
           VERSION="${VERSION#v}"
           echo "tag=${VERSION}" >> "$GITHUB_OUTPUT"
-          # Mark as prerelease if the version contains a hyphen: v1.0.0-rc.1, v2.0.0-beta, etc.
-          # Stable releases (v1.2.3) have no hyphen and are published as non-prerelease.
           if [[ "${VERSION}" == *-* ]]; then
             echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
           else
             echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Download all digest artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: digest-*
+          path: /tmp/digests
+          merge-multiple: true
+
+      - name: Build release-digests.json
+        run: |
+          # Merge all per-service digest files into one JSON object:
+          # { "nsw-backend": "sha256:abc...", "nsw-api-migrations": "sha256:def...", ... }
+          echo "{" > release-digests.json
+          FIRST=true
+          for FILE in /tmp/digests/*.txt; do
+            IMAGE_NAME=$(basename "$FILE" .txt)
+            DIGEST=$(cat "$FILE")
+            if [ "$FIRST" = true ]; then
+              FIRST=false
+            else
+              echo "," >> release-digests.json
+            fi
+            echo "  \"${IMAGE_NAME}\": \"${DIGEST}\"" >> release-digests.json
+          done
+          echo "}" >> release-digests.json
+          echo "Generated release-digests.json:"
+          cat release-digests.json
+
+      - name: Upload collated digests
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-digests
+          path: release-digests.json
+          retention-days: 1
+
+  # ---------------------------------------------------------------------------
+  # STAGE 3: Create the GitHub Release entry and attach release-digests.json.
+  # gitops.yaml (triggered by the release published event) will download this
+  # asset to verify digests before updating ArgoCD manifests.
+  # ---------------------------------------------------------------------------
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: collate-digests
+    permissions:
+      contents: write   # required to create a GitHub Release
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download collated digests
+        uses: actions/download-artifact@v4
+        with:
+          name: release-digests
+          path: .
+
       - name: Create git tag (workflow_dispatch only)
         if: github.event_name == 'workflow_dispatch'
         run: |
-          TAG="v${{ steps.version.outputs.tag }}"
+          TAG="v${{ needs.collate-digests.outputs.version }}"
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           if ! git rev-parse "$TAG" >/dev/null 2>&1; then
@@ -265,30 +348,37 @@ jobs:
             echo "Tag $TAG already exists — skipping creation"
           fi
 
-      - name: Create GitHub release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          # For tag push, github.ref is the tag ref (refs/tags/v1.2.0).
-          # For workflow_dispatch, there is no tag ref, so we construct one from the version input.
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', steps.version.outputs.tag) || github.ref }}
-          name: Release ${{ steps.version.outputs.tag }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', needs.collate-digests.outputs.version) || github.ref }}
+          name: Release ${{ needs.collate-digests.outputs.version }}
           body: |
-            ## Release ${{ steps.version.outputs.tag }}
+            ## Release ${{ needs.collate-digests.outputs.version }}
 
             This release publishes Docker images for all deployable NSW services and portals.
 
-            ### Published Image Targets
-            - `${{ env.REGISTRY }}/${{ github.repository }}/nsw-backend:${{ steps.version.outputs.tag }}`
-            - `${{ env.REGISTRY }}/${{ github.repository }}/nsw-oga-backend:${{ steps.version.outputs.tag }}`
-            - `${{ env.REGISTRY }}/${{ github.repository }}/nsw-trader-portal:${{ steps.version.outputs.tag }}`
-            - `${{ env.REGISTRY }}/${{ github.repository }}/nsw-oga-portal:${{ steps.version.outputs.tag }}`
+            ### Published Images
+            - `${{ env.REGISTRY }}/${{ github.repository }}/nsw-backend:${{ needs.collate-digests.outputs.version }}`
+            - `${{ env.REGISTRY }}/${{ github.repository }}/nsw-api-migrations:${{ needs.collate-digests.outputs.version }}`
+            - `${{ env.REGISTRY }}/${{ github.repository }}/nsw-oga-backend:${{ needs.collate-digests.outputs.version }}`
+            - `${{ env.REGISTRY }}/${{ github.repository }}/nsw-trader-portal:${{ needs.collate-digests.outputs.version }}`
+            - `${{ env.REGISTRY }}/${{ github.repository }}/nsw-oga-portal:${{ needs.collate-digests.outputs.version }}`
 
             ### Pull Images
             ```bash
-            docker pull ${{ env.REGISTRY }}/${{ github.repository }}/nsw-backend:${{ steps.version.outputs.tag }}
-            docker pull ${{ env.REGISTRY }}/${{ github.repository }}/nsw-oga-backend:${{ steps.version.outputs.tag }}
-            docker pull ${{ env.REGISTRY }}/${{ github.repository }}/nsw-trader-portal:${{ steps.version.outputs.tag }}
-            docker pull ${{ env.REGISTRY }}/${{ github.repository }}/nsw-oga-portal:${{ steps.version.outputs.tag }}
+            docker pull ${{ env.REGISTRY }}/${{ github.repository }}/nsw-backend:${{ needs.collate-digests.outputs.version }}
+            docker pull ${{ env.REGISTRY }}/${{ github.repository }}/nsw-api-migrations:${{ needs.collate-digests.outputs.version }}
+            docker pull ${{ env.REGISTRY }}/${{ github.repository }}/nsw-oga-backend:${{ needs.collate-digests.outputs.version }}
+            docker pull ${{ env.REGISTRY }}/${{ github.repository }}/nsw-trader-portal:${{ needs.collate-digests.outputs.version }}
+            docker pull ${{ env.REGISTRY }}/${{ github.repository }}/nsw-oga-portal:${{ needs.collate-digests.outputs.version }}
             ```
+
+            ### Image Digests
+            See `release-digests.json` attached to this release for the exact SHA256 digest
+            of each image — used by the GitOps pipeline to verify images before deploying.
           draft: false
-          prerelease: ${{ steps.version.outputs.is_prerelease == 'true' }}
+          prerelease: ${{ needs.collate-digests.outputs.is_prerelease == 'true' }}
+          # Attach the digest manifest so gitops.yaml can fetch it directly
+          # from the release assets without needing to rebuild or re-tag anything.
+          files: release-digests.json

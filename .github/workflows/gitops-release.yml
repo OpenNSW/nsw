@@ -1,129 +1,129 @@
 name: Zero-Touch GitOps Release
+# Triggered by a published GitHub Release (created by release.yaml).
+# This workflow does NOT rebuild images — it reads the release-digests.json
+# asset attached by release.yaml to verify all images exist in GHCR, then
+# updates the ArgoCD Helm manifests in the GitOps repository.
+#
+# Chain:
+#   push tag → release.yaml builds images → creates GitHub Release
+#           → this workflow triggers → verifies digests → updates manifests
+#           → ArgoCD detects changes → deploys to dev/staging
 
 on:
   release:
     types: [published]
+  # TODO: Remove workflow_dispatch trigger once this workflow is validated and the PR is approved.
   workflow_dispatch:
     inputs:
       version:
-        description: 'Manual version override (e.g., 1.5.0)'
-        required: false
+        description: 'Version to deploy (e.g., 1.5.0 — no leading v)'
+        required: true
+        type: string
+      release_tag:
+        description: 'GitHub Release tag to fetch digests from (e.g., v1.5.0)'
+        required: true
+        type: string
 
 permissions:
   contents: read
-  packages: write
-  id-token: write         # Required for SBOM/Provenance signing
-  security-events: write  # Required for Trivy SARIF uploads
 
 env:
   REGISTRY: ghcr.io
-  GITOPS_REPO: opennsw/nsw-gitops 
+  GITOPS_REPO: opennsw/nsw-gitops
 
 jobs:
-  # Build and publish all images in parallel
-  build-and-push:
-    name: Build & Push - ${{ matrix.service_name }}
+  # ---------------------------------------------------------------------------
+  # Verify all images exist in GHCR using the digests from release-digests.json,
+  # then update ArgoCD Helm values files in the GitOps repository.
+  # ---------------------------------------------------------------------------
+  update-gitops-state:
+    name: Verify Digests & Update ArgoCD Manifests
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - service_name: NSW Backend API
-            image_name: nsw-backend
-            context: ./backend
-            dockerfile: ./backend/Dockerfile
-          - service_name: NSW DB Migrations
-            image_name: nsw-api-migrations
-            context: .
-            dockerfile: ./backend/migrations.Dockerfile
-          - service_name: OGA Backend
-            image_name: nsw-oga-backend
-            context: ./oga
-            dockerfile: ./oga/Dockerfile
-          - service_name: Trader Portal
-            image_name: nsw-trader-portal
-            context: ./portals
-            dockerfile: ./portals/apps/trader-app/Dockerfile
-          - service_name: OGA Portal
-            image_name: nsw-oga-portal
-            context: ./portals
-            dockerfile: ./portals/apps/oga-app/Dockerfile
-
     steps:
-      - name: Checkout Application Repository
-        uses: actions/checkout@v4
-
-      - name: Extract Release Version
+      - name: Extract version
         id: version
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             VERSION="${{ github.event.inputs.version }}"
+            VERSION="${VERSION#v}"
           else
-            VERSION_TAG="${{ github.event.release.tag_name || github.ref_name }}"
+            VERSION_TAG="${{ github.event.release.tag_name }}"
             VERSION="${VERSION_TAG#v}"
           fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Deploying version: $VERSION"
 
       - name: Convert repository owner to lowercase
         id: repo_owner
-        run: echo "owner=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
-      - name: Build and Push Docker Image
-        uses: docker/build-push-action@v6
-        with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.dockerfile }}
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ steps.repo_owner.outputs.owner }}/${{ matrix.image_name }}:${{ steps.version.outputs.version }}
-            ${{ env.REGISTRY }}/${{ steps.repo_owner.outputs.owner }}/${{ matrix.image_name }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          provenance: mode=max
-          sbom: true
-
-      - name: Run Trivy vulnerability scanner
-        id: trivy-scan
-        uses: aquasecurity/trivy-action@0.24.0
-        continue-on-error: true
-        with:
-          image-ref: ${{ env.REGISTRY }}/${{ steps.repo_owner.outputs.owner }}/${{ matrix.image_name }}:${{ steps.version.outputs.version }}
-          format: sarif
-          output: trivy-${{ matrix.image_name }}.sarif
-          severity: CRITICAL,HIGH
-
-      - name: Upload Trivy results to GitHub Security tab
-        if: always() && steps.trivy-scan.outcome == 'success'
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: trivy-${{ matrix.image_name }}.sarif
-
-  # The GitOps Bridge (Cross-Repo Commit)
-  update-gitops-state:
-    name: Update ArgoCD Manifests
-    runs-on: ubuntu-latest
-    needs: build-and-push
-    steps:
-      - name: Extract Version
-        id: version
+      # Download the release-digests.json that release.yaml attached to the GitHub Release.
+      # For workflow_dispatch (manual testing), the caller supplies the release tag explicitly.
+      - name: Download release-digests.json from GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
-            VERSION="${{ github.event.inputs.version }}"
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            RELEASE_TAG="${{ github.event.inputs.release_tag }}"
           else
-            VERSION_TAG="${{ github.event.release.tag_name || github.ref_name }}"
-            VERSION="${VERSION_TAG#v}"
+            RELEASE_TAG="${{ github.event.release.tag_name }}"
           fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          echo "Fetching release-digests.json from release: $RELEASE_TAG"
+          gh release download "$RELEASE_TAG" \
+            --repo "${{ github.repository }}" \
+            --pattern "release-digests.json" \
+            --output release-digests.json
+
+          echo "Downloaded release-digests.json:"
+          cat release-digests.json
+
+      # Verify every expected image digest is reachable in GHCR before touching
+      # any manifests. This acts as a gate — if an image is missing or the digest
+      # doesn't match, the workflow fails here rather than deploying a broken state.
+      - name: Verify image digests in GHCR
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          OWNER="${{ steps.repo_owner.outputs.owner }}"
+          FAILED=0
+
+          IMAGES=(
+            "nsw-backend"
+            "nsw-api-migrations"
+            "nsw-oga-backend"
+            "nsw-trader-portal"
+            "nsw-oga-portal"
+          )
+
+          for IMAGE in "${IMAGES[@]}"; do
+            EXPECTED_DIGEST=$(jq -r ".\"${IMAGE}\"" release-digests.json)
+
+            if [ "$EXPECTED_DIGEST" == "null" ] || [ -z "$EXPECTED_DIGEST" ]; then
+              echo "❌ MISSING digest for ${IMAGE} in release-digests.json"
+              FAILED=1
+              continue
+            fi
+
+            IMAGE_REF="${{ env.REGISTRY }}/${OWNER}/${IMAGE}@${EXPECTED_DIGEST}"
+            echo "Verifying: ${IMAGE_REF}"
+
+            # docker manifest inspect confirms the digest exists in the registry.
+            if docker manifest inspect "$IMAGE_REF" > /dev/null 2>&1; then
+              echo "✅ ${IMAGE}: digest verified (${EXPECTED_DIGEST})"
+            else
+              echo "❌ ${IMAGE}: digest NOT found in GHCR (${EXPECTED_DIGEST})"
+              FAILED=1
+            fi
+          done
+
+          if [ "$FAILED" -ne 0 ]; then
+            echo ""
+            echo "One or more image digests could not be verified. Aborting manifest update."
+            exit 1
+          fi
+
+          echo ""
+          echo "All image digests verified. Proceeding to manifest update."
 
       - name: Checkout GitOps Repository
         uses: actions/checkout@v4
@@ -138,7 +138,6 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           echo "Updating all DEV and STAGING manifests to version: $VERSION"
 
-          # Target the specific files in the nsw-gitops repo
           MANIFESTS=(
             "apps/core/nsw-api/dev/values.yaml"
             "apps/core/nsw-api/staging/values.yaml"
@@ -160,32 +159,44 @@ jobs:
 
           for FILE in "${MANIFESTS[@]}"; do
             if [ -f "$FILE" ]; then
-              # Update standard image tag
               yq eval ".image.tag = \"$VERSION\"" -i "$FILE"
-              
-              # Special Case: Update migration tag for nsw-api
+
+              # Special case: nsw-api manifests also carry a separate migration image tag.
               if [[ "$FILE" == *"nsw-api"* ]]; then
                 yq eval ".dbMigrations.image.tag = \"$VERSION\"" -i "$FILE"
               fi
-              
+
               echo "Updated $FILE"
             else
-              echo "⚠️ Skipping $FILE (not found)"
+              echo "⚠️  Skipping $FILE (not found)"
             fi
           done
 
       - name: Commit and Push to GitOps Repo
         run: |
           cd gitops-repo
-          git config user.name "github-actions[bot]"
+          git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
+
           git add .
-          
+
           if [[ -n "$(git status --porcelain)" ]]; then
             git commit -m "chore(cd): update dev/staging tags to v${{ steps.version.outputs.version }}"
             git push origin main
             echo "Successfully pushed updates to GitOps repository."
           else
-            echo "No changes detected. Images are already at version ${{ steps.version.outputs.version }}."
+            echo "No changes detected. Manifests are already at version ${{ steps.version.outputs.version }}."
           fi
+
+      - name: Generate deployment summary
+        if: always()
+        run: |
+          echo "## GitOps Deployment Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Version**: ${{ steps.version.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **GitOps Repo**: ${{ env.GITOPS_REPO }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Trigger**: ${{ github.event_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Environments Updated" >> "$GITHUB_STEP_SUMMARY"
+          echo "- dev" >> "$GITHUB_STEP_SUMMARY"
+          echo "- staging" >> "$GITHUB_STEP_SUMMARY"
