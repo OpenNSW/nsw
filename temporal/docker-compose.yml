@@ -11,7 +11,8 @@ services:
     image: postgres:${POSTGRESQL_VERSION:-16-alpine}
     container_name: temporal-postgresql
     ports:
-      - "${TEMPORAL_DB_PORT:-55435}:5432"
+      # Use *BIND_HOST vars to restrict exposure in production (e.g. 127.0.0.1)
+      - "${TEMPORAL_DB_BIND_HOST:-0.0.0.0}:${TEMPORAL_DB_PORT:-55435}:5432"
     environment:
       POSTGRES_USER: ${TEMPORAL_DB_USERNAME:-temporal}
       POSTGRES_PASSWORD: ${TEMPORAL_DB_PASSWORD:-temporal}
@@ -41,6 +42,9 @@ services:
       POSTGRES_SEEDS: postgresql
       # Used by our setup script (kept separate from POSTGRES_PWD for clarity)
       SQL_PASSWORD: ${TEMPORAL_DB_PASSWORD:-temporal}
+      # Optional database names (kept in sync with scripts/setup-postgres.sh defaults)
+      TEMPORAL_DB_NAME: ${TEMPORAL_DB_NAME:-temporal}
+      TEMPORAL_VISIBILITY_DB_NAME: ${TEMPORAL_VISIBILITY_DB_NAME:-temporal_visibility}
     networks:
       - temporal-network
     volumes:
@@ -62,11 +66,11 @@ services:
       POSTGRES_SEEDS: postgresql
       BIND_ON_IP: 0.0.0.0
       # Dynamic config is mounted under /etc/temporal/config/dynamicconfig
-      DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/development-sql.yaml
+      DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/${TEMPORAL_DYNAMIC_CONFIG_FILE:-development-sql.yaml}
     networks:
       - temporal-network
     ports:
-      - "${TEMPORAL_PORT:-7233}:7233"
+      - "${TEMPORAL_BIND_HOST:-0.0.0.0}:${TEMPORAL_PORT:-7233}:7233"
     volumes:
       - ./dynamicconfig:/etc/temporal/config/dynamicconfig:ro
     healthcheck:
@@ -86,6 +90,7 @@ services:
     environment:
       TEMPORAL_ADDRESS: temporal:7233
       DEFAULT_NAMESPACE: ${TEMPORAL_NAMESPACE:-default}
+      TEMPORAL_NAMESPACE_RETENTION_DAYS: ${TEMPORAL_NAMESPACE_RETENTION_DAYS:-3}
     networks:
       - temporal-network
     volumes:
@@ -105,4 +110,4 @@ services:
     networks:
       - temporal-network
     ports:
-      - "${TEMPORAL_UI_PORT:-8233}:8080"
+      - "${TEMPORAL_UI_BIND_HOST:-0.0.0.0}:${TEMPORAL_UI_PORT:-8233}:8080"
