@@ -16,21 +16,10 @@ name: Release - Build and Publish All Images
 #   updating ArgoCD manifests — no rebuild, no guesswork.
 
 on:
+  # Automatic: pushing a SemVer tag (e.g. v1.2.0) triggers a full release.
   push:
     tags:
-      - 'v*.*.*'   # matches semantic version tags: v1.0.0, v1.2.3-rc.1, etc.
-  # TODO: Remove workflow_dispatch trigger once this workflow is validated and the PR is approved.
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Release version (e.g., v1.0.0)'
-        required: true
-        type: string
-      branch:
-        description: 'Branch to run against (for testing only)'
-        required: false
-        default: 'main'
-        type: string
+      - 'v*.*.*'
 
 env:
   REGISTRY: ghcr.io
@@ -216,7 +205,6 @@ jobs:
         id: trivy-scan
         if: steps.release-mode.outputs.enabled == 'true'
         uses: aquasecurity/trivy-action@0.35.0
-        continue-on-error: true
         with:
           image-ref: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
           version: v0.69.3
@@ -224,6 +212,7 @@ jobs:
           format: sarif
           output: trivy-${{ matrix.image_name }}.sarif
           severity: CRITICAL,HIGH
+          exit-code: '1'
           ignore-unfixed: false
 
       - name: Upload Trivy results

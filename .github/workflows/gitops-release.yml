@@ -12,17 +12,6 @@ name: Zero-Touch GitOps Release
 on:
   release:
     types: [published]
-  # TODO: Remove workflow_dispatch trigger once this workflow is validated and the PR is approved.
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to deploy (e.g., 1.5.0 — no leading v)'
-        required: true
-        type: string
-      release_tag:
-        description: 'GitHub Release tag to fetch digests from (e.g., v1.5.0)'
-        required: true
-        type: string
 
 permissions:
   contents: read
