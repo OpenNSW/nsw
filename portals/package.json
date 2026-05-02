@@ -11,6 +11,8 @@
     "build": "pnpm --recursive run build",
     "dev-oga": "pnpm --filter oga-app dev",
     "dev-trader": "pnpm --filter trader-app dev",
+    "format:check": "prettier --check .",
+    "format:fix": "prettier --write .",
     "lint": "pnpm --recursive --parallel run lint",
     "format": "pnpm --recursive --parallel run format",
     "type-check": "pnpm --recursive --parallel run type-check",
@@ -23,5 +25,8 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "devDependencies": {
+    "prettier": "^3.8.3"
+  }
 }

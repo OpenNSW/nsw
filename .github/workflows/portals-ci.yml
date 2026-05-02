@@ -43,12 +43,17 @@ jobs:
 
       # 2. Lint (Permissive)
       # Kept 'continue-on-error: true' as requested for legacy issues.
+      # TODO: We should aim to fix lint issues and eventually remove 'continue-on-error' to enforce linting.
       - name: Run ESLint
         run: pnpm run --recursive --parallel lint
         continue-on-error: true
 
-      # 3. Build (Final Verification)
-      # Only runs if Type Check passed (Lint failures are ignored due to above flag)
+      # 3. Check Formatting (Prettier)
+      - name: Check Formatting (Prettier)
+        run: pnpm run format:check
+
+      # 4. Build (Final Verification)
+      # Only runs if Type Check passed.
       - name: Build all workspaces
         run: pnpm run build
 
