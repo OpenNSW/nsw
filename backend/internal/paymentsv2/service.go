@@ -15,7 +15,7 @@ type PaymentService interface {
 	CreateCheckoutSession(ctx context.Context, req CreateCheckoutRequest) (*CreateCheckoutResponse, error)
 
 	// ValidateReference is used for real-time validation requests from gateways.
-	ValidateReference(ctx context.Context, providerID string, req ValidateReferenceRequest) (*ValidateReferenceResponse, error)
+	ValidateReference(ctx context.Context, providerID string, req any) (any, error)
 
 	// ProcessWebhook handles asynchronous notifications from payment gateways.
 	ProcessWebhook(ctx context.Context, providerID string, body []byte, headers map[string][]string) error
@@ -48,8 +48,8 @@ func (s *paymentService) CreateCheckoutSession(ctx context.Context, req CreateCh
 	return nil, fmt.Errorf("multi-provider checkout orchestration not yet implemented")
 }
 
-func (s *paymentService) ValidateReference(ctx context.Context, providerID string, req ValidateReferenceRequest) (*ValidateReferenceResponse, error) {
-	slog.Info("validating incoming payment reference", "provider", providerID, "reference", req.PaymentReference)
+func (s *paymentService) ValidateReference(ctx context.Context, providerID string, req any) (any, error) {
+	slog.Info("validating incoming payment reference", "provider", providerID)
 
 	// 1. Get the provider from the registry using the ID from the URL
 	provider, err := s.registry.Get(providerID)
@@ -57,19 +57,33 @@ func (s *paymentService) ValidateReference(ctx context.Context, providerID strin
 		return nil, fmt.Errorf("provider %s not found: %w", providerID, err)
 	}
 
+	type referenceExtractor interface {
+		GetRefNo(ctx context.Context, req any) (string, error)
+	}
+
+	extractor, ok := provider.(referenceExtractor)
+	if !ok {
+		return nil, fmt.Errorf("provider %s does not support reference extraction", providerID)
+	}
+
+	refNo, err := extractor.GetRefNo(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract reference number: %w", err)
+	}
+
 	// 2. Look up the transaction metadata from the DB
-	tx, err := s.repo.GetByReferenceNumber(ctx, req.PaymentReference)
+	tx, err := s.repo.GetByReferenceNumber(ctx, refNo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve payment reference: %w", err)
 	}
 	if tx == nil {
-		return &ValidateReferenceResponse{IsPayable: false, Remarks: "Invalid reference number"}, nil
+		return nil, fmt.Errorf("payment reference not found")
 	}
 
 	// 3. Security/Consistency check: ensure the transaction was actually intended for this provider
 	if tx.ProviderID != providerID {
 		slog.Warn("provider mismatch during validation", "expected", tx.ProviderID, "received", providerID, "reference", tx.ReferenceNumber)
-		return &ValidateReferenceResponse{IsPayable: false, Remarks: "Reference mismatch"}, nil
+		return nil, fmt.Errorf("reference mismatch")
 	}
 
 	// 4. Delegate final validation response to the provider, injecting the transaction metadata
