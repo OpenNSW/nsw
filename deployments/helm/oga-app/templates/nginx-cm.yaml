@@ -1,0 +1,54 @@
+{{- if not .Values.nginxConfigMapName }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "oga-app.fullname" . }}-nginx-config
+  labels:
+    {{- include "oga-app.labels" . | nindent 4 }}
+data:
+  default.conf.template: |
+    server {
+        listen 8080;
+        server_name localhost;
+
+        location / {
+            root /usr/share/nginx/html;
+            try_files $uri $uri/ /index.html;
+        }
+
+        # Never cache index.html to ensure users always get the latest configuration
+        location = /index.html {
+            root /usr/share/nginx/html;
+            add_header Cache-Control "no-store, no-cache, must-revalidate";
+        }
+
+        location = /runtime-env.js {
+            root /usr/share/nginx/html;
+            add_header Cache-Control "no-store, no-cache, must-revalidate";
+        }
+
+        # Health check for the portal itself
+        location /health {
+            access_log off;
+            return 200 'OK';
+        }
+
+        # High-priority proxy for OGA API
+        location ^~ /api/oga/ {
+            proxy_pass ${OGA_BACKEND_URL};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location ^~ /oga/ {
+            rewrite ^/oga/(.*) /api/oga/$1 break;
+            proxy_pass ${OGA_BACKEND_URL};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+{{- end }}

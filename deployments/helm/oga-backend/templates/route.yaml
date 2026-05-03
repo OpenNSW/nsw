@@ -1,15 +1,15 @@
-{{- if .Values.route.enabled -}}
+{{- if .Values.route.enabled }}
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: {{ include "oga-app.fullname" . }}
+  name: {{ include "oga-backend.fullname" . }}
   labels:
-    {{- include "oga-app.labels" . | nindent 4 }}
+    {{- include "oga-backend.labels" . | nindent 4 }}
 spec:
   host: {{ .Values.route.host | default (printf "%s-%s.%s" .Release.Name .Release.Namespace .Values.global.clusterDomain) }}
   to:
     kind: Service
-    name: {{ include "oga-app.fullname" . }}
+    name: {{ include "oga-backend.fullname" . }}
     weight: 100
   port:
     targetPort: http
