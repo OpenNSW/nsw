@@ -2,33 +2,29 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"net/http"
-
-	"gorm.io/gorm"
 )
 
 // Middleware creates an HTTP middleware that extracts and injects authentication context.
 // This middleware:
 // 1. Extracts the Authorization header
 // 2. Parses the token into a user principal or client principal
-// 3. Looks up user context from the database for user principals
+// 3. For user principals on first login, creates a user profile if UserProfileService is provided
 // 4. Injects the auth context into the request
-//
-// If a user has no stored context, AuthContext is still injected
-// with User.NSWData initialized to an empty object.
 //
 // Behavior summary:
 // - Missing Authorization header: request proceeds without auth context.
 // - Invalid token: request is rejected with 401.
-// - Auth dependencies unavailable or DB errors: request is rejected with 500.
+// - Auth dependencies unavailable: request is rejected with 500.
+// - User principal on first login: automatically creates user profile if service is provided.
 //
 // This design allows:
 // - Public endpoints (no auth required)
 // - Protected endpoints (check for context)
 // - Optional auth endpoints (use context if available)
-func Middleware(authService *AuthService, tokenExtractor *TokenExtractor) func(http.Handler) http.Handler {
+// - Generic auth that works with or without a user profile service
+func Middleware(userProfileService UserProfileService, tokenExtractor *TokenExtractor) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
@@ -38,8 +34,8 @@ func Middleware(authService *AuthService, tokenExtractor *TokenExtractor) func(h
 				return
 			}
 
-			if tokenExtractor == nil || authService == nil {
-				slog.Error("auth middleware dependencies are not initialized")
+			if tokenExtractor == nil {
+				slog.Error("auth middleware: token extractor not initialized")
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusInternalServerError)
 				_, _ = w.Write([]byte(`{"error":"internal_server_error","message":"authentication subsystem not initialized"}`))
@@ -73,44 +69,69 @@ func Middleware(authService *AuthService, tokenExtractor *TokenExtractor) func(h
 
 			authCtx := buildAuthContext(principal)
 			if principal.UserPrincipal != nil {
-				userCtx, err := authService.GetUserContext(principal.UserPrincipal.UserID)
-				if err != nil {
-					if errors.Is(err, gorm.ErrRecordNotFound) {
-						slog.Debug("no stored user context, creating default context",
-							"user_id", principal.UserPrincipal.UserID)
-						err = authService.UpsertUserContext(principal.UserPrincipal.UserID, UpsertUserContextPayload{
-							Email:       &principal.UserPrincipal.Email,
-							PhoneNumber: principal.UserPrincipal.PhoneNumber,
-							OUID:        &principal.UserPrincipal.OUID,
-							NSWData:     []byte(`{}`),
-						})
-						if err != nil {
-							slog.Error("failed to create default user context", "user_id", principal.UserPrincipal.UserID, "error", err)
-							w.Header().Set("Content-Type", "application/json")
-							w.WriteHeader(http.StatusInternalServerError)
-							_, _ = w.Write([]byte(`{"error":"internal_server_error","message":"failed to initialize user context"}`))
-							return
+				// Attempt to create user profile if service is provided (optional on first login).
+				// This is a fire-and-forget operation; we proceed even if it fails.
+				if userProfileService != nil {
+					// Check if the user already exists to avoid creating on every request.
+					exists, err := userProfileService.UserExists(principal.UserPrincipal.UserID)
+					if err != nil {
+						// Error checking existence; log but don't block auth
+						slog.Warn("failed to check if user exists; will attempt create anyway", "user_id", principal.UserPrincipal.UserID, "error", err)
+						create_err := userProfileService.CreateUser(
+							principal.UserPrincipal.UserID,
+							principal.UserPrincipal.Email,
+							func() string {
+								if principal.UserPrincipal.PhoneNumber != nil {
+									return *principal.UserPrincipal.PhoneNumber
+								}
+								return ""
+							}(),
+							principal.UserPrincipal.OUID,
+						)
+						if create_err != nil {
+							slog.Error("failed to create user profile on first login", "user_id", principal.UserPrincipal.UserID, "error", create_err)
 						}
+					} else if exists {
+						// user exists - no need to create
+						slog.Debug("user already exists - skipping creation", "user_id", principal.UserPrincipal.UserID)
 					} else {
-						slog.Error("failed to get user context from database", "user_id", principal.UserPrincipal.UserID, "error", err)
-						w.Header().Set("Content-Type", "application/json")
-						w.WriteHeader(http.StatusInternalServerError)
-						_, _ = w.Write([]byte(`{"error":"internal_server_error","message":"failed to retrieve user context"}`))
-						return
+						// user does not exist - attempt to create
+						create_err := userProfileService.CreateUser(
+							principal.UserPrincipal.UserID,
+							principal.UserPrincipal.Email,
+							func() string {
+								if principal.UserPrincipal.PhoneNumber != nil {
+									return *principal.UserPrincipal.PhoneNumber
+								}
+								return ""
+							}(),
+							principal.UserPrincipal.OUID,
+						)
+						if create_err != nil {
+							slog.Error("failed to create user profile on first login", "user_id", principal.UserPrincipal.UserID, "error", create_err)
+						} else {
+							slog.Debug("created user profile on first login", "user_id", principal.UserPrincipal.UserID)
+						}
 					}
-					userCtx = &UserContext{
-						UserID:  principal.UserPrincipal.UserID,
-						Email:   principal.UserPrincipal.Email,
-						OUID:    principal.UserPrincipal.OUID,
-						Roles:   principal.UserPrincipal.Roles,
-						NSWData: []byte(`{}`),
-					}
-					if principal.UserPrincipal.PhoneNumber != nil {
-						userCtx.PhoneNumber = *principal.UserPrincipal.PhoneNumber
-					}
+				} else {
+					slog.Debug("user profile service not provided - skipping user creation on first login")
 				}
-				authCtx.User = userCtx
+
+				// Build UserContext from the principal (no preloading of NSWData).
+				authCtx.User = &UserContext{
+					UserID: principal.UserPrincipal.UserID,
+					Email:  principal.UserPrincipal.Email,
+					PhoneNumber: func() string {
+						if principal.UserPrincipal.PhoneNumber != nil {
+							return *principal.UserPrincipal.PhoneNumber
+						}
+						return ""
+					}(),
+					OUID:  principal.UserPrincipal.OUID,
+					Roles: principal.UserPrincipal.Roles,
+				}
 			}
+
 			ctx := context.WithValue(r.Context(), AuthContextKey, authCtx)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
@@ -137,6 +158,7 @@ func buildAuthContext(principal *Principal) *AuthContext {
 				Email:       principal.UserPrincipal.Email,
 				PhoneNumber: phoneNumber,
 				OUID:        principal.UserPrincipal.OUID,
+				Roles:       principal.UserPrincipal.Roles,
 			},
 		}
 	case ClientPrincipalType:
@@ -158,6 +180,7 @@ func buildAuthContext(principal *Principal) *AuthContext {
 					Email:       principal.UserPrincipal.Email,
 					PhoneNumber: phoneNumber,
 					OUID:        principal.UserPrincipal.OUID,
+					Roles:       principal.UserPrincipal.Roles,
 				},
 			}
 		}
@@ -176,14 +199,14 @@ func buildAuthContext(principal *Principal) *AuthContext {
 //
 // Usage:
 //
-//	mux.Handle("POST /api/protected", auth.RequireAuth(authService, tokenExtractor)(handler))
+//	mux.Handle("POST /api/protected", auth.RequireAuth(userProfileService, tokenExtractor)(handler))
 //
 // TODO_JWT_FUTURE: Consider adding:
 // - Different auth levels (basic, standard, admin)
 // - Claim validation beyond token signature
 // - Rate limiting per user
-func RequireAuth(authService *AuthService, tokenExtractor *TokenExtractor) func(http.Handler) http.Handler {
-	authMiddleware := Middleware(authService, tokenExtractor)
+func RequireAuth(userProfileService UserProfileService, tokenExtractor *TokenExtractor) func(http.Handler) http.Handler {
+	authMiddleware := Middleware(userProfileService, tokenExtractor)
 	return func(next http.Handler) http.Handler {
 		return authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if GetAuthContext(r.Context()) == nil {

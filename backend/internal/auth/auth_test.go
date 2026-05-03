@@ -154,12 +154,6 @@ func TestUserPrincipalFromClaims(t *testing.T) {
 	}
 }
 
-func TestUserRecordModel(t *testing.T) {
-	if got := (&UserRecord{}).TableName(); got != "user_records" {
-		t.Fatalf("TableName() got = %v, want %v", got, "user_records")
-	}
-}
-
 func TestNewTokenExtractor_InvalidConfig(t *testing.T) {
 	tests := []struct {
 		name              string

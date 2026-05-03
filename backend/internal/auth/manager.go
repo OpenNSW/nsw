@@ -2,39 +2,48 @@ package auth
 
 import (
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
-
-	"gorm.io/gorm"
 )
 
 // Manager handles all authentication-related operations and middleware setup.
-// It encapsulates the auth service, token extraction, and middleware creation,
+// It encapsulates the token extraction and middleware creation,
 // providing a clean interface for the HTTP server to use.
 //
-// This manager pattern keeps auth logic self-contained and makes main.go cleaner.
+// This manager pattern keeps auth logic self-contained and optionally delegates user persistence
+// to a UserProfileService (if provided). The manager can work without a user profile service,
+// making it suitable for any authentication use case.
 type Manager struct {
-	service        *AuthService
-	tokenExtractor *TokenExtractor
-	middleware     func(http.Handler) http.Handler
+	userProfileService UserProfileService
+	tokenExtractor     *TokenExtractor
+	middleware         func(http.Handler) http.Handler
 }
 
 // NewManager creates and initializes a new auth manager.
 // This is the single entry point for all auth initialization in the application.
 //
-// Usage in main.go:
+// userProfileService is OPTIONAL. If not provided (nil), user creation on first login is disabled.
+// tokenExtractor is REQUIRED and is always initialized by this constructor.
+// This allows the auth package to be used in systems that don't track user profiles
+// while still guaranteeing auth token parsing is available.
 //
-//	authManager := auth.NewManager(db)
-//	handler := middleware.CORS(&cfg.CORS)(authManager.Middleware()(mux))
+// Usage examples:
 //
-// This centralizes auth setup for token extraction, middleware, and user-context access.
-func NewManager(db *gorm.DB, authConfig Config) (*Manager, error) {
-	slog.Info("initializing auth manager")
+//	// With user profile service (NSW example)
+//	userProfileService := user.NewService(db)
+//	authManager := auth.NewManager(userProfileService, cfg.Auth)
+//
+//	// Without user profile service (generic auth only)
+//	authManager := auth.NewManager(nil, cfg.Auth)
+//
+//	// With custom user profile service
+//	customService := &MyCustomUserService{}
+//	authManager := auth.NewManager(customService, cfg.Auth)
+func NewManager(userProfileService UserProfileService, authConfig Config) (*Manager, error) {
+	slog.Info("initializing auth manager", "user_profile_service_enabled", userProfileService != nil)
 
-	service := NewAuthService(db)
 	httpClient := &http.Client{Timeout: 10 * time.Second}
 	if authConfig.InsecureSkipTLSVerify {
 		httpClient.Transport = &http.Transport{
@@ -48,11 +57,14 @@ func NewManager(db *gorm.DB, authConfig Config) (*Manager, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize token extractor: %w", err)
 	}
+	if tokenExtractor == nil {
+		return nil, fmt.Errorf("token extractor not initialized")
+	}
 
 	return &Manager{
-		service:        service,
-		tokenExtractor: tokenExtractor,
-		middleware:     Middleware(service, tokenExtractor),
+		userProfileService: userProfileService,
+		tokenExtractor:     tokenExtractor,
+		middleware:         Middleware(userProfileService, tokenExtractor),
 	}, nil
 }
 
@@ -66,22 +78,9 @@ func NewManager(db *gorm.DB, authConfig Config) (*Manager, error) {
 // The middleware:
 // 1. Extracts Authorization header
 // 2. Parses token into user or client principal
-// 3. Looks up user context from database for user principals
+// 3. For user principals, creates user record if it's their first login
 // 4. Injects context into request
 func (m *Manager) Middleware() func(http.Handler) http.Handler { return m.middleware }
-
-// Service returns the auth service for direct use if needed.
-// Most applications won't need this - use the middleware instead.
-// Useful for:
-// - Direct user context lookups
-// - Updating user information
-// - Admin operations
-//
-// Example:
-//
-//	authService := authManager.Service()
-//	context, err := authService.GetUserContext("USER-001")
-func (m *Manager) Service() *AuthService { return m.service }
 
 // RequireAuthMiddleware returns a middleware that requires authentication.
 // If no auth context is found, returns 401 Unauthorized.
@@ -93,7 +92,7 @@ func (m *Manager) Service() *AuthService { return m.service }
 //	    authManager.RequireAuthMiddleware()(handler),
 //	)
 func (m *Manager) RequireAuthMiddleware() func(http.Handler) http.Handler {
-	return RequireAuth(m.service, m.tokenExtractor)
+	return RequireAuth(m.userProfileService, m.tokenExtractor)
 }
 
 // OptionalAuthMiddleware returns a middleware for endpoints that work with or without auth.
@@ -108,64 +107,23 @@ func (m *Manager) RequireAuthMiddleware() func(http.Handler) http.Handler {
 // The handler can check if auth context is available and personalize response.
 func (m *Manager) OptionalAuthMiddleware() func(http.Handler) http.Handler { return m.middleware }
 
-// GetUserContext is a convenience method to look up trader or CHA context directly.
-// Useful for non-request operations (e.g., background jobs, admin commands).
-//
-// Example:
-//
-//	authManager := auth.NewManager(db)
-//	ctx, err := authManager.GetUserContext("USER-001")
-//
-// For request-based operations, use auth.GetAuthContext(r.Context()) in handlers instead.
-func (m *Manager) GetUserContext(userID string) (*UserContext, error) {
-	return m.service.GetUserContext(userID)
-}
-
-// UpdateUserContext is a convenience method to update trader or CHA context directly.
-// Useful for admin operations or background jobs.
-//
-// Example:
-//
-//	authManager := auth.NewManager(db)
-//	newContext := json.RawMessage(`{"status": "verified"}`)
-//	err := authManager.UpdateUserContext("USER-001", newContext)
-//
-// For request-based operations, use a handler with auth context instead.
-func (m *Manager) UpdateUserContext(userID string, ctx interface{}) error {
-	var data []byte
-	var err error
-	switch v := ctx.(type) {
-	case []byte:
-		data = v
-	default:
-		data, err = json.Marshal(v)
-		if err != nil {
-			return fmt.Errorf("failed to marshal context: %w", err)
-		}
-	}
-	return m.service.UpdateUserContext(userID, data)
-}
-
 // Health checks if the auth system is functioning properly.
-// Performs a sample database query to verify:
-// 1. Database connection is alive
-// 2. user_records table is accessible
-// 3. Auth service can perform lookups
+// Since the UserProfileService is optional, this only verifies that the auth
+// system components are initialized correctly.
 //
 // Usage in server startup:
 //
-//	authManager := auth.NewManager(db)
+//	authManager := auth.NewManager(userProfileService, cfg.Auth)
 //	if err := authManager.Health(); err != nil {
 //	    log.Fatalf("auth system health check failed: %v", err)
 //	}
 //
-// Returns an error if anything is wrong, allowing graceful failure at startup.
+// Returns an error if auth system components are misconfigured.
 func (m *Manager) Health() error {
-	var probe int
-	if err := m.service.db.Raw("SELECT 1 FROM user_records LIMIT 1").Scan(&probe).Error; err != nil {
-		return err
+	if m.tokenExtractor == nil {
+		return fmt.Errorf("token extractor not initialized")
 	}
-	slog.Info("auth health check passed", "user_records_accessible", true)
+	slog.Info("auth system health check passed", "user_profile_service_enabled", m.userProfileService != nil)
 	return nil
 }
 
@@ -175,7 +133,7 @@ func (m *Manager) Health() error {
 //
 // Usage:
 //
-//	authManager := auth.NewManager(db)
+//	authManager := auth.NewManager(userService, cfg.Auth)
 //	defer authManager.Close()
 func (m *Manager) Close() error {
 	slog.Debug("auth manager closing")

@@ -12,6 +12,7 @@ import (
 	"github.com/OpenNSW/nsw/internal/database"
 	"github.com/OpenNSW/nsw/internal/middleware"
 	"github.com/OpenNSW/nsw/internal/payments"
+	"github.com/OpenNSW/nsw/internal/profile/user"
 	taskmanager "github.com/OpenNSW/nsw/internal/task/manager"
 	"github.com/OpenNSW/nsw/internal/task/plugin"
 	"github.com/OpenNSW/nsw/internal/temporal"
@@ -117,7 +118,9 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	paymentHandler := payments.NewHTTPHandler(paymentService)
 
-	authManager, err := auth.NewManager(db, cfg.Auth)
+	userProfileService := user.NewService(db)
+
+	authManager, err := auth.NewManager(userProfileService, cfg.Auth)
 	if err != nil {
 		_ = workflowRuntime.Close()
 		temporalClient.Close()

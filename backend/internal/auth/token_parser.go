@@ -224,9 +224,6 @@ func (te *TokenExtractor) userPrincipalFromClaims(claims *tokenClaims) (*UserPri
 	if claims.OUID == nil {
 		return nil, fmt.Errorf("jwt missing ouId claim for user principal")
 	}
-	if len(claims.Roles) == 0 {
-		return nil, fmt.Errorf("jwt missing roles claim for user principal")
-	}
 	return &UserPrincipal{
 		UserID:      claims.Subject,
 		Email:       *claims.Email,

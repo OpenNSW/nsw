@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"github.com/OpenNSW/nsw/internal/auth"
+	"github.com/OpenNSW/nsw/internal/profile/user"
 	workflowmanager "github.com/OpenNSW/nsw/internal/workflow/manager"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/OpenNSW/nsw/utils"
@@ -301,44 +301,48 @@ func (s *PreConsignmentService) GetPreConsignmentByID(ctx context.Context, preCo
 	return responseDTO, nil
 }
 
-// syncTraderContextToAuth synchronizes the trader context (from the workflow's global context) to the auth system.
+// syncTraderContextToAuth synchronizes the trader context (from the workflow's global context) to the user profile.
 // This is called when a pre-consignment is completed to persist accumulated context.
+// It updates the NSWData field on the user profile Record.
 func (s *PreConsignmentService) syncTraderContextToAuth(tx *gorm.DB, preConsignment *model.PreConsignment, traderContext map[string]any) error {
-	var uc auth.UserContext
+	var userRecord user.Record
 	result := tx.
 		Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where("user_id = ?", preConsignment.TraderID).
-		First(&uc)
+		First(&userRecord)
 
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			// User record doesn't exist; create it with the trader context as NSWData
 			contextJSON, err := json.Marshal(traderContext)
 			if err != nil {
 				return fmt.Errorf("failed to marshal user context: %w", err)
 			}
 
-			uc = auth.UserContext{
+			userRecord = user.Record{
 				UserID:  preConsignment.TraderID,
 				NSWData: contextJSON,
 			}
 
-			if err := tx.Create(&uc).Error; err != nil {
-				return fmt.Errorf("failed to create user context: %w", err)
+			if err := tx.Create(&userRecord).Error; err != nil {
+				return fmt.Errorf("failed to create user record: %w", err)
 			}
 			return nil
 		}
-		return fmt.Errorf("failed to query user context: %w", result.Error)
+		return fmt.Errorf("failed to query user record: %w", result.Error)
 	}
 
+	// Merge new trader context with existing NSWData
 	var existingContext map[string]any
-	if len(uc.NSWData) > 0 {
-		if err := json.Unmarshal(uc.NSWData, &existingContext); err != nil {
+	if len(userRecord.NSWData) > 0 {
+		if err := json.Unmarshal(userRecord.NSWData, &existingContext); err != nil {
 			return fmt.Errorf("failed to unmarshal existing user context: %w", err)
 		}
 	} else {
 		existingContext = make(map[string]any)
 	}
 
+	// Merge trader context into existing context
 	for k, v := range traderContext {
 		existingContext[k] = v
 	}
@@ -348,9 +352,9 @@ func (s *PreConsignmentService) syncTraderContextToAuth(tx *gorm.DB, preConsignm
 		return fmt.Errorf("failed to marshal updated user context: %w", err)
 	}
 
-	uc.NSWData = updatedJSON
-	if err := tx.Save(&uc).Error; err != nil {
-		return fmt.Errorf("failed to update user context: %w", err)
+	// Update the user record's NSWData field
+	if err := tx.Model(&userRecord).Update("nsw_data", updatedJSON).Error; err != nil {
+		return fmt.Errorf("failed to update user NSWData: %w", err)
 	}
 
 	return nil
