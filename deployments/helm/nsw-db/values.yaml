@@ -1,0 +1,28 @@
+# Default values for nsw-db.
+
+image:
+  repository: registry.redhat.io/rhel8/postgresql-12
+  tag: latest
+  pullPolicy: IfNotPresent
+
+persistence:
+  enabled: true
+  size: 10Gi
+  accessMode: ReadWriteOnce
+  storageClass: "ocs-storagecluster-ceph-rbd"
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+auth:
+  username: "postgres"
+  # Best practice: create a secret externally and provide the name here.
+  # This avoids leaking passwords in CI/CD pipeline logs via --set arguments.
+  existingSecret: ""
+  # CRITICAL: If existingSecret is empty, password is REQUIRED at install time via --set auth.password=<pass>
+  password: ""

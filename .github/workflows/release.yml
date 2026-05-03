@@ -4,6 +4,7 @@ name: Release - Build and Publish All Images
 # Triggers:
 #   - Automatic: pushing a SemVer tag (e.g. v1.2.0) triggers a full release.
 #   - Manual:    workflow_dispatch with a version input for hotfixes or re-releases.
+#   - Dry Run:   push/PR to main branch builds images without pushing.
 #
 # Release mode vs Dry Run:
 #   Images are only pushed when triggered by a tag push OR a manual dispatch
@@ -12,8 +13,13 @@ name: Release - Build and Publish All Images
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*.*.*'  # matches semantic version tags: v1.0.0, v1.2.3-rc.1, etc.
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       version:
@@ -43,6 +49,11 @@ jobs:
             context: ./backend
             dockerfile: ./backend/Dockerfile
             description: NSW Backend API Service
+          - service_name: NSW DB Migrations
+            image_name: nsw-api-migrations
+            context: .
+            dockerfile: ./backend/migrations.Dockerfile
+            description: NSW Database Migrations
           - service_name: OGA Backend
             image_name: nsw-oga-backend
             context: ./oga
@@ -279,6 +290,7 @@ jobs:
 
             ### Published Image Targets
             - `${{ env.REGISTRY }}/${{ github.repository }}/nsw-backend:${{ steps.version.outputs.tag }}`
+            - `${{ env.REGISTRY }}/${{ github.repository }}/nsw-api-migrations:${{ steps.version.outputs.tag }}`
             - `${{ env.REGISTRY }}/${{ github.repository }}/nsw-oga-backend:${{ steps.version.outputs.tag }}`
             - `${{ env.REGISTRY }}/${{ github.repository }}/nsw-trader-portal:${{ steps.version.outputs.tag }}`
             - `${{ env.REGISTRY }}/${{ github.repository }}/nsw-oga-portal:${{ steps.version.outputs.tag }}`
@@ -286,6 +298,7 @@ jobs:
             ### Pull Images
             ```bash
             docker pull ${{ env.REGISTRY }}/${{ github.repository }}/nsw-backend:${{ steps.version.outputs.tag }}
+            docker pull ${{ env.REGISTRY }}/${{ github.repository }}/nsw-api-migrations:${{ steps.version.outputs.tag }}
             docker pull ${{ env.REGISTRY }}/${{ github.repository }}/nsw-oga-backend:${{ steps.version.outputs.tag }}
             docker pull ${{ env.REGISTRY }}/${{ github.repository }}/nsw-trader-portal:${{ steps.version.outputs.tag }}
             docker pull ${{ env.REGISTRY }}/${{ github.repository }}/nsw-oga-portal:${{ steps.version.outputs.tag }}

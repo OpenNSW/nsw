@@ -48,7 +48,7 @@ spec:
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: nsw-db-credentials
+                  name: {{ .Values.config.database.credentialsSecretName | default "nsw-db-credentials" }}
                   key: password
             - name: DB_NAME
               value: {{ .Values.config.database.name | quote }}
@@ -90,12 +90,12 @@ spec:
             - name: STORAGE_S3_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
-                  name: nsw-s3-credentials
+                  name: {{ .Values.config.storage.credentialsSecretName | default "nsw-s3-credentials" }}
                   key: accessKey
             - name: STORAGE_S3_SECRET_KEY
               valueFrom:
                 secretKeyRef:
-                  name: nsw-s3-credentials
+                  name: {{ .Values.config.storage.credentialsSecretName | default "nsw-s3-credentials" }}
                   key: secretKey
             - name: STORAGE_S3_USE_SSL
               value: {{ .Values.config.storage.s3UseSsl | quote }}
