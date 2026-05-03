@@ -74,14 +74,9 @@ func (r *PreConsignmentRouter) HandleCreatePreConsignment(w http.ResponseWriter,
 	}
 
 	traderId := authCtx.User.UserID
-	traderContext, err := authCtx.GetUserContextMap()
-	if err != nil {
-		slog.Error("failed to parse user context", "error", err)
-		http.Error(w, "failed to parse trader context", http.StatusInternalServerError)
-		return
-	}
-
-	preConsignment, err := r.pcs.InitializePreConsignment(req.Context(), &createReq, traderId, traderContext)
+	// TODO: Initial trader context is nil; services requiring user metadata should fetch it on-demand
+	// from the user profile service rather than relying on preloaded request context.
+	preConsignment, err := r.pcs.InitializePreConsignment(req.Context(), &createReq, traderId, nil)
 	if err != nil {
 		slog.Error("failed to create pre-consignment", "error", err)
 		http.Error(w, "failed to create pre-consignment: "+err.Error(), http.StatusInternalServerError)

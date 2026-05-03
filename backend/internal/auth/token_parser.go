@@ -24,11 +24,12 @@ const (
 
 type tokenClaims struct {
 	jwt.RegisteredClaims
-	ClientID  string           `json:"client_id"`
-	GrantType AllowedGrantType `json:"grant_type"`
-	Email     *string          `json:"email,omitempty"`
-	OUHandle  *string          `json:"ouHandle,omitempty"`
-	OUID      *string          `json:"ouId,omitempty"`
+	ClientID    string           `json:"client_id"`
+	GrantType   AllowedGrantType `json:"grant_type"`
+	Email       *string          `json:"email,omitempty"`
+	PhoneNumber *string          `json:"phone_number,omitempty"`
+	OUID        *string          `json:"ouId,omitempty"`
+	Roles       []string         `json:"roles,omitempty"`
 }
 
 type PrincipalType string
@@ -43,10 +44,11 @@ type ClientPrincipal struct {
 }
 
 type UserPrincipal struct {
-	UserID   string `json:"userId"`
-	Email    string `json:"email"`
-	OUHandle string `json:"ouHandle"`
-	OUID     string `json:"ouId"`
+	UserID      string   `json:"userId"`
+	Email       string   `json:"email"`
+	PhoneNumber *string  `json:"phone_number,omitempty"`
+	OUID        string   `json:"ouId"`
+	Roles       []string `json:"roles"`
 }
 
 type Principal struct {
@@ -219,17 +221,15 @@ func (te *TokenExtractor) userPrincipalFromClaims(claims *tokenClaims) (*UserPri
 	if claims.Email == nil {
 		return nil, fmt.Errorf("jwt missing email claim for user principal")
 	}
-	if claims.OUHandle == nil {
-		return nil, fmt.Errorf("jwt missing ouHandle claim for user principal")
-	}
 	if claims.OUID == nil {
 		return nil, fmt.Errorf("jwt missing ouId claim for user principal")
 	}
 	return &UserPrincipal{
-		UserID:   claims.Subject,
-		Email:    *claims.Email,
-		OUHandle: *claims.OUHandle,
-		OUID:     *claims.OUID,
+		UserID:      claims.Subject,
+		Email:       *claims.Email,
+		PhoneNumber: claims.PhoneNumber,
+		OUID:        *claims.OUID,
+		Roles:       claims.Roles,
 	}, nil
 }
 

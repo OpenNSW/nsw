@@ -15,17 +15,30 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// Note: These are integration test examples. To run them, you need:
-// 1. A test database instance (PostgreSQL)
-// 2. Mock database setup/teardown
-// 3. Proper test data initialization
+// MockUserService is a mock implementation of UserProfileService for testing.
+type MockUserService struct {
+	createUserErr error
+	getUserRecord any
+	getUserErr    error
+}
+
+func (m *MockUserService) CreateUser(userID, email, phone, ouID string) error {
+	return m.createUserErr
+
+}
+
+func (m *MockUserService) UserExists(userID string) (bool, error) {
+	return m.getUserRecord != nil, m.getUserErr
+}
 
 // TestGetAuthContextFromRequest tests context retrieval
 func TestGetAuthContext_FromRequest(t *testing.T) {
 	// Create a context with auth
 	uc := &UserContext{
-		UserID:  "TRADER-001",
-		NSWData: json.RawMessage(`{"test": "data"}`),
+		UserID: "TRADER-001",
+		Email:  "trader@example.com",
+		OUID:   "OU-001",
+		Roles:  []string{"exporter"},
 	}
 	authCtx := &AuthContext{User: uc}
 	ctx := context.WithValue(context.Background(), AuthContextKey, authCtx)
@@ -53,54 +66,33 @@ func TestGetAuthContext_NoContext(t *testing.T) {
 	}
 }
 
-// TestContextJSONUnmarshaling tests unmarshaling trader context JSON
-func TestUserContext_JSONUnmarshaling(t *testing.T) {
-	contextJSON := json.RawMessage(`{
-		"company": "Acme Inc",
-		"trading_type": "exporter",
-		"verified": true
-	}`)
-
+// TestUserContext_JSONUnmarshaling tests UserContext structure
+func TestUserContext_Structure(t *testing.T) {
 	uc := &UserContext{
-		UserID:  "TRADER-001",
-		NSWData: contextJSON,
+		UserID:      "TRADER-001",
+		Email:       "trader@example.com",
+		PhoneNumber: "+61400111222",
+		OUID:        "OU-001",
+		Roles:       []string{"exporter"},
 	}
 
-	// Verify UserID is set
+	// Verify fields are set
 	if uc.UserID != "TRADER-001" {
 		t.Errorf("got trader id %s, want TRADER-001", uc.UserID)
 	}
-
-	// Unmarshal the JSON data
-	var data map[string]interface{}
-	err := json.Unmarshal(uc.NSWData, &data)
-	if err != nil {
-		t.Errorf("failed to unmarshal trader context: %v", err)
+	if uc.Email != "trader@example.com" {
+		t.Errorf("got email %s, want trader@example.com", uc.Email)
 	}
-
-	if data["company"] != "Acme Inc" {
-		t.Errorf("got company %v, want Acme Inc", data["company"])
+	if uc.PhoneNumber != "+61400111222" {
+		t.Errorf("got phone number %s, want +61400111222", uc.PhoneNumber)
+	}
+	if uc.OUID != "OU-001" {
+		t.Errorf("got ou id %s, want OU-001", uc.OUID)
+	}
+	if len(uc.Roles) != 1 || uc.Roles[0] != "exporter" {
+		t.Errorf("got roles %v, want [exporter]", uc.Roles)
 	}
 }
-
-// Example: How to test in CI/CD with Docker
-//
-// func setupTestDB(t *testing.T) *gorm.DB {
-// 	// Use testcontainers to spin up PostgreSQL
-// 	// req := testcontainers.ContainerRequest{
-// 	//     Image:        "postgres:14",
-// 	//     ExposedPorts: []string{"5432/tcp"},
-// 	//     Env: map[string]string{
-// 	//         "POSTGRES_PASSWORD": "password",
-// 	//         "POSTGRES_DB":      "test_nsw",
-// 	//     },
-// 	// }
-//
-// 	// container, err := testcontainers.GenericContainer(context.Background(), ...)
-// 	// // Create connection string and connect with GORM
-// 	// db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-// 	// return db
-// }
 
 // TestAuthMiddleware_NoToken tests middleware when no auth header provided
 func TestAuthMiddleware_NoToken(t *testing.T) {
@@ -115,7 +107,7 @@ func TestAuthMiddleware_NoToken(t *testing.T) {
 
 	// Create middleware with nil dependencies
 	// This is acceptable for this test case since no token means the middleware
-	// won't attempt to use AuthService or TokenExtractor
+	// won't attempt to use user service or TokenExtractor
 	middleware := Middleware(nil, nil)
 	handlerWithMiddleware := middleware(testHandler)
 
@@ -130,7 +122,7 @@ func TestAuthMiddleware_NoToken(t *testing.T) {
 	}
 }
 
-// TestAuthMiddleware_UninitializedDependencies tests middleware returns 500 when required dependencies are missing
+// TestAuthMiddleware_UninitializedTokenExtractor tests middleware returns 500 when tokenExtractor is nil
 func TestAuthMiddleware_UninitializedDependencies(t *testing.T) {
 	testHandlerCalled := false
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -138,11 +130,8 @@ func TestAuthMiddleware_UninitializedDependencies(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	tokenExtractor, err := NewTokenExtractor("https://localhost:8090/oauth2/jwks", "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", []string{"TRADER_PORTAL_APP"})
-	if err != nil {
-		t.Fatalf("failed to create token extractor: %v", err)
-	}
-	middleware := Middleware(nil, tokenExtractor)
+	// With nil tokenExtractor, middleware should return 500
+	middleware := Middleware(nil, nil)
 	handlerWithMiddleware := middleware(testHandler)
 
 	req := httptest.NewRequest("GET", "http://example.com/test", nil)
@@ -155,7 +144,7 @@ func TestAuthMiddleware_UninitializedDependencies(t *testing.T) {
 		t.Errorf("expected status 500, got %d", recorder.Code)
 	}
 	if testHandlerCalled {
-		t.Error("expected handler not to be called when dependencies are uninitialized")
+		t.Error("expected handler not to be called when tokenExtractor is nil")
 	}
 }
 
@@ -171,8 +160,9 @@ func TestAuthMiddleware_InvalidToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create token extractor: %v", err)
 	}
-	// non-nil service to ensure this test validates token behavior, not DI failure behavior
-	middleware := Middleware(&AuthService{}, tokenExtractor)
+	// Use mock user service to ensure this test validates token behavior
+	mockUserService := &MockUserService{}
+	middleware := Middleware(mockUserService, tokenExtractor)
 	handlerWithMiddleware := middleware(testHandler)
 
 	req := httptest.NewRequest("GET", "http://example.com/test", nil)
@@ -193,10 +183,10 @@ func TestBuildAuthContext_UserPrincipalOnly(t *testing.T) {
 	principal := &Principal{
 		Type: UserPrincipalType,
 		UserPrincipal: &UserPrincipal{
-			UserID:   "TRADER-001",
-			Email:    "trader@example.com",
-			OUHandle: "ou-handle",
-			OUID:     "ou-id",
+			UserID: "TRADER-001",
+			Email:  "trader@example.com",
+			OUID:   "ou-id",
+			Roles:  []string{"exporter"},
 		},
 	}
 
@@ -207,6 +197,9 @@ func TestBuildAuthContext_UserPrincipalOnly(t *testing.T) {
 	}
 	if authCtx.Client != nil {
 		t.Fatalf("expected client id to be nil when client principal is absent")
+	}
+	if len(authCtx.User.Roles) != 1 || authCtx.User.Roles[0] != "exporter" {
+		t.Fatalf("expected roles to be set, got %v", authCtx.User.Roles)
 	}
 }
 
@@ -286,7 +279,8 @@ func TestAuthMiddleware_ValidClientCredentialsToken(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handlerWithMiddleware := Middleware(&AuthService{}, tokenExtractor)(testHandler)
+	mockUserService := &MockUserService{}
+	handlerWithMiddleware := Middleware(mockUserService, tokenExtractor)(testHandler)
 	req := httptest.NewRequest(http.MethodGet, "http://example.com/test", nil)
 	req.Header.Set("Authorization", "Bearer "+signedToken)
 	recorder := httptest.NewRecorder()
@@ -308,7 +302,12 @@ func TestRequireAuth_UnauthenticatedRequest(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	protected := RequireAuth(nil, nil)(testHandler)
+	tokenExtractor, err := NewTokenExtractor("https://localhost:8090/oauth2/jwks", "https://localhost:8090/oauth2/token", "TRADER_PORTAL_APP", []string{"TRADER_PORTAL_APP"})
+	if err != nil {
+		t.Fatalf("failed to create token extractor: %v", err)
+	}
+	mockUserService := &MockUserService{}
+	protected := RequireAuth(mockUserService, tokenExtractor)(testHandler)
 	req := httptest.NewRequest(http.MethodGet, "http://example.com/protected", nil)
 	recorder := httptest.NewRecorder()
 
@@ -372,7 +371,8 @@ func TestRequireAuth_ValidClientCredentialsToken(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	protected := RequireAuth(&AuthService{}, tokenExtractor)(testHandler)
+	mockUserService := &MockUserService{}
+	protected := RequireAuth(mockUserService, tokenExtractor)(testHandler)
 	req := httptest.NewRequest(http.MethodGet, "http://example.com/protected", nil)
 	req.Header.Set("Authorization", "Bearer "+signedToken)
 	recorder := httptest.NewRecorder()

@@ -158,14 +158,9 @@ func (c *ConsignmentRouter) HandleInitializeConsignment(w http.ResponseWriter, r
 		return
 	}
 
-	globalContext, err := authCtx.GetUserContextMap()
-	if err != nil {
-		slog.Error("failed to parse user context", "error", err)
-		http.Error(w, "failed to parse user context", http.StatusInternalServerError)
-		return
-	}
-
-	consignment, err := c.cs.InitializeConsignmentByID(r.Context(), consignmentID, req.HSCodeIDs, globalContext)
+	// TODO: Global context is nil; services requiring user metadata should fetch it on-demand
+	// from the user profile service rather than relying on preloaded request context.
+	consignment, err := c.cs.InitializeConsignmentByID(r.Context(), consignmentID, req.HSCodeIDs, nil)
 	if err != nil {
 		slog.Error("failed to initialize consignment", "error", err)
 		http.Error(w, "failed to initialize consignment: "+err.Error(), http.StatusInternalServerError)
