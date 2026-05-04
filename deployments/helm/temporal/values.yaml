@@ -1,0 +1,155 @@
+# Corrected Production Scale Temporal Values
+# Using Official Temporal Helm Chart (Dependency)
+
+temporal:
+  # Global settings
+  global:
+    imagePullSecrets:
+      - name: ghcr-secret
+
+  server:
+    image:
+      repository: ghcr.io/opennsw/temporal-auto-setup
+      tag: "1.28.3"
+      pullPolicy: IfNotPresent
+    
+    # Global default replica count
+    replicaCount: 1
+
+    # Per-service overrides
+    frontend:
+      replicaCount: 2
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 200m
+          memory: 256Mi
+
+    history:
+      replicaCount: 2
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 1024Mi
+        requests:
+          cpu: 500m
+          memory: 512Mi
+
+    matching:
+      replicaCount: 2
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 200m
+          memory: 256Mi
+
+    worker:
+      replicaCount: 1
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 200m
+          memory: 256Mi
+
+    config:
+      numHistoryShards: 128
+      persistence:
+        defaultStore: default
+        visibilityStore: visibility
+        datastores:
+          default:
+            sql:
+              createDatabase: true
+              manageSchema: true
+              pluginName: postgres12
+              driverName: postgres12
+              databaseName: temporal_db
+              connectAddr: "nsw-db:5432"
+              connectProtocol: tcp
+              user: "postgres"
+              existingSecret: "nsw-db-credentials"
+              secretKey: "password"
+              maxConns: 20
+              maxIdleConns: 20
+              maxConnLifetime: "1h"
+          visibility:
+            sql:
+              createDatabase: true
+              manageSchema: true
+              pluginName: postgres12
+              driverName: postgres12
+              databaseName: temporal_visibility_db
+              connectAddr: "nsw-db:5432"
+              connectProtocol: tcp
+              user: "postgres"
+              existingSecret: "nsw-db-credentials"
+              secretKey: "password"
+              maxConns: 20
+              maxIdleConns: 20
+              maxConnLifetime: "1h"
+
+    securityContext: null
+
+  # UI
+  web:
+    enabled: true
+    image:
+      repository: ghcr.io/opennsw/temporal-ui
+      tag: "2.48.0"
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 200m
+        memory: 256Mi
+    ingress:
+      enabled: false
+    securityContext: null
+
+  # Admin tools
+  admintools:
+    enabled: true
+    image:
+      repository: ghcr.io/opennsw/temporal-auto-setup
+      tag: "1.28.3"
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    securityContext: null
+
+  # Schema
+  schema:
+    useHelmHooks: true
+    image:
+      repository: ghcr.io/opennsw/temporal-auto-setup
+      tag: "1.28.3"
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    securityContext: null
+
+  shims:
+    dockerize: false
+
+# Custom NSW Values
+nsw:
+  namespaces:
+    - default
+    - national-single-window-platform
+  route:
+    host: ""

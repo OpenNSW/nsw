@@ -1,0 +1,21 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ if .Values.ui }}{{ if .Values.ui.route }}{{ .Values.ui.route.name | default (printf "%s-ui" (include "temporal.fullname" .)) }}{{ else }}{{ printf "%s-ui" (include "temporal.fullname" . ) }}{{ end }}{{ else }}{{ printf "%s-ui" (include "temporal.fullname" . ) }}{{ end }}
+  labels:
+    {{- include "temporal.labels" . | nindent 4 }}
+spec:
+  {{- if and .Values.temporal .Values.temporal.web .Values.temporal.web.route }}
+  host: {{ .Values.temporal.web.route.host }}
+  {{- else if and .Values.nsw .Values.nsw.route .Values.nsw.route.host }}
+  host: {{ .Values.nsw.route.host }}
+  {{- end }}
+  to:
+    kind: Service
+    name: {{ .Release.Name }}-web
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

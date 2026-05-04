@@ -1,0 +1,157 @@
+# Production Temporal Values for OpenShift
+# Using Official Temporal Helm Chart (via dependency)
+
+temporal:
+  # Global settings
+  global:
+    imagePullSecrets:
+      - name: ghcr-secret
+
+  server:
+    # Use GHCR images to bypass Docker Hub rate limits
+    image:
+      repository: ghcr.io/opennsw/temporal-auto-setup
+      tag: "1.28.3"
+      pullPolicy: IfNotPresent
+    
+    # Highly Available microservices
+    frontend:
+      replicaCount: 2
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 200m
+          memory: 256Mi
+
+    history:
+      replicaCount: 2
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 1024Mi
+        requests:
+          cpu: 500m
+          memory: 512Mi
+
+    matching:
+      replicaCount: 2
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 200m
+          memory: 256Mi
+
+    worker:
+      replicaCount: 2
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 200m
+          memory: 256Mi
+
+    config:
+      numHistoryShards: 512
+      persistence:
+        defaultStore: default
+        visibilityStore: visibility
+        datastores:
+          default:
+            sql:
+              createDatabase: true
+              manageSchema: true
+              pluginName: postgres12
+              driverName: postgres12
+              databaseName: temporal_db
+              connectAddr: "nsw-db:5432"
+              connectProtocol: tcp
+              user: "postgres"
+              existingSecret: "nsw-db-credentials"
+              secretKey: "password"
+              maxConns: 20
+              maxIdleConns: 20
+          visibility:
+            sql:
+              createDatabase: true
+              manageSchema: true
+              pluginName: postgres12
+              driverName: postgres12
+              databaseName: temporal_visibility_db
+              connectAddr: "nsw-db:5432"
+              connectProtocol: tcp
+              user: "postgres"
+              existingSecret: "nsw-db-credentials"
+              secretKey: "password"
+              maxConns: 20
+              maxIdleConns: 20
+
+    # OpenShift Restricted SCC Compliance
+    podSecurityContext:
+      runAsNonRoot: true
+    containerSecurityContext:
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+
+    # Disable problematic test pods that lack resource limits
+    test:
+      enabled: false
+
+  # Temporal UI
+  web:
+    enabled: true
+    image:
+      repository: ghcr.io/opennsw/temporal-ui
+      tag: "2.48.0"
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 200m
+        memory: 256Mi
+    # OpenShift UI route is usually handled via custom template in this project
+    # Ensure it complies with SCC
+    podSecurityContext:
+      runAsNonRoot: true
+    containerSecurityContext:
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+
+  # Admin Tools (Includes schema tools used by manageSchema jobs)
+  admintools:
+    enabled: true
+    image:
+      repository: ghcr.io/opennsw/temporal-auto-setup
+      tag: "1.28.3"
+    containerSecurityContext:
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+
+  # Schema Job Overrides
+  schema:
+    image:
+      repository: ghcr.io/opennsw/temporal-auto-setup
+      tag: "1.28.3"
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+# Custom NSW namespaces for registration
+nsw:
+  namespaces:
+    - default
+    - nsw-health
+    - nsw-platform
+    - national-single-window-platform

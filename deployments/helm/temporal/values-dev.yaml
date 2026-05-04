@@ -1,0 +1,22 @@
+# Dev Overrides for temporal
+temporal:
+  server:
+    replicaCount: 1
+    frontend:
+      replicaCount: 1
+    history:
+      replicaCount: 1
+    matching:
+      replicaCount: 1
+    worker:
+      replicaCount: 1
+
+    config:
+      persistence:
+        datastores:
+          default:
+            sql:
+              databaseName: temporal_db_dev
+          visibility:
+            sql:
+              databaseName: temporal_visibility_db_dev
