@@ -1,4 +1,4 @@
-package internal
+package storage
 
 import (
 	"context"
@@ -28,7 +28,7 @@ func TestService_CreateUploadURL(t *testing.T) {
 		WithBaseURL(server.URL + "/").
 		Build()
 
-	service := NewOGAService(nil, nil, client)
+	service := NewService(client)
 
 	payload := []byte(`{"filename":"test.txt","mime_type":"text/plain","size":123}`)
 	ctx := context.Background()
@@ -65,7 +65,7 @@ func TestService_GetDownloadURL(t *testing.T) {
 		WithBaseURL(server.URL + "/").
 		Build()
 
-	service := NewOGAService(nil, nil, client)
+	service := NewService(client)
 	ctx := context.Background()
 
 	metadata, err := service.GetDownloadURL(ctx, "550e8400-e29b-41d4-a716-446655440000.pdf")

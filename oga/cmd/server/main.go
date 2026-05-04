@@ -13,6 +13,7 @@ import (
 
 	"github.com/OpenNSW/nsw/oga/internal"
 	"github.com/OpenNSW/nsw/oga/internal/feedback"
+	"github.com/OpenNSW/nsw/oga/internal/storage"
 	"github.com/OpenNSW/nsw/oga/pkg/httpclient"
 )
 
@@ -69,6 +70,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to create OGA handler: %v", err)
 	}
+
+	// Initialize storage service and handler
+	storageService := storage.NewService(nswHttpClient)
+	storageHandler := storage.NewHandler(storageService, cfg.MaxRequestBytes)
+
 	feedbackHandler := feedback.NewHandler(service)
 
 	// Set up HTTP routes
@@ -85,8 +91,8 @@ func main() {
 	mux.HandleFunc("POST /api/oga/applications/{taskId}/review", handler.HandleReviewApplication)
 	mux.HandleFunc("POST /api/oga/applications/{taskId}/feedback", feedbackHandler.HandleFeedback)
 
-	mux.HandleFunc("POST /api/oga/uploads", handler.HandleCreateUpload)
-	mux.HandleFunc("GET /api/oga/uploads/{key}", handler.HandleGetUploadURL)
+	mux.HandleFunc("POST /api/oga/uploads", storageHandler.HandleCreateUpload)
+	mux.HandleFunc("GET /api/oga/uploads/{key}", storageHandler.HandleGetUploadURL)
 
 	// Set up graceful shutdown
 	serverAddr := fmt.Sprintf(":%s", cfg.Port)
