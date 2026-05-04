@@ -2,13 +2,13 @@
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: {{ include "trader-app.fullname" . }}
+  name: {{ .Values.route.name | default (include "trader-app.fullname" .) }}
   labels:
     app.kubernetes.io/name: {{ include "trader-app.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   {{- if .Values.route.host }}
-  host: {{ .Values.route.host | quote }}
+  host: {{ .Values.route.host }}
   {{- end }}
   to:
     kind: Service

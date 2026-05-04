@@ -16,20 +16,24 @@ COPY . .
 
 RUN pnpm --filter trader-app build
 
-FROM nginx:1.27-alpine
+FROM nginxinc/nginx-unprivileged:1.27-alpine
 
 LABEL org.opencontainers.image.source="https://github.com/OpenNSW/nsw"
 LABEL org.opencontainers.image.description="NSW Trader Portal Frontend"
 
-COPY apps/trader-app/nginx.conf /etc/nginx/conf.d/default.conf
+COPY apps/trader-app/nginx.conf /etc/nginx/templates/default.conf.template
 COPY --from=builder /workspace/apps/trader-app/dist /usr/share/nginx/html
-COPY apps/trader-app/docker-entrypoint.sh /docker-entrypoint.d/40-runtime-env.sh
 
-RUN chmod +x /docker-entrypoint.d/40-runtime-env.sh
-
-EXPOSE 80
+# OpenShift Compliance: Fix permissions for random UID (Group 0)
+USER root
+COPY --chown=101:0 apps/trader-app/docker-entrypoint.sh /docker-entrypoint.d/40-runtime-env.sh
+RUN chmod +x /docker-entrypoint.d/40-runtime-env.sh && \
+    chmod -R g+w /var/cache/nginx /var/run /var/log/nginx /etc/nginx/conf.d /usr/share/nginx/html
+USER 101
+EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget -qO- http://localhost:80/ || exit 1
+  CMD wget -qO- http://localhost:8080/ || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]
+
