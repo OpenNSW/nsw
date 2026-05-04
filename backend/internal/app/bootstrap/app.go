@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/OpenNSW/nsw/internal/auth"
@@ -22,7 +23,6 @@ import (
 	"github.com/OpenNSW/nsw/internal/workflow/service"
 
 	"github.com/OpenNSW/nsw/pkg/notification"
-	"github.com/OpenNSW/nsw/pkg/notification/channels"
 )
 
 // App contains initialized HTTP server and cleanup hooks.
@@ -133,21 +133,13 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("auth system health check failed: %w", err)
 	}
 
-	// Initialize notification manager
-	notificationManager := notification.NewManager()
-	emailChannel := channels.NewEmailChannel(notification.EmailConfig{
-		SMTPHost:     cfg.Notification.SMTPHost,
-		SMTPPort:     cfg.Notification.SMTPPort,
-		SMTPUsername: cfg.Notification.SMTPUsername,
-		SMTPPassword: cfg.Notification.SMTPPassword,
-		SMTPSender:   cfg.Notification.SMTPSender,
-		TemplateRoot: cfg.Notification.TemplateRoot,
-	})
-	notificationManager.RegisterEmailChannel(emailChannel)
-
-	// TODO: Add SMS channel if needed
-	// smsChannel := channels.NewSMSChannel(...)
-	// notificationManager.RegisterSMSChannel(smsChannel)
+	var notificationManager *notification.Manager
+	if cfg.Notification.ConfigPath != "" {
+		notificationManager, err = notification.NewManager(cfg.Notification.ConfigPath)
+		if err != nil {
+			log.Printf("notifications init failed, continuing without notifications: %v", err)
+		}
+	}
 
 	tmHandler := taskmanager.NewHTTPHandler(tm)
 

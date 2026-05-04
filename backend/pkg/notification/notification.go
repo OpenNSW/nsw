@@ -2,46 +2,111 @@ package notification
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
+	"regexp"
+
+	"github.com/OpenNSW/nsw/pkg/notification/internal/core"
+	"github.com/OpenNSW/nsw/pkg/notification/providers/email"
+	"github.com/OpenNSW/nsw/pkg/notification/providers/sms"
 )
 
-// BasePayload contains shared template and metadata information.
-type BasePayload struct {
-	TemplateID   string                 // ID of the template to use
-	TemplateData map[string]interface{} // Data to inject into the template
-	Metadata     map[string]string      // Additional context
+type Request = core.Request
+type ChannelType = core.ChannelType
+
+const (
+	ChannelSMS   = core.ChannelSMS
+	ChannelEmail = core.ChannelEmail
+)
+
+type Manager struct {
+	providers map[core.ChannelType]core.Provider
 }
 
-// EmailPayload contains email-specific notification data.
-type EmailPayload struct {
-	BasePayload
-	Recipients []string
-	Subject    string
-	Body       string // Used if TemplateID is empty
+func NewManager(configPath string) (*Manager, error) {
+	return newManager(configPath, nil, nil)
 }
 
-// SMSPayload contains phone-based notification data (SMS, WhatsApp, etc.).
-type SMSPayload struct {
-	BasePayload
-	Recipients []string
-	Body       string // Used if TemplateID is empty
+func newManager(configPath string, providers []core.Provider, httpClient *http.Client) (*Manager, error) {
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
+	if providers == nil {
+		providers = defaultProviders(httpClient)
+	}
+
+	cfgMap, err := loadConfigMap(configPath)
+	if err != nil {
+		return nil, err
+	}
+
+	m := &Manager{providers: make(map[core.ChannelType]core.Provider, len(providers))}
+	for _, p := range providers {
+		ch := p.Type()
+		raw, ok := cfgMap[string(ch)]
+		if !ok {
+			continue
+		}
+		if err := p.Configure(raw); err != nil {
+			return nil, fmt.Errorf("configure %s provider: %w", ch, err)
+		}
+		m.providers[ch] = p
+	}
+	return m, nil
 }
 
-// EmailChannel defines the interface for an email notification provider.
-type EmailChannel interface {
-	Send(ctx context.Context, payload EmailPayload) map[string]error
+func (m *Manager) Send(ctx context.Context, req Request) error {
+	if err := req.Validate(); err != nil {
+		return err
+	}
+	p, ok := m.providers[req.Channel]
+	if !ok {
+		return fmt.Errorf("unsupported channel: %s", req.Channel)
+	}
+	return p.Send(ctx, req)
 }
 
-// SMSChannel defines the interface for a phone-based notification provider (SMS, WhatsApp).
-type SMSChannel interface {
-	Send(ctx context.Context, payload SMSPayload) map[string]error
+func defaultProviders(client *http.Client) []core.Provider {
+	return []core.Provider{
+		email.NewProvider(client),
+		sms.NewProvider(client),
+	}
 }
 
-// EmailConfig holds configuration for email channel.
-type EmailConfig struct {
-	SMTPHost     string
-	SMTPPort     int
-	SMTPUsername string
-	SMTPPassword string
-	SMTPSender   string
-	TemplateRoot string // Directory containing email templates
+var envVarRe = regexp.MustCompile(`\$\{([^}]+)\}`)
+
+func expandEnv(data []byte) ([]byte, error) {
+	var missing []string
+	result := envVarRe.ReplaceAllFunc(data, func(match []byte) []byte {
+		name := string(match[2 : len(match)-1])
+		val, ok := os.LookupEnv(name)
+		if !ok {
+			missing = append(missing, name)
+			return match
+		}
+		encoded, _ := json.Marshal(val)
+		return encoded[1 : len(encoded)-1]
+	})
+	if len(missing) > 0 {
+		return nil, fmt.Errorf("unset environment variables in notification config: %v", missing)
+	}
+	return result, nil
+}
+
+func loadConfigMap(path string) (map[string]json.RawMessage, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read notification config %q: %w", path, err)
+	}
+	expanded, err := expandEnv(raw)
+	if err != nil {
+		return nil, err
+	}
+	var cfgMap map[string]json.RawMessage
+	if err := json.Unmarshal(expanded, &cfgMap); err != nil {
+		return nil, fmt.Errorf("parse notification config: %w", err)
+	}
+	return cfgMap, nil
 }

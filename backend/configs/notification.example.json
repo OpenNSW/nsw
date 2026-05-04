@@ -1,0 +1,12 @@
+{
+  "email": {
+    "baseURL": "https://email.svc.local",
+    "token": "${EMAIL_SERVICE_TOKEN}"
+  },
+  "sms": {
+    "baseURL": "https://govsms.example/api",
+    "userName": "${GOVSMS_USERNAME}",
+    "password": "${GOVSMS_PASSWORD}",
+    "sidCode": "${GOVSMS_SID_CODE}"
+  }
+}
