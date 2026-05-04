@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+
+	"github.com/OpenNSW/nsw/oga/pkg/httputil"
 )
 
 // Handler handles HTTP requests for storage operations
@@ -24,17 +26,17 @@ func NewHandler(service Service, maxRequestBytes int64) *Handler {
 func (h *Handler) HandleGetUploadURL(w http.ResponseWriter, r *http.Request) {
 	key := r.PathValue("key")
 	if key == "" {
-		writeJSONError(w, http.StatusBadRequest, "key is required")
+		httputil.WriteJSONError(w, http.StatusBadRequest, "key is required")
 		return
 	}
 	metadata, err := h.service.GetDownloadURL(r.Context(), key)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "failed to get download URL from backend", "key", key, "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "failed to get download URL")
+		httputil.WriteJSONError(w, http.StatusInternalServerError, "failed to get download URL")
 		return
 	}
 
-	writeJSONResponse(w, http.StatusOK, metadata)
+	httputil.WriteJSONResponse(w, http.StatusOK, metadata)
 }
 
 // HandleCreateUpload prepares an upload by requesting an upload URL from the main backend.
@@ -47,31 +49,16 @@ func (h *Handler) HandleCreateUpload(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, h.MaxRequestBytes)
 	var body json.RawMessage
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeJSONError(w, http.StatusBadRequest, "Invalid request body")
+		httputil.WriteJSONError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
 	result, err := h.service.CreateUploadURL(r.Context(), body)
 	if err != nil {
 		slog.ErrorContext(r.Context(), "failed to create upload URL", "error", err)
-		writeJSONError(w, http.StatusInternalServerError, "Failed to create upload URL")
+		httputil.WriteJSONError(w, http.StatusInternalServerError, "Failed to create upload URL")
 		return
 	}
 
-	writeJSONResponse(w, http.StatusOK, result)
-}
-
-// Private helpers to avoid circular dependencies with the main internal package
-func writeJSONResponse(w http.ResponseWriter, statusCode int, data any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		slog.Error("failed to encode JSON response", "error", err)
-	}
-}
-
-func writeJSONError(w http.ResponseWriter, statusCode int, message string) {
-	writeJSONResponse(w, statusCode, map[string]string{
-		"error": message,
-	})
+	httputil.WriteJSONResponse(w, http.StatusOK, result)
 }

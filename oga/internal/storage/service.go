@@ -83,8 +83,11 @@ func (s *service) CreateUploadURL(ctx context.Context, payload []byte) (map[stri
 
 	if resp.StatusCode != http.StatusOK {
 		var errResp map[string]string
-		_ = json.NewDecoder(resp.Body).Decode(&errResp)
+		err := json.NewDecoder(resp.Body).Decode(&errResp)
 		errMsg := errResp["error"]
+		if err != nil || errMsg == "" {
+			errMsg = "unknown upstream error or invalid JSON response"
+		}
 		slog.WarnContext(ctx, "failed to fetch upload metadata from backend", "status", resp.Status, "error", errMsg)
 		return nil, fmt.Errorf("backend error (status %d): %s", resp.StatusCode, errMsg)
 	}
