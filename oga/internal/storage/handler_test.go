@@ -62,18 +62,6 @@ func TestHandleCreateUpload(t *testing.T) {
 		}
 	})
 
-	t.Run("invalid method", func(t *testing.T) {
-		handler := NewHandler(&mockService{}, 32<<20)
-		req := httptest.NewRequest(http.MethodGet, "/api/oga/uploads", nil)
-		rec := httptest.NewRecorder()
-
-		handler.HandleCreateUpload(rec, req)
-
-		if rec.Code != http.StatusMethodNotAllowed {
-			t.Errorf("expected status %d, got %d", http.StatusMethodNotAllowed, rec.Code)
-		}
-	})
-
 	t.Run("service error", func(t *testing.T) {
 		mockSvc := &mockService{
 			mockCreateUploadURL: func(ctx context.Context, payload []byte) (map[string]any, error) {

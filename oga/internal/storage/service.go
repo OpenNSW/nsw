@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 
 	"github.com/OpenNSW/nsw/oga/pkg/httpclient"
 )
@@ -34,7 +35,7 @@ func NewService(httpClient *httpclient.Client) Service {
 // GetDownloadURL returns a download URL for a file stored in the main backend.
 // It calls the backend's metadata endpoint to retrieve a (possibly presigned) download URL.
 func (s *service) GetDownloadURL(ctx context.Context, key string) (map[string]any, error) {
-	apiURL := fmt.Sprintf("uploads/%s", key)
+	apiURL := fmt.Sprintf("uploads/%s", url.PathEscape(key))
 	resp, err := s.httpClient.Get(apiURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch upload metadata: %w", err)
