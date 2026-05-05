@@ -39,7 +39,7 @@ func (m *MockGateway) ExtractReferenceNumber(ctx context.Context, reqData json.R
 	return args.String(0), args.Error(1)
 }
 
-func (m *MockGateway) HandleValidateReference(ctx context.Context, tx *gateways.ValidationTransaction, reqData json.RawMessage) (*gateways.ValidationResponse, error) {
+func (m *MockGateway) HandleValidateReference(ctx context.Context, tx gateways.ValidationTransaction, reqData json.RawMessage) (*gateways.ValidationResponse, error) {
 	args := m.Called(ctx, tx, reqData)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)

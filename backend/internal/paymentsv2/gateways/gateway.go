@@ -72,7 +72,7 @@ type PaymentGateway interface {
 	ExtractReferenceNumber(ctx context.Context, reqData json.RawMessage) (string, error)
 
 	// HandleValidateReference handles the final validation response after the transaction is found.
-	HandleValidateReference(ctx context.Context, tx *ValidationTransaction, reqData json.RawMessage) (*ValidationResponse, error)
+	HandleValidateReference(ctx context.Context, tx ValidationTransaction, reqData json.RawMessage) (*ValidationResponse, error)
 
 	// ParseWebhook processes raw gateway notifications into domain-neutral payloads.
 	ParseWebhook(ctx context.Context, body []byte, headers map[string][]string) (*WebhookPayload, error)
