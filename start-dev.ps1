@@ -215,14 +215,14 @@ if ($CLEAN_RUN -eq "true") {
         docker compose -f (Join-Path $ROOT_DIR "temporal/docker-compose.yml") down --volumes
     }
     clean_oga_databases
-    
-    Write-Host "Running backend migrations..."
-    Push-Location (Join-Path $ROOT_DIR "backend/internal/database/migrations")
-    $env:ENV_FILE = $EnvFile
-    $env:CLEAN_RUN = $CLEAN_RUN
-    powershell.exe -File ./run.ps1
-    Pop-Location
 }
+
+Write-Host "Running backend migrations..."
+Push-Location (Join-Path $ROOT_DIR "backend/internal/database/migrations")
+$env:ENV_FILE = $EnvFile
+$env:CLEAN_RUN = $CLEAN_RUN
+powershell.exe -File ./run.ps1
+Pop-Location
 
 # Start Docker Services
 if ($RUN_IDP) {

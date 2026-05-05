@@ -40,31 +40,22 @@ if ($CLEAN_RUN -eq "true") {
     $env:PGPASSWORD = $env:DB_PASSWORD
 
     # Force disconnect other users and drop the database
-    Write-Host "Dropping database $($env:DB_NAME)..."
-    & psql -h "$MigrationDbHost" -p "$($env:DB_PORT)" -U "$($env:DB_USERNAME)" -d postgres -c "DROP DATABASE IF EXISTS $($env:DB_NAME) WITH (FORCE);"
+    Write-Host "Dropping database `"$($env:DB_NAME)`"..."
+    & psql -h "$MigrationDbHost" -p "$($env:DB_PORT)" -U "$($env:DB_USERNAME)" -d postgres -c "DROP DATABASE IF EXISTS `"$($env:DB_NAME)`" WITH (FORCE);"
 
     # Recreate the database
-    Write-Host "Creating database $($env:DB_NAME)..."
-    & psql -h "$MigrationDbHost" -p "$($env:DB_PORT)" -U "$($env:DB_USERNAME)" -d postgres -c "CREATE DATABASE $($env:DB_NAME);"
+    Write-Host "Creating database `"$($env:DB_NAME)`"..."
+    & psql -h "$MigrationDbHost" -p "$($env:DB_PORT)" -U "$($env:DB_USERNAME)" -d postgres -c "CREATE DATABASE `"$($env:DB_NAME)`";"
 } else {
-    Write-Host "Skipping database drop/recreate. Run with --clean-run to wipe."
-    exit 0
+    Write-Host "Skipping database drop/recreate (Incremental Migration mode)."
 }
 
-# Define the file paths
-$Migrations = @(
-    "001_initial_schema.up.sql",
-    "002_insert_seed_hscodes.up.sql",
-    "003_insert_seed_form_templates.up.sql",
-    "004_insert_seed_workflow_node_templates.up.sql",
-    "005_insert_seed_workflow_templates.up.sql",
-    "006_insert_seed_workflow_hscode_map.up.sql",
-    "007_insert_seed_pre_consignment_template.up.sql",
-    "008_insert_payment_transactions.up.sql",
-    "009_insert_cha_entity.up.sql",
-    "010_workflow_table.up.sql",
-    "011_workflow_tem_v2.up.sql"
-)
+# Dynamically discover migration files
+$Migrations = Get-ChildItem -Path $PSScriptRoot -Filter "*.up.sql" | Sort-Object Name | Select-Object -ExpandProperty Name
+
+if ($null -eq $Migrations -or $Migrations.Count -eq 0) {
+    Write-Warning "No migration files (*.up.sql) found in $PSScriptRoot"
+}
 
 Write-Host "Starting database migrations..."
 
