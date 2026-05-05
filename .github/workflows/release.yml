@@ -224,6 +224,15 @@ jobs:
         with:
           sarif_file: trivy-${{ matrix.image_name }}.sarif
 
+      - name: Print Trivy findings (debug)
+        if: always()
+        run: |
+          trivy image \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --format table \
+            ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+
       - name: Generate service summary
         if: always()
         run: |
