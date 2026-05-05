@@ -1,3 +1,5 @@
+#!/bin/bash
+
 set -e
 
 # Parse command line arguments for custom redirect URIs

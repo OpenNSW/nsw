@@ -1,3 +1,5 @@
+#!/bin/bash
+
 set -e
 
 # Source common functions from the same directory as this script
