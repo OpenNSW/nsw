@@ -23,6 +23,7 @@ type SessionRequest struct {
 }
 
 type SessionResponse struct {
+	SessionID    string          `json:"session_id"`
 	Type         InteractionType `json:"type"`
 	CheckoutURL  string          `json:"checkout_url,omitempty"`
 	Instructions string          `json:"instructions,omitempty"`

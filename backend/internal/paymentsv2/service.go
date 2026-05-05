@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/OpenNSW/nsw/internal/paymentsv2/gateways"
+	"github.com/google/uuid"
 )
 
 // PaymentService defines the high-level orchestration for payments.
@@ -47,9 +49,13 @@ func (s *paymentService) CreateCheckoutSession(ctx context.Context, req CreateCh
 		return nil, fmt.Errorf("failed to get gateway %s: %w", req.GatewayID, err)
 	}
 
-	// TODO: Generate a unique NSW ReferenceNumber (e.g., NSW-PR-YYYY-XXXXX)
-	// For now, we'll assume a reference is generated or passed.
-	generatedRef := "NSW-TEMP-REF"
+	taskID, ok := req.Metadata["task_id"]
+	if !ok {
+		return nil, fmt.Errorf("task_id is required in metadata")
+	}
+
+	// 1. Generate a unique NSW ReferenceNumber (e.g., NSW-PR-YYYYMMDD-XXXXX)
+	generatedRef := fmt.Sprintf("NSW-PR-%s-%s", time.Now().Format("20060102"), uuid.NewString()[:8])
 
 	sessionReq := gateways.SessionRequest{
 		Amount:             req.Amount.String(),
@@ -58,33 +64,37 @@ func (s *paymentService) CreateCheckoutSession(ctx context.Context, req CreateCh
 		CancelRedirectURL:  req.CancelRedirectURL,
 	}
 
+	// 2. Initialize session with gateway
 	sessionResp, err := gateway.CreateSession(ctx, sessionReq)
 	if err != nil {
 		return nil, fmt.Errorf("gateway failed to create session: %w", err)
 	}
 
-	// TODO: Persist transaction via repo including the generatedRef
-	/*
-		tx := &PaymentTransaction{
-			ID:              uuid.NewString(),
-			ReferenceNumber: generatedRef,
-			GatewayID:      req.GatewayID,
-			SessionID:       sessionResp.SessionID,
-			Amount:          req.Amount,
-			Currency:        req.Currency,
-			Status:          PaymentStatusPending,
-			ExpiryDate:      req.ExpiresAt,
-		}
-		if err := s.repo.Create(ctx, tx); err != nil {
-			return nil, fmt.Errorf("failed to persist transaction: %w", err)
-		}
-	*/
+	// 3. Persist transaction via repo
+	tx := &PaymentTransaction{
+		ID:              uuid.NewString(),
+		ReferenceNumber: generatedRef,
+		TaskID:          taskID,
+		GatewayID:       req.GatewayID,
+		SessionID:       sessionResp.SessionID,
+		Amount:          req.Amount,
+		Currency:        req.Currency,
+		Status:          PaymentStatusPending,
+		ExpiryDate:      req.ExpiresAt,
+		GatewayMetadata: req.Metadata,
+	}
+
+	if err := s.repo.Create(ctx, tx); err != nil {
+		return nil, fmt.Errorf("failed to persist transaction: %w", err)
+	}
 
 	return &CreateCheckoutResponse{
 		ReferenceNumber: generatedRef,
+		SessionID:       sessionResp.SessionID,
 		Type:            sessionResp.Type,
 		CheckoutURL:     sessionResp.CheckoutURL,
 		Instructions:    sessionResp.Instructions,
+		ExpiresIn:       int(time.Until(req.ExpiresAt).Seconds()),
 	}, nil
 }
 
@@ -143,11 +153,38 @@ func (s *paymentService) ProcessWebhook(ctx context.Context, gatewayID string, b
 		return fmt.Errorf("gateway failed to parse webhook: %w", err)
 	}
 
-	// TODO: Implement business logic for webhook:
 	// 1. Look up transaction by ReferenceNumber
-	// 2. Update status and metadata
-	// 3. Emit internal events
-	slog.Info("processed webhook", "reference", gwPayload.ReferenceNumber, "status", gwPayload.Status)
+	tx, err := s.repo.GetByReferenceNumber(ctx, gwPayload.ReferenceNumber)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve transaction by reference: %w", err)
+	}
+	if tx == nil {
+		return fmt.Errorf("transaction not found for reference: %s", gwPayload.ReferenceNumber)
+	}
+
+	// 2. Idempotency check: Ignore if we already recorded a final status
+	if tx.Status == PaymentStatusSuccess || tx.Status == PaymentStatusFailed {
+		slog.Info("webhook ignored (idempotent)", "reference", tx.ReferenceNumber, "current_status", tx.Status)
+		return nil
+	}
+
+	// 3. Update status and metadata
+	tx.Status = PaymentStatus(gwPayload.Status)
+	tx.PaymentMethod = gwPayload.PaymentMethod
+	if tx.GatewayMetadata == nil {
+		tx.GatewayMetadata = make(map[string]string)
+	}
+	tx.GatewayMetadata["gateway_transaction_id"] = gwPayload.GatewayTransactionID
+	tx.GatewayMetadata["webhook_timestamp"] = gwPayload.Timestamp
+
+	if err := s.repo.Update(ctx, tx); err != nil {
+		return fmt.Errorf("failed to update transaction status: %w", err)
+	}
+
+	slog.Info("processed webhook successfully", "reference", tx.ReferenceNumber, "status", tx.Status)
+
+	// TODO: Emit internal events for the Task Engine
+	// This would typically involve publishing to a message broker or a shared event bus.
 
 	return nil
 }
