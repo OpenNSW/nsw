@@ -16,13 +16,13 @@ type GatewayRegistry interface {
 	Get(id string) (gateways.PaymentGateway, error)
 
 	// ListInfo returns the aggregated metadata for all supported gateways.
-	ListInfo() []PaymentGatewayInfo
+	ListInfo() []GatewayInfo
 }
 
 type paymentRegistry struct {
 	mu       sync.RWMutex
 	gateways map[string]gateways.PaymentGateway
-	infos    map[string]PaymentGatewayInfo
+	infos    map[string]GatewayInfo
 }
 
 // NewRegistry initializes a new registry by loading configuration from a file.
@@ -34,8 +34,8 @@ func NewRegistry(configPath string, gateways map[string]gateways.PaymentGateway)
 	}
 
 	var config struct {
-		Version string               `json:"version"`
-		Methods []PaymentGatewayInfo `json:"methods"`
+		Version string        `json:"version"`
+		Methods []GatewayInfo `json:"methods"`
 	}
 
 	if err := json.Unmarshal(data, &config); err != nil {
@@ -44,7 +44,7 @@ func NewRegistry(configPath string, gateways map[string]gateways.PaymentGateway)
 
 	registry := &paymentRegistry{
 		gateways: gateways,
-		infos:    make(map[string]PaymentGatewayInfo),
+		infos:    make(map[string]GatewayInfo),
 	}
 
 	for _, info := range config.Methods {
@@ -75,15 +75,15 @@ func (r *paymentRegistry) Get(id string) (gateways.PaymentGateway, error) {
 	return gateway, nil
 }
 
-func (r *paymentRegistry) ListInfo() []PaymentGatewayInfo {
+func (r *paymentRegistry) ListInfo() []GatewayInfo {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	var activeMethods []PaymentGatewayInfo
+	var activeMethods []GatewayInfo
 	for _, info := range r.infos {
 		if info.IsActive {
 			// Sanitize: Return only UI-safe fields
-			activeMethods = append(activeMethods, PaymentGatewayInfo{
+			activeMethods = append(activeMethods, GatewayInfo{
 				ID:         info.ID,
 				IsActive:   info.IsActive,
 				RenderInfo: info.RenderInfo,
