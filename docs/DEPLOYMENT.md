@@ -8,7 +8,7 @@ This document explains how to deploy NSW in different environments and orchestra
 - [2) Architecture (Platform-Agnostic)](#2-architecture-platform-agnostic)
 - [3) Configuration Model](#3-configuration-model)
 - [4) Choose a Deployment Mode](#4-choose-a-deployment-mode)
-- [5) Option A — Docker Compose Deployment (Recommended)](#5-option-a--docker-compose-deployment-recommended)
+- [5) Option A — Local Development (start-dev.sh)](#5-option-a--local-development-start-devsh)
 - [6) Option B — Individual Docker Image Deployment (Manual)](#6-option-b--individual-docker-image-deployment-manual)
 - [7) Option C — Kubernetes Deployment](#7-option-c--kubernetes-deployment)
 - [8) Access Endpoints (Default Local Ports)](#8-access-endpoints-default-local-ports)
@@ -18,7 +18,7 @@ This document explains how to deploy NSW in different environments and orchestra
 
 Supported deployment approaches in this repository:
 
-1. Docker Compose (fully supported, fastest path)
+1. Local development via `start-dev.sh`
 2. Individual Docker image deployment (supported with manual orchestration)
 3. Kubernetes deployment (architecture guidance and required building blocks)
 
@@ -70,7 +70,6 @@ Markdown placeholder:
 ### 3.1 Environment files in this repo
 
 - `.env.example`: non-Docker local development (`start-dev.sh`)
-- `.env.docker.example`: Docker-oriented deployment defaults
 
 ### 3.2 Required configuration categories
 
@@ -98,53 +97,39 @@ The backend requires a `services.json` file to manage outbound connections to ex
 
 | Mode | Best For | Operational Complexity | Repository Support |
 |------|----------|------------------------|-----------------|
-| Docker Compose | Local full-stack runs, CI smoke environments | Low | Full (reference implementation) |
-| Individual Docker Images | Custom runtime wiring, partial deployments | Medium/High | Supported (manual orchestration) |
+| Local development (start-dev.sh) | Day-to-day dev workflows, local integration runs | Low | Full (reference dev script) |
+| Individual Docker images | Custom runtime wiring, partial deployments | Medium/High | Supported (manual orchestration) |
 | Kubernetes | Cluster deployment and production-style operations | High | Guidance in this document |
 
 Recommendation:
 
-- Use **Docker Compose** unless you have a specific requirement for raw Docker orchestration or Kubernetes.
+- Use **start-dev.sh** for local development.
+- For production-style deployments, use Kubernetes or manual Docker orchestration.
 
-## 5) Option A — Docker Compose Deployment (Recommended)
+## 5) Option A — Local Development (start-dev.sh)
 
-This is the reference deployment path currently implemented in this repository.
+This is the supported local development path in this repository.
 
 ### 5.1 What is provided
 
-- Root `docker-compose.yml`
-- Wrapper script `start-docker.sh`
-- Profiles for optional IDP/DB-managed components
-- Persistent named volumes for DBs and backend uploads
+- Root `start-dev.sh` dev runner
+- `.env.example` for local configuration defaults
+- Optional IDP and Temporal runtime via their own compose files
 
 ### 5.2 Quick start
 
 ```bash
-cp .env.docker.example .env.docker
-./start-docker.sh --env-file=.env.docker
+cp .env.example .env
+./start-dev.sh
 ```
 
 Useful variants:
 
 ```bash
-./start-docker.sh --env-file=.env.docker --skip-build
-./start-docker.sh --env-file=.env.docker --skip-idp
-./start-docker.sh --env-file=.env.docker --skip-postgres
-./start-docker.sh --env-file=.env.docker --skip-migrations
+./start-dev.sh --skip-idp
+./start-dev.sh --skip-temporal
+./start-dev.sh --clean-run
 ```
-
-Stop:
-
-```bash
-./start-docker.sh --stop
-./start-docker.sh --stop --remove-volumes
-```
-
-### 5.3 Compose-level topology
-
-- `idp-net`: Thunder services
-- `core-net`: PostgreSQL, migration, backend, trader portal
-- `oga-npqs-net`, `oga-fcau-net`, `oga-ird-net`: per-OGA isolation
 
 ## 6) Option B — Individual Docker Image Deployment (Manual)
 
@@ -191,7 +176,7 @@ For per-image run examples (Dockerfiles, build commands, runtime env), see:
 
 - `docs/CONTAINER_IMAGES.md`
 
-Note: individual run commands are useful for testing single images, but for full-system reliability use compose (or Kubernetes).
+Note: individual run commands are useful for testing single images, but for full-system reliability use `start-dev.sh` for local runs or Kubernetes in clusters.
 
 ## 7) Option C — Kubernetes Deployment
 
@@ -216,7 +201,7 @@ This repository currently does not ship complete production-ready Kubernetes man
 
 ### 7.3 Kubernetes deployment checklist
 
-- Define all env vars from `.env.docker.example` as `Secret`/`ConfigMap` keys.
+- Define all env vars from `.env.example` (and any environment-specific overrides) as `Secret`/`ConfigMap` keys.
 - Ensure backend can resolve/connect to postgres, idp, and OGA services.
 - Run migration job before backend becomes live.
 - Configure ingress routes and TLS.
@@ -237,14 +222,6 @@ This repository currently does not ship complete production-ready Kubernetes man
 - PostgreSQL: `localhost:55432`
 
 ## 9) Operations and Verification
-
-For compose-based operations:
-
-```bash
-docker compose -f docker-compose.yml ps
-docker compose -f docker-compose.yml logs -f backend
-docker compose -f docker-compose.yml logs -f db-migration
-```
 
 Verification checklist (all modes):
 

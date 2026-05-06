@@ -119,7 +119,7 @@ For deployment architecture, setup, and operations, see [docs/DEPLOYMENT.md](doc
 
 Supported deployment modes:
 
-- **Docker Compose (recommended):** fastest end-to-end startup for local/system testing
+- **Local development (recommended):** `start-dev.sh` for day-to-day dev workflows
 - **Individual Docker images:** manual orchestration with custom networking/volumes
 - **Kubernetes:** production-style orchestration guidance and required components
 

@@ -134,10 +134,11 @@ To run multiple OGA portal instances, start multiple containers with different p
 
 ## 5) Recommended for Full Stack
 
-For end-to-end startup of all services with correct networking, startup order, and migration handling, use:
+For local end-to-end startup of all services with correct startup order and migrations, use:
 
 ```bash
-./start-docker.sh --env-file=.env.docker
+cp .env.example .env
+./start-dev.sh
 ```
 
 See `docs/DEPLOYMENT.md` for architecture and multi-mode deployment guidance.
