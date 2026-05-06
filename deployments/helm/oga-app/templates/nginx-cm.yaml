@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "oga-app.fullname" . }}-nginx-config
+  labels:
+    {{- include "oga-app.labels" . | nindent 4 }}
+data:
+  nginx.conf: |
+    worker_processes auto;
+    error_log /var/log/nginx/error.log warn;
+    pid /tmp/nginx.pid;
+    events {
+        worker_connections 1024;
+    }
+    http {
+        include /etc/nginx/mime.types;
+        default_type application/octet-stream;
+        log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                          '$status $body_bytes_sent "$http_referer" '
+                          '"$http_user_agent" "$http_x_forwarded_for"';
+        access_log /var/log/nginx/access.log main;
+        sendfile on;
+        keepalive_timeout 65;
+        client_body_temp_path /tmp/client_temp;
+        proxy_temp_path /tmp/proxy_temp;
+        fastcgi_temp_path /tmp/fastcgi_temp;
+        uwsgi_temp_path /tmp/uwsgi_temp;
+        scgi_temp_path /tmp/scgi_temp;
+        include /etc/nginx/conf.d/*.conf;
+    }
+
+  default.conf: |
+    server {
+        listen 8080;
+        server_name localhost;
+        root /usr/share/nginx/html;
+        index index.html;
+
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+
+        location = /runtime-env.js {
+            alias /tmp/runtime-env.js;
+        }
+
+        location /api/api/oga/ {
+            rewrite ^/api/api/oga/(.*)$ /api/oga/$1 last;
+        }
+
+        location /api/oga/ {
+            proxy_pass {{ .Values.config.ogaBackendUrl }};
+            proxy_set_header Authorization $http_authorization;
+            proxy_pass_header Authorization;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location ^~ /oga/ {
+            rewrite ^/oga/(.*) /api/oga/$1 break;
+            proxy_pass {{ .Values.config.ogaBackendUrl }};
+            proxy_set_header Authorization $http_authorization;
+            proxy_pass_header Authorization;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+
+  branding-config.js: |
+    window.__BRANDING_CONFIG__ = {{ .Values.config.ui | toJson }};

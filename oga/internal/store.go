@@ -164,7 +164,6 @@ func (s *ApplicationStore) ListWorkflows(ctx context.Context, search string, off
 	err := s.db.WithContext(ctx).Model(&ApplicationRecord{}).
 		Select("applications.workflow_id, applications.updated_at, applications.status, latest.task_count").
 		Joins("JOIN (?) as latest ON applications.workflow_id = latest.workflow_id AND applications.updated_at = latest.max_updated", latestSubquery).
-		Group("applications.workflow_id").
 		Order("applications.updated_at DESC").
 		Offset(offset).
 		Limit(limit).
