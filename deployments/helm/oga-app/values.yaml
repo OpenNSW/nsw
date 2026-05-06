@@ -27,7 +27,7 @@ imagePullSecrets:
 service:
   type: ClusterIP
   port: 80
-  targetPort: 8080 # CRITICAL: Unprivileged port for OpenShift Nginx
+  targetPort: 8080
 
 config:
   # Agency Specifics: Intentionally left blank to FORCE overrides
