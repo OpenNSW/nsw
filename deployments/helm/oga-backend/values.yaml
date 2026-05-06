@@ -7,6 +7,11 @@ fullnameOverride: ""
 replicaCount: 1
 # This is a base file for the three OGA agency deployments.
 
+image:
+  repository: ghcr.io/opennsw/oga-backend
+  pullPolicy: IfNotPresent
+  tag: 0.0.0-replace-me
+
 config:
   port: 8081
   database:
@@ -14,13 +19,18 @@ config:
     host: nsw-db
     port: 5432
     sslMode: disable
+    credentialsSecretName: ""
   defaultFormId: default
-  nswApiBaseUrl: "http://nsw-api.nsw.svc.cluster.local/api/v1"
-
-# The specific DB name and Allowed Origins should be overridden in agency values files.
+  nswApiBaseUrl: ""
+  # Specific to each agency (should be overridden)
+  nswClientId: ""
+  nswClientSecret: ""
+  nswTokenUrl: ""
+  allowedOrigins: ""
 
 route:
   enabled: false
+  host: ""
   tls:
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
@@ -38,6 +48,14 @@ migrations:
     requests:
       cpu: 50m
       memory: 64Mi
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
 
 autoscaling:
   enabled: true
@@ -58,4 +76,3 @@ affinity:
             matchLabels:
               app.kubernetes.io/name: oga-backend
           topologyKey: kubernetes.io/hostname
-

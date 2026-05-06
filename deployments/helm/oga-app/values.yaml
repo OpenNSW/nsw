@@ -19,7 +19,7 @@ securityContext:
 image:
   repository: ghcr.io/opennsw/oga-app
   pullPolicy: IfNotPresent
-  tag: latest
+  tag: 0.0.0-replace-me
 
 imagePullSecrets: 
   - name: ghcr-secret
