@@ -171,7 +171,7 @@ VALUES
             "submission": {
                 "url": ' || to_jsonb((:'NPQS_OGA_SUBMISSION_URL')::text)::text || ',
                 "request": {
-                    "taskCode": "npqs:phytosanitary:v1"
+                    "taskCode": "npqs_phytosanitary_v1"
                 }
             }
         }')::jsonb,
@@ -206,7 +206,7 @@ VALUES
             "submission": {
                 "url": ' || to_jsonb((:'FCAU_OGA_SUBMISSION_URL')::text)::text || ',
                 "request": {
-                    "taskCode": "fcau:health_certificate:v1"
+                    "taskCode": "fcau_health_certificate_v1"
                 }
             }
         }')::jsonb,
@@ -235,7 +235,7 @@ VALUES
             "submission": {
                 "url": ' || to_jsonb((:'NPQS_OGA_SUBMISSION_URL')::text)::text || ',
                 "request": {
-                    "taskCode": "npqs:manual_inspection:v1",
+                    "taskCode": "npqs_manual_inspection_v1",
                     "template": {
                         "consignee_name": "consignee:consignee_name",
                         "consigneeAddress": "consignee:address"
