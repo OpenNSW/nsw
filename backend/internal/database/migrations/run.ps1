@@ -47,7 +47,8 @@ if ($CLEAN_RUN -eq "true") {
     Write-Host "Creating database `"$($env:DB_NAME)`"..."
     & psql -h "$MigrationDbHost" -p "$($env:DB_PORT)" -U "$($env:DB_USERNAME)" -d postgres -c "CREATE DATABASE `"$($env:DB_NAME)`";"
 } else {
-    Write-Host "Skipping database drop/recreate (Incremental Migration mode)."
+    Write-Host "Skipping database drop/recreate. Run with -clean-run to wipe."
+    exit 0
 }
 
 # Dynamically discover migration files

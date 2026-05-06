@@ -1,28 +1,28 @@
 param(
-    [string]$EnvFile = "",
-    [switch]$SkipIdp,
-    [switch]$SkipTemporal,
-    [switch]$CleanRun
+    [string]${env-file} = "",
+    [switch]${skip-idp},
+    [switch]${skip-temporal},
+    [switch]${clean-run}
 )
 
 $ROOT_DIR = $PSScriptRoot
-if (-not $EnvFile) {
-    $EnvFile = Join-Path $ROOT_DIR ".env"
+if (-not ${env-file}) {
+    ${env-file} = Join-Path $ROOT_DIR ".env"
 }
 
-$RUN_IDP = -not $SkipIdp
-$RUN_TEMPORAL = -not $SkipTemporal
-$CLEAN_RUN = if ($CleanRun) { "true" } else { "false" }
+$RUN_IDP = -not ${skip-idp}
+$RUN_TEMPORAL = -not ${skip-temporal}
+$CLEAN_RUN = if (${clean-run}) { "true" } else { "false" }
 
-if (-not (Test-Path $EnvFile)) {
-    Write-Host "Env file not found: $EnvFile"
+if (-not (Test-Path ${env-file})) {
+    Write-Host "Env file not found: ${env-file}"
     Write-Host "Create one from: cp $ROOT_DIR\.env.example $ROOT_DIR\.env"
     exit 1
 }
 
 # Load environment variables
-Write-Host "Loading environment variables from $EnvFile..."
-Get-Content $EnvFile | ForEach-Object {
+Write-Host "Loading environment variables from ${env-file}..."
+Get-Content ${env-file} | ForEach-Object {
     if ($_ -match '^([^#\s][^=]+)=(.*)$') {
         $name = $matches[1].Trim()
         $value = $matches[2].Trim().Trim('"').Trim("'")
@@ -219,7 +219,7 @@ if ($CLEAN_RUN -eq "true") {
 
 Write-Host "Running backend migrations..."
 Push-Location (Join-Path $ROOT_DIR "backend/internal/database/migrations")
-$env:ENV_FILE = $EnvFile
+$env:ENV_FILE = ${env-file}
 $env:CLEAN_RUN = $CLEAN_RUN
 powershell.exe -File ./run.ps1
 Pop-Location
