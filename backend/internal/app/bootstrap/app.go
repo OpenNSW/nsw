@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/OpenNSW/nsw/internal/auth"
@@ -23,6 +23,8 @@ import (
 	"github.com/OpenNSW/nsw/internal/workflow/service"
 
 	"github.com/OpenNSW/nsw/pkg/notification"
+	"github.com/OpenNSW/nsw/pkg/notification/providers/email"
+	"github.com/OpenNSW/nsw/pkg/notification/providers/sms"
 )
 
 // App contains initialized HTTP server and cleanup hooks.
@@ -134,10 +136,16 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	}
 
 	var notificationManager *notification.Manager
-	if cfg.Notification.ConfigPath != "" {
-		notificationManager, err = notification.NewManager(cfg.Notification.ConfigPath)
+	if cfg.Notification.Path != "" {
+		// TODO: we should ideally use a separate HTTP client for notifications, with its own timeouts and retry policies appropriate for the expected latency and reliability of the external services.
+		// For now, we'll just use the default client.
+		httpClient := http.DefaultClient
+		notificationManager, err = notification.NewManager(cfg.Notification.Path, []notification.Provider{
+			email.NewProvider(httpClient),
+			sms.NewProvider(httpClient),
+		})
 		if err != nil {
-			log.Printf("notifications init failed, continuing without notifications: %v", err)
+			slog.Error("failed to initialize notification manager, continuing without notifications", "error", err)
 		}
 	}
 

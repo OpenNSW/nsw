@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/OpenNSW/nsw/pkg/notification/internal/core"
+	"github.com/OpenNSW/nsw/pkg/notification"
 )
 
 type emailConfig struct {
@@ -24,12 +24,12 @@ type emailProvider struct {
 	client *http.Client
 }
 
-func NewProvider(client *http.Client) core.Provider {
+func NewProvider(client *http.Client) notification.Provider {
 	return &emailProvider{client: client}
 }
 
-func (p *emailProvider) Type() core.ChannelType {
-	return core.ChannelEmail
+func (p *emailProvider) Type() notification.ChannelType {
+	return notification.ChannelEmail
 }
 
 func (p *emailProvider) Configure(raw json.RawMessage) error {
@@ -52,7 +52,7 @@ type emailPayload struct {
 	HTMLBody string `json:"html_body,omitempty"`
 }
 
-func (p *emailProvider) Send(ctx context.Context, req core.Request) error {
+func (p *emailProvider) Send(ctx context.Context, req notification.Request) error {
 	payload := emailPayload{
 		To:       req.To,
 		Subject:  req.Subject,

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/OpenNSW/nsw/pkg/notification/internal/core"
+	"github.com/OpenNSW/nsw/pkg/notification"
 )
 
 func newTLSProvider(t *testing.T, h http.HandlerFunc) (*emailProvider, *httptest.Server) {
@@ -26,8 +26,8 @@ func newTLSProvider(t *testing.T, h http.HandlerFunc) (*emailProvider, *httptest
 
 func TestProvider_Type(t *testing.T) {
 	p := NewProvider(http.DefaultClient)
-	if p.Type() != core.ChannelEmail {
-		t.Errorf("Type() = %q, want %q", p.Type(), core.ChannelEmail)
+	if p.Type() != notification.ChannelEmail {
+		t.Errorf("Type() = %q, want %q", p.Type(), notification.ChannelEmail)
 	}
 }
 
@@ -44,6 +44,42 @@ func TestProvider_Configure_RequiresBaseURL(t *testing.T) {
 	raw, _ := json.Marshal(emailConfig{})
 	if err := p.Configure(raw); err == nil {
 		t.Fatal("expected error for empty baseURL, got nil")
+	}
+}
+
+func TestProvider_Configure_InvalidJSON(t *testing.T) {
+	p := NewProvider(http.DefaultClient).(*emailProvider)
+	if err := p.Configure([]byte("invalid json")); err == nil {
+		t.Fatal("expected error for invalid JSON, got nil")
+	}
+}
+
+func TestProvider_Send_NoToken(t *testing.T) {
+	var capturedAuth string
+
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedAuth = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	p := NewProvider(srv.Client()).(*emailProvider)
+	raw, _ := json.Marshal(emailConfig{BaseURL: srv.URL})
+	if err := p.Configure(raw); err != nil {
+		t.Fatalf("Configure: %v", err)
+	}
+
+	if err := p.Send(context.Background(), notification.Request{
+		Channel: notification.ChannelEmail,
+		To:      "to@example.com",
+		Subject: "Hi",
+		Body:    "Text",
+	}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if capturedAuth != "" {
+		t.Errorf("Authorization = %q, want empty", capturedAuth)
 	}
 }
 
@@ -106,8 +142,8 @@ func TestProvider_Send(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p, _ := newTLSProvider(t, tt.handler)
-			err := p.Send(context.Background(), core.Request{
-				Channel: core.ChannelEmail,
+			err := p.Send(context.Background(), notification.Request{
+				Channel: notification.ChannelEmail,
 				To:      "user@example.com",
 				Subject: "Hello",
 				Body:    "World",
@@ -139,8 +175,8 @@ func TestProvider_Send_PayloadShape(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	req := core.Request{
-		Channel:  core.ChannelEmail,
+	req := notification.Request{
+		Channel:  notification.ChannelEmail,
 		To:       "to@example.com",
 		Subject:  "Subject line",
 		Body:     "Plain text body",
@@ -175,8 +211,8 @@ func TestProvider_Send_HTMLBodyOmittedWhenEmpty(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	if err := p.Send(context.Background(), core.Request{
-		Channel: core.ChannelEmail,
+	if err := p.Send(context.Background(), notification.Request{
+		Channel: notification.ChannelEmail,
 		To:      "to@example.com",
 		Subject: "Hi",
 		Body:    "Text only",
@@ -204,8 +240,8 @@ func TestProvider_Send_BearerTokenHeader(t *testing.T) {
 		t.Fatalf("Configure: %v", err)
 	}
 
-	if err := p.Send(context.Background(), core.Request{
-		Channel: core.ChannelEmail,
+	if err := p.Send(context.Background(), notification.Request{
+		Channel: notification.ChannelEmail,
 		To:      "to@example.com",
 		Subject: "Hi",
 		Body:    "Text",
@@ -227,8 +263,8 @@ func TestProvider_Send_ContextCancellation(t *testing.T) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	err := p.Send(cancelCtx, core.Request{
-		Channel: core.ChannelEmail,
+	err := p.Send(cancelCtx, notification.Request{
+		Channel: notification.ChannelEmail,
 		To:      "to@example.com",
 		Subject: "Hi",
 		Body:    "Text",

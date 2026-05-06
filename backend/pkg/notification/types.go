@@ -1,8 +1,6 @@
-package core
+package notification
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 )
 
@@ -32,10 +30,4 @@ func (r Request) Validate() error {
 		return fmt.Errorf("body is required")
 	}
 	return nil
-}
-
-type Provider interface {
-	Type() ChannelType
-	Configure(cfg json.RawMessage) error
-	Send(ctx context.Context, req Request) error
 }

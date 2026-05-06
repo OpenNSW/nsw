@@ -13,6 +13,7 @@ import (
 	"github.com/OpenNSW/nsw/internal/temporal"
 	"github.com/OpenNSW/nsw/internal/uploads"
 	"github.com/OpenNSW/nsw/internal/validation"
+	"github.com/OpenNSW/nsw/pkg/notification"
 )
 
 // Config holds all configuration for the application
@@ -22,7 +23,7 @@ type Config struct {
 	CORS         CORSConfig
 	Storage      uploads.Config
 	Auth         auth.Config
-	Notification NotificationConfig
+	Notification notification.Config
 	Temporal     temporal.Config
 }
 
@@ -42,10 +43,6 @@ type CORSConfig struct {
 	AllowedHeaders   []string
 	AllowCredentials bool
 	MaxAge           int
-}
-
-type NotificationConfig struct {
-	ConfigPath string
 }
 
 // Load reads configuration from environment variables
@@ -107,8 +104,8 @@ func Load() (*Config, error) {
 			ClientIDs:             parseCommaSeparated(getEnvOrDefault("AUTH_CLIENT_IDS", "TRADER_PORTAL_APP,FCAU_TO_NSW,NPQS_TO_NSW,IRD_TO_NSW")),
 			InsecureSkipTLSVerify: getBoolOrDefault("AUTH_JWKS_INSECURE_SKIP_VERIFY", false),
 		},
-		Notification: NotificationConfig{
-			ConfigPath: os.Getenv("NOTIFICATIONS_CONFIG_PATH"),
+		Notification: notification.Config{
+			Path: getEnvOrDefault("NOTIFICATION_CONFIG_PATH", "configs/notifications.json"),
 		},
 		Temporal: temporal.Config{
 			Host:      getEnvOrDefault("TEMPORAL_HOST", "localhost"),
@@ -144,6 +141,9 @@ func (c *Config) Validate() error {
 	}
 	if err := c.Temporal.Validate(); err != nil {
 		return fmt.Errorf("invalid temporal configuration: %w", err)
+	}
+	if err := c.Notification.Validate(); err != nil {
+		return fmt.Errorf("invalid notification configuration: %w", err)
 	}
 	if len(c.CORS.AllowedOrigins) == 0 {
 		return fmt.Errorf("CORS_ALLOWED_ORIGINS is required")

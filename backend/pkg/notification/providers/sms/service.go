@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/OpenNSW/nsw/pkg/notification/internal/core"
+	"github.com/OpenNSW/nsw/pkg/notification"
 )
 
 type smsConfig struct {
@@ -25,12 +25,12 @@ type smsProvider struct {
 	client *http.Client
 }
 
-func NewProvider(client *http.Client) core.Provider {
+func NewProvider(client *http.Client) notification.Provider {
 	return &smsProvider{client: client}
 }
 
-func (p *smsProvider) Type() core.ChannelType {
-	return core.ChannelSMS
+func (p *smsProvider) Type() notification.ChannelType {
+	return notification.ChannelSMS
 }
 
 func (p *smsProvider) Configure(raw json.RawMessage) error {
@@ -57,7 +57,7 @@ type smsPayload struct {
 	Password    string `json:"password"`
 }
 
-func (p *smsProvider) Send(ctx context.Context, req core.Request) error {
+func (p *smsProvider) Send(ctx context.Context, req notification.Request) error {
 	payload := smsPayload{
 		Data:        req.Body,
 		PhoneNumber: req.To,

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/OpenNSW/nsw/pkg/notification/internal/core"
+	"github.com/OpenNSW/nsw/pkg/notification"
 )
 
 func newTLSProvider(t *testing.T, h http.HandlerFunc) (*smsProvider, *httptest.Server) {
@@ -31,8 +31,8 @@ func newTLSProvider(t *testing.T, h http.HandlerFunc) (*smsProvider, *httptest.S
 
 func TestProvider_Type(t *testing.T) {
 	p := NewProvider(http.DefaultClient)
-	if p.Type() != core.ChannelSMS {
-		t.Errorf("Type() = %q, want %q", p.Type(), core.ChannelSMS)
+	if p.Type() != notification.ChannelSMS {
+		t.Errorf("Type() = %q, want %q", p.Type(), notification.ChannelSMS)
 	}
 }
 
@@ -49,6 +49,21 @@ func TestProvider_Configure_RequiresUserName(t *testing.T) {
 	raw, _ := json.Marshal(smsConfig{BaseURL: "https://example.com"})
 	if err := p.Configure(raw); err == nil {
 		t.Fatal("expected error for missing userName, got nil")
+	}
+}
+
+func TestProvider_Configure_InvalidJSON(t *testing.T) {
+	p := NewProvider(http.DefaultClient).(*smsProvider)
+	if err := p.Configure([]byte("invalid json")); err == nil {
+		t.Fatal("expected error for invalid JSON, got nil")
+	}
+}
+
+func TestProvider_Configure_RequiresBaseURL(t *testing.T) {
+	p := NewProvider(http.DefaultClient).(*smsProvider)
+	raw, _ := json.Marshal(smsConfig{UserName: "user"})
+	if err := p.Configure(raw); err == nil {
+		t.Fatal("expected error for missing baseURL, got nil")
 	}
 }
 
@@ -95,8 +110,8 @@ func TestProvider_Send(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p, _ := newTLSProvider(t, tt.handler)
-			err := p.Send(context.Background(), core.Request{
-				Channel: core.ChannelSMS,
+			err := p.Send(context.Background(), notification.Request{
+				Channel: notification.ChannelSMS,
 				To:      "+61400000000",
 				Body:    "test message",
 			})
@@ -127,8 +142,8 @@ func TestProvider_Send_PayloadFields(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	req := core.Request{
-		Channel: core.ChannelSMS,
+	req := notification.Request{
+		Channel: notification.ChannelSMS,
 		To:      "+61400000001",
 		Body:    "hello world",
 	}
@@ -162,8 +177,8 @@ func TestProvider_Send_ContextCancellation(t *testing.T) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	err := p.Send(cancelCtx, core.Request{
-		Channel: core.ChannelSMS,
+	err := p.Send(cancelCtx, notification.Request{
+		Channel: notification.ChannelSMS,
 		To:      "+61400000000",
 		Body:    "hi",
 	})
