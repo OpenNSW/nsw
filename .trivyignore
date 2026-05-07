@@ -1,0 +1,6 @@
+# Trivy ignore file for NSW images
+# Temporarily ignore CVEs in packages with no official upstream fix yet
+
+# Alpine nghttp2-libs CVE (Frontend Nginx images)
+# Package: nghttp2-libs, fixed version: none yet
+CVE-2026-27135
