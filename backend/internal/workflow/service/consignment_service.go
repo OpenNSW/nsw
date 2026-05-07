@@ -46,9 +46,6 @@ func (s *ConsignmentService) OnWorkflowStatusChanged(_ context.Context, tx *gorm
 
 // CreateConsignmentShell creates a shell consignment (Stage 1: Trader selects CHA). State is INITIALIZED; no workflow nodes.
 func (s *ConsignmentService) CreateConsignmentShell(ctx context.Context, flow model.ConsignmentFlow, chaID string, traderID string) (*model.ConsignmentDetailDTO, error) {
-	if traderID == "" {
-		return nil, fmt.Errorf("trader ID cannot be empty")
-	}
 	// Validate CHA exists
 	var cha model.CHA
 	if err := s.db.WithContext(ctx).First(&cha, "id = ?", chaID).Error; err != nil {

@@ -1,5 +1,7 @@
 package model
 
+import "fmt"
+
 // ConsignmentFlow represents the flow type of a consignment.
 type ConsignmentFlow string
 
@@ -69,9 +71,19 @@ type CreateConsignmentItemDTO struct {
 // Stage 1 (two-stage flow): provide flow + chaId only → creates shell with state INITIALIZED.
 // Legacy / single-stage: provide flow + items → creates consignment and initializes workflow.
 type CreateConsignmentDTO struct {
-	Flow  ConsignmentFlow            `json:"flow" binding:"required,oneof=IMPORT EXPORT"` // e.g., IMPORT, EXPORT
-	ChaID string                     `json:"chaId" binding:"required"`                    // Stage 1: assign CHA (shell only)
-	Items []CreateConsignmentItemDTO `json:"items,omitempty"`                             // Legacy: HS code items; when ChaID is set, items are ignored
+	Flow  ConsignmentFlow            `json:"flow"`
+	ChaID string                     `json:"chaId"`
+	Items []CreateConsignmentItemDTO `json:"items,omitempty"`
+}
+
+func (d *CreateConsignmentDTO) Validate() error {
+	if d.ChaID == "" {
+		return fmt.Errorf("chaId is required")
+	}
+	if d.Flow != ConsignmentFlowImport && d.Flow != ConsignmentFlowExport {
+		return fmt.Errorf("flow must be IMPORT or EXPORT")
+	}
+	return nil
 }
 
 // UpdateConsignmentDTO represents the data required to update a consignment.

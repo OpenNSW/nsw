@@ -40,10 +40,19 @@ func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *ht
 		return
 	}
 
+	if err := req.Validate(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	traderID := authCtx.User.UserID
 	// Stage 1: create shell only
 	consignment, err := c.cs.CreateConsignmentShell(r.Context(), req.Flow, req.ChaID, traderID)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			http.Error(w, "CHA not found", http.StatusNotFound)
+			return
+		}
 		slog.Error("failed to create consignment shell", "error", err)
 		http.Error(w, "failed to create consignment: "+err.Error(), http.StatusInternalServerError)
 		return
