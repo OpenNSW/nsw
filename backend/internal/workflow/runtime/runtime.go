@@ -31,7 +31,7 @@ type Runtime struct {
 }
 
 // NewRuntime creates, wires, and starts the workflow runtime.
-func NewRuntime(temporalClient client.Client, tm taskmanager.TaskManager, templateProvider service.TemplateProvider) (*Runtime, error) {
+func NewRuntime(temporalClient client.Client, tm taskmanager.TaskManager, templateProvider service.TemplateProvider, upstreamService UpstreamService) (*Runtime, error) {
 	if temporalClient == nil {
 		return nil, fmt.Errorf("temporal client is required")
 	}
@@ -48,10 +48,10 @@ func NewRuntime(temporalClient client.Client, tm taskmanager.TaskManager, templa
 		)
 	}
 
-	return newRuntimeWithFactory(tm, templateProvider, createManager)
+	return newRuntimeWithFactory(tm, templateProvider, createManager, upstreamService)
 }
 
-func newRuntimeWithFactory(tm taskmanager.TaskManager, templateProvider service.TemplateProvider, createManager temporalManagerFactory) (*Runtime, error) {
+func newRuntimeWithFactory(tm taskmanager.TaskManager, templateProvider service.TemplateProvider, createManager temporalManagerFactory, upstreamService UpstreamService) (*Runtime, error) {
 	runtimeCtx, runtimeCancel := context.WithCancel(context.Background())
 
 	activationHandler := func(payload workflowmanager.TaskPayload) error {
@@ -84,8 +84,13 @@ func newRuntimeWithFactory(tm taskmanager.TaskManager, templateProvider service.
 
 	completionHandler := func(workflowID string, finalContext map[string]any) error {
 		slog.Info("Workflow logically completed", "workflowID", workflowID, "finalContext", finalContext)
-		// TODO: If consignment, need to call OnWorkflowStatusChanged
-		//       If pre-consignment, need to call OnPreWorkflowStatusChanged
+
+		if upstreamService != nil {
+			if err := upstreamService.CompletionHandler(workflowID, finalContext); err != nil {
+				return fmt.Errorf("error calling upstream completion handler: %w", err)
+			}
+		}
+
 		return nil
 	}
 

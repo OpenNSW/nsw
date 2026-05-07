@@ -88,16 +88,23 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to create temporal client: %w", err)
 	}
 
-	workflowRuntime, err := workflowruntime.NewRuntime(temporalClient, tm, templateService)
+	consignmentService := service.NewConsignmentService(db, templateService)
+	consignmentRouter := router.NewConsignmentRouter(consignmentService, chaService)
+
+	workflowRuntime, err := workflowruntime.NewRuntime(temporalClient, tm, templateService, consignmentService)
 	if err != nil {
 		temporalClient.Close()
 		_ = database.Close(db)
 		return nil, fmt.Errorf("failed to create workflow runtime: %w", err)
 	}
 
-	consignmentService := service.NewConsignmentService(db, templateService, workflowRuntime.Manager())
-	consignmentRouter := router.NewConsignmentRouter(consignmentService, chaService)
-
+	registererr := consignmentService.RegisterWorkflowManager(workflowRuntime.Manager())
+	if registererr != nil {
+		_ = workflowRuntime.Close()
+		temporalClient.Close()
+		_ = database.Close(db)
+		return nil, fmt.Errorf("failed to register workflow manager with consignment service: %w", registererr)
+	}
 	// TODO: Pre-consignment wiring is intentionally disabled until it is migrated to Temporal.
 	// preConsignmentService := service.NewPreConsignmentService(db, templateService, wm)
 	// preConsignmentRouter := router.NewPreConsignmentRouter(preConsignmentService)

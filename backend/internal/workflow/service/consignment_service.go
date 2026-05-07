@@ -24,12 +24,28 @@ type ConsignmentService struct {
 }
 
 // NewConsignmentService creates a new instance of ConsignmentService.
-func NewConsignmentService(db *gorm.DB, templateProvider TemplateProvider, wm workflowmanager.Manager) *ConsignmentService {
+func NewConsignmentService(db *gorm.DB, templateProvider TemplateProvider) *ConsignmentService {
 	return &ConsignmentService{
 		db:               db,
 		templateProvider: templateProvider,
-		wm:               wm,
 	}
+}
+
+// RegisterWorkflowManager registers the workflow manager
+func (s *ConsignmentService) RegisterWorkflowManager(wm workflowmanager.Manager) error {
+	if s.wm != nil {
+		return fmt.Errorf("workflow manager already registered for ConsignmentService")
+	}
+	if wm == nil {
+		return fmt.Errorf("workflow manager cannot be nil")
+	}
+	s.wm = wm
+	return nil
+}
+
+// CompletionHandler is called by the workflow runtime when a workflow completes. It delegates to the appropriate domain-specific handler based on the workflow type.
+func (s *ConsignmentService) CompletionHandler(workflowID string, finalContext map[string]any) error {
+	return s.OnWorkflowStatusChanged(context.Background(), s.db, workflowID, model.WorkflowStatusInProgress, model.WorkflowStatusCompleted, nil)
 }
 
 // --- WorkflowEventHandler implementation ---
