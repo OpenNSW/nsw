@@ -3,6 +3,7 @@ package gateways
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 )
 
 type Config struct {
@@ -76,6 +77,10 @@ func (g *GovPayGateway) ExtractReferenceNumber(ctx context.Context, referenceDat
 
 	if err := json.Unmarshal(referenceData, &req); err != nil {
 		return "", err
+	}
+
+	if req.TransactionID == "" {
+		return "", fmt.Errorf("transactionId is missing in validation request")
 	}
 
 	return req.TransactionID, nil
