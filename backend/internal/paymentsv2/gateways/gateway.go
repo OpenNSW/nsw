@@ -16,10 +16,10 @@ const (
 )
 
 type SessionRequest struct {
-	Amount             string `json:"amount"`
-	Currency           string `json:"currency"`
-	SuccessRedirectURL string `json:"success_redirect_url"`
-	CancelRedirectURL  string `json:"cancel_redirect_url"`
+	Amount             decimal.Decimal `json:"amount"`
+	Currency           string          `json:"currency"`
+	SuccessRedirectURL string          `json:"success_redirect_url"`
+	CancelRedirectURL  string          `json:"cancel_redirect_url"`
 }
 
 type SessionResponse struct {

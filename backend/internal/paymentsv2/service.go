@@ -58,7 +58,7 @@ func (s *paymentService) CreateCheckoutSession(ctx context.Context, req CreateCh
 	generatedRef := fmt.Sprintf("NSW-PR-%s-%s", time.Now().Format("20060102"), uuid.NewString()[:8])
 
 	sessionReq := gateways.SessionRequest{
-		Amount:             req.Amount.String(),
+		Amount:             req.Amount,
 		Currency:           req.Currency,
 		SuccessRedirectURL: req.SuccessRedirectURL,
 		CancelRedirectURL:  req.CancelRedirectURL,
