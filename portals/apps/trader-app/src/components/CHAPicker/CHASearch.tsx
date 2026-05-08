@@ -46,6 +46,7 @@ export function CHASearch({ value, onChange, options }: CHASearchProps) {
         onChange={(e) => setSearchQuery(e.target.value)}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setTimeout(() => setIsFocused(false), 150)}
+        onMouseDown={() => setIsFocused(true)}
       >
         <TextField.Slot>
           <MagnifyingGlassIcon height="16" width="16" />
@@ -92,7 +93,10 @@ export function CHASearch({ value, onChange, options }: CHASearchProps) {
                       className={`cursor-pointer transition-colors ${
                         isSelected ? 'bg-blue-50 hover:bg-blue-100' : 'hover:bg-gray-50'
                       }`}
-                      onClick={() => handleSelect(cha)}
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        handleSelect(cha)
+                      }}
                     >
                       <Box pt="1">
                         <MagnifyingGlassIcon height="14" width="14" className="text-gray-400" />

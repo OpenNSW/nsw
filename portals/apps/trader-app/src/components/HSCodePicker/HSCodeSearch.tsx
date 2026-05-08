@@ -87,6 +87,7 @@ export function HSCodeSearch({ value, onChange }: HSCodeSearchProps) {
         onChange={(e) => setSearchQuery(e.target.value)}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setTimeout(() => setIsFocused(false), 150)}
+        onMouseDown={() => setIsFocused(true)}
       >
         <TextField.Slot>
           <MagnifyingGlassIcon height="16" width="16" />
@@ -141,7 +142,10 @@ export function HSCodeSearch({ value, onChange }: HSCodeSearchProps) {
                       className={`cursor-pointer transition-colors ${
                         isSelected ? 'bg-blue-50 hover:bg-blue-100' : 'hover:bg-gray-50'
                       }`}
-                      onClick={() => handleSelect(hsCode)}
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        handleSelect(hsCode)
+                      }}
                     >
                       <Box pt="1">
                         <MagnifyingGlassIcon height="14" width="14" className="text-gray-400" />
