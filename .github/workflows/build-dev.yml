@@ -1,0 +1,84 @@
+name: Build and Push Development Images
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build-and-push-dev:
+    name: Build & Push Dev - ${{ matrix.service_name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service_name: NSW Backend API
+            image_name: nsw-backend
+            context: ./backend
+            dockerfile: ./backend/Dockerfile
+          - service_name: NSW DB Migrations
+            image_name: nsw-api-migrations
+            context: .
+            dockerfile: ./backend/migrations.Dockerfile
+          - service_name: OGA Backend
+            image_name: oga-backend
+            context: ./oga
+            dockerfile: ./oga/Dockerfile
+          - service_name: Trader Portal
+            image_name: trader-app
+            context: ./portals
+            dockerfile: ./portals/apps/trader-app/Dockerfile
+          - service_name: OGA Portal
+            image_name: oga-app
+            context: ./portals
+            dockerfile: ./portals/apps/oga-app/Dockerfile
+
+    steps:
+      - name: Checkout Application Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Convert repository owner to lowercase
+        id: repo_owner
+        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          # Renovate requires sequential run numbers to accurately sort and detect newest dev builds
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.repo_owner.outputs.owner }}/${{ matrix.image_name }}:dev-${{ github.run_number }}-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  trigger-renovate:
+    name: Trigger Renovate Bot
+    needs: build-and-push-dev
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Trigger Renovate Bot Webhook
+        run: |
+          curl -X POST -H "Content-Type: application/json" \
+          -d '{"repository": "${{ github.repository }}"}' \
+          https://app.renovatebot.com/webhook/github

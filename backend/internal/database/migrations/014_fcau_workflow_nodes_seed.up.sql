@@ -30,7 +30,7 @@ VALUES
             "submission": {
                 "url": ' || to_jsonb((:'FCAU_OGA_SUBMISSION_URL')::text)::text || ',
                 "request": {
-                    "taskCode": "fcau:general_application:v1"
+                    "taskCode": "fcau_general_application_v1"
                 }
             }
         }')::jsonb,
@@ -59,7 +59,7 @@ VALUES
             "submission": {
                 "url": ' || to_jsonb((:'FCAU_OGA_SUBMISSION_URL')::text)::text || ',
                 "request": {
-                    "taskCode": "fcau:sample_drop_ack:v1",
+                    "taskCode": "fcau_sample_drop_ack_v1",
                     "template": {
                         "Application ID": "application_id"
                     }
@@ -99,7 +99,7 @@ VALUES
             "submission": {
                 "url": ' || to_jsonb((:'FCAU_OGA_SUBMISSION_URL')::text)::text || ',
                 "request": {
-                    "taskCode": "fcau:testing_requirement:v1",
+                    "taskCode": "fcau_testing_requirement_v1",
                     "template": {
                         "Application ID": "application_id"
                     }
@@ -149,7 +149,7 @@ VALUES
             "submission": {
                 "url": ' || to_jsonb((:'FCAU_OGA_SUBMISSION_URL')::text)::text || ',
                 "request": {
-                    "taskCode": "fcau:lab_payment_upload:v1"
+                    "taskCode": "fcau_lab_payment_upload_v1"
                 }
             }
         }')::jsonb,
@@ -178,7 +178,7 @@ VALUES
             "submission": {
                 "url": ' || to_jsonb((:'FCAU_OGA_SUBMISSION_URL')::text)::text || ',
                 "request": {
-                    "taskCode": "fcau:lab_results_review:v1",
+                    "taskCode": "fcau_lab_results_review_v1",
                     "template": {
                         "Application ID": "application_id",
                         "Required Tests": "required_tests"
@@ -262,7 +262,7 @@ VALUES
             "submission": {
                 "url": ' || to_jsonb((:'FCAU_OGA_SUBMISSION_URL')::text)::text || ',
                 "request": {
-                    "taskCode": "fcau:certificate_issue:v1",
+                    "taskCode": "fcau_certificate_issue_v1",
                     "template": {
                         "Application ID": "application_id"
                     }

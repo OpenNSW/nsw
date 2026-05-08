@@ -249,7 +249,7 @@ CREATE TABLE IF NOT EXISTS consignments
 	created_at timestamp with time zone DEFAULT now() NOT NULL,
 	updated_at timestamp with time zone DEFAULT now() NOT NULL,
 	end_node_id text,
-	cha_id text REFERENCES customs_house_agents (id)
+	cha_id text NOT NULL REFERENCES customs_house_agents (id)
 );
 
 COMMENT ON TABLE consignments IS 'Consignment records for import/export workflows';

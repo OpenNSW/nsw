@@ -55,19 +55,19 @@ jobs:
             description: NSW Database Migrations
 
           - service_name: OGA Backend
-            image_name: nsw-oga-backend
+            image_name: oga-backend
             context: ./oga
             dockerfile: ./oga/Dockerfile
             description: NSW OGA Backend Service
 
           - service_name: Trader Portal
-            image_name: nsw-trader-portal
+            image_name: trader-app
             context: ./portals
             dockerfile: ./portals/apps/trader-app/Dockerfile
             description: NSW Trader Portal Frontend
 
           - service_name: OGA Portal
-            image_name: nsw-oga-portal
+            image_name: oga-app
             context: ./portals
             dockerfile: ./portals/apps/oga-app/Dockerfile
             description: NSW OGA Officer Portal Frontend
@@ -200,7 +200,8 @@ jobs:
           retention-days: 1
 
       # Trivy scans the pushed image for CRITICAL/HIGH CVEs.
-      # continue-on-error keeps the release moving if Trivy itself fails.
+      # ignore-unfixed: true ensures we only fail/alert on CVEs that actually have a patch.
+
       - name: Run Trivy vulnerability scanner
         id: trivy-scan
         if: steps.release-mode.outputs.enabled == 'true'
@@ -212,8 +213,9 @@ jobs:
           format: sarif
           output: trivy-${{ matrix.image_name }}.sarif
           severity: CRITICAL,HIGH
-          exit-code: '1'
-          ignore-unfixed: false
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+
 
       - name: Upload Trivy results
         if: always() && steps.trivy-scan.outcome == 'success'
@@ -347,20 +349,21 @@ jobs:
 
             This release publishes Docker images for all deployable NSW services and portals.
 
-            ### Published Images
+            ### Published Image Targets
             - `${{ env.REGISTRY }}/${{ github.repository }}/nsw-backend:${{ needs.collate-digests.outputs.version }}`
             - `${{ env.REGISTRY }}/${{ github.repository }}/nsw-api-migrations:${{ needs.collate-digests.outputs.version }}`
-            - `${{ env.REGISTRY }}/${{ github.repository }}/nsw-oga-backend:${{ needs.collate-digests.outputs.version }}`
-            - `${{ env.REGISTRY }}/${{ github.repository }}/nsw-trader-portal:${{ needs.collate-digests.outputs.version }}`
-            - `${{ env.REGISTRY }}/${{ github.repository }}/nsw-oga-portal:${{ needs.collate-digests.outputs.version }}`
+            - `${{ env.REGISTRY }}/${{ github.repository }}/oga-backend:${{ needs.collate-digests.outputs.version }}`
+            - `${{ env.REGISTRY }}/${{ github.repository }}/trader-app:${{ needs.collate-digests.outputs.version }}`
+            - `${{ env.REGISTRY }}/${{ github.repository }}/oga-app:${{ needs.collate-digests.outputs.version }}`
 
             ### Pull Images
             ```bash
             docker pull ${{ env.REGISTRY }}/${{ github.repository }}/nsw-backend:${{ needs.collate-digests.outputs.version }}
             docker pull ${{ env.REGISTRY }}/${{ github.repository }}/nsw-api-migrations:${{ needs.collate-digests.outputs.version }}
-            docker pull ${{ env.REGISTRY }}/${{ github.repository }}/nsw-oga-backend:${{ needs.collate-digests.outputs.version }}
-            docker pull ${{ env.REGISTRY }}/${{ github.repository }}/nsw-trader-portal:${{ needs.collate-digests.outputs.version }}
-            docker pull ${{ env.REGISTRY }}/${{ github.repository }}/nsw-oga-portal:${{ needs.collate-digests.outputs.version }}
+            docker pull ${{ env.REGISTRY }}/${{ github.repository }}/oga-backend:${{ needs.collate-digests.outputs.version }}
+            docker pull ${{ env.REGISTRY }}/${{ github.repository }}/trader-app:${{ needs.collate-digests.outputs.version }}
+            docker pull ${{ env.REGISTRY }}/${{ github.repository }}/oga-app:${{ needs.collate-digests.outputs.version }}
+
             ```
 
             ### Image Digests

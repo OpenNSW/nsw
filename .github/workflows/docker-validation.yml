@@ -67,17 +67,17 @@ jobs:
           - name: oga-backend
             context: ./oga
             dockerfile: ./oga/Dockerfile
-            tag: nsw-oga-backend:validate
+            tag: oga-backend:validate
             trigger: oga
           - name: trader-portal
             context: ./portals  # full portals/ workspace needed for shared packages
             dockerfile: ./portals/apps/trader-app/Dockerfile
-            tag: nsw-trader-portal:validate
+            tag: trader-app:validate
             trigger: portals
           - name: oga-portal
             context: ./portals  # full portals/ workspace needed for shared packages
             dockerfile: ./portals/apps/oga-app/Dockerfile
-            tag: nsw-oga-portal:validate
+            tag: oga-app:validate
             trigger: portals
     steps:
       # Each step carries the same condition: skip this matrix entry entirely

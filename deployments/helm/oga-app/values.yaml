@@ -1,42 +1,84 @@
-# Default values for oga-app.
-# Override with per-instance values files (e.g. oga-npqs-values.yaml).
+# deployments/helm/oga-app/values.yaml
 
+global:
+  clusterDomain: ""
+  namespace: ""
+
+fullnameOverride: ""
 replicaCount: 1
+
+podSecurityContext:
+  runAsNonRoot: true
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
 
 image:
   repository: ghcr.io/opennsw/oga-app
   pullPolicy: IfNotPresent
-  tag: latest
+  tag: 0.0.0-replace-me
 
-imagePullSecrets:
-  - name: ghcr-pull-secret
-
+imagePullSecrets: 
+  - name: ghcr-secret
+  
 service:
   type: ClusterIP
   port: 80
-  targetPort: 80
+  targetPort: 8080
 
 config:
-  instanceConfig: "npqs"
-  apiBaseUrl: "https://nsw-api-national-single-window-platform.lgc.gov.lk/api/v1"
-  idpBaseUrl: "https://idp-route.national-single-window-platform.lgc.gov.lk"
-  idpClientId: "OGA_PORTAL_APP_NPQS"
-  appUrl: "https://npqs-portal-national-single-window-platform.lgc.gov.lk"
+  # Agency Specifics: Intentionally left blank to FORCE overrides
+  instanceConfig: "" 
+  idpClientId: ""
+  appUrl: ""
+  ogaBackendUrl: ""
+
+  # Shared Platform Specifics: Left blank to FORCE environment overrides
+  apiBaseUrl: ""
+  coreApiUrl: ""
+  idpBaseUrl: ""
   idpScopes: "openid,profile,email"
   idpPlatform: "AsgardeoV2"
+  ui:
+    branding:
+      appName: "OGA Officer Portal"
+      logoUrl: ""
+      favicon: ""
 
 resources:
   limits:
     cpu: 200m
-    memory: 128Mi
+    memory: 256Mi
   requests:
     cpu: 50m
-    memory: 64Mi
+    memory: 128Mi
 
 route:
   enabled: true
-  host: npqs-portal-national-single-window-platform.lgc.gov.lk
+  host: "" # Leave blank to let OpenShift auto-generate the hyphenated route
   tls:
-    enabled: true
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: oga-app
+          topologyKey: kubernetes.io/hostname

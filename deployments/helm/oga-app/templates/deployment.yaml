@@ -27,7 +27,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: 80
+              containerPort: 8080
               protocol: TCP
           env:
             - name: VITE_INSTANCE_CONFIG
@@ -44,6 +44,16 @@ spec:
               value: {{ .Values.config.idpScopes | quote }}
             - name: VITE_IDP_PLATFORM
               value: {{ .Values.config.idpPlatform | quote }}
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+            - name: nginx-config
+              mountPath: /usr/share/nginx/html/branding-config.js
+              subPath: branding-config.js
           livenessProbe:
             httpGet:
               path: /
@@ -60,3 +70,7 @@ spec:
             failureThreshold: 3
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: {{ include "oga-app.fullname" . }}-nginx-config
