@@ -2,8 +2,15 @@ param(
     [string]${env-file} = "",
     [switch]${skip-idp},
     [switch]${skip-temporal},
-    [switch]${clean-run}
+    [switch]${clean-run},
+    [switch]${migrations}
 )
+
+# Mutual exclusivity check
+if (${clean-run} -and ${migrations}) {
+    Write-Error "Error: You cannot use -clean-run and -migrations at the same time."
+    exit 1
+}
 
 $ROOT_DIR = $PSScriptRoot
 if (-not ${env-file}) {
@@ -142,6 +149,19 @@ branding:
     }
 }
 
+function ensure_node_modules() {
+    $PortalsDir = Join-Path $ROOT_DIR "portals"
+    $OgaAppModules = Join-Path $PortalsDir "apps/oga-app/node_modules"
+    $TraderAppModules = Join-Path $PortalsDir "apps/trader-app/node_modules"
+
+    if ((-not (Test-Path $OgaAppModules)) -or (-not (Test-Path $TraderAppModules))) {
+        Write-Host "Missing node_modules in frontend apps. Running pnpm install in $PortalsDir..."
+        Push-Location $PortalsDir
+        pnpm install
+        Pop-Location
+    }
+}
+
 function wait_for_temporal() {
     $Retries = 30
     $WaitSeconds = 2
@@ -217,12 +237,16 @@ if ($CLEAN_RUN -eq "true") {
     clean_oga_databases
 }
 
-Write-Host "Running backend migrations..."
-Push-Location (Join-Path $ROOT_DIR "backend/internal/database/migrations")
-$env:ENV_FILE = ${env-file}
-$env:CLEAN_RUN = $CLEAN_RUN
-powershell.exe -File ./run.ps1
-Pop-Location
+if (${clean-run} -or ${migrations}) {
+    Write-Host "Running backend migrations..."
+    Push-Location (Join-Path $ROOT_DIR "backend/internal/database/migrations")
+    $env:ENV_FILE = ${env-file}
+    $MigrationParams = @()
+    if (${clean-run}) { $MigrationParams += "-clean-run" }
+    if (${migrations}) { $MigrationParams += "-migrations" }
+    powershell.exe -File ./run.ps1 @MigrationParams
+    Pop-Location
+}
 
 # Start Docker Services
 if ($RUN_IDP) {
@@ -237,6 +261,7 @@ if ($RUN_TEMPORAL) {
 Write-Host "Starting local development services..."
 
 # Start OGA Services
+ensure_node_modules
 foreach ($Instance in $OGA_INSTANCES) {
     $OgaEnv = @{
         OGA_PORT = $Instance.Port
@@ -268,6 +293,13 @@ foreach ($Instance in $OGA_INSTANCES) {
     Start-Sleep -Seconds 2
 
     ensure_branding_file "$($Instance.Name).yaml" "$($Instance.AppName)"
+
+    # For the first OGA instance, wait longer to allow database migrations to finish
+    # before starting other instances in parallel to avoid Postgres race conditions.
+    if ($Instance.Name -eq $OGA_INSTANCES[0].Name -and $OGA_DB_DRIVER -eq "postgres") {
+        Write-Host "Waiting for OGA database migrations to complete..."
+        Start-Sleep -Seconds 10
+    }
 
     $OgaAppEnv = @{
         VITE_PORT = $Instance.AppPort

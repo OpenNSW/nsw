@@ -1,3 +1,8 @@
+param(
+    [switch]${clean-run},
+    [switch]${migrations}
+)
+
 # Load environment variables from env file
 # Default: backend/.env
 $EnvFilePath = if ($env:ENV_FILE) { $env:ENV_FILE } else { Join-Path $PSScriptRoot "../../../.env" }
@@ -16,8 +21,6 @@ if (Test-Path $EnvFilePath) {
     exit 1
 }
 
-$CLEAN_RUN = if ($env:CLEAN_RUN) { $env:CLEAN_RUN } else { "false" }
-
 # Ensure environment variables are set
 $RequiredVars = @("DB_HOST", "DB_PORT", "DB_USERNAME", "DB_PASSWORD", "DB_NAME")
 foreach ($Var in $RequiredVars) {
@@ -35,7 +38,8 @@ $FcauOgaSubmissionUrl = if ($env:FCAU_OGA_SUBMISSION_URL) { $env:FCAU_OGA_SUBMIS
 $PreconsignmentOgaSubmissionUrl = if ($env:PRECONSIGNMENT_OGA_SUBMISSION_URL) { $env:PRECONSIGNMENT_OGA_SUBMISSION_URL } else { "http://localhost:8083/api/oga/inject" }
 $CdaOgaSubmissionUrl = if ($env:CDA_OGA_SUBMISSION_URL) { $env:CDA_OGA_SUBMISSION_URL } else { "http://localhost:8084/api/oga/inject" }
 
-if ($CLEAN_RUN -eq "true") {
+# Handle Clean Run
+if (${clean-run}) {
     # Set PGPASSWORD for psql
     $env:PGPASSWORD = $env:DB_PASSWORD
 
@@ -46,39 +50,49 @@ if ($CLEAN_RUN -eq "true") {
     # Recreate the database
     Write-Host "Creating database `"$($env:DB_NAME)`"..."
     & psql -h "$MigrationDbHost" -p "$($env:DB_PORT)" -U "$($env:DB_USERNAME)" -d postgres -c "CREATE DATABASE `"$($env:DB_NAME)`";"
-} else {
-    Write-Host "Skipping database drop/recreate. Run with -clean-run to wipe."
-    exit 0
 }
 
 # Dynamically discover migration files
-$Migrations = Get-ChildItem -Path $PSScriptRoot -Filter "*.up.sql" | Sort-Object Name | Select-Object -ExpandProperty Name
+$AllMigrations = Get-ChildItem -Path $PSScriptRoot -Filter "*.up.sql" | Sort-Object Name
 
-if ($null -eq $Migrations -or $Migrations.Count -eq 0) {
-    Write-Warning "No migration files (*.up.sql) found in $PSScriptRoot"
+$MigrationsToRun = @()
+if (${clean-run}) {
+    $MigrationsToRun = $AllMigrations
+} elseif (${migrations}) {
+    $Prefix = Read-Host "Enter the migration prefix to start from (e.g., 013)"
+    if ([string]::IsNullOrWhiteSpace($Prefix)) {
+        Write-Error "Migration prefix is required when using -migrations."
+        exit 1
+    }
+    
+    # Filter files starting from the prefix
+    $MigrationsToRun = $AllMigrations | Where-Object { $_.Name -ge $Prefix }
+    
+    if ($null -eq $MigrationsToRun -or $MigrationsToRun.Count -eq 0) {
+        Write-Warning "No migration files found matching or following prefix: $Prefix"
+        exit 0
+    }
 }
+
+Write-Host "Selected $($MigrationsToRun.Count) migration(s) to execute."
 
 Write-Host "Starting database migrations..."
 
 # Loop through and execute each file
-foreach ($File in $Migrations) {
-    $FilePath = Join-Path $PSScriptRoot $File
-    if (Test-Path $FilePath) {
-        Write-Host "Executing: $File"
-        & psql `
-            -v ON_ERROR_STOP=1 `
-            -v NPQS_OGA_SUBMISSION_URL="$NpqsOgaSubmissionUrl" `
-            -v FCAU_OGA_SUBMISSION_URL="$FcauOgaSubmissionUrl" `
-            -v PRECONSIGNMENT_OGA_SUBMISSION_URL="$PreconsignmentOgaSubmissionUrl" `
-            -v CDA_OGA_SUBMISSION_URL="$CdaOgaSubmissionUrl" `
-            -h "$MigrationDbHost" -p "$($env:DB_PORT)" -U "$($env:DB_USERNAME)" -d "$($env:DB_NAME)" -f "$FilePath"
-        
-        if ($LASTEXITCODE -ne 0) {
-            Write-Error "Error executing $File. Aborting."
-            exit 1
-        }
-    } else {
-        Write-Warning "Warning: File $File not found, skipping."
+foreach ($File in $MigrationsToRun) {
+    $FilePath = $File.FullName
+    Write-Host "Executing: $($File.Name)"
+    & psql `
+        -v ON_ERROR_STOP=1 `
+        -v NPQS_OGA_SUBMISSION_URL="$NpqsOgaSubmissionUrl" `
+        -v FCAU_OGA_SUBMISSION_URL="$FcauOgaSubmissionUrl" `
+        -v PRECONSIGNMENT_OGA_SUBMISSION_URL="$PreconsignmentOgaSubmissionUrl" `
+        -v CDA_OGA_SUBMISSION_URL="$CdaOgaSubmissionUrl" `
+        -h "$MigrationDbHost" -p "$($env:DB_PORT)" -U "$($env:DB_USERNAME)" -d "$($env:DB_NAME)" -f "$FilePath"
+    
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Error executing $($File.Name). Aborting."
+        exit 1
     }
 }
 
