@@ -4,46 +4,28 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"regexp"
 )
 
-// envVarRe is a regex pattern that matches environment variable placeholders in the format ${VAR_NAME}.
-// It captures the variable name without the ${} delimiters.
-var envVarRe = regexp.MustCompile(`\$\{([^}]+)\}`)
-
-// expandEnv processes byte data to expand environment variable placeholders.
-// It looks for patterns like ${VAR_NAME} and replaces them with their corresponding
-// environment variable values. The replacement value is JSON-encoded to ensure proper
-// escaping when embedded in JSON configuration files.
-//
-// If any environment variables referenced in the data are not set, expandEnv returns
-// an error listing all missing variables and leaves those placeholders unchanged.
-//
-// Parameters:
-//   - data: The byte slice containing potential environment variable placeholders
-//
-// Returns:
-//   - A byte slice with all environment variables expanded
-//   - An error if any referenced environment variables are not set
+// expandEnv expands ${VAR_NAME} placeholders in data with their environment variable values.
+// Values are JSON-escaped before substitution so special characters cannot corrupt the JSON document.
+// Returns an error listing all unset variables if any are missing.
 func expandEnv(data []byte) ([]byte, error) {
 	var missing []string
-	result := envVarRe.ReplaceAllFunc(data, func(match []byte) []byte {
-		// Extract the variable name by removing ${} wrapper
-		// match[2 : len(match)-1] skips the first 2 chars (${ ) and last 1 char (})
-		name := string(match[2 : len(match)-1])
-		val, ok := os.LookupEnv(name)
+	expanded := os.Expand(string(data), func(key string) string {
+		val, ok := os.LookupEnv(key)
 		if !ok {
-			missing = append(missing, name)
-			return match
+			missing = append(missing, key)
+			return "${" + key + "}"
 		}
-		// JSON encode the value to ensure proper escaping, then strip the surrounding quotes
+		// JSON-escape the value; the template wraps ${VAR} in quotes so we strip them here.
+		// json.Marshal on a string never returns an error.
 		encoded, _ := json.Marshal(val)
-		return encoded[1 : len(encoded)-1]
+		return string(encoded[1 : len(encoded)-1])
 	})
 	if len(missing) > 0 {
 		return nil, fmt.Errorf("unset environment variables in notification config: %v", missing)
 	}
-	return result, nil
+	return []byte(expanded), nil
 }
 
 // loadConfigMap reads a JSON configuration file from the specified path, expands any
