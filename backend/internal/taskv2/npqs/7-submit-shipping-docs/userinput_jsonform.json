@@ -5,27 +5,27 @@
         "properties": {
             "bill_of_lading": {
                 "type": "string",
-                "format": "data-url",
+                "format": "file",
                 "title": "Bill of Lading"
             },
             "packing_list": {
                 "type": "string",
-                "format": "data-url",
+                "format": "file",
                 "title": "Packing List"
             },
             "commercial_invoice": {
                 "type": "string",
-                "format": "data-url",
+                "format": "file",
                 "title": "Commercial Invoice"
             },
             "certificate_of_origin": {
                 "type": "string",
-                "format": "data-url",
+                "format": "file",
                 "title": "Certificate of Origin"
             },
             "additional_docs": {
                 "type": "string",
-                "format": "data-url",
+                "format": "file",
                 "title": "Additional Documents (if any)"
             }
         },

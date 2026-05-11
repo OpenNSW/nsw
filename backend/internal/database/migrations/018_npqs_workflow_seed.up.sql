@@ -145,9 +145,9 @@ VALUES
               "condition": "npqs.application_review_outcome == ''approve''" },
 
             { "id": "e_sample_yes",     "source_id": "sample_split",     "target_id": "n2_sample_wait",
-              "condition": "npqs.sample_required == true" },
+              "condition": "npqs.sample_required == ''yes''" },
             { "id": "e_sample_no",      "source_id": "sample_split",     "target_id": "join_pre_visual",
-              "condition": "npqs.sample_required == false" },
+              "condition": "npqs.sample_required == ''no''" },
 
             { "id": "e_sample_to_lab",  "source_id": "n2_sample_wait",   "target_id": "n2_lab_wait" },
             { "id": "e_lab_result",     "source_id": "n2_lab_wait",      "target_id": "lab_result_split" },
@@ -158,18 +158,18 @@ VALUES
               "condition": "npqs.lab_result == ''pass''" },
 
             { "id": "e_fum_yes",        "source_id": "fumigation_split", "target_id": "n3_fumigation_wait",
-              "condition": "npqs.fumigation_required == true" },
+              "condition": "npqs.fumigation_required == ''yes''" },
             { "id": "e_fum_no",         "source_id": "fumigation_split", "target_id": "join_pre_visual",
-              "condition": "npqs.fumigation_required == false" },
+              "condition": "npqs.fumigation_required == ''no''" },
             { "id": "e_fum_to_visual",  "source_id": "n3_fumigation_wait","target_id": "join_pre_visual" },
 
             { "id": "e_join_to_vd",     "source_id": "join_pre_visual",  "target_id": "n4_visual_decision_wait" },
             { "id": "e_vd_gw",          "source_id": "n4_visual_decision_wait","target_id": "visual_req_split" },
 
             { "id": "e_visual_yes",     "source_id": "visual_req_split", "target_id": "n5_visual_insp_wait",
-              "condition": "npqs.visual_inspection_required == true" },
+              "condition": "npqs.visual_inspection_required == ''yes''" },
             { "id": "e_visual_no",      "source_id": "visual_req_split", "target_id": "join_post_visual",
-              "condition": "npqs.visual_inspection_required == false" },
+              "condition": "npqs.visual_inspection_required == ''no''" },
 
             { "id": "e_visual_result",  "source_id": "n5_visual_insp_wait","target_id": "visual_result_split" },
             { "id": "e_visual_fail",    "source_id": "visual_result_split","target_id": "end_visual_failed",
