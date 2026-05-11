@@ -200,21 +200,23 @@ jobs:
           retention-days: 1
 
       # Trivy scans the pushed image for CRITICAL/HIGH CVEs.
-      # ignore-unfixed: true ensures we only fail/alert on CVEs that actually have a patch.
-
+      - name: Setup Trivy
+        if: steps.release-mode.outputs.enabled == 'true'
+        uses: aquasecurity/setup-trivy@e6c2c5e321ed9123bda567646e2f96565e34abe1
+        with:
+          version: v0.69.3
+          
       - name: Run Trivy vulnerability scanner
         id: trivy-scan
         if: steps.release-mode.outputs.enabled == 'true'
-        uses: aquasecurity/trivy-action@0.35.0
-        with:
-          image-ref: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
-          version: v0.69.3
-          token-setup-trivy: ${{ secrets.GITHUB_TOKEN }}
-          format: sarif
-          output: trivy-${{ matrix.image_name }}.sarif
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          vuln-type: 'os,library'
+        run: |
+          trivy image \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --format sarif \
+            --output "trivy-${{ matrix.image_name }}.sarif" \
+            --exit-code 1 \
+            "${{ fromJSON(steps.meta.outputs.json).tags[0] }}"
 
 
       - name: Upload Trivy results
@@ -222,6 +224,16 @@ jobs:
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-${{ matrix.image_name }}.sarif
+
+      - name: Print Trivy findings (debug)
+        if: always() && steps.trivy-scan.outcome != 'skipped'
+        run: |
+          trivy image \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --ignorefile .trivyignore \
+            --format table \
+            ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
 
       - name: Generate service summary
         if: always()

@@ -1,9 +1,11 @@
-# Use the official migrate image to extract the binary
-# Always pin a specific version for production immutability
-FROM migrate/migrate:v4.17.0 AS migrate-bin
+# Build the migrate binary from source using the latest secure Go 1.25 compiler
+FROM golang:1.25-bookworm AS builder
 
-# Build the execution image
-FROM alpine:3.18
+# Build migrate statically with PostgreSQL support only
+RUN CGO_ENABLED=0 go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.1
+
+# Build the final execution image
+FROM alpine:3.21
 
 # Install postgres-client (for pg_isready checks) and CA certs
 RUN apk add --no-cache ca-certificates postgresql-client
@@ -19,8 +21,7 @@ RUN chgrp -R 0 /migrations && \
     chmod -R g+rwX /migrations
 
 # Copy migration binary from the builder stage
-# (Note: The official image places it at /migrate, not /usr/bin/migrate)
-COPY --from=migrate-bin /migrate /usr/local/bin/migrate
+COPY --from=builder /go/bin/migrate /usr/local/bin/migrate
 
 # Copy SQL scripts (Assuming Docker build context is the repository root)
 COPY backend/internal/database/migrations/*.sql ./

@@ -2,15 +2,11 @@ package service
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 
-	"github.com/OpenNSW/nsw/internal/auth"
 	workflowmanager "github.com/OpenNSW/nsw/internal/workflow/manager"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/OpenNSW/nsw/utils"
@@ -301,58 +297,12 @@ func (s *PreConsignmentService) GetPreConsignmentByID(ctx context.Context, preCo
 	return responseDTO, nil
 }
 
-// syncTraderContextToAuth synchronizes the trader context (from the workflow's global context) to the auth system.
+// syncTraderContextToAuth synchronizes the trader context (from the workflow's global context) to the user profile.
 // This is called when a pre-consignment is completed to persist accumulated context.
-func (s *PreConsignmentService) syncTraderContextToAuth(tx *gorm.DB, preConsignment *model.PreConsignment, traderContext map[string]any) error {
-	var uc auth.UserContext
-	result := tx.
-		Clauses(clause.Locking{Strength: "UPDATE"}).
-		Where("user_id = ?", preConsignment.TraderID).
-		First(&uc)
-
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			contextJSON, err := json.Marshal(traderContext)
-			if err != nil {
-				return fmt.Errorf("failed to marshal user context: %w", err)
-			}
-
-			uc = auth.UserContext{
-				UserID:  preConsignment.TraderID,
-				NSWData: contextJSON,
-			}
-
-			if err := tx.Create(&uc).Error; err != nil {
-				return fmt.Errorf("failed to create user context: %w", err)
-			}
-			return nil
-		}
-		return fmt.Errorf("failed to query user context: %w", result.Error)
-	}
-
-	var existingContext map[string]any
-	if len(uc.NSWData) > 0 {
-		if err := json.Unmarshal(uc.NSWData, &existingContext); err != nil {
-			return fmt.Errorf("failed to unmarshal existing user context: %w", err)
-		}
-	} else {
-		existingContext = make(map[string]any)
-	}
-
-	for k, v := range traderContext {
-		existingContext[k] = v
-	}
-
-	updatedJSON, err := json.Marshal(existingContext)
-	if err != nil {
-		return fmt.Errorf("failed to marshal updated user context: %w", err)
-	}
-
-	uc.NSWData = updatedJSON
-	if err := tx.Save(&uc).Error; err != nil {
-		return fmt.Errorf("failed to update user context: %w", err)
-	}
-
+// It updates the Data field on the company profile Record.
+// TODO: Once the Company Profile Service is implemented, we should merge the pre-consignment results with the existing company profile data instead of overwriting it.
+// TODO: This function name and signature may need to be refactored as well once we have a clearer picture of the data flow and ownership between pre-consignment, company profile, and user profile.
+func (s *PreConsignmentService) syncTraderContextToAuth(_ *gorm.DB, _ *model.PreConsignment, _ map[string]any) error {
 	return nil
 }
 

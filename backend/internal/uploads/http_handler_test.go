@@ -73,7 +73,7 @@ func TestDownload_MissingKey(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/files/", nil)
 	// Auth present, but no path value for "key".
 	ctx := withAuthContext(req.Context(), &auth.AuthContext{
-		User: &auth.UserContext{UserID: "trader-1"},
+		User: &auth.UserContext{ID: "trader-1"},
 	})
 	req = req.WithContext(ctx)
 	rec := httptest.NewRecorder()
@@ -95,7 +95,7 @@ func TestDownload_Success(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/files/550e8400-e29b-41d4-a716-446655440000.pdf", nil)
 	ctx := withAuthContext(req.Context(), &auth.AuthContext{
-		User: &auth.UserContext{UserID: "trader-1"},
+		User: &auth.UserContext{ID: "trader-1"},
 	})
 	req = req.WithContext(ctx)
 	rec := httptest.NewRecorder()
@@ -135,7 +135,7 @@ func TestDownload_GenerateURLError(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/files/550e8400-e29b-41d4-a716-446655440000", nil)
 	ctx := withAuthContext(req.Context(), &auth.AuthContext{
-		User: &auth.UserContext{UserID: "trader-1"},
+		User: &auth.UserContext{ID: "trader-1"},
 	})
 	req = req.WithContext(ctx)
 	rec := httptest.NewRecorder()
@@ -161,7 +161,7 @@ func TestDownload_InvalidKeyFormat(t *testing.T) {
 	// Key that is not UUID or UUID.ext (validStorageKey rejects it)
 	req := httptest.NewRequest(http.MethodGet, "/files/invalid-key-format", nil)
 	ctx := withAuthContext(req.Context(), &auth.AuthContext{
-		User: &auth.UserContext{UserID: "trader-1"},
+		User: &auth.UserContext{ID: "trader-1"},
 	})
 	req = req.WithContext(ctx)
 	rec := httptest.NewRecorder()
@@ -208,7 +208,7 @@ func TestUpload_Success(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/uploads", bytes.NewReader(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
 	ctx := withAuthContext(req.Context(), &auth.AuthContext{
-		User: &auth.UserContext{UserID: "trader-1"},
+		User: &auth.UserContext{ID: "trader-1"},
 	})
 	req = req.WithContext(ctx)
 	rec := httptest.NewRecorder()

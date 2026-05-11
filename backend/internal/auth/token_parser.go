@@ -1,11 +1,8 @@
 package auth
 
 import (
-	"crypto/rsa"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"net/http"
 	"slices"
 	"strings"
@@ -24,11 +21,12 @@ const (
 
 type tokenClaims struct {
 	jwt.RegisteredClaims
-	ClientID  string           `json:"client_id"`
-	GrantType AllowedGrantType `json:"grant_type"`
-	Email     *string          `json:"email,omitempty"`
-	OUHandle  *string          `json:"ouHandle,omitempty"`
-	OUID      *string          `json:"ouId,omitempty"`
+	ClientID    string           `json:"client_id"`
+	GrantType   AllowedGrantType `json:"grant_type"`
+	Email       *string          `json:"email,omitempty"`
+	PhoneNumber *string          `json:"phone_number,omitempty"`
+	OUID        *string          `json:"ouId,omitempty"`
+	Roles       []string         `json:"roles,omitempty"`
 }
 
 type PrincipalType string
@@ -43,10 +41,11 @@ type ClientPrincipal struct {
 }
 
 type UserPrincipal struct {
-	UserID   string `json:"userId"`
-	Email    string `json:"email"`
-	OUHandle string `json:"ouHandle"`
-	OUID     string `json:"ouId"`
+	UserID      string   `json:"userId"`
+	Email       string   `json:"email"`
+	PhoneNumber *string  `json:"phone_number,omitempty"`
+	OUID        string   `json:"ouId"`
+	Roles       []string `json:"roles"`
 }
 
 type Principal struct {
@@ -219,17 +218,21 @@ func (te *TokenExtractor) userPrincipalFromClaims(claims *tokenClaims) (*UserPri
 	if claims.Email == nil {
 		return nil, fmt.Errorf("jwt missing email claim for user principal")
 	}
-	if claims.OUHandle == nil {
-		return nil, fmt.Errorf("jwt missing ouHandle claim for user principal")
-	}
 	if claims.OUID == nil {
 		return nil, fmt.Errorf("jwt missing ouId claim for user principal")
 	}
+
+	// Phone number is optional as not all IdPs may provide it, but if it's present it should not be empty.
+	if claims.PhoneNumber != nil && strings.TrimSpace(*claims.PhoneNumber) == "" {
+		return nil, fmt.Errorf("jwt has empty phone_number claim for user principal")
+	}
+
 	return &UserPrincipal{
-		UserID:   claims.Subject,
-		Email:    *claims.Email,
-		OUHandle: *claims.OUHandle,
-		OUID:     *claims.OUID,
+		UserID:      claims.Subject,
+		Email:       *claims.Email,
+		PhoneNumber: claims.PhoneNumber,
+		OUID:        *claims.OUID,
+		Roles:       claims.Roles,
 	}, nil
 }
 
@@ -351,33 +354,4 @@ func (te *TokenExtractor) fetchJWKS() (*jwksResponse, error) {
 	}
 
 	return &jwks, nil
-}
-
-func parseRSAPublicKey(key jwk) (*rsa.PublicKey, error) {
-	if key.Kty != "RSA" {
-		return nil, fmt.Errorf("unsupported jwk key type: %s", key.Kty)
-	}
-
-	modulusBytes, err := base64.RawURLEncoding.DecodeString(key.N)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode jwk modulus: %w", err)
-	}
-	exponentBytes, err := base64.RawURLEncoding.DecodeString(key.E)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode jwk exponent: %w", err)
-	}
-
-	if len(modulusBytes) == 0 || len(exponentBytes) == 0 {
-		return nil, fmt.Errorf("invalid jwk key data")
-	}
-
-	exponentInt := new(big.Int).SetBytes(exponentBytes).Int64()
-	if exponentInt <= 0 {
-		return nil, fmt.Errorf("invalid jwk exponent")
-	}
-
-	return &rsa.PublicKey{
-		N: new(big.Int).SetBytes(modulusBytes),
-		E: int(exponentInt),
-	}, nil
 }

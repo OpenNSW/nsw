@@ -139,6 +139,8 @@ create_user_in_ou() {
     local GIVEN_NAME="$5"
     local FAMILY_NAME="$6"
     local PASSWORD="$7"
+    local PHONE_NUMBER="$8"
+
     local RESPONSE HTTP_CODE BODY USER_ID
 
     read -r -d '' USER_PAYLOAD <<JSON || true
@@ -150,7 +152,8 @@ create_user_in_ou() {
         "password": "${PASSWORD}",
         "email": "${EMAIL}",
         "given_name": "${GIVEN_NAME}",
-        "family_name": "${FAMILY_NAME}"
+        "family_name": "${FAMILY_NAME}",
+        "phone_number": "${PHONE_NUMBER}"
     }
 }
 JSON
@@ -241,6 +244,7 @@ create_spa_application() {
                         "validityPeriod": 3600,
                         "userAttributes": [
                             "email",
+                            "phone_number",
                             "family_name",
                             "given_name",
                             "groups",
@@ -869,6 +873,11 @@ read -r -d '' PRIVATE_USER_TYPE_PAYLOAD <<JSON || true
             "unique": true,
             "regex": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\\\.[a-zA-Z]{2,}$"
         },
+        "phone_number": {
+            "type": "string",
+            "required": false,
+            "regex": "^\\\\+?[1-9]\\\\d{1,14}$"
+        },
         "given_name": {
             "type": "string",
             "required": false
@@ -925,6 +934,10 @@ read -r -d '' GOVERNMENT_USER_TYPE_PAYLOAD <<JSON || true
             "required": true,
             "unique": true,
             "regex": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\\\.[a-zA-Z]{2,}$"
+        },
+        "phone_number": {
+            "type": "string",
+            "required": false
         },
         "given_name": {
             "type": "string",
@@ -1124,25 +1137,25 @@ echo ""
 
 log_info "Creating sample users..."
 
-create_user_in_ou "Private_User" "$ABCD_TRADERS_OU_ID" "user123" "user123@abcd-traders.private-sector.dev" "Both" "Roles" "$USER123_PASSWORD"
+create_user_in_ou "Private_User" "$ABCD_TRADERS_OU_ID" "user123" "user123@abcd-traders.private-sector.dev" "Both" "Roles" "$USER123_PASSWORD" "+94771234567"
 USER_123="$CREATED_USER_ID"
 
-create_user_in_ou "Private_User" "$ABCD_TRADERS_OU_ID" "user456" "user456@abcd-traders.private-sector.dev" "CHA" "Only" "$USER456_PASSWORD"
+create_user_in_ou "Private_User" "$ABCD_TRADERS_OU_ID" "user456" "user456@abcd-traders.private-sector.dev" "CHA" "Only" "$USER456_PASSWORD" "+94771234568"
 USER_456="$CREATED_USER_ID"
 
-create_user_in_ou "Private_User" "$ABCD_TRADERS_OU_ID" "user789" "user789@abcd-traders.private-sector.dev" "Trader" "Only" "$USER789_PASSWORD"
+create_user_in_ou "Private_User" "$ABCD_TRADERS_OU_ID" "user789" "user789@abcd-traders.private-sector.dev" "Trader" "Only" "$USER789_PASSWORD" "+94771234569"
 USER_789="$CREATED_USER_ID"
 
-create_user_in_ou "Government_User" "$NPQS_OU_ID" "npqs_user" "npqs_user@government.dev" "NPQS" "User" "$NPQS_USER_PASSWORD"
+create_user_in_ou "Government_User" "$NPQS_OU_ID" "npqs_user" "npqs_user@government.dev" "NPQS" "User" "$NPQS_USER_PASSWORD" "+94771234560"
 USER_NPQS_ID="$CREATED_USER_ID"
 
-create_user_in_ou "Government_User" "$FCAU_OU_ID" "fcau_user" "fcau_user@government.dev" "FCAU" "User" "$FCAU_USER_PASSWORD"
+create_user_in_ou "Government_User" "$FCAU_OU_ID" "fcau_user" "fcau_user@government.dev" "FCAU" "User" "$FCAU_USER_PASSWORD" "+94771234561"
 USER_FCAU_ID="$CREATED_USER_ID"
 
-create_user_in_ou "Government_User" "$IRD_OU_ID" "ird_user" "ird_user@government.dev" "IRD" "User" "$IRD_USER_PASSWORD"
+create_user_in_ou "Government_User" "$IRD_OU_ID" "ird_user" "ird_user@government.dev" "IRD" "User" "$IRD_USER_PASSWORD" "+94771234562"
 USER_IRD_ID="$CREATED_USER_ID"
 
-create_user_in_ou "Government_User" "$CDA_OU_ID" "cda_user" "cda_user@government.dev" "CDA" "User" "$CDA_USER_PASSWORD"
+create_user_in_ou "Government_User" "$CDA_OU_ID" "cda_user" "cda_user@government.dev" "CDA" "User" "$CDA_USER_PASSWORD" "+94771234563"
 USER_CDA_ID="$CREATED_USER_ID"
 
 echo ""

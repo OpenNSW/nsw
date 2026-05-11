@@ -2,20 +2,63 @@ package auth
 
 import (
 	"context"
-	"encoding/json"
 )
 
-// UserContext represents a user's stored context in the database.
-type UserContext struct {
-	UserID   string          `gorm:"type:varchar(100);column:user_id;primaryKey;not null" json:"userId"`
-	Email    string          `gorm:"type:varchar(255);column:email" json:"email"`
-	OUHandle string          `gorm:"type:varchar(255);column:ou_handle" json:"ouHandle"`
-	OUID     string          `gorm:"type:varchar(255);column:ou_id" json:"ouId"`
-	NSWData  json.RawMessage `gorm:"type:jsonb;column:nsw_data" json:"nswData"`
+// UserProfileService defines the contract for managing user profiles.
+// Implementations are responsible for persisting and managing user records in their system.
+//
+// This interface is OPTIONAL when using the auth package. If not provided (nil),
+// user creation on first login will be skipped. This allows:
+//
+// 1. Systems that don't track user profiles - just use auth for token validation
+// 2. Systems that manage user profiles separately - implement this interface
+// 3. Systems that handle user creation elsewhere - pass nil
+//
+// Example implementation:
+//
+//	type MyUserService struct {
+//	    db *sql.DB
+//	}
+//
+//	func (s *MyUserService) GetOrCreateUser(userID, email, phone, organizationID string) (*string, error) {
+//	    // Your implementation to create or fetch the user idempotently
+//	    persistedID := "generated-id"
+//	    if err := s.db.Exec("INSERT INTO users ...", userID, email, phone, organizationID).Error; err != nil {
+//	        return nil, err
+//	    }
+//	    return &persistedID, nil
+//	}
+//
+//	authManager := auth.NewManager(myUserService, cfg.Auth)  // myUserService can be nil
+type UserProfileService interface {
+	// GetOrCreateUser creates or retrieves a user profile.
+	// Parameters:
+	//   - idpUserID: the unique user ID from the identity provider (required)
+	//   - email: user's email address (required)
+	//   - phone: user's phone number (can be empty)
+	//   - organizationID: organization/tenant identifier (required)
+	//
+	// Implementation notes:
+	//   - Should be idempotent: calling multiple times with same idpUserID should be safe
+	//   - Called during first login after token validation
+	//   - Errors are logged but don't block authentication
+	//   - Should not return error if user already exists
+	//   - If err is non-nil, the returned user ID should be nil
+	// Returns user ID of the created or existing user, or an error if the operation fails.
+	GetOrCreateUser(idpUserID, email, phone, organizationID string) (*string, error)
 }
 
-func (t *UserContext) TableName() string {
-	return "user_contexts"
+// UserContext represents a user principal's runtime context injected into each request.
+// It includes identity fields and principal-derived roles.
+// Note: Per-request NSWData is not persisted here; services requiring user metadata
+// should call the user profile service on-demand.
+type UserContext struct {
+	ID          string   `json:"id"`
+	IDPUserID   string   `json:"idpUserId"`
+	Email       string   `json:"email"`
+	PhoneNumber string   `json:"phoneNumber"`
+	OUID        string   `json:"ouId"`
+	Roles       []string `json:"roles"`
 }
 
 // ClientContext represents a machine client's context.
@@ -25,24 +68,11 @@ type ClientContext struct {
 
 // AuthContext is the transient authentication context injected into each request
 // by the auth middleware.
-// For user principals, UserID and identity fields are set.
-// For client principals (M2M), ClientID is set.
+// For user principals, User contains identity fields and roles.
+// For client principals (M2M), Client is set.
 type AuthContext struct {
 	User   *UserContext
 	Client *ClientContext
-}
-
-// GetUserContextMap returns the stored user context as a map.
-// Returns an empty map when no context is available.
-func (ac *AuthContext) GetUserContextMap() (map[string]any, error) {
-	m := make(map[string]any)
-	if ac == nil || ac.User == nil {
-		return m, nil
-	}
-	if err := json.Unmarshal(ac.User.NSWData, &m); err != nil {
-		return nil, err
-	}
-	return m, nil
 }
 
 // ContextKey is a custom type for context keys to avoid collisions.
@@ -60,7 +90,7 @@ const AuthContextKey ContextKey = "authContext"
 //	if authCtx == nil {
 //	    // Handle unauthorized request
 //	}
-//	userID := authCtx.User.UserID
+//	userID := authCtx.User.ID
 func GetAuthContext(ctx context.Context) *AuthContext {
 	authCtx, ok := ctx.Value(AuthContextKey).(*AuthContext)
 	if !ok {

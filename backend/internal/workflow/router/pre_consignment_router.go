@@ -35,7 +35,7 @@ func (r *PreConsignmentRouter) HandleGetTraderPreConsignments(w http.ResponseWri
 		return
 	}
 
-	traderID := authCtx.User.UserID
+	traderID := authCtx.User.ID
 	offset, limit, err := utils.ParsePaginationParams(req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -73,15 +73,10 @@ func (r *PreConsignmentRouter) HandleCreatePreConsignment(w http.ResponseWriter,
 		return
 	}
 
-	traderId := authCtx.User.UserID
-	traderContext, err := authCtx.GetUserContextMap()
-	if err != nil {
-		slog.Error("failed to parse user context", "error", err)
-		http.Error(w, "failed to parse trader context", http.StatusInternalServerError)
-		return
-	}
-
-	preConsignment, err := r.pcs.InitializePreConsignment(req.Context(), &createReq, traderId, traderContext)
+	traderId := authCtx.User.ID
+	// TODO: Initial trader context is nil; services requiring user metadata should fetch it on-demand
+	// from the user profile service rather than relying on preloaded request context.
+	preConsignment, err := r.pcs.InitializePreConsignment(req.Context(), &createReq, traderId, nil)
 	if err != nil {
 		slog.Error("failed to create pre-consignment", "error", err)
 		http.Error(w, "failed to create pre-consignment: "+err.Error(), http.StatusInternalServerError)
@@ -107,7 +102,7 @@ func (r *PreConsignmentRouter) HandleGetPreConsignmentsByTraderID(w http.Respons
 		return
 	}
 
-	traderID := authCtx.User.UserID
+	traderID := authCtx.User.ID
 	preConsignments, err := r.pcs.GetPreConsignmentsByTraderID(req.Context(), traderID)
 	if err != nil {
 		slog.Error("failed to retrieve pre-consignments", "error", err)

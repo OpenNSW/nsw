@@ -404,29 +404,32 @@ CREATE INDEX IF NOT EXISTS idx_pre_consignments_trader_id_state
 	ON pre_consignments (trader_id, state);
 
 -- ============================================================================
--- User context registry
+-- User records registry
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS user_contexts
+CREATE TABLE IF NOT EXISTS user_records
 (
-	user_id varchar(100) NOT NULL
+	id varchar(100) NOT NULL
 		PRIMARY KEY,
+	idp_user_id varchar(255) NOT NULL UNIQUE,
 	email varchar(255) NOT NULL,
-	ou_handle varchar(255) NOT NULL,
+	phone_number varchar(20),
 	ou_id varchar(255) NOT NULL,
-	nsw_data jsonb NOT NULL,
+	data jsonb NOT NULL,
 	created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
 	updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
 
-COMMENT ON TABLE user_contexts IS 'Stores user context information including metadata in JSON format. This table is used for user identification and authorization.';
+COMMENT ON TABLE user_records IS 'Stores user record information including metadata in JSON format. This table is used for user identification and authorization.';
 
-COMMENT ON COLUMN user_contexts.user_id IS 'Unique user identifier (e.g., TRADER-001)';
+COMMENT ON COLUMN user_records.id IS 'Unique user identifier (e.g., TRADER-001)';
 
-COMMENT ON COLUMN user_contexts.email IS 'User email from identity claims';
+COMMENT ON COLUMN user_records.idp_user_id IS 'User ID from the identity provider';
 
-COMMENT ON COLUMN user_contexts.ou_handle IS 'User organization unit handle from identity claims';
+COMMENT ON COLUMN user_records.email IS 'User email from identity claims';
 
-COMMENT ON COLUMN user_contexts.ou_id IS 'User organization unit ID from identity claims';
+COMMENT ON COLUMN user_records.ou_id IS 'User organization unit ID from identity claims';
 
-COMMENT ON COLUMN user_contexts.nsw_data IS 'JSONB field containing NSW user metadata and context information';
+COMMENT ON COLUMN user_records.data IS 'JSONB field containing user metadata and context information';
 
+CREATE INDEX IF NOT EXISTS idx_user_records_idp_user_id
+	ON user_records (idp_user_id);
