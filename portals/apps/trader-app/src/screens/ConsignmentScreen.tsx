@@ -24,24 +24,21 @@ interface NewConsignmentDialogProps {
   onOpenChange: (open: boolean) => void
   chaOptions: CHAOption[]
   creating: boolean
-  data: NewConsignmentData
-  setData: (data: NewConsignmentData | ((prev: NewConsignmentData) => NewConsignmentData)) => void
-  searchQuery: string
-  setSearchQuery: (q: string) => void
-  onCreate: () => void
+  onCreate: (data: NewConsignmentData) => Promise<void>
 }
 
-function NewConsignmentDialog({
-  open,
-  onOpenChange,
-  chaOptions,
-  creating,
-  data,
-  setData,
-  searchQuery,
-  setSearchQuery,
-  onCreate,
-}: NewConsignmentDialogProps) {
+function NewConsignmentDialog({ open, onOpenChange, chaOptions, creating, onCreate }: NewConsignmentDialogProps) {
+  const [newConsignmentData, setNewConsignmentData] = useState<NewConsignmentData>({
+    flow: null,
+    chaId: '',
+  })
+  const [currentCHASearchQuery, setCurrentCHASearchQuery] = useState('')
+
+  const handleCreate = () => {
+    if (newConsignmentData.flow && newConsignmentData.chaId) {
+      void onCreate(newConsignmentData)
+    }
+  }
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Content
@@ -72,12 +69,15 @@ function NewConsignmentDialog({
               <Flex gap="3">
                 <button
                   onClick={() => {
-                    setData((prev) => ({ ...prev, flow: 'IMPORT' }))
+                    setNewConsignmentData((prev) => ({
+                      ...prev,
+                      flow: 'IMPORT',
+                    }))
                   }}
-                  aria-pressed={data.flow === 'IMPORT'}
+                  aria-pressed={newConsignmentData.flow === 'IMPORT'}
                   aria-label="Select Import Trade Flow"
                   className={`flex-1 p-4 border-2 rounded-lg transition-all text-left group cursor-pointer ${
-                    data.flow === 'IMPORT'
+                    newConsignmentData.flow === 'IMPORT'
                       ? 'border-blue-500 bg-blue-50'
                       : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
                   }`}
@@ -88,7 +88,7 @@ function NewConsignmentDialog({
                         <RadixText
                           size="3"
                           weight="bold"
-                          className={`${data.flow === 'IMPORT' ? 'text-blue-700' : 'text-gray-900'} block`}
+                          className={`${newConsignmentData.flow === 'IMPORT' ? 'text-blue-700' : 'text-gray-900'} block`}
                         >
                           Import
                         </RadixText>
@@ -106,12 +106,15 @@ function NewConsignmentDialog({
                 </button>
                 <button
                   onClick={() => {
-                    setData((prev) => ({ ...prev, flow: 'EXPORT' }))
+                    setNewConsignmentData((prev) => ({
+                      ...prev,
+                      flow: 'EXPORT',
+                    }))
                   }}
-                  aria-pressed={data.flow === 'EXPORT'}
+                  aria-pressed={newConsignmentData.flow === 'EXPORT'}
                   aria-label="Select Export Trade Flow"
                   className={`flex-1 p-4 border-2 rounded-lg transition-all text-left group cursor-pointer ${
-                    data.flow === 'EXPORT'
+                    newConsignmentData.flow === 'EXPORT'
                       ? 'border-green-500 bg-green-50'
                       : 'border-gray-200 hover:border-green-300 hover:bg-green-50/50'
                   }`}
@@ -122,7 +125,7 @@ function NewConsignmentDialog({
                         <RadixText
                           size="3"
                           weight="bold"
-                          className={`${data.flow === 'EXPORT' ? 'text-green-700' : 'text-gray-900'} block`}
+                          className={`${newConsignmentData.flow === 'EXPORT' ? 'text-green-700' : 'text-gray-900'} block`}
                         >
                           Export
                         </RadixText>
@@ -148,14 +151,14 @@ function NewConsignmentDialog({
               </RadixText>
               <CHASearch
                 options={chaOptions}
-                value={chaOptions.find((c) => c.id === data.chaId) ?? null}
-                searchQuery={searchQuery}
+                value={chaOptions.find((c) => c.id === newConsignmentData.chaId) ?? null}
+                searchQuery={currentCHASearchQuery}
                 onChange={(cha) => {
-                  setData((prev) => ({ ...prev, chaId: cha?.id ?? '' }))
+                  setNewConsignmentData((prev) => ({ ...prev, chaId: cha?.id ?? '' }))
                 }}
-                onSearchQueryChange={setSearchQuery}
+                onSearchQueryChange={setCurrentCHASearchQuery}
               />
-              {!data.chaId && searchQuery.trim().length > 0 && (
+              {!newConsignmentData.chaId && currentCHASearchQuery.trim().length > 0 && (
                 <Flex align="center" gap="1" mt="2">
                   <InfoCircledIcon color="red" />
                   <Text size="1" color="red">
@@ -173,7 +176,11 @@ function NewConsignmentDialog({
               Cancel
             </Button>
           </Dialog.Close>
-          <Button onClick={onCreate} disabled={!data.flow || !data.chaId || creating} loading={creating}>
+          <Button
+            onClick={handleCreate}
+            disabled={!newConsignmentData.flow || !newConsignmentData.chaId || creating}
+            loading={creating}
+          >
             {creating ? 'Creating...' : 'Create'}
           </Button>
         </Flex>
@@ -203,40 +210,25 @@ export function ConsignmentScreen() {
   // New consignment state
   const [pickerOpen, setPickerOpen] = useState(false)
   const [creating, setCreating] = useState(false)
-  const [newConsignmentData, setNewConsignmentData] = useState<NewConsignmentData>({
-    flow: null,
-    chaId: '',
-  })
-  const [currentCHASearchQuery, setCurrentCHASearchQuery] = useState('')
 
   const listRequestIdRef = useRef(0)
 
-  const resetNewConsignment = () => {
-    setNewConsignmentData({
-      flow: null,
-      chaId: '',
-    })
-    setCurrentCHASearchQuery('')
-  }
-
   const handleNewOpenChange = (open: boolean) => {
     setPickerOpen(open)
-    if (!open) resetNewConsignment()
   }
 
-  const handleCreateShell = async () => {
-    if (!newConsignmentData.flow) return
+  const handleCreateShell = async (data: NewConsignmentData) => {
+    if (!data.flow) return
     setCreating(true)
     try {
       const response = await createConsignment(
         {
-          flow: newConsignmentData.flow,
-          chaId: newConsignmentData.chaId,
+          flow: data.flow,
+          chaId: data.chaId,
         },
         api,
       )
       setPickerOpen(false)
-      resetNewConsignment()
       // ensure list refreshes (user will see it in both views)
       void navigate(`/consignments/${response.id}`)
     } catch (error) {
@@ -337,11 +329,7 @@ export function ConsignmentScreen() {
         onOpenChange={handleNewOpenChange}
         chaOptions={chaOptions}
         creating={creating}
-        data={newConsignmentData}
-        setData={setNewConsignmentData}
-        searchQuery={currentCHASearchQuery}
-        setSearchQuery={setCurrentCHASearchQuery}
-        onCreate={() => void handleCreateShell()}
+        onCreate={handleCreateShell}
       />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
