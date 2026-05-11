@@ -76,7 +76,11 @@ func (c *dispatchClient) post(ctx context.Context, url string, body any) error {
 	if err != nil {
 		return c.dispatchOrSwallow("transport", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			slog.Warn("taskv2 plugin: failed to close response body", "url", url, "error", closeErr)
+		}
+	}()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		preview, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
