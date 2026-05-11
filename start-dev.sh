@@ -363,7 +363,7 @@ for entry in "${OGA_INSTANCES[@]}"; do
 done
 
 start_service "trader-app" "$ROOT_DIR/portals/apps/trader-app" env \
-  VITE_API_BASE_URL="http://localhost:${BACKEND_PORT}/api/v1" \
+  VITE_API_BASE_URL="http://localhost:${BACKEND_PORT}" \
   VITE_IDP_BASE_URL="$IDP_PUBLIC_URL" \
   VITE_IDP_CLIENT_ID="$TRADER_IDP_CLIENT_ID" \
   VITE_APP_URL="http://localhost:${TRADER_APP_PORT}" \
