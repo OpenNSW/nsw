@@ -36,21 +36,6 @@ function NewConsignmentDialog({ open, onOpenChange, chaOptions, creating, onCrea
   })
   const [currentCHASearchQuery, setCurrentCHASearchQuery] = useState('')
 
-  const resetNewConsignment = () => {
-    setNewConsignmentData({
-      flow: null,
-      chaId: '',
-    })
-    setCurrentCHASearchQuery('')
-  }
-
-  useEffect(() => {
-    if (!open) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      resetNewConsignment()
-    }
-  }, [open])
-
   const handleCreate = () => {
     if (newConsignmentData.flow && newConsignmentData.chaId) {
       void onCreate({
@@ -185,6 +170,7 @@ function NewConsignmentDialog({ open, onOpenChange, chaOptions, creating, onCrea
               <CHASearch
                 options={chaOptions}
                 value={chaOptions.find((c) => c.id === newConsignmentData.chaId) ?? null}
+                searchQuery={currentCHASearchQuery}
                 onChange={(cha) => {
                   setNewConsignmentData((prev) => ({ ...prev, chaId: cha?.id ?? '' }))
                 }}
@@ -354,6 +340,7 @@ export function ConsignmentScreen() {
       </div>
 
       <NewConsignmentDialog
+        key={pickerOpen ? 'open' : 'closed'}
         open={pickerOpen}
         onOpenChange={handleNewOpenChange}
         chaOptions={chaOptions}

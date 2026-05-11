@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from 'react'
+import { useMemo, useState } from 'react'
 import { Text, Box, Flex, Spinner, TextField, ScrollArea, IconButton, Badge } from '@radix-ui/themes'
 import { MagnifyingGlassIcon, Cross2Icon } from '@radix-ui/react-icons'
 
@@ -11,22 +11,12 @@ interface CHASearchProps {
   value: CHAOption | null
   onChange: (cha: CHAOption | null) => void
   options: readonly CHAOption[]
-  onSearchQueryChange?: (query: string) => void
+  searchQuery: string
+  onSearchQueryChange: (query: string) => void
 }
 
-export function CHASearch({ value, onChange, options, onSearchQueryChange }: CHASearchProps) {
-  const [searchQuery, setSearchQuery] = useState('')
+export function CHASearch({ value, onChange, options, searchQuery, onSearchQueryChange }: CHASearchProps) {
   const [isFocused, setIsFocused] = useState(false)
-  const isTypingRef = useRef(false)
-
-  useEffect(() => {
-    if (!value && !isTypingRef.current) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSearchQuery('')
-      onSearchQueryChange?.('')
-    }
-    isTypingRef.current = false
-  }, [value, onSearchQueryChange])
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -35,14 +25,13 @@ export function CHASearch({ value, onChange, options, onSearchQueryChange }: CHA
   }, [options, searchQuery])
 
   const handleSelect = (cha: CHAOption) => {
-    setSearchQuery(cha.name)
+    onSearchQueryChange(cha.name)
     onChange(cha)
     setIsFocused(false)
   }
 
   const handleClear = () => {
-    setSearchQuery('')
-    onSearchQueryChange?.('')
+    onSearchQueryChange('')
     onChange(null)
   }
 
@@ -57,11 +46,9 @@ export function CHASearch({ value, onChange, options, onSearchQueryChange }: CHA
         value={searchQuery}
         onChange={(e) => {
           const val = e.target.value
-          setSearchQuery(val)
+          onSearchQueryChange(val)
           setIsFocused(true)
-          onSearchQueryChange?.(val)
           if (value && val !== value.name) {
-            isTypingRef.current = true
             onChange(null)
           }
         }}
@@ -140,12 +127,6 @@ export function CHASearch({ value, onChange, options, onSearchQueryChange }: CHA
           )}
         </Box>
       )}
-
-      {/* {!showDropdown && !searchQuery && (
-        <Text size="1" color="gray" as="p" mt="3">
-          Start typing to search for CHAs
-        </Text>
-      )} */}
     </Box>
   )
 }
