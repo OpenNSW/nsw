@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { Text, Box, Flex, Spinner, TextField, ScrollArea, IconButton, Badge } from '@radix-ui/themes'
 import { MagnifyingGlassIcon, Cross2Icon } from '@radix-ui/react-icons'
 
@@ -11,11 +11,22 @@ interface CHASearchProps {
   value: CHAOption | null
   onChange: (cha: CHAOption | null) => void
   options: readonly CHAOption[]
+  onSearchQueryChange?: (query: string) => void
 }
 
-export function CHASearch({ value, onChange, options }: CHASearchProps) {
+export function CHASearch({ value, onChange, options, onSearchQueryChange }: CHASearchProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [isFocused, setIsFocused] = useState(false)
+  const isTypingRef = useRef(false)
+
+  useEffect(() => {
+    if (!value && !isTypingRef.current) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSearchQuery('')
+      onSearchQueryChange?.('')
+    }
+    isTypingRef.current = false
+  }, [value, onSearchQueryChange])
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -31,6 +42,7 @@ export function CHASearch({ value, onChange, options }: CHASearchProps) {
 
   const handleClear = () => {
     setSearchQuery('')
+    onSearchQueryChange?.('')
     onChange(null)
   }
 
@@ -43,7 +55,16 @@ export function CHASearch({ value, onChange, options }: CHASearchProps) {
         size="2"
         placeholder="Search by CHA (e.g., Spectra, Advantis)..."
         value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
+        onChange={(e) => {
+          const val = e.target.value
+          setSearchQuery(val)
+          setIsFocused(true)
+          onSearchQueryChange?.(val)
+          if (value && val !== value.name) {
+            isTypingRef.current = true
+            onChange(null)
+          }
+        }}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setTimeout(() => setIsFocused(false), 150)}
         onMouseDown={() => setIsFocused(true)}
@@ -120,11 +141,11 @@ export function CHASearch({ value, onChange, options }: CHASearchProps) {
         </Box>
       )}
 
-      {!showDropdown && !searchQuery && (
-        <Text size="2" color="gray" align="center" as="p" mt="3">
+      {/* {!showDropdown && !searchQuery && (
+        <Text size="1" color="gray" as="p" mt="3">
           Start typing to search for CHAs
         </Text>
-      )}
+      )} */}
     </Box>
   )
 }
