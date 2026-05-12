@@ -23,7 +23,7 @@ type Config struct {
 	PresignTTL     time.Duration
 }
 
-func (c *Config) Validate() error {
+func (c Config) Validate() error {
 	switch strings.TrimSpace(c.Type) {
 	case "local":
 		if strings.TrimSpace(c.LocalBaseDir) == "" {

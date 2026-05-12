@@ -18,7 +18,7 @@ type Config struct {
 	MaxConnLifetimeSeconds int
 }
 
-func (c *Config) Validate() error {
+func (c Config) Validate() error {
 	if c.Host == "" {
 		return fmt.Errorf("DB_HOST is required")
 	}
@@ -35,7 +35,7 @@ func (c *Config) Validate() error {
 }
 
 // DSN returns the database connection string.
-func (c *Config) DSN() string {
+func (c Config) DSN() string {
 	// Using the URL format is more robust for handling special characters in passwords.
 	// format: postgres://user:password@host:port/dbname?sslmode=disable
 	dsn := url.URL{
