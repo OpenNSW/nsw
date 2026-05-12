@@ -1,7 +1,9 @@
+import React from 'react'
 import SimpleForm, { type SimpleFormConfig } from './SimpleForm.tsx'
 import WaitForEvent, { type WaitForEventConfigs } from './WaitForEvent.tsx'
 import Payment, { type PaymentConfigs } from './Payment.tsx'
 import FireAndForget, { type FireAndForgetConfig } from './FireAndForget.tsx'
+import PluginHeader from './PluginHeader.tsx'
 
 export type TaskType = 'SIMPLE_FORM' | 'WAIT_FOR_EVENT' | 'PAYMENT' | 'FIRE_AND_FORGET'
 
@@ -26,20 +28,30 @@ export default function PluginRenderer({
   response: RenderInfo
   onTaskUpdated?: () => Promise<void>
 }) {
-  const { type, content, pluginState } = response
+  const { type, state, content, pluginState } = response
 
-  // TypeScript automatically narrows the content type based on type field
+  let plugin: React.ReactNode
   switch (type) {
     case 'SIMPLE_FORM':
-      return <SimpleForm configs={content} pluginState={pluginState} />
+      plugin = <SimpleForm configs={content} pluginState={pluginState} />
+      break
     case 'WAIT_FOR_EVENT':
-      return <WaitForEvent configs={content} pluginState={pluginState} />
+      plugin = <WaitForEvent configs={content} pluginState={pluginState} />
+      break
     case 'PAYMENT':
-      return <Payment configs={content} pluginState={pluginState} onTaskUpdated={onTaskUpdated} />
+      plugin = <Payment configs={content} pluginState={pluginState} onTaskUpdated={onTaskUpdated} />
+      break
     case 'FIRE_AND_FORGET':
-      return <FireAndForget configs={content} pluginState={pluginState} />
+      plugin = <FireAndForget configs={content} pluginState={pluginState} />
+      break
     default:
-      // Exhaustiveness check - TypeScript will error if you miss a case
       return null
   }
+
+  return (
+    <div className="space-y-4">
+      <PluginHeader type={type} state={state} pluginState={pluginState} />
+      {plugin}
+    </div>
+  )
 }

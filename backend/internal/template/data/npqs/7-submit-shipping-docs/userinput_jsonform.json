@@ -1,5 +1,6 @@
 {
     "id": "npqs-submit-shipping-docs--user-form",
+    "title": "Shipping Document Upload Form",
     "schema": {
         "type": "object",
         "properties": {

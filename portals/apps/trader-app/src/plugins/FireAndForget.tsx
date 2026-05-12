@@ -1,10 +1,24 @@
-import { JsonForms } from '@jsonforms/react'
-import { radixRenderers } from '@opennsw/jsonforms-renderers'
-import type { TaskFormData } from './SimpleForm.tsx'
-
 export type FireAndForgetConfig = {
   endpoint?: string
-  submittedForm?: TaskFormData
+  data?: Record<string, unknown>
+}
+
+function formatKey(key: string): string {
+  return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+function DataValue({ value }: { value: unknown }) {
+  if (value === null || value === undefined) {
+    return <span className="text-gray-400 italic">—</span>
+  }
+  if (typeof value === 'object') {
+    return (
+      <pre className="text-xs font-mono bg-gray-100 text-gray-700 rounded px-2 py-1 whitespace-pre-wrap break-all">
+        {JSON.stringify(value, null, 2)}
+      </pre>
+    )
+  }
+  return <span className="text-sm font-mono text-gray-800 break-all">{String(value)}</span>
 }
 
 function SendIcon() {
@@ -55,13 +69,14 @@ export default function FireAndForget({
   pluginState: string
 }) {
   const isFailed = pluginState === 'SUBMISSION_FAILED'
+  const entries = configs.data ? Object.entries(configs.data) : []
 
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-xl shadow-md overflow-hidden animate-fade-in-up">
         <div className={`h-1 ${isFailed ? 'bg-red-400' : 'bg-emerald-500'}`} />
 
-        <div className="px-8 py-10 flex flex-col items-center text-center gap-4">
+        <div className="px-8 py-10 flex flex-col items-center text-center gap-3">
           {isFailed ? <FailedIcon /> : <SendIcon />}
 
           <div className="space-y-1">
@@ -83,20 +98,20 @@ export default function FireAndForget({
         </div>
       </div>
 
-      {configs.submittedForm && (
+      {entries.length > 0 && (
         <div className="bg-white rounded-xl shadow-md overflow-hidden animate-fade-in-up">
           <div className="bg-gray-50 border-b border-gray-100 px-6 py-4">
-            <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">What you submitted</p>
-            <h3 className="text-sm font-bold text-gray-700 mt-0.5">{configs.submittedForm.title}</h3>
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Dispatched data</p>
           </div>
-          <div className="p-6 bg-gray-50/30">
-            <JsonForms
-              schema={configs.submittedForm.schema}
-              uischema={configs.submittedForm.uiSchema}
-              data={configs.submittedForm.formData}
-              renderers={radixRenderers}
-              readonly={true}
-            />
+          <div className="divide-y divide-gray-100">
+            {entries.map(([key, value]) => (
+              <div key={key} className="grid grid-cols-5 gap-4 px-6 py-3 items-start">
+                <span className="col-span-2 text-xs font-medium text-gray-500 pt-0.5">{formatKey(key)}</span>
+                <div className="col-span-3">
+                  <DataValue value={value} />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

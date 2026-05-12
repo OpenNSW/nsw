@@ -165,7 +165,7 @@ func mapStatus(recordStatus, plugin string) (state, pluginState string) {
 func buildSimpleFormContent(
 	record tfstore.TaskRecord,
 	registry *orchestrator.TaskTemplateRegistry,
-	regEntry orchestrator.TaskTemplateEntry,
+	_ orchestrator.TaskTemplateEntry,
 	isUserInput bool,
 ) map[string]any {
 	formID := record.UserFormID
@@ -339,7 +339,7 @@ func buildWaitForEventContent(
 // data with its schema so the trader-app can show what was dispatched and where.
 func buildFireAndForgetContent(
 	record tfstore.TaskRecord,
-	registry *orchestrator.TaskTemplateRegistry,
+	_ *orchestrator.TaskTemplateRegistry,
 	regEntry orchestrator.TaskTemplateEntry,
 ) map[string]any {
 	content := map[string]any{}
@@ -354,19 +354,11 @@ func buildFireAndForgetContent(
 		}
 	}
 
-	if record.UserFormID != "" {
-		if schema := lookupFormSchema(registry, record.UserFormID); schema != nil {
-			formData := extractNamespacedFormData(record.Data, "userform")
-			if formData == nil {
-				formData = fallbackFormData(record.Data)
-			}
-			content["submittedForm"] = map[string]any{
-				"title":    schema["title"],
-				"schema":   schema["schema"],
-				"uiSchema": schema["uiSchema"],
-				"formData": formData,
-			}
-		}
+	// Pass all workflow-level data that was dispatched to the external API,
+	// stripping internal bookkeeping keys and form namespaces (those are only
+	// meaningful to the workflow engine, not the trader).
+	if dispatched := fallbackFormData(record.Data); len(dispatched) > 0 {
+		content["data"] = dispatched
 	}
 
 	return content
@@ -376,7 +368,7 @@ func buildFireAndForgetContent(
 // plugin only stores a service URL — there's no breakdown/totalAmount baked in.
 // For the demo we surface a single "Phytosanitary Certificate Fee" line item;
 // production deployments would expand this from real config.
-func buildPaymentContent(record tfstore.TaskRecord, regEntry orchestrator.TaskTemplateEntry) map[string]any {
+func buildPaymentContent(_ tfstore.TaskRecord, _ orchestrator.TaskTemplateEntry) map[string]any {
 	return map[string]any{
 		"gatewayUrl":  "",
 		"totalAmount": 1500,

@@ -1,5 +1,6 @@
 {
     "id": "npqs-apply-phyto-cert--reviewer-form",
+    "title": "Reviewer Response View",
     "schema": {
         "type": "object",
         "properties": {

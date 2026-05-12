@@ -1,5 +1,6 @@
 {
   "id": "npqs-apply-phyto-cert--user-form",
+  "title": "Phytosanitary Certificate Application Form",
   "schema": {
     "type": "object",
     "properties": {

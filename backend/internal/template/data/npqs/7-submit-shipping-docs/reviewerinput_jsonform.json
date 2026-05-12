@@ -1,5 +1,6 @@
 {
     "id": "npqs-submit-shipping-docs--reviewer-form",
+    "title": "Shipping Document Review Response View",
     "schema": {
         "type": "object",
         "properties": {
