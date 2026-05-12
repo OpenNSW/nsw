@@ -24,12 +24,20 @@ type Config struct {
 	Namespace string
 }
 
-// Validate ensures the Temporal configuration is usable.
-func (c *Config) Validate() error {
+func (c *Config) Normalize() error {
 	c.Host = strings.TrimSpace(c.Host)
 	c.Namespace = strings.TrimSpace(c.Namespace)
 	c.PortRaw = strings.TrimSpace(c.PortRaw)
+	port, err := strconv.Atoi(c.PortRaw)
+	if err != nil {
+		return fmt.Errorf("invalid TEMPORAL_PORT: %w", err)
+	}
+	c.Port = port
+	return nil
+}
 
+// Validate ensures the Temporal configuration is usable.
+func (c Config) Validate() error {
 	if c.Host == "" {
 		return fmt.Errorf("TEMPORAL_HOST is required")
 	}
@@ -47,7 +55,5 @@ func (c *Config) Validate() error {
 	if c.Namespace == "" {
 		return fmt.Errorf("TEMPORAL_NAMESPACE is required")
 	}
-
-	c.Port = port
 	return nil
 }

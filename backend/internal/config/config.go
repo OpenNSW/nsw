@@ -127,6 +127,11 @@ func Load() (*Config, error) {
 		},
 	}
 
+	// Normalize parses PortRaw → Port before validation and client creation.
+	if err := cfg.Temporal.Normalize(); err != nil {
+		return nil, fmt.Errorf("invalid temporal configuration: %w", err)
+	}
+
 	// Validate required fields
 	if err := cfg.Validate(); err != nil {
 		return nil, err
