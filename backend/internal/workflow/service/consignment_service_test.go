@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	workflowManagerV2 "github.com/OpenNSW/go-temporal-workflow"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
@@ -107,7 +108,8 @@ func (m *MockWMV2) GetStatus(ctx context.Context, workflowID string) (*workflowM
 func TestConsignmentService_GetConsignmentByID(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
 	mockWM := new(MockWMV2)
-	svc := NewConsignmentService(db, nil, mockWM)
+	svc := NewConsignmentService(db, nil)
+	require.NoError(t, svc.RegisterWorkflowManager(mockWM))
 
 	ctx := context.Background()
 	consignmentID := uuid.NewString()
@@ -136,7 +138,7 @@ func TestConsignmentService_GetConsignmentByID(t *testing.T) {
 
 func TestConsignmentService_GetConsignmentsByTraderID_Empty(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
-	svc := NewConsignmentService(db, nil, nil)
+	svc := NewConsignmentService(db, nil)
 	ctx := context.Background()
 	traderID := "trader1"
 
@@ -156,7 +158,7 @@ func TestConsignmentService_GetConsignmentsByTraderID_Empty(t *testing.T) {
 
 func TestConsignmentService_GetConsignmentsByTraderID_CountError(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
-	svc := NewConsignmentService(db, nil, nil)
+	svc := NewConsignmentService(db, nil)
 	ctx := context.Background()
 	traderID := "trader1"
 

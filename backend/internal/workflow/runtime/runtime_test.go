@@ -105,6 +105,20 @@ type fakeTaskManager struct {
 	initCtxErr   error
 }
 
+type fakeUpstreamService struct {
+	completionCalled bool
+	workflowID       string
+	finalContext     map[string]any
+	err              error
+}
+
+func (s *fakeUpstreamService) CompletionHandler(workflowID string, finalContext map[string]any) error {
+	s.completionCalled = true
+	s.workflowID = workflowID
+	s.finalContext = finalContext
+	return s.err
+}
+
 func (m *fakeTaskManager) InitTask(ctx context.Context, request taskManager.InitTaskRequest) (*taskManager.InitTaskResponse, error) {
 	m.lastInitCtx = ctx
 	m.lastInitReq = request
@@ -139,7 +153,7 @@ func TestNewRuntime_StartWorkerFailureReturnsError(t *testing.T) {
 		_ workflowmanager.WorkflowCompletionHandler,
 	) workflowmanager.TemporalManager {
 		return fakeManager
-	})
+	}, nil)
 
 	require.Error(t, err)
 	assert.True(t, fakeManager.startCalled)
@@ -176,7 +190,7 @@ func TestNewRuntime_ActivationHandlerInitializesTask(t *testing.T) {
 	) workflowmanager.TemporalManager {
 		activationHandler = activation
 		return fakeManager
-	})
+	}, nil)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = runtime.Close() })
 
@@ -209,7 +223,7 @@ func TestNewRuntime_TaskDoneCallbackDelegatesToWorkflowManager(t *testing.T) {
 		_ workflowmanager.WorkflowCompletionHandler,
 	) workflowmanager.TemporalManager {
 		return fakeManager
-	})
+	}, nil)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = runtime.Close() })
 
@@ -220,4 +234,29 @@ func TestNewRuntime_TaskDoneCallbackDelegatesToWorkflowManager(t *testing.T) {
 	assert.Equal(t, "wf-1", fakeManager.taskDoneInput.workflowID)
 	assert.Equal(t, "task-1", fakeManager.taskDoneInput.taskID)
 	assert.Equal(t, map[string]any{"ok": true}, fakeManager.taskDoneInput.outputs)
+}
+
+func TestNewRuntime_CompletionHandlerDelegatesToUpstreamService(t *testing.T) {
+	fakeManager := &fakeTemporalManager{}
+	taskMgr := &fakeTaskManager{}
+	templateProvider := &fakeTemplateProvider{template: &model.WorkflowNodeTemplate{}}
+	upstreamService := &fakeUpstreamService{}
+
+	var completionHandler workflowmanager.WorkflowCompletionHandler
+	runtime, err := newRuntimeWithFactory(taskMgr, templateProvider, func(
+		_ workflowmanager.TaskActivationHandler,
+		completion workflowmanager.WorkflowCompletionHandler,
+	) workflowmanager.TemporalManager {
+		completionHandler = completion
+		return fakeManager
+	}, upstreamService)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = runtime.Close() })
+
+	require.NotNil(t, completionHandler)
+	err = completionHandler("wf-1", map[string]any{"status": "done"})
+	require.NoError(t, err)
+	assert.True(t, upstreamService.completionCalled)
+	assert.Equal(t, "wf-1", upstreamService.workflowID)
+	assert.Equal(t, map[string]any{"status": "done"}, upstreamService.finalContext)
 }

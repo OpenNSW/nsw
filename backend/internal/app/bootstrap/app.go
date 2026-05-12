@@ -87,6 +87,9 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to create temporal client: %w", err)
 	}
 
+	consignmentService := service.NewConsignmentService(db, templateService)
+	consignmentRouter := router.NewConsignmentRouter(consignmentService, chaService)
+
 	// nsw-task-flow registry, store, runtime.
 	registry := orchestrator.NewTaskTemplateRegistry()
 	if err := taskv2templates.LoadFromDir(registry, cfg.Server.TaskTemplatesDir); err != nil {
@@ -109,9 +112,17 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to start taskv2 runtime: %w", err)
 	}
 
-	// Consignment routes still launch workflows — now via the parent Temporal manager.
-	consignmentService := service.NewConsignmentService(db, templateService, taskFlowRuntime.ParentManager())
-	consignmentRouter := router.NewConsignmentRouter(consignmentService, chaService)
+	registererr := consignmentService.RegisterWorkflowManager(taskFlowRuntime.ParentManager())
+	if registererr != nil {
+		_ = taskFlowRuntime.Close()
+		temporalClient.Close()
+		_ = database.Close(db)
+		return nil, fmt.Errorf("failed to register workflow manager with consignment service: %w", registererr)
+	}
+	// TODO: Pre-consignment wiring is intentionally disabled until it is migrated to Temporal.
+	// preConsignmentService := service.NewPreConsignmentService(db, templateService, wm)
+	// preConsignmentRouter := router.NewPreConsignmentRouter(preConsignmentService)
+
 	hsCodeRouter := router.NewHSCodeRouter(hsCodeService)
 	chaRouter := router.NewCHARouter(chaService)
 
