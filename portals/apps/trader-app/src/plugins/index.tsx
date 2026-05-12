@@ -1,8 +1,9 @@
 import SimpleForm, { type SimpleFormConfig } from './SimpleForm.tsx'
 import WaitForEvent, { type WaitForEventConfigs } from './WaitForEvent.tsx'
 import Payment, { type PaymentConfigs } from './Payment.tsx'
+import FireAndForget, { type FireAndForgetConfig } from './FireAndForget.tsx'
 
-export type TaskType = 'SIMPLE_FORM' | 'WAIT_FOR_EVENT' | 'PAYMENT'
+export type TaskType = 'SIMPLE_FORM' | 'WAIT_FOR_EVENT' | 'PAYMENT' | 'FIRE_AND_FORGET'
 
 export type RenderInfoTyped<Type extends TaskType, T> = {
   type: Type
@@ -15,6 +16,7 @@ export type RenderInfo =
   | RenderInfoTyped<'SIMPLE_FORM', SimpleFormConfig>
   | RenderInfoTyped<'WAIT_FOR_EVENT', WaitForEventConfigs>
   | RenderInfoTyped<'PAYMENT', PaymentConfigs>
+  | RenderInfoTyped<'FIRE_AND_FORGET', FireAndForgetConfig>
 
 // Renderer component
 export default function PluginRenderer({
@@ -34,6 +36,8 @@ export default function PluginRenderer({
       return <WaitForEvent configs={content} pluginState={pluginState} />
     case 'PAYMENT':
       return <Payment configs={content} pluginState={pluginState} onTaskUpdated={onTaskUpdated} />
+    case 'FIRE_AND_FORGET':
+      return <FireAndForget configs={content} pluginState={pluginState} />
     default:
       // Exhaustiveness check - TypeScript will error if you miss a case
       return null

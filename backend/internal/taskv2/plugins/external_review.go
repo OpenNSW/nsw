@@ -55,7 +55,10 @@ func (p *ExternalReviewPlugin) Execute(ctx pluginContext, configRaw json.RawMess
 	slog.Info("taskv2 external_review: dispatching to OGA portal",
 		"taskId", ctx.Record.TaskID, "url", cfg.ExternalURL, "taskCode", &cfg.TaskCode)
 
-	return p.client.post(ctx.Context, cfg.ExternalURL, body)
+	if err := p.client.post(ctx.Context, cfg.ExternalURL, body); err != nil {
+		return err
+	}
+	return ErrSuspended
 }
 
 // Render reuses nsw-task-flow's stock implementation — it only needs to

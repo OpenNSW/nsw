@@ -45,5 +45,8 @@ func (p *EventWaitPlugin) Execute(ctx pluginContext, configRaw json.RawMessage) 
 	slog.Info("taskv2 event_wait: registering with external queue",
 		"taskId", ctx.Record.TaskID, "url", cfg.ExternalURL, "taskCode", &cfg.TaskCode, "taskType", cfg.TaskType)
 
-	return p.client.post(ctx.Context, cfg.ExternalURL, body)
+	if err := p.client.post(ctx.Context, cfg.ExternalURL, body); err != nil {
+		return err
+	}
+	return ErrSuspended
 }

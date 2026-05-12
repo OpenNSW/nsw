@@ -100,10 +100,12 @@ func pluginToUIType(plugin string) string {
 	switch plugin {
 	case "generic_user_input", "generic_officer_input":
 		return "SIMPLE_FORM"
-	case "generic_external_review", "register_task_and_wait", "generic_http_post":
+	case "generic_external_review", "register_task_and_wait":
 		return "WAIT_FOR_EVENT"
 	case "generic_payment":
 		return "PAYMENT"
+	case "generic_api_call":
+		return "FIRE_AND_FORGET"
 	default:
 		return strings.ToUpper(plugin)
 	}

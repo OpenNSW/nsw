@@ -81,7 +81,7 @@ func adaptToTraderShape(record tfstore.TaskRecord, registry *orchestrator.TaskTe
 			Content:     buildSimpleFormContent(record, registry, regEntry, true /*isUserInput*/),
 		}
 
-	case "register_task_and_wait", "generic_http_post":
+	case "register_task_and_wait":
 		return &TraderTaskRenderInfo{
 			Type:        "WAIT_FOR_EVENT",
 			State:       state,
@@ -96,24 +96,32 @@ func adaptToTraderShape(record tfstore.TaskRecord, registry *orchestrator.TaskTe
 			PluginState: pluginState,
 			Content:     buildPaymentContent(record, regEntry),
 		}
+	case "generic_api_call":
+		return &TraderTaskRenderInfo{
+			Type:        "FIRE_AND_FORGET",
+			State:       state,
+			PluginState: pluginState,
+			Content:     buildFireAndForgetContent(record, registry, regEntry),
+		}
+	default:
+		// Unknown plugin: surface raw record fields under a generic SIMPLE_FORM.
+		slog.Warn("taskv2 adapter: unknown plugin, returning generic shape",
+			"plugin", regEntry.PluginName, "taskId", record.TaskID)
+		return &TraderTaskRenderInfo{
+			Type:        "SIMPLE_FORM",
+			State:       state,
+			PluginState: pluginState,
+			Content: map[string]any{
+				"traderFormInfo": map[string]any{
+					"title":    "Task " + record.TaskID,
+					"schema":   map[string]any{"type": "object"},
+					"uiSchema": map[string]any{"type": "VerticalLayout", "elements": []any{}},
+					"formData": record.Data,
+				},
+			},
+		}
 	}
 
-	// Unknown plugin: surface raw record fields under a generic SIMPLE_FORM.
-	slog.Warn("taskv2 adapter: unknown plugin, returning generic shape",
-		"plugin", regEntry.PluginName, "taskId", record.TaskID)
-	return &TraderTaskRenderInfo{
-		Type:        "SIMPLE_FORM",
-		State:       state,
-		PluginState: pluginState,
-		Content: map[string]any{
-			"traderFormInfo": map[string]any{
-				"title":    "Task " + record.TaskID,
-				"schema":   map[string]any{"type": "object"},
-				"uiSchema": map[string]any{"type": "VerticalLayout", "elements": []any{}},
-				"formData": record.Data,
-			},
-		},
-	}
 }
 
 // mapStatus translates the nsw-task-flow record status string into the
@@ -319,6 +327,44 @@ func buildWaitForEventContent(
 				"schema":   schema["schema"],
 				"uiSchema": schema["uiSchema"],
 				"formData": extractNamespacedFormData(record.Data, "reviewerform"),
+			}
+		}
+	}
+
+	return content
+}
+
+// buildFireAndForgetContent renders FIRE_AND_FORGET content. It surfaces the
+// destination URL from plugin properties and the previously submitted userform
+// data with its schema so the trader-app can show what was dispatched and where.
+func buildFireAndForgetContent(
+	record tfstore.TaskRecord,
+	registry *orchestrator.TaskTemplateRegistry,
+	regEntry orchestrator.TaskTemplateEntry,
+) map[string]any {
+	content := map[string]any{}
+
+	type apiCallProps struct {
+		URL string `json:"url"`
+	}
+	if len(regEntry.PluginProperties) > 0 {
+		var props apiCallProps
+		if err := json.Unmarshal(regEntry.PluginProperties, &props); err == nil && props.URL != "" {
+			content["endpoint"] = props.URL
+		}
+	}
+
+	if record.UserFormID != "" {
+		if schema := lookupFormSchema(registry, record.UserFormID); schema != nil {
+			formData := extractNamespacedFormData(record.Data, "userform")
+			if formData == nil {
+				formData = fallbackFormData(record.Data)
+			}
+			content["submittedForm"] = map[string]any{
+				"title":    schema["title"],
+				"schema":   schema["schema"],
+				"uiSchema": schema["uiSchema"],
+				"formData": formData,
 			}
 		}
 	}

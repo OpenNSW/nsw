@@ -38,7 +38,7 @@ func (p *PaymentPlugin) Execute(ctx pluginContext, configRaw json.RawMessage) er
 	if cfg.PaymentServiceURL == "" {
 		slog.Info("taskv2 payment: no payment_service_url configured, skipping dispatch",
 			"taskId", ctx.Record.TaskID)
-		return nil
+		return ErrSuspended
 	}
 
 	body := buildSubmissionBody(ctx.Record, nil, p.client.callbackTasksURL())
@@ -46,5 +46,8 @@ func (p *PaymentPlugin) Execute(ctx pluginContext, configRaw json.RawMessage) er
 	slog.Info("taskv2 payment: dispatching to payment service",
 		"taskId", ctx.Record.TaskID, "url", cfg.PaymentServiceURL)
 
-	return p.client.post(ctx.Context, cfg.PaymentServiceURL, body)
+	if err := p.client.post(ctx.Context, cfg.PaymentServiceURL, body); err != nil {
+		return err
+	}
+	return ErrSuspended
 }

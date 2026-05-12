@@ -59,7 +59,7 @@ func (p *OfficerInputPlugin) Execute(ctx pluginContext, configRaw json.RawMessag
 	if cfg.ExternalURL == "" {
 		slog.Info("taskv2 officer_input: no external_url configured, skipping dispatch",
 			"taskId", ctx.Record.TaskID, "form", ctx.Record.ReviewerFormID)
-		return nil
+		return ErrSuspended
 	}
 
 	body := buildSubmissionBody(ctx.Record, &cfg.TaskCode, p.client.callbackTasksURL())
@@ -67,7 +67,10 @@ func (p *OfficerInputPlugin) Execute(ctx pluginContext, configRaw json.RawMessag
 	slog.Info("taskv2 officer_input: dispatching to OGA portal",
 		"taskId", ctx.Record.TaskID, "url", cfg.ExternalURL, "taskCode", &cfg.TaskCode)
 
-	return p.client.post(ctx.Context, cfg.ExternalURL, body)
+	if err := p.client.post(ctx.Context, cfg.ExternalURL, body); err != nil {
+		return err
+	}
+	return ErrSuspended
 }
 
 // Render reuses the stock implementation — the schema-fetching behaviour is

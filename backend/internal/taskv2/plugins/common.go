@@ -101,3 +101,7 @@ func (c *dispatchClient) dispatchOrSwallow(kind, url string, err error) error {
 
 // pluginContext is just an alias so plugin signatures stay tidy.
 type pluginContext = tfplugins.PluginContext
+
+// ErrSuspended signals to the orchestrator that this plugin step is parked and
+// waiting for an external callback before the sub-workflow can advance.
+var ErrSuspended = tfplugins.ErrSuspended

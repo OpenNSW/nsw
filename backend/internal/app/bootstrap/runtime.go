@@ -27,7 +27,6 @@ import (
 
 	customplugins "github.com/OpenNSW/nsw/internal/taskv2/plugins"
 
-	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
 )
 
@@ -110,10 +109,7 @@ func NewRuntime(cfg Config) (*Runtime, error) {
 		if tm == nil {
 			return nil, fmt.Errorf("taskv2 parent handler invoked before TaskManager was wired")
 		}
-		if _, err := tm.StartTask(payload); err != nil {
-			return nil, err
-		}
-		return nil, activity.ErrResultPending
+		return tm.StartTask(payload)
 	}
 	parentCompletion := func(workflowID string, finalVariables map[string]any) error {
 		slog.Info("taskv2 parent: workflow completed", "workflowId", workflowID, "finalVariables", finalVariables)
@@ -131,10 +127,12 @@ func NewRuntime(cfg Config) (*Runtime, error) {
 		if tm == nil {
 			return nil, fmt.Errorf("taskv2 task handler invoked before TaskManager was wired")
 		}
-		if _, err := tm.StartSubTask(payload); err != nil {
-			return nil, err
+		data, err := tm.StartSubTask(payload)
+		if err == nil {
+			// Complete the acticity
+			tm.HandleTaskCompletion(payload.WorkflowID, data)
 		}
-		return nil, activity.ErrResultPending
+		return data, err
 	}
 	taskCompletion := func(workflowID string, finalVariables map[string]any) error {
 		slog.Info("taskv2 task: sub-workflow completed", "workflowId", workflowID)
