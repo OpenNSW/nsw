@@ -332,10 +332,16 @@ func (s *ogaService) FeedbackApplication(ctx context.Context, taskID string, con
 func feedbackHistoryFromRaw(raw []map[string]any) []feedback.Entry {
 	entries := make([]feedback.Entry, 0, len(raw))
 	for _, m := range raw {
-		b, _ := json.Marshal(m)
+		b, err := json.Marshal(m)
+		if err != nil {
+			slog.Error("failed to marshal feedback history entry from raw", "error", err)
+			continue
+		}
 		var e feedback.Entry
-		_ = json.Unmarshal(b, &e)
-		entries = append(entries, e)
+		if err := json.Unmarshal(b, &e); err != nil {
+			slog.Error("failed to unmarshal feedback history entry", "error", err)
+			continue
+		}
 	}
 	return entries
 }
