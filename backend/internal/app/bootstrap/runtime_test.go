@@ -25,11 +25,12 @@ import (
 	"testing"
 
 	engine "github.com/OpenNSW/go-temporal-workflow"
-	"github.com/OpenNSW/nsw-task-flow/orchestrator"
-	tfstore "github.com/OpenNSW/nsw-task-flow/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/client"
+
+	"github.com/OpenNSW/nsw-task-flow/orchestrator"
+	tfstore "github.com/OpenNSW/nsw-task-flow/store"
 )
 
 // ─── test doubles ──────────────────────────────────────────────────────────
