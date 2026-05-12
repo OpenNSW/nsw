@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"time"
 
@@ -136,7 +137,7 @@ func (s *ogaService) GetApplications(ctx context.Context, status string, workflo
 	if page < 1 {
 		page = 1
 	}
-	if pageSize < 1 {
+	if pageSize < 1 || pageSize > 100 {
 		pageSize = 20
 	}
 
@@ -183,7 +184,7 @@ func (s *ogaService) GetWorkflows(ctx context.Context, search string, page, page
 	if page < 1 {
 		page = 1
 	}
-	if pageSize < 1 {
+	if pageSize < 1 || pageSize > 100 {
 		pageSize = 20
 	}
 
@@ -316,9 +317,14 @@ func (s *ogaService) FeedbackApplication(ctx context.Context, taskID string, con
 		return fmt.Errorf("failed to send feedback to service: %w", err)
 	}
 
-	entryRaw, _ := json.Marshal(entry)
+	entryRaw, err := json.Marshal(entry)
+	if err != nil {
+		return fmt.Errorf("failed to marshal feedback entry: %w", err)
+	}
 	var entryMap map[string]any
-	_ = json.Unmarshal(entryRaw, &entryMap)
+	if err := json.Unmarshal(entryRaw, &entryMap); err != nil {
+		return fmt.Errorf("failed to unmarshal feedback entry: %w", err)
+	}
 
 	return s.store.AppendFeedback(taskID, entryMap)
 }
@@ -335,12 +341,21 @@ func feedbackHistoryFromRaw(raw []map[string]any) []feedback.Entry {
 }
 
 func (s *ogaService) sendToService(ctx context.Context, serviceURL string, response TaskResponse) error {
-	jsonData, _ := json.Marshal(response)
+	jsonData, err := json.Marshal(response)
+	if err != nil {
+		return fmt.Errorf("failed to marshal response: %w", err)
+	}
+
 	resp, err := s.httpClient.Post(serviceURL, "application/json", jsonData)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			slog.ErrorContext(ctx, "failed to close response body", "error", err)
+		}
+	}(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("service returned status %d", resp.StatusCode)
 	}

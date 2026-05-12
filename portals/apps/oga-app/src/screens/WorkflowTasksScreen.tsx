@@ -118,9 +118,9 @@ export function WorkflowTasksScreen() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Flex align="center" gap="2">
                         {app.icon?.startsWith('emoji:') && (
-                           <span className="text-xl" role="img" aria-label="task-icon">
-                              {app.icon.slice('emoji:'.length)}
-                           </span>
+                          <span className="text-xl" role="img" aria-label="task-icon">
+                            {app.icon.slice('emoji:'.length)}
+                          </span>
                         )}
                         <Text size="2" weight="bold" className="text-gray-900">
                           {app.title || 'Standard Review'}

@@ -191,9 +191,7 @@ export function WorkflowDetailScreen() {
               {application.icon.slice('emoji:'.length)}
             </span>
           )}
-          <h1 className="text-2xl font-bold text-gray-900">
-            {application.title || 'Task Review'}
-          </h1>
+          <h1 className="text-2xl font-bold text-gray-900">{application.title || 'Task Review'}</h1>
         </Flex>
         {application.description && (
           <Text size="2" color="gray">

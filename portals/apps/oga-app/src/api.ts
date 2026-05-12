@@ -128,7 +128,6 @@ export interface OGAApplication {
   dataForm?: FormDefinition
   ogaForm?: FormDefinition
 
-
   status: string
   feedbackHistory?: FeedbackEntry[]
   reviewerNotes?: string
