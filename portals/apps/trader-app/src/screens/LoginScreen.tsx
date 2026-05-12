@@ -1,6 +1,7 @@
 import { useAsgardeo } from '@asgardeo/react'
 const logo = '/logo.png'
 const hero = '/login_hero.png'
+const gov_logo = '/gov_logo.png'
 
 export function LoginScreen() {
   const { signIn } = useAsgardeo()
@@ -18,7 +19,7 @@ export function LoginScreen() {
             A unified digital platform enabling seamless and secure trade facilitation services for traders, customs,
             and regulatory authorities.
           </p>
-          <img src="/gov_logo.png" alt="Government Logo" className="h-20 mt-5 object-contain opacity-80" />
+          <img src={gov_logo} alt="Government Logo" className="h-20 mt-5 object-contain opacity-80" />
         </div>
       </div>
 
@@ -32,7 +33,7 @@ export function LoginScreen() {
 
         {/* Centered Interaction Area: Dark Card Style */}
         <div className="absolute inset-0 flex flex-col items-center justify-center px-6">
-          <div className="bg-[#020617]/80 border border-white/10 py-10 px-8 xl:px-12 rounded-4xl flex flex-col xl:flex-row items-center gap-6 xl:gap-10 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+          <div className="bg-secondary-950/80 border border-white/10 py-10 px-8 xl:px-12 rounded-2xl flex flex-col xl:flex-row items-center gap-6 xl:gap-10 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
             {/* Content Section */}
             <div className="flex flex-col xl:flex-row items-center gap-8 xl:gap-12">
               <div className="flex flex-col items-center xl:items-start text-center xl:text-left">
