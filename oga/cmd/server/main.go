@@ -27,7 +27,7 @@ func main() {
 		"db_driver", cfg.DB.Driver,
 		"db_path", cfg.DB.Path,
 		"port", cfg.Port,
-		"forms_path", cfg.FormsPath,
+		"config_dir", cfg.ConfigDir,
 	)
 
 	// Initialize database store
@@ -35,8 +35,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to create application store: %v", err)
 	}
+	// Initialize task config store
+	configStore, err := internal.NewTaskConfigStore(cfg.ConfigDir, cfg.DefaultTaskConfigID)
+	if err != nil {
+		log.Fatalf("failed to create task config store: %v", err)
+	}
 	// Initialize form store
-	formStore, err := internal.NewFormStore(cfg.FormsPath, cfg.DefaultFormID)
+	formStore, err := internal.NewFormStore(cfg.ConfigDir)
 	if err != nil {
 		log.Fatalf("failed to create form store: %v", err)
 	}
@@ -58,7 +63,7 @@ func main() {
 		Build()
 
 	// Initialize OGA service
-	service := internal.NewOGAService(store, formStore, nswHttpClient)
+	service := internal.NewOGAService(store, configStore, formStore, nswHttpClient)
 	defer func() {
 		if err := service.Close(); err != nil {
 			slog.Error("failed to close service", "error", err)
