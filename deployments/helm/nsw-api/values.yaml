@@ -35,9 +35,6 @@ config:
     useWorkflowManagerV2: true
 
   temporal:
-    hostPort: "temporal-temporal-frontend:7233"
-
-  temporal:
     host: ""
     port: ""
     namespace: ""
