@@ -26,9 +26,16 @@ function resolveDisplayText(value: DisplayText | undefined, phase: DisplayPhase)
   return value[phase]
 }
 
+// Both the legacy ("RECEIVED_CALLBACK") and the canonical ("COMPLETED") plugin
+// states resolve to the completed phase — the taskv2 router emits "COMPLETED"
+// when a WAIT_FOR_EVENT step's record status reaches COMPLETED, while older
+// flows still surface "RECEIVED_CALLBACK".
+const COMPLETED_PLUGIN_STATES = new Set(['RECEIVED_CALLBACK', 'COMPLETED'])
+const FAILED_PLUGIN_STATES = new Set(['NOTIFY_FAILED', 'SUBMISSION_FAILED'])
+
 function pluginStateToPhase(pluginState: string): DisplayPhase {
-  if (pluginState === 'RECEIVED_CALLBACK') return 'completed'
-  if (pluginState === 'NOTIFY_FAILED') return 'failed'
+  if (COMPLETED_PLUGIN_STATES.has(pluginState)) return 'completed'
+  if (FAILED_PLUGIN_STATES.has(pluginState)) return 'failed'
   return 'waiting'
 }
 
@@ -280,11 +287,11 @@ export default function WaitForEvent(props: { configs: WaitForEventConfigs; plug
     }
   }
 
-  if (props.pluginState === 'RECEIVED_CALLBACK') {
+  if (COMPLETED_PLUGIN_STATES.has(props.pluginState)) {
     return <CompletedState title={title} description={description} formInfo={props.configs.eventReviewForm} />
   }
 
-  if (props.pluginState === 'NOTIFY_FAILED' && !retried) {
+  if (FAILED_PLUGIN_STATES.has(props.pluginState) && !retried) {
     return (
       <FailedState
         title={title}

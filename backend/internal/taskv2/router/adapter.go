@@ -183,16 +183,21 @@ func buildSimpleFormContent(
 		},
 	}
 
-	// Surface any reviewer form schema if the task carries one (workflows that
-	// set both UserFormID and ReviewerFormID — e.g. SimpleForm with callback).
+	// Surface the reviewer form schema only after the OGA officer has actually
+	// submitted a review. We key off the presence of "reviewerform" in
+	// record.Data — that key is only populated by the OGA callback flow
+	// (router.normalizePayload → mergeOGAReview). Before that, the trader
+	// would see an empty reviewer card while still waiting for review, so we
+	// omit the field entirely until there's data to display.
 	if record.ReviewerFormID != "" && record.ReviewerFormID != formID {
-		ogaSchema := lookupFormSchema(registry, record.ReviewerFormID)
-		if ogaSchema != nil {
-			content["ogaReviewForm"] = map[string]any{
-				"title":    ogaSchema["title"],
-				"schema":   ogaSchema["schema"],
-				"uiSchema": ogaSchema["uiSchema"],
-				"formData": extractNamespacedFormData(record.Data, "reviewerform"),
+		if reviewerData := extractNamespacedFormData(record.Data, "reviewerform"); len(reviewerData) > 0 {
+			if ogaSchema := lookupFormSchema(registry, record.ReviewerFormID); ogaSchema != nil {
+				content["ogaReviewForm"] = map[string]any{
+					"title":    ogaSchema["title"],
+					"schema":   ogaSchema["schema"],
+					"uiSchema": ogaSchema["uiSchema"],
+					"formData": reviewerData,
+				}
 			}
 		}
 	}
