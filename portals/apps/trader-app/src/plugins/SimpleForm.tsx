@@ -199,9 +199,6 @@ function TraderForm(props: { formInfo: TaskFormData; pluginState: string }) {
 }
 
 function SubmissionResponseForm(props: { formInfo: TaskFormData }) {
-  if (!props.formInfo.formData) {
-    return null
-  }
   return (
     <div className="mt-6 border-l-4 border-emerald-500 rounded-r-lg overflow-hidden shadow-sm">
       <div className="bg-emerald-50 px-6 py-4 flex items-center gap-3">
@@ -234,11 +231,6 @@ function SubmissionResponseForm(props: { formInfo: TaskFormData }) {
 }
 
 function OgaReviewForm(props: { formInfo: TaskFormData }) {
-  const [data] = useState(props.formInfo.formData)
-  if (!data) {
-    return null
-  }
-
   return (
     <div className="mt-6 rounded-lg overflow-hidden shadow-sm border border-indigo-200">
       <div className="bg-indigo-700 px-6 py-4 flex items-center gap-3">
@@ -262,7 +254,7 @@ function OgaReviewForm(props: { formInfo: TaskFormData }) {
         <JsonForms
           schema={props.formInfo.schema}
           uischema={props.formInfo.uiSchema}
-          data={data}
+          data={props.formInfo.formData}
           renderers={radixRenderers}
           readonly={true}
         />
@@ -336,7 +328,7 @@ export default function SimpleForm(props: { configs: SimpleFormConfig; pluginSta
         <SubmissionResponseForm formInfo={props.configs.submissionResponseForm} />
       )}
 
-      {props.configs.ogaReviewForm && <OgaReviewForm formInfo={props.configs.ogaReviewForm} />}
+      {props.configs.ogaReviewForm && props.configs.ogaReviewForm?.formData && !feedback && <OgaReviewForm formInfo={props.configs.ogaReviewForm} />}
 
       {feedback && feedback.length > 0 && <OGAFeedbackHistory entries={feedback} />}
     </div>
