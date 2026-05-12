@@ -1,6 +1,7 @@
 package company
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,24 +14,24 @@ import (
 type Service interface {
 	// GetCompanyByID retrieves a company record by its ID.
 	// Returns ErrCompanyNotFound if no record exists.
-	GetCompanyByID(id string) (*Record, error)
+	GetCompanyByID(ctx context.Context, id string) (*Record, error)
 
 	// GetCompanyByOUHandle retrieves a company record by its IdP organisational unit handle.
 	// Returns ErrCompanyNotFound if no record exists.
-	GetCompanyByOUHandle(ouHandle string) (*Record, error)
+	GetCompanyByOUHandle(ctx context.Context, ouHandle string) (*Record, error)
 
 	// GetCompanyByOUId retrieves a company record by its IdP organisational unit ID.
 	// Returns ErrCompanyNotFound if no record exists.
-	GetCompanyByOUId(ouId string) (*Record, error)
+	GetCompanyByOUId(ctx context.Context, ouId string) (*Record, error)
 
 	// UpdateCompany performs an append-only merge of data into the company's Data field.
 	// New keys are added and existing keys are replaced only when explicitly provided.
 	// Keys absent from data are never removed.
 	// Returns ErrCompanyNotFound if the company does not exist.
-	UpdateCompany(id string, data map[string]any) error
+	UpdateCompany(ctx context.Context, id string, data map[string]any) error
 
 	// Health checks if the service can access the database.
-	Health() error
+	Health(ctx context.Context) error
 }
 
 type service struct {
@@ -42,56 +43,36 @@ func NewService(db *gorm.DB) Service {
 	return &service{db: db}
 }
 
-func (s *service) GetCompanyByID(id string) (*Record, error) {
+func (s *service) getByField(ctx context.Context, field, value string) (*Record, error) {
+	var record Record
+	result := s.db.WithContext(ctx).Where(fmt.Sprintf("%s = ?", field), value).First(&record)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			slog.Debug("company record not found", field, value)
+			return nil, ErrCompanyNotFound
+		}
+		slog.Error("failed to fetch company record", field, value, "error", result.Error)
+		return nil, fmt.Errorf("database query failed: %w", result.Error)
+	}
+	return &record, nil
+}
+
+func (s *service) GetCompanyByID(ctx context.Context, id string) (*Record, error) {
 	if id == "" {
 		return nil, ErrInvalidCompanyID
 	}
-
-	var record Record
-	result := s.db.Where("id = ?", id).First(&record)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			slog.Debug("company record not found", "id", id)
-			return nil, ErrCompanyNotFound
-		}
-		slog.Error("failed to fetch company record", "id", id, "error", result.Error)
-		return nil, fmt.Errorf("database query failed: %w", result.Error)
-	}
-
-	return &record, nil
+	return s.getByField(ctx, "id", id)
 }
 
-func (s *service) GetCompanyByOUHandle(ouHandle string) (*Record, error) {
-	var record Record
-	result := s.db.Where("ou_handle = ?", ouHandle).First(&record)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			slog.Debug("company record not found", "ou_handle", ouHandle)
-			return nil, ErrCompanyNotFound
-		}
-		slog.Error("failed to fetch company record", "ou_handle", ouHandle, "error", result.Error)
-		return nil, fmt.Errorf("database query failed: %w", result.Error)
-	}
-
-	return &record, nil
+func (s *service) GetCompanyByOUHandle(ctx context.Context, ouHandle string) (*Record, error) {
+	return s.getByField(ctx, "ou_handle", ouHandle)
 }
 
-func (s *service) GetCompanyByOUId(ouId string) (*Record, error) {
-	var record Record
-	result := s.db.Where("ou_id = ?", ouId).First(&record)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			slog.Debug("company record not found", "ou_id", ouId)
-			return nil, ErrCompanyNotFound
-		}
-		slog.Error("failed to fetch company record", "ou_id", ouId, "error", result.Error)
-		return nil, fmt.Errorf("database query failed: %w", result.Error)
-	}
-
-	return &record, nil
+func (s *service) GetCompanyByOUId(ctx context.Context, ouId string) (*Record, error) {
+	return s.getByField(ctx, "ou_id", ouId)
 }
 
-func (s *service) UpdateCompany(id string, data map[string]any) error {
+func (s *service) UpdateCompany(ctx context.Context, id string, data map[string]any) error {
 	if id == "" {
 		return ErrInvalidCompanyID
 	}
@@ -107,9 +88,9 @@ func (s *service) UpdateCompany(id string, data map[string]any) error {
 
 	// Use PostgreSQL's JSONB concatenation operator (||) for an atomic merge.
 	// This avoids race conditions inherent in a read-modify-write cycle.
-	result := s.db.Model(&Record{}).
+	result := s.db.WithContext(ctx).Model(&Record{}).
 		Where("id = ?", id).
-		Update("data", gorm.Expr("data || ?", string(jsonBytes)))
+		Update("data", gorm.Expr("data || ?::jsonb", string(jsonBytes)))
 
 	if result.Error != nil {
 		slog.Error("failed to update company data", "id", id, "error", result.Error)
@@ -123,8 +104,14 @@ func (s *service) UpdateCompany(id string, data map[string]any) error {
 	return nil
 }
 
-func (s *service) Health() error {
-	if err := s.db.Exec("SELECT 1").Error; err != nil {
+func (s *service) Health(ctx context.Context) error {
+	sqlDB, err := s.db.DB()
+	if err != nil {
+		slog.Error("failed to retrieve underlying sql db", "error", err)
+		return fmt.Errorf("failed to retrieve database: %w", err)
+	}
+
+	if err := sqlDB.PingContext(ctx); err != nil {
 		slog.Error("company service health check failed", "error", err)
 		return fmt.Errorf("company service health check failed: %w", err)
 	}

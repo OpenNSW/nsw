@@ -1,6 +1,7 @@
 package company
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -29,6 +30,24 @@ func setupTestDB(t *testing.T) (*gorm.DB, sqlmock.Sqlmock) {
 	return gormDB, mock
 }
 
+func setupPingTestDB(t *testing.T) (*gorm.DB, sqlmock.Sqlmock) {
+	t.Helper()
+	db, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
+	if err != nil {
+		t.Fatalf("failed to open sqlmock: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	mock.ExpectPing() // consumed by gorm.Open's connectivity check
+	dialector := postgres.New(postgres.Config{Conn: db})
+	gormDB, err := gorm.Open(dialector, &gorm.Config{})
+	if err != nil {
+		t.Fatalf("failed to open gorm: %v", err)
+	}
+
+	return gormDB, mock
+}
+
 var companyColumns = []string{"id", "name", "ou_id", "ou_handle", "data", "created_at", "updated_at"}
 
 func companyRow(id, name, ouId, ouHandle string, data []byte) *sqlmock.Rows {
@@ -40,7 +59,7 @@ func companyRow(id, name, ouId, ouHandle string, data []byte) *sqlmock.Rows {
 
 func TestService_GetCompanyByID_InvalidID(t *testing.T) {
 	svc := NewService(nil)
-	if _, err := svc.GetCompanyByID(""); !errors.Is(err, ErrInvalidCompanyID) {
+	if _, err := svc.GetCompanyByID(context.Background(), ""); !errors.Is(err, ErrInvalidCompanyID) {
 		t.Fatalf("expected ErrInvalidCompanyID, got %v", err)
 	}
 }
@@ -53,7 +72,7 @@ func TestService_GetCompanyByID_NotFound(t *testing.T) {
 		WithArgs("missing-id", 1).
 		WillReturnError(gorm.ErrRecordNotFound)
 
-	if _, err := svc.GetCompanyByID("missing-id"); !errors.Is(err, ErrCompanyNotFound) {
+	if _, err := svc.GetCompanyByID(context.Background(), "missing-id"); !errors.Is(err, ErrCompanyNotFound) {
 		t.Fatalf("expected ErrCompanyNotFound, got %v", err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -69,7 +88,7 @@ func TestService_GetCompanyByID_DBError(t *testing.T) {
 		WithArgs("co-1", 1).
 		WillReturnError(errors.New("query failed"))
 
-	if _, err := svc.GetCompanyByID("co-1"); err == nil {
+	if _, err := svc.GetCompanyByID(context.Background(), "co-1"); err == nil {
 		t.Fatal("expected error, got nil")
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -85,7 +104,7 @@ func TestService_GetCompanyByID_Success(t *testing.T) {
 		WithArgs("co-1", 1).
 		WillReturnRows(companyRow("co-1", "Acme", "acme-id", "acme-handle", []byte(`{}`)))
 
-	record, err := svc.GetCompanyByID("co-1")
+	record, err := svc.GetCompanyByID(context.Background(), "co-1")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -107,7 +126,7 @@ func TestService_GetCompanyByOUId_NotFound(t *testing.T) {
 		WithArgs("missing-ouid", 1).
 		WillReturnError(gorm.ErrRecordNotFound)
 
-	if _, err := svc.GetCompanyByOUId("missing-ouid"); !errors.Is(err, ErrCompanyNotFound) {
+	if _, err := svc.GetCompanyByOUId(context.Background(), "missing-ouid"); !errors.Is(err, ErrCompanyNotFound) {
 		t.Fatalf("expected ErrCompanyNotFound, got %v", err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -123,7 +142,7 @@ func TestService_GetCompanyByOUId_DBError(t *testing.T) {
 		WithArgs("acme-id", 1).
 		WillReturnError(errors.New("query failed"))
 
-	if _, err := svc.GetCompanyByOUId("acme-id"); err == nil {
+	if _, err := svc.GetCompanyByOUId(context.Background(), "acme-id"); err == nil {
 		t.Fatal("expected error, got nil")
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -139,7 +158,7 @@ func TestService_GetCompanyByOUId_Success(t *testing.T) {
 		WithArgs("acme-id", 1).
 		WillReturnRows(companyRow("co-1", "Acme", "acme-id", "acme-handle", []byte(`{}`)))
 
-	record, err := svc.GetCompanyByOUId("acme-id")
+	record, err := svc.GetCompanyByOUId(context.Background(), "acme-id")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -161,7 +180,7 @@ func TestService_GetCompanyByOUHandle_NotFound(t *testing.T) {
 		WithArgs("missing-handle", 1).
 		WillReturnError(gorm.ErrRecordNotFound)
 
-	if _, err := svc.GetCompanyByOUHandle("missing-handle"); !errors.Is(err, ErrCompanyNotFound) {
+	if _, err := svc.GetCompanyByOUHandle(context.Background(), "missing-handle"); !errors.Is(err, ErrCompanyNotFound) {
 		t.Fatalf("expected ErrCompanyNotFound, got %v", err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -177,7 +196,7 @@ func TestService_GetCompanyByOUHandle_DBError(t *testing.T) {
 		WithArgs("acme", 1).
 		WillReturnError(errors.New("query failed"))
 
-	if _, err := svc.GetCompanyByOUHandle("acme"); err == nil {
+	if _, err := svc.GetCompanyByOUHandle(context.Background(), "acme"); err == nil {
 		t.Fatal("expected error, got nil")
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -193,7 +212,7 @@ func TestService_GetCompanyByOUHandle_Success(t *testing.T) {
 		WithArgs("acme-handle", 1).
 		WillReturnRows(companyRow("co-1", "Acme", "acme-id", "acme-handle", []byte(`{}`)))
 
-	record, err := svc.GetCompanyByOUHandle("acme-handle")
+	record, err := svc.GetCompanyByOUHandle(context.Background(), "acme-handle")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -209,7 +228,7 @@ func TestService_GetCompanyByOUHandle_Success(t *testing.T) {
 
 func TestService_UpdateCompany_InvalidID(t *testing.T) {
 	svc := NewService(nil)
-	if err := svc.UpdateCompany("", map[string]any{"k": "v"}); !errors.Is(err, ErrInvalidCompanyID) {
+	if err := svc.UpdateCompany(context.Background(), "", map[string]any{"k": "v"}); !errors.Is(err, ErrInvalidCompanyID) {
 		t.Fatalf("expected ErrInvalidCompanyID, got %v", err)
 	}
 }
@@ -217,7 +236,7 @@ func TestService_UpdateCompany_InvalidID(t *testing.T) {
 func TestService_UpdateCompany_EmptyData(t *testing.T) {
 	svc := NewService(nil)
 	// Empty data is a no-op — no DB call should be made.
-	if err := svc.UpdateCompany("co-1", map[string]any{}); err != nil {
+	if err := svc.UpdateCompany(context.Background(), "co-1", map[string]any{}); err != nil {
 		t.Fatalf("expected no error for empty data, got %v", err)
 	}
 }
@@ -233,7 +252,7 @@ func TestService_UpdateCompany_NotFound(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectCommit()
 
-	if err := svc.UpdateCompany("missing-id", map[string]any{"k": "v"}); !errors.Is(err, ErrCompanyNotFound) {
+	if err := svc.UpdateCompany(context.Background(), "missing-id", map[string]any{"k": "v"}); !errors.Is(err, ErrCompanyNotFound) {
 		t.Fatalf("expected ErrCompanyNotFound, got %v", err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -251,7 +270,7 @@ func TestService_UpdateCompany_DBError(t *testing.T) {
 		WillReturnError(errors.New("update failed"))
 	mock.ExpectRollback()
 
-	if err := svc.UpdateCompany("co-1", map[string]any{"new": "key"}); err == nil {
+	if err := svc.UpdateCompany(context.Background(), "co-1", map[string]any{"new": "key"}); err == nil {
 		t.Fatal("expected error, got nil")
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -269,7 +288,7 @@ func TestService_UpdateCompany_Success(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
-	if err := svc.UpdateCompany("co-1", map[string]any{"new": "key"}); err != nil {
+	if err := svc.UpdateCompany(context.Background(), "co-1", map[string]any{"new": "key"}); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -280,13 +299,12 @@ func TestService_UpdateCompany_Success(t *testing.T) {
 // --- Health ---
 
 func TestService_Health_Success(t *testing.T) {
-	db, mock := setupTestDB(t)
+	db, mock := setupPingTestDB(t)
 	svc := NewService(db)
 
-	mock.ExpectExec("SELECT 1").
-		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectPing()
 
-	if err := svc.Health(); err != nil {
+	if err := svc.Health(context.Background()); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -295,13 +313,12 @@ func TestService_Health_Success(t *testing.T) {
 }
 
 func TestService_Health_DBError(t *testing.T) {
-	db, mock := setupTestDB(t)
+	db, mock := setupPingTestDB(t)
 	svc := NewService(db)
 
-	mock.ExpectExec("SELECT 1").
-		WillReturnError(errors.New("health failed"))
+	mock.ExpectPing().WillReturnError(errors.New("health failed"))
 
-	if err := svc.Health(); err == nil {
+	if err := svc.Health(context.Background()); err == nil {
 		t.Fatal("expected error, got nil")
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
