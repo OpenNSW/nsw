@@ -19,9 +19,6 @@ func TestLoadTemporalDefaults(t *testing.T) {
 	if cfg.Temporal.Host != "localhost" {
 		t.Fatalf("Host default = %q, want %q", cfg.Temporal.Host, "localhost")
 	}
-	if cfg.Temporal.PortRaw != "7233" {
-		t.Fatalf("PortRaw default = %q, want %q", cfg.Temporal.PortRaw, "7233")
-	}
 	if cfg.Temporal.Port != 7233 {
 		t.Fatalf("Port default = %d, want %d", cfg.Temporal.Port, 7233)
 	}
@@ -43,9 +40,6 @@ func TestLoadTemporalOverrides(t *testing.T) {
 
 	if cfg.Temporal.Host != "temporal.example" {
 		t.Fatalf("Host override = %q, want %q", cfg.Temporal.Host, "temporal.example")
-	}
-	if cfg.Temporal.PortRaw != "7234" {
-		t.Fatalf("PortRaw override = %q, want %q", cfg.Temporal.PortRaw, "7234")
 	}
 	if cfg.Temporal.Port != 7234 {
 		t.Fatalf("Port override = %d, want %d", cfg.Temporal.Port, 7234)

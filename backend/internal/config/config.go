@@ -65,6 +65,13 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid SERVER_PORT: %w", err)
 	}
 
+	temporalHost := strings.TrimSpace(getEnvOrDefault("TEMPORAL_HOST", "localhost"))
+	temporalPort, err := strconv.Atoi(strings.TrimSpace(getEnvOrDefault("TEMPORAL_PORT", "7233")))
+	if err != nil {
+		return nil, fmt.Errorf("invalid TEMPORAL_PORT: %w", err)
+	}
+	temporalNamespace := strings.TrimSpace(getEnvOrDefault("TEMPORAL_NAMESPACE", "default"))
+
 	cfg := &Config{
 		Database: database.Config{
 			Host:                   getEnvOrDefault("DB_HOST", "localhost"),
@@ -121,15 +128,10 @@ func Load() (*Config, error) {
 			TemplateRoot: getEnvOrDefault("EMAIL_TEMPLATE_ROOT", "./configs/email-templates"),
 		},
 		Temporal: temporal.Config{
-			Host:      getEnvOrDefault("TEMPORAL_HOST", "localhost"),
-			PortRaw:   getEnvOrDefault("TEMPORAL_PORT", "7233"),
-			Namespace: getEnvOrDefault("TEMPORAL_NAMESPACE", "default"),
+			Host:      temporalHost,
+			Port:      temporalPort,
+			Namespace: temporalNamespace,
 		},
-	}
-
-	// Normalize parses PortRaw → Port before validation and client creation.
-	if err := cfg.Temporal.Normalize(); err != nil {
-		return nil, fmt.Errorf("invalid temporal configuration: %w", err)
 	}
 
 	// Validate required fields
