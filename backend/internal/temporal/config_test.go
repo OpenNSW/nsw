@@ -4,6 +4,9 @@ import "testing"
 
 func TestConfigValidateDefaultsOK(t *testing.T) {
 	cfg := Config{Host: "localhost", PortRaw: "7233", Namespace: "default"}
+	if err := cfg.Normalize(); err != nil {
+		t.Fatalf("Normalize() error = %v", err)
+	}
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("Validate() error = %v", err)
 	}
@@ -14,6 +17,9 @@ func TestConfigValidateDefaultsOK(t *testing.T) {
 
 func TestConfigValidateMissingHost(t *testing.T) {
 	cfg := Config{Host: " ", PortRaw: "7233", Namespace: "default"}
+	if err := cfg.Normalize(); err != nil {
+		t.Fatalf("Normalize() error = %v", err)
+	}
 	if err := cfg.Validate(); err == nil {
 		t.Fatalf("Validate() expected error")
 	}
@@ -21,6 +27,9 @@ func TestConfigValidateMissingHost(t *testing.T) {
 
 func TestConfigValidateInvalidPort(t *testing.T) {
 	cfg := Config{Host: "localhost", PortRaw: "0", Namespace: "default"}
+	if err := cfg.Normalize(); err != nil {
+		t.Fatalf("Normalize() error = %v", err)
+	}
 	if err := cfg.Validate(); err == nil {
 		t.Fatalf("Validate() expected error")
 	}
@@ -28,6 +37,9 @@ func TestConfigValidateInvalidPort(t *testing.T) {
 
 func TestConfigValidateMissingNamespace(t *testing.T) {
 	cfg := Config{Host: "localhost", PortRaw: "7233", Namespace: " "}
+	if err := cfg.Normalize(); err != nil {
+		t.Fatalf("Normalize() error = %v", err)
+	}
 	if err := cfg.Validate(); err == nil {
 		t.Fatalf("Validate() expected error")
 	}
