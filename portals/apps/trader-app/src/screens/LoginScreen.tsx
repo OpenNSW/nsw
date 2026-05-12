@@ -1,6 +1,6 @@
 import { useAsgardeo } from '@asgardeo/react'
-import logo from '../assets/logo.png'
-import hero from '../assets/login_hero.png'
+const logo = '/logo.png'
+const hero = '/login_hero.png'
 
 export function LoginScreen() {
   const { signIn } = useAsgardeo()
@@ -42,7 +42,7 @@ export function LoginScreen() {
 
         {/* Centered Interaction Area: Dark Card Style */}
         <div className="absolute inset-0 flex flex-col items-center justify-center px-6">
-          <div className="bg-[#020617]/80 border border-white/10 py-10 px-12 rounded-[2rem] flex flex-row items-center gap-10 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+          <div className="bg-[#020617]/80 border border-white/10 py-10 px-12 rounded-4xl flex flex-row items-center gap-10 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
             {/* Content Section */}
             <div className="flex flex-row items-center gap-12">
               <div className="flex flex-col">
