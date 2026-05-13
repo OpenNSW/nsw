@@ -58,11 +58,11 @@ MIGRATIONS=(
     "010_workflow_table.up.sql"
     "011_workflow_tem_v2.up.sql"
     "012_create_task_workflow_tasks.up.sql"
+    "013_fcau_workflow_seed.up.sql"
     "014_fcau_workflow_nodes_seed.up.sql"
-    "015_fcau_workflow_seed.up.sql"
-    "017_npqs_workflow_nodes_seed.up.sql"
-    "018_npqs_workflow_seed.up.sql"
-    "019_taskv2_schema_align.up.sql"
+    "015_npqs_workflow_seed.up.sql"
+    "016_npqs_workflow_nodes_seed.up.sql"
+    "017_taskv2_schema_align.up.sql"
 )
 
 echo "Starting database migrations..."

@@ -37,6 +37,11 @@ func (m *MockTemplateProvider) GetWorkflowTemplateByHSCodeIDAndFlowV2(ctx contex
 	return args.Get(0).(*model.WorkflowTemplateV2), args.Error(1)
 }
 
+func (m *MockTemplateProvider) GetWorkflowTemplateIDByHSCodeIDAndFlowV2(ctx context.Context, hsCodeID string, flow model.ConsignmentFlow) (string, error) {
+	args := m.Called(ctx, hsCodeID, flow)
+	return args.String(0), args.Error(1)
+}
+
 func (m *MockTemplateProvider) GetWorkflowTemplateByID(ctx context.Context, id string) (*model.WorkflowTemplate, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
@@ -108,7 +113,7 @@ func (m *MockWMV2) GetStatus(ctx context.Context, workflowID string) (*workflowM
 func TestConsignmentService_GetConsignmentByID(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
 	mockWM := new(MockWMV2)
-	svc := NewConsignmentService(db, nil)
+	svc := NewConsignmentService(db, nil, nil)
 	require.NoError(t, svc.RegisterWorkflowManager(mockWM))
 
 	ctx := context.Background()
@@ -138,7 +143,7 @@ func TestConsignmentService_GetConsignmentByID(t *testing.T) {
 
 func TestConsignmentService_GetConsignmentsByTraderID_Empty(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
-	svc := NewConsignmentService(db, nil)
+	svc := NewConsignmentService(db, nil, nil)
 	ctx := context.Background()
 	traderID := "trader1"
 
@@ -158,7 +163,7 @@ func TestConsignmentService_GetConsignmentsByTraderID_Empty(t *testing.T) {
 
 func TestConsignmentService_GetConsignmentsByTraderID_CountError(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
-	svc := NewConsignmentService(db, nil)
+	svc := NewConsignmentService(db, nil, nil)
 	ctx := context.Background()
 	traderID := "trader1"
 

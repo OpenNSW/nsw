@@ -81,10 +81,7 @@ CREATE TABLE IF NOT EXISTS workflow_template_maps_v2
 	consignment_flow varchar(50) NOT NULL
 		CONSTRAINT workflow_template_maps_consignment_flow_check
 			CHECK ((consignment_flow)::text = ANY ((ARRAY['IMPORT'::character varying, 'EXPORT'::character varying])::text[])),
-	workflow_template_id text NOT NULL
-		CONSTRAINT fk_workflow_template_maps_workflow_template
-			references workflow_template_v2
-				ON UPDATE CASCADE ON DELETE RESTRICT,
+	workflow_template_id text NOT NULL,
 	created_at timestamp with time zone DEFAULT now() NOT NULL,
 	updated_at timestamp with time zone DEFAULT now() NOT NULL
 );

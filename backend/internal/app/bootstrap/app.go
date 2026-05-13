@@ -88,9 +88,6 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to create temporal client: %w", err)
 	}
 
-	consignmentService := service.NewConsignmentService(db, templateService)
-	consignmentRouter := router.NewConsignmentRouter(consignmentService, chaService)
-
 	// nsw-task-flow registry, store, runtime.
 	registry := orchestrator.NewTaskTemplateRegistry()
 	if err := template.Load(registry, cfg.Server.TemplatesDir); err != nil {
@@ -98,6 +95,10 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		_ = database.Close(db)
 		return nil, fmt.Errorf("failed to load task templates from %q: %w", cfg.Server.TemplatesDir, err)
 	}
+
+	fileBasedTemplateService := service.NewFileBasedTemplateService(registry)
+	consignmentService := service.NewConsignmentService(db, templateService, fileBasedTemplateService)
+	consignmentRouter := router.NewConsignmentRouter(consignmentService, chaService)
 
 	remoteManager := remote.NewManager()
 	if err := remoteManager.LoadServices(cfg.Server.ServicesConfigPath); err != nil {
