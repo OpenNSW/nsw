@@ -93,10 +93,10 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	// nsw-task-flow registry, store, runtime.
 	registry := orchestrator.NewTaskTemplateRegistry()
-	if err := template.LoadFromDir(registry, cfg.Server.TemplatesDir); err != nil {
+	if err := template.Load(registry, cfg.Server.TemplatesDir); err != nil {
 		temporalClient.Close()
 		_ = database.Close(db)
-		return nil, fmt.Errorf("failed to load task templates from %s: %w", cfg.Server.TemplatesDir, err)
+		return nil, fmt.Errorf("failed to load task templates from %q: %w", cfg.Server.TemplatesDir, err)
 	}
 
 	remoteManager := remote.NewManager()
