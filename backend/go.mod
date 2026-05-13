@@ -6,7 +6,7 @@ require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/OpenNSW/go-temporal-workflow v0.3.3
 	github.com/OpenNSW/nsw-task-flow v0.0.0-20260511035504-436fdb33821a
-	github.com/OpenNSW/one-trade-templates v0.0.0-20260513100117-68afe7190f46
+	github.com/OpenNSW/one-trade-templates v0.0.0-20260513135145-7b9e5a246f2a
 	github.com/aws/aws-sdk-go-v2 v1.41.7
 	github.com/aws/aws-sdk-go-v2/config v1.32.17
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.16
