@@ -4,7 +4,7 @@ import { sendTaskCommand } from '../services/task.ts'
 import { useApi } from '../services/ApiContext'
 
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Button } from '@radix-ui/themes'
 import type { JsonSchema, UISchemaElement } from '@jsonforms/core'
 import { autoFillForm } from '../utils/formUtils'
@@ -44,8 +44,12 @@ function TraderForm(props: { formInfo: TaskFormData; pluginState: string }) {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const READ_ONLY_STATES = ['OGA_REVIEWED', 'SUBMITTED', 'OGA_ACKNOWLEDGED']
+  const READ_ONLY_STATES = ['OGA_REVIEWED', 'SUBMITTED', 'OGA_ACKNOWLEDGED', 'RECEIVED_CALLBACK', 'COMPLETED']
   const isReadOnly = READ_ONLY_STATES.includes(props.pluginState)
+
+  useEffect(() => {
+    setData(props.formInfo.formData || {})
+  }, [props.formInfo.formData])
 
   const isPreConsignment = location.pathname.includes('/pre-consignments/')
   const workflowId = preConsignmentId || consignmentId
@@ -227,8 +231,6 @@ function SubmissionResponseForm(props: { formInfo: TaskFormData }) {
 }
 
 function OgaReviewForm(props: { formInfo: TaskFormData }) {
-  const [data] = useState(props.formInfo.formData)
-
   return (
     <div className="mt-6 rounded-lg overflow-hidden shadow-sm border border-indigo-200">
       <div className="bg-indigo-700 px-6 py-4 flex items-center gap-3">
@@ -252,7 +254,7 @@ function OgaReviewForm(props: { formInfo: TaskFormData }) {
         <JsonForms
           schema={props.formInfo.schema}
           uischema={props.formInfo.uiSchema}
-          data={data}
+          data={props.formInfo.formData}
           renderers={radixRenderers}
           readonly={true}
         />
@@ -326,7 +328,9 @@ export default function SimpleForm(props: { configs: SimpleFormConfig; pluginSta
         <SubmissionResponseForm formInfo={props.configs.submissionResponseForm} />
       )}
 
-      {props.configs.ogaReviewForm && <OgaReviewForm formInfo={props.configs.ogaReviewForm} />}
+      {props.configs.ogaReviewForm && props.configs.ogaReviewForm?.formData && !feedback && (
+        <OgaReviewForm formInfo={props.configs.ogaReviewForm} />
+      )}
 
       {feedback && feedback.length > 0 && <OGAFeedbackHistory entries={feedback} />}
     </div>

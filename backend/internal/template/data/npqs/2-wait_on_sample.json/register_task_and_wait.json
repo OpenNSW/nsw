@@ -1,0 +1,23 @@
+{
+    "template_id": "npqs-wait-sample-received--wait",
+    "task_type": "WAIT_FOR_EVENT",
+    "plugin_name": "register_task_and_wait",
+    "plugin_properties": {
+        "service_id": "npqs",
+        "path": "/api/oga/inject",
+        "task_code": "npqs_sample_wait_v1",
+        "task_type": "SAMPLE_RECEIPT",
+        "display": {
+            "title": {
+                "waiting": "Waiting for Sample Receipt",
+                "failed": "Sample Receipt Notification Failed",
+                "completed": "Sample Receipt Confirmed"
+            },
+            "description": {
+                "waiting": "Your consignment has been registered. The NPQS facility will confirm receipt of the physical sample before lab testing begins.",
+                "failed": "The sample receipt notification could not be delivered. Please contact the NPQS helpdesk.",
+                "completed": "The NPQS facility has confirmed receipt of your consignment sample. Lab testing is now in progress."
+            }
+        }
+    }
+}

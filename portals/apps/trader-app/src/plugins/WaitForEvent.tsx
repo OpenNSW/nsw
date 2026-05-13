@@ -6,14 +6,37 @@ import { JsonForms } from '@jsonforms/react'
 import { radixRenderers } from '@opennsw/jsonforms-renderers'
 import type { TaskFormData } from './SimpleForm.tsx'
 
+type DisplayPhase = 'waiting' | 'failed' | 'completed'
+
+type DisplayText = string | Partial<Record<DisplayPhase, string>>
+
 type WaitForEventDisplay = {
-  title?: string
-  description?: string
+  title?: DisplayText
+  description?: DisplayText
 }
 
 export type WaitForEventConfigs = {
   display?: WaitForEventDisplay
   eventReviewForm?: TaskFormData
+}
+
+function resolveDisplayText(value: DisplayText | undefined, phase: DisplayPhase): string | undefined {
+  if (value == null) return undefined
+  if (typeof value === 'string') return value
+  return value[phase]
+}
+
+// Both the legacy ("RECEIVED_CALLBACK") and the canonical ("COMPLETED") plugin
+// states resolve to the completed phase — the taskv2 router emits "COMPLETED"
+// when a WAIT_FOR_EVENT step's record status reaches COMPLETED, while older
+// flows still surface "RECEIVED_CALLBACK".
+const COMPLETED_PLUGIN_STATES = new Set(['RECEIVED_CALLBACK', 'COMPLETED'])
+const FAILED_PLUGIN_STATES = new Set(['NOTIFY_FAILED', 'SUBMISSION_FAILED'])
+
+function pluginStateToPhase(pluginState: string): DisplayPhase {
+  if (COMPLETED_PLUGIN_STATES.has(pluginState)) return 'completed'
+  if (FAILED_PLUGIN_STATES.has(pluginState)) return 'failed'
+  return 'waiting'
 }
 
 // Shared radar/sonar animation used in both NOTIFIED_SERVICE and post-retry state.
@@ -241,8 +264,9 @@ export default function WaitForEvent(props: { configs: WaitForEventConfigs; plug
 
   const workflowId = preConsignmentId || consignmentId
   const display = props.configs.display
-  const title = display?.title ?? 'Waiting for event'
-  const description = display?.description
+  const phase = pluginStateToPhase(props.pluginState)
+  const title = resolveDisplayText(display?.title, phase) ?? 'Waiting for event'
+  const description = resolveDisplayText(display?.description, phase)
 
   const handleRetry = async () => {
     if (!workflowId || !taskId) return
@@ -263,11 +287,11 @@ export default function WaitForEvent(props: { configs: WaitForEventConfigs; plug
     }
   }
 
-  if (props.pluginState === 'RECEIVED_CALLBACK') {
+  if (COMPLETED_PLUGIN_STATES.has(props.pluginState)) {
     return <CompletedState title={title} description={description} formInfo={props.configs.eventReviewForm} />
   }
 
-  if (props.pluginState === 'NOTIFY_FAILED' && !retried) {
+  if (FAILED_PLUGIN_STATES.has(props.pluginState) && !retried) {
     return (
       <FailedState
         title={title}

@@ -1,0 +1,11 @@
+{
+    "template_id": "npqs-submit-shipping-docs--officer-review",
+    "task_type": "APPLICATION",
+    "plugin_name": "generic_external_review",
+    "plugin_properties": {
+        "reviewer_jsonforms_id": "npqs-submit-shipping-docs--reviewer-form",
+        "service_id": "npqs",
+        "path": "/api/oga/inject",
+        "task_code": "npqs_shipping_docs_review_v1"
+    }
+}

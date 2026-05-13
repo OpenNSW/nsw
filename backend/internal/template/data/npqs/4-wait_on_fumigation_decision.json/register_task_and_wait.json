@@ -1,0 +1,23 @@
+{
+    "template_id": "npqs-wait-fumigation--wait",
+    "task_type": "WAIT_FOR_EVENT",
+    "plugin_name": "register_task_and_wait",
+    "plugin_properties": {
+        "service_id": "npqs",
+        "path": "/api/oga/inject",
+        "task_code": "npqs_fumigation_v1",
+        "task_type": "FUMIGATION_REQUIREMENT",
+        "display": {
+            "title": {
+                "waiting": "Waiting for Fumigation Treatment Completion",
+                "failed": "Fumigation Notification Failed",
+                "completed": "Fumigation Treatment Completed"
+            },
+            "description": {
+                "waiting": "Fumigation treatment is being arranged. You will be notified once it is complete.",
+                "failed": "The fumigation completion notification could not be delivered. Please contact the NPQS helpdesk.",
+                "completed": "Fumigation treatment has been completed and certified. The process will now continue."
+            }
+        }
+    }
+}

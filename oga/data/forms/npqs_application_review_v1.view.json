@@ -1,0 +1,100 @@
+{
+  "schema": {
+    "type": "object",
+    "properties": {
+      "app_type": { "type": "string", "title": "Application Type" },
+      "prev_psc": { "type": "string", "title": "Previous PSC Number (if Re-export)" },
+      "exporter_name": { "type": "string", "title": "Exporter Name" },
+      "exporter_address": { "type": "string", "title": "Exporter Address" },
+      "consignee_name": { "type": "string", "title": "Consignee Name" },
+      "consignee_country": { "type": "string", "title": "Country of Destination" },
+      "conveyance": { "type": "string", "title": "Means of Conveyance" },
+      "point_entry": { "type": "string", "title": "Point of Entry" },
+      "place_origin": { "type": "string", "title": "Place of Origin" },
+      "export_date": { "type": "string", "format": "date", "title": "Proposed Date of Export" },
+      "distinguishing_marks": { "type": "string", "title": "Distinguishing Marks" },
+      "no_of_packages": { "type": "integer", "title": "Number of Packages" },
+      "description_of_packages": { "type": "string", "title": "Description of Packages" },
+      "commodity": { "type": "string", "title": "Name of Produce (incl. Botanical Name)" },
+      "quantity": { "type": "number", "title": "Quantity" },
+      "quantity_unit": { "type": "string", "title": "Unit of Measure" },
+      "hs_code": { "type": "string", "title": "HS Code" },
+      "additional_declaration": { "type": "string", "title": "Additional Declaration" },
+      "treatment_target": { "type": "string", "title": "Treatment Target" },
+      "treatment_method": { "type": "string", "title": "Treatment Method" },
+      "supervision_required": { "type": "string", "title": "Supervision Required" },
+      "forwarding_company": { "type": "string", "title": "Forwarding Company" },
+      "wc_name": { "type": "string", "title": "Wharf Clerk Name" },
+      "wc_tel": { "type": "string", "title": "W/C Tel No" },
+      "authorized_signature": { "type": "string", "title": "Authorized Signature & Date" },
+      "attachment_filename": { "type": "string", "title": "Packing List / Attachment Filename" }
+    }
+  },
+  "uiSchema": {
+    "type": "VerticalLayout",
+    "elements": [
+      {
+        "type": "Group",
+        "label": "Header Information",
+        "elements": [
+          { "type": "Control", "scope": "#/properties/app_type" },
+          { "type": "Control", "scope": "#/properties/prev_psc" }
+        ]
+      },
+      {
+        "type": "Group",
+        "label": "Exporter & Consignee",
+        "elements": [
+          { "type": "Control", "scope": "#/properties/exporter_name" },
+          { "type": "Control", "scope": "#/properties/exporter_address", "options": { "multi": true } },
+          { "type": "Control", "scope": "#/properties/consignee_name" },
+          { "type": "Control", "scope": "#/properties/consignee_country" }
+        ]
+      },
+      {
+        "type": "Group",
+        "label": "Logistics & Transit",
+        "elements": [
+          { "type": "Control", "scope": "#/properties/conveyance" },
+          { "type": "Control", "scope": "#/properties/point_entry" },
+          { "type": "Control", "scope": "#/properties/place_origin" },
+          { "type": "Control", "scope": "#/properties/export_date" }
+        ]
+      },
+      {
+        "type": "Group",
+        "label": "Consignment Details",
+        "elements": [
+          { "type": "Control", "scope": "#/properties/distinguishing_marks" },
+          { "type": "Control", "scope": "#/properties/no_of_packages" },
+          { "type": "Control", "scope": "#/properties/description_of_packages" },
+          { "type": "Control", "scope": "#/properties/commodity" },
+          { "type": "Control", "scope": "#/properties/quantity" },
+          { "type": "Control", "scope": "#/properties/quantity_unit" },
+          { "type": "Control", "scope": "#/properties/hs_code" },
+          { "type": "Control", "scope": "#/properties/additional_declaration" }
+        ]
+      },
+      {
+        "type": "Group",
+        "label": "Treatment Details",
+        "elements": [
+          { "type": "Control", "scope": "#/properties/treatment_target" },
+          { "type": "Control", "scope": "#/properties/treatment_method" },
+          { "type": "Control", "scope": "#/properties/supervision_required" }
+        ]
+      },
+      {
+        "type": "Group",
+        "label": "Forwarding Agent",
+        "elements": [
+          { "type": "Control", "scope": "#/properties/forwarding_company" },
+          { "type": "Control", "scope": "#/properties/wc_name" },
+          { "type": "Control", "scope": "#/properties/wc_tel" },
+          { "type": "Control", "scope": "#/properties/authorized_signature" },
+          { "type": "Control", "scope": "#/properties/attachment_filename" }
+        ]
+      }
+    ]
+  }
+}

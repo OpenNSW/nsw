@@ -1,0 +1,32 @@
+{
+  "schema": {
+    "type": "object",
+    "properties": {
+      "visual_result": {
+        "type": "string",
+        "title": "Visual Inspection Result",
+        "oneOf": [
+          { "const": "pass", "title": "Pass" },
+          { "const": "fail", "title": "Fail" }
+        ]
+      },
+      "inspector_name": {
+        "type": "string",
+        "title": "Inspector Name"
+      },
+      "remarks": {
+        "type": "string",
+        "title": "Findings"
+      }
+    },
+    "required": ["visual_result"]
+  },
+  "uiSchema": {
+    "type": "VerticalLayout",
+    "elements": [
+      { "type": "Control", "scope": "#/properties/visual_result" },
+      { "type": "Control", "scope": "#/properties/inspector_name" },
+      { "type": "Control", "scope": "#/properties/remarks", "options": { "multi": true } }
+    ]
+  }
+}

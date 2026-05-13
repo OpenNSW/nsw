@@ -1,0 +1,23 @@
+{
+    "template_id": "npqs-wait-visual-result--wait",
+    "task_type": "WAIT_FOR_EVENT",
+    "plugin_name": "register_task_and_wait",
+    "plugin_properties": {
+        "service_id": "npqs",
+        "path": "/api/oga/inject",
+        "task_code": "npqs_visual_result_v1",
+        "task_type": "VISUAL_INSPECTION_RESULT",
+        "display": {
+            "title": {
+                "waiting": "Visual Inspection In Progress",
+                "failed": "Visual Inspection Notification Failed",
+                "completed": "Visual Inspection Complete"
+            },
+            "description": {
+                "waiting": "A physical visual inspection of your consignment is being carried out by an NPQS officer.",
+                "failed": "The visual inspection result notification could not be delivered. Please contact the NPQS helpdesk.",
+                "completed": "The visual inspection of your consignment is complete. Please check the outcome below."
+            }
+        }
+    }
+}

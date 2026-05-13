@@ -1,0 +1,17 @@
+{
+  "schema": {
+    "type": "object",
+    "properties": {
+      "reference_number": {
+        "type": "string",
+        "title": "Application Reference Number"
+      }
+    }
+  },
+  "uiSchema": {
+    "type": "VerticalLayout",
+    "elements": [
+      { "type": "Control", "scope": "#/properties/reference_number" }
+    ]
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "schema": {
+    "type": "object",
+    "properties": {
+      "visual_inspection_required": {
+        "type": "string",
+        "title": "Visual Inspection Required?",
+        "description": "Decide whether the consignment must undergo a physical visual inspection.",
+        "enum": ["no", "yes"]
+      },
+      "remarks": {
+        "type": "string",
+        "title": "Remarks"
+      }
+    },
+    "required": ["visual_inspection_required"]
+  },
+  "uiSchema": {
+    "type": "VerticalLayout",
+    "elements": [
+      {
+        "type": "Control",
+        "scope": "#/properties/visual_inspection_required",
+        "options": { "format": "radio" }
+      },
+      { "type": "Control", "scope": "#/properties/remarks", "options": { "multi": true } }
+    ]
+  }
+}

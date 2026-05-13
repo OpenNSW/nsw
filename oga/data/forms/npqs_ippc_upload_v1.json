@@ -1,0 +1,27 @@
+{
+  "schema": {
+    "type": "object",
+    "properties": {
+      "ippc_acknowledgement": {
+        "type": "string",
+        "title": "IPPC Upload Acknowledged?",
+        "enum": ["no", "yes"]
+      },
+      "remarks": {
+        "type": "string",
+        "title": "Remarks"
+      }
+    }
+  },
+  "uiSchema": {
+    "type": "VerticalLayout",
+    "elements": [
+      {
+        "type": "Control",
+        "scope": "#/properties/ippc_acknowledgement",
+        "options": { "format": "radio" }
+      },
+      { "type": "Control", "scope": "#/properties/remarks", "options": { "multi": true } }
+    ]
+  }
+}

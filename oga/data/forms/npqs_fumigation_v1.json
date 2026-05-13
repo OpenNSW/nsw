@@ -1,0 +1,34 @@
+{
+  "schema": {
+    "type": "object",
+    "properties": {
+      "fumigation_completed": {
+        "type": "string",
+        "title": "Fumigation Completed?",
+        "description": "Confirm that the fumigation treatment has been performed.",
+        "enum": ["no", "yes"]
+      },
+      "treatment_chemical": {
+        "type": "string",
+        "title": "Chemical / Method"
+      },
+      "remarks": {
+        "type": "string",
+        "title": "Remarks"
+      }
+    },
+    "required": ["fumigation_completed"]
+  },
+  "uiSchema": {
+    "type": "VerticalLayout",
+    "elements": [
+      {
+        "type": "Control",
+        "scope": "#/properties/fumigation_completed",
+        "options": { "format": "radio" }
+      },
+      { "type": "Control", "scope": "#/properties/treatment_chemical" },
+      { "type": "Control", "scope": "#/properties/remarks", "options": { "multi": true } }
+    ]
+  }
+}

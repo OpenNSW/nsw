@@ -1,0 +1,106 @@
+{
+    "id": "npqs-apply-phyto-cert--reviewer-form",
+    "title": "Reviewer Response View",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "review_outcome": {
+                "type": "string",
+                "title": "Review Outcome",
+                "enum": [
+                    "approve",
+                    "reject",
+                    "needs_more_info"
+                ]
+            },
+            "reference_number": {
+                "type": "string",
+                "title": "Reference Number"
+            },
+            "sample_required": {
+                "type": "boolean",
+                "title": "Sample Testing Required?"
+            },
+            "fumigation_required": {
+                "type": "boolean",
+                "title": "Fumigation Treatment Required?"
+            },
+            "rejection_reason": {
+                "type": "string",
+                "title": "Reason / Comments"
+            }
+        },
+        "required": [
+            "review_outcome"
+        ],
+        "if": {
+            "properties": {
+                "review_outcome": {
+                    "const": "approve"
+                }
+            }
+        },
+        "then": {
+            "required": [
+                "reference_number",
+                "sample_required",
+                "fumigation_required"
+            ]
+        }
+    },
+    "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Control",
+                "scope": "#/properties/review_outcome"
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/reference_number",
+                "rule": {
+                    "effect": "SHOW",
+                    "condition": {
+                        "scope": "#/properties/review_outcome",
+                        "schema": {
+                            "const": "approve"
+                        }
+                    }
+                }
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/sample_required",
+                "rule": {
+                    "effect": "SHOW",
+                    "condition": {
+                        "scope": "#/properties/review_outcome",
+                        "schema": {
+                            "const": "approve"
+                        }
+                    }
+                }
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/fumigation_required",
+                "rule": {
+                    "effect": "SHOW",
+                    "condition": {
+                        "scope": "#/properties/review_outcome",
+                        "schema": {
+                            "const": "approve"
+                        }
+                    }
+                }
+            },
+            {
+                "type": "Control",
+                "scope": "#/properties/rejection_reason",
+                "options": {
+                    "multi": true
+                }
+            }
+        ]
+    }
+}

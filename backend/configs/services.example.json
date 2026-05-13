@@ -25,6 +25,11 @@
       "id": "customs-app",
       "url": "http://localhost:3001",
       "timeout": "5s"
+    },
+    {
+      "id": "ippc-hub",
+      "url": "http://ippc-hub",
+      "timeout": "30s"
     }
   ]
 }

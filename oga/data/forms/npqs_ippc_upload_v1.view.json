@@ -1,0 +1,18 @@
+{
+  "schema": {
+    "type": "object",
+    "properties": {
+      "reference_number": { "type": "string", "title": "Application Reference Number" },
+      "certificate_id": { "type": "string", "title": "Certificate ID" },
+      "certificate_url": { "type": "string", "format": "uri", "title": "Certificate URL" }
+    }
+  },
+  "uiSchema": {
+    "type": "VerticalLayout",
+    "elements": [
+      { "type": "Control", "scope": "#/properties/reference_number" },
+      { "type": "Control", "scope": "#/properties/certificate_id" },
+      { "type": "Control", "scope": "#/properties/certificate_url" }
+    ]
+  }
+}

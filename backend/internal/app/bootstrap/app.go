@@ -5,25 +5,29 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
+
+	"github.com/OpenNSW/nsw-task-flow/orchestrator"
+	"github.com/OpenNSW/nsw/internal/profile/user"
 
 	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/config"
 	"github.com/OpenNSW/nsw/internal/database"
 	"github.com/OpenNSW/nsw/internal/middleware"
 	"github.com/OpenNSW/nsw/internal/payments"
-	"github.com/OpenNSW/nsw/internal/profile/user"
-	taskmanager "github.com/OpenNSW/nsw/internal/task/manager"
-	"github.com/OpenNSW/nsw/internal/task/plugin"
+	taskv2router "github.com/OpenNSW/nsw/internal/taskv2/router"
+	taskv2store "github.com/OpenNSW/nsw/internal/taskv2/store"
+	"github.com/OpenNSW/nsw/internal/template"
 	"github.com/OpenNSW/nsw/internal/temporal"
 	"github.com/OpenNSW/nsw/internal/uploads"
 	"github.com/OpenNSW/nsw/internal/uploads/drivers"
 	"github.com/OpenNSW/nsw/internal/workflow/router"
-	workflowruntime "github.com/OpenNSW/nsw/internal/workflow/runtime"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
 
 	"github.com/OpenNSW/nsw/pkg/notification"
 	"github.com/OpenNSW/nsw/pkg/notification/channels"
+	"github.com/OpenNSW/nsw/pkg/remote"
 )
 
 // App contains initialized HTTP server and cleanup hooks.
@@ -72,17 +76,12 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	paymentRepo := payments.NewPaymentRepository(db)
 	paymentService := payments.NewPaymentService(paymentRepo)
 
-	factory := plugin.NewTaskFactory(cfg, db, paymentService)
-	tm, err := taskmanager.NewTaskManager(db, factory)
-	if err != nil {
-		_ = database.Close(db)
-		return nil, fmt.Errorf("failed to create task manager: %w", err)
-	}
-
+	// Workflow / consignment domain services (still used by /api/v1/consignments).
 	templateService := service.NewTemplateService(db)
 	chaService := service.NewCHAService(db)
 	hsCodeService := service.NewHSCodeService(db)
 
+	// Temporal client — shared by both nsw-task-flow Temporal managers.
 	temporalClient, err := temporal.NewClient(cfg.Temporal)
 	if err != nil {
 		_ = database.Close(db)
@@ -92,16 +91,42 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	consignmentService := service.NewConsignmentService(db, templateService)
 	consignmentRouter := router.NewConsignmentRouter(consignmentService, chaService)
 
-	workflowRuntime, err := workflowruntime.NewRuntime(temporalClient, tm, templateService, consignmentService)
+	// nsw-task-flow registry, store, runtime.
+	registry := orchestrator.NewTaskTemplateRegistry()
+	if err := template.LoadFromDir(registry, cfg.Server.TemplatesDir); err != nil {
+		temporalClient.Close()
+		_ = database.Close(db)
+		return nil, fmt.Errorf("failed to load task templates from %s: %w", cfg.Server.TemplatesDir, err)
+	}
+
+	remoteManager := remote.NewManager()
+	if err := remoteManager.LoadServices(cfg.Server.ServicesConfigPath); err != nil {
+		slog.Warn("app: failed to load external services configuration",
+			"path", cfg.Server.ServicesConfigPath, "error", err)
+	} else {
+		slog.Info("app: external services configuration loaded",
+			"services", remoteManager.ListServices())
+	}
+
+	taskStore := taskv2store.NewGormTaskStore(db)
+	runtime, err := NewRuntime(Config{
+		TemporalClient:  temporalClient,
+		Store:           taskStore,
+		Registry:        registry,
+		RemoteManager:   remoteManager,
+		BackendBaseURL:  cfg.Server.ServiceURL,
+		DevMode:         cfg.Server.TaskFlowDevMode,
+		UpstreamService: consignmentService,
+	})
 	if err != nil {
 		temporalClient.Close()
 		_ = database.Close(db)
-		return nil, fmt.Errorf("failed to create workflow runtime: %w", err)
+		return nil, fmt.Errorf("failed to start taskv2 runtime: %w", err)
 	}
 
-	registererr := consignmentService.RegisterWorkflowManager(workflowRuntime.Manager())
+	registererr := consignmentService.RegisterWorkflowManager(runtime.WorkflowManager())
 	if registererr != nil {
-		_ = workflowRuntime.Close()
+		_ = runtime.Close()
 		temporalClient.Close()
 		_ = database.Close(db)
 		return nil, fmt.Errorf("failed to register workflow manager with consignment service: %w", registererr)
@@ -113,9 +138,10 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	hsCodeRouter := router.NewHSCodeRouter(hsCodeService)
 	chaRouter := router.NewCHARouter(chaService)
 
+	// Storage / uploads.
 	storageDriver, err := uploads.NewStorageFromConfig(ctx, cfg.Storage)
 	if err != nil {
-		_ = workflowRuntime.Close()
+		_ = runtime.Close()
 		temporalClient.Close()
 		_ = database.Close(db)
 		return nil, fmt.Errorf("failed to initialize storage: %w", err)
@@ -129,21 +155,19 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	authManager, err := auth.NewManager(userProfileService, cfg.Auth)
 	if err != nil {
-		_ = workflowRuntime.Close()
+		_ = runtime.Close()
 		temporalClient.Close()
 		_ = database.Close(db)
 		return nil, fmt.Errorf("failed to create auth manager: %w", err)
 	}
-
 	if err := authManager.Health(); err != nil {
-		_ = workflowRuntime.Close()
+		_ = runtime.Close()
 		temporalClient.Close()
 		_ = authManager.Close()
 		_ = database.Close(db)
 		return nil, fmt.Errorf("auth system health check failed: %w", err)
 	}
 
-	// Initialize notification manager
 	notificationManager := notification.NewManager()
 	emailChannel := channels.NewEmailChannel(notification.EmailConfig{
 		SMTPHost:     cfg.Notification.SMTPHost,
@@ -155,70 +179,63 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	})
 	notificationManager.RegisterEmailChannel(emailChannel)
 
-	// TODO: Add SMS channel if needed
-	// smsChannel := channels.NewSMSChannel(...)
-	// notificationManager.RegisterSMSChannel(smsChannel)
+	// nsw-task-flow HTTP routers — trader-facing and consignment-task discovery.
+	// The /api/oga/* surface lives in the standalone OGA service (oga/), not here.
+	tfRouter := taskv2router.New(runtime.TaskManager(), runtime.WorkflowManager(), registry)
+	consignmentTasksRouter := taskv2router.NewConsignmentTasksRouter(runtime.TaskManager(), registry)
 
-	tmHandler := taskmanager.NewHTTPHandler(tm)
-
-	// withAuth wraps an individual handler with the authentication middleware.
 	withAuth := authManager.Middleware()
 
 	mux := http.NewServeMux()
 
-	// Health check is public and returns JSON in all cases.
-	// On failure, the component field identifies which subsystem is unhealthy
-	// without exposing internal error details.
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		var unhealthy []string
-
 		if err := database.HealthCheck(db); err != nil {
 			unhealthy = append(unhealthy, "database")
 		}
 		if err := authManager.Health(); err != nil {
 			unhealthy = append(unhealthy, "auth")
 		}
-
 		if len(unhealthy) > 0 {
 			writeJSON(w, http.StatusServiceUnavailable, healthResponse{
-				Status:              "error",
-				Service:             "nsw-backend",
-				UnhealthyComponents: unhealthy,
+				Status: "error", Service: "nsw-backend", UnhealthyComponents: unhealthy,
 			})
 			return
 		}
-
-		writeJSON(w, http.StatusOK, healthResponse{
-			Status:  "ok",
-			Service: "nsw-backend",
-		})
+		writeJSON(w, http.StatusOK, healthResponse{Status: "ok", Service: "nsw-backend"})
 	})
 
-	// API v1 routes. Each handler is individually wrapped with auth,
-	// so public or differently-authenticated routes can be added
-	// alongside these without restructuring the mux.
-	mux.Handle("POST /api/v1/tasks", withAuth(http.HandlerFunc(tmHandler.HandleExecuteTask)))
-	mux.Handle("GET /api/v1/tasks/{id}", withAuth(http.HandlerFunc(tmHandler.HandleGetTask)))
+	// ── nsw-task-flow surface ────────────────────────────────────────────────
+	// New endpoints (parent workflow start, list/get/complete tasks).
+	mux.Handle("POST /api/v1/start-workflow", withAuth(http.HandlerFunc(tfRouter.HandleStartWorkflow)))
+	mux.Handle("GET /api/v1/tasks", withAuth(http.HandlerFunc(tfRouter.HandleListTasks)))
+	mux.Handle("GET /api/v1/tasks/{id}", withAuth(http.HandlerFunc(tfRouter.HandleGetTask)))
+	// Modern path: POST /api/v1/tasks/{id}
+	mux.Handle("POST /api/v1/tasks/{id}", withAuth(http.HandlerFunc(tfRouter.HandleCompleteTaskStep)))
+	// Legacy path: POST /api/v1/tasks (body has task_id, payload.action, payload.content) —
+	// kept so the existing trader-app screens still resume tasks. The action field is logged
+	// and ignored (nsw-task-flow has no FSM).
+	mux.Handle("POST /api/v1/tasks", withAuth(http.HandlerFunc(tfRouter.HandleCompleteTaskStep)))
+
+	// ── Domain routes (consignments, HS codes, CHAs) ─────────────────────────
 	mux.Handle("GET /api/v1/hscodes", withAuth(http.HandlerFunc(hsCodeRouter.HandleGetAllHSCodes)))
 	mux.Handle("GET /api/v1/chas", withAuth(http.HandlerFunc(chaRouter.HandleGetCHAs)))
 	mux.Handle("POST /api/v1/consignments", withAuth(http.HandlerFunc(consignmentRouter.HandleCreateConsignment)))
 	mux.Handle("GET /api/v1/consignments/{id}", withAuth(http.HandlerFunc(consignmentRouter.HandleGetConsignmentByID)))
 	mux.Handle("PUT /api/v1/consignments/{id}", withAuth(http.HandlerFunc(consignmentRouter.HandleInitializeConsignment)))
 	mux.Handle("GET /api/v1/consignments", withAuth(http.HandlerFunc(consignmentRouter.HandleGetConsignments)))
-	// TODO: Add pre-consignment routes once migrated to Temporal.
-	// mux.Handle("POST /api/v1/pre-consignments", withAuth(http.HandlerFunc(preConsignmentRouter.HandleCreatePreConsignment)))
-	// mux.Handle("GET /api/v1/pre-consignments/{preConsignmentId}", withAuth(http.HandlerFunc(preConsignmentRouter.HandleGetPreConsignmentByID)))
-	// mux.Handle("GET /api/v1/pre-consignments", withAuth(http.HandlerFunc(preConsignmentRouter.HandleGetTraderPreConsignments)))
+	// Discover the dynamic nsw-task-flow task IDs that belong to a consignment
+	// — used by trader-app to pivot from consignment detail to active task.
+	mux.Handle("GET /api/v1/consignments/{id}/tasks", withAuth(http.HandlerFunc(consignmentTasksRouter.HandleListConsignmentTasks)))
+
+	// ── Uploads, payments, webhooks ──────────────────────────────────────────
 	mux.Handle("POST /api/v1/uploads", withAuth(http.HandlerFunc(uploadHandler.Upload)))
 	mux.Handle("GET /api/v1/uploads/{key}", withAuth(http.HandlerFunc(uploadHandler.Download)))
 	mux.Handle("DELETE /api/v1/uploads/{key}", withAuth(http.HandlerFunc(uploadHandler.Delete)))
 
-	// External Webhooks bypass standard JWT auth.
-	// They should use webhook signatures, implemented in the handler directly or via specialized middleware.
 	mux.Handle("POST /api/v1/payments/webhook", http.HandlerFunc(paymentHandler.HandleWebhook))
 	mux.Handle("POST /api/v1/payments/validate", http.HandlerFunc(paymentHandler.HandleValidateReference))
 
-	// When using local storage, these endpoints serve as mocks for S3.
 	if _, ok := storageDriver.(*drivers.LocalFSDriver); ok {
 		mux.HandleFunc("PUT /api/v1/uploads/{key}/content", uploadHandler.UploadContentLocal)
 		mux.HandleFunc("GET /api/v1/uploads/{key}/content", uploadHandler.DownloadContent)
@@ -233,9 +250,8 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	closeFn := func() error {
 		var closeErrs []error
-
-		if err := workflowRuntime.Close(); err != nil {
-			closeErrs = append(closeErrs, fmt.Errorf("failed to close workflow runtime: %w", err))
+		if err := runtime.Close(); err != nil {
+			closeErrs = append(closeErrs, fmt.Errorf("failed to close taskv2 runtime: %w", err))
 		}
 		temporalClient.Close()
 		if err := authManager.Close(); err != nil {
@@ -244,7 +260,6 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		if err := database.Close(db); err != nil {
 			closeErrs = append(closeErrs, fmt.Errorf("failed to close database: %w", err))
 		}
-
 		return errors.Join(closeErrs...)
 	}
 
