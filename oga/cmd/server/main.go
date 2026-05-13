@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -98,6 +99,19 @@ func main() {
 
 	mux.HandleFunc("POST /api/oga/uploads", storageHandler.HandleCreateUpload)
 	mux.HandleFunc("GET /api/oga/uploads/{key}", storageHandler.HandleGetUploadURL)
+
+	// Serve static files from public/ folder (build output of frontend)
+	fs := http.FileServer(http.Dir("public"))
+	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// If the request is for an API or appears to be a static asset with an extension,
+		// let the FileServer handle it.
+		if strings.HasPrefix(r.URL.Path, "/api/") || strings.Contains(r.URL.Path, ".") {
+			fs.ServeHTTP(w, r)
+			return
+		}
+		// Otherwise, fallback to index.html to support SPA client-side routing.
+		http.ServeFile(w, r, "public/index.html")
+	}))
 
 	// Set up graceful shutdown
 	serverAddr := fmt.Sprintf(":%s", cfg.Port)
