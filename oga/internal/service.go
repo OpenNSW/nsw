@@ -1,13 +1,12 @@
 package internal
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
-	"net/http"
 	"time"
 
 	"github.com/OpenNSW/nsw/oga/internal/feedback"
@@ -43,11 +42,6 @@ type OGAService interface {
 	Close() error
 }
 
-type Meta struct {
-	VerificationType string `json:"type"`
-	VerificationId   string `json:"verificationId"`
-}
-
 // InjectRequest represents the incoming data from services
 type InjectRequest struct {
 	TaskID             string           `json:"taskId"`
@@ -60,13 +54,19 @@ type InjectRequest struct {
 
 // Application represents an application for display in the UI
 type Application struct {
-	TaskID          string           `json:"taskId"`
-	TaskCode        string           `json:"taskCode"`
-	WorkflowID      string           `json:"workflowId"`
-	ServiceURL      string           `json:"serviceUrl"`
-	Data            map[string]any   `json:"data"`                    // Data from NSW service to be rendered in the UI
-	OgaActionData   map[string]any   `json:"ogaActionData,omitempty"` // Copy of the payload sent back to the NSW after review, for display in the UI
-	Meta            *Meta            `json:"meta,omitempty"`
+	TaskID        string         `json:"taskId"`
+	TaskCode      string         `json:"taskCode"`
+	WorkflowID    string         `json:"workflowId"`
+	ServiceURL    string         `json:"serviceUrl"`
+	Data          map[string]any `json:"data"`                    // Data from NSW service to be rendered in the UI
+	OgaActionData map[string]any `json:"ogaActionData,omitempty"` // Copy of the payload sent back to the NSW after review, for display in the UI
+
+	// Task metadata from config
+	Title       string `json:"title,omitempty"`
+	Description string `json:"description,omitempty"`
+	Icon        string `json:"icon,omitempty"`
+	Category    string `json:"category,omitempty"`
+
 	DataForm        json.RawMessage  `json:"dataForm,omitempty"` // Schema for rendering the data in Read Only mode in the UI
 	OgaForm         json.RawMessage  `json:"ogaForm,omitempty"`  // Schema for rendering the OGA Action form in the UI
 	Status          string           `json:"status"`
@@ -92,43 +92,36 @@ type TaskResponse struct {
 }
 
 type ogaService struct {
-	store      *ApplicationStore
-	formStore  *FormStore
-	httpClient *httpclient.Client
+	store       *ApplicationStore
+	configStore *TaskConfigStore
+	formStore   *FormStore
+	httpClient  *httpclient.Client
 }
 
 // NewOGAService creates a new OGA service instance with database storage
-func NewOGAService(store *ApplicationStore, formStore *FormStore, httpClient *httpclient.Client) OGAService {
+func NewOGAService(store *ApplicationStore, configStore *TaskConfigStore, formStore *FormStore, httpClient *httpclient.Client) OGAService {
 	return &ogaService{
-		store:      store,
-		formStore:  formStore,
-		httpClient: httpClient,
+		store:       store,
+		configStore: configStore,
+		formStore:   formStore,
+		httpClient:  httpClient,
 	}
 }
 
 // CreateApplication creates a new application from injected data.
-// When a trader resubmits after receiving feedback (FEEDBACK_REQUESTED), it updates
-// the submitted data and resets the status to PENDING for re-review.
 func (s *ogaService) CreateApplication(ctx context.Context, req *InjectRequest) error {
-	// Validate required fields
-	if req.TaskID == "" {
-		return fmt.Errorf("taskId is required")
-	}
-	if req.TaskCode == "" {
-		return fmt.Errorf("taskCode is required")
-	}
-	if req.WorkflowID == "" {
-		return fmt.Errorf("workflowId is required")
-	}
-	if req.ServiceURL == "" {
-		return fmt.Errorf("serviceUrl is required")
+	if req.TaskID == "" || req.TaskCode == "" || req.WorkflowID == "" || req.ServiceURL == "" {
+		return fmt.Errorf("missing required fields in InjectRequest")
 	}
 
-	// Re-submission after feedback: preserve history, only update data and reset status.
 	existing, err := s.store.GetByTaskID(req.TaskID)
-	if err == nil && existing.Status == "FEEDBACK_REQUESTED" {
-		slog.InfoContext(ctx, "trader resubmitted after feedback, resetting to PENDING",
-			"taskID", req.TaskID)
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("failed to query existing application: %w", err)
+		}
+		// Record doesn't exist — fall through to create.
+	} else if existing.Status == "FEEDBACK_REQUESTED" {
+		slog.InfoContext(ctx, "trader resubmitted after feedback, resetting to PENDING", "taskID", req.TaskID)
 		return s.store.UpdateDataAndResetStatus(req.TaskID, req.Data)
 	}
 
@@ -141,18 +134,10 @@ func (s *ogaService) CreateApplication(ctx context.Context, req *InjectRequest) 
 		Status:     "PENDING",
 	}
 
-	if err := s.store.CreateOrUpdate(appRecord); err != nil {
-		return fmt.Errorf("failed to store application: %w", err)
-	}
-
-	slog.InfoContext(ctx, "application created",
-		"taskID", req.TaskID,
-		"workflowID", req.WorkflowID)
-
-	return nil
+	return s.store.CreateOrUpdate(appRecord)
 }
 
-// GetApplications returns a paginated list of applications (optionally filtered by status, workflow, or search)
+// GetApplications returns a paginated list of applications
 func (s *ogaService) GetApplications(ctx context.Context, status string, workflowID string, search string, page, pageSize int) (*PagedResponse[Application], error) {
 	if page < 1 {
 		page = 1
@@ -169,7 +154,7 @@ func (s *ogaService) GetApplications(ctx context.Context, status string, workflo
 
 	applications := make([]Application, len(records))
 	for i, record := range records {
-		applications[i] = Application{
+		app := Application{
 			TaskID:     record.TaskID,
 			TaskCode:   record.TaskCode,
 			WorkflowID: record.WorkflowID,
@@ -180,6 +165,15 @@ func (s *ogaService) GetApplications(ctx context.Context, status string, workflo
 			CreatedAt:  record.CreatedAt,
 			UpdatedAt:  record.UpdatedAt,
 		}
+
+		// Attach basic metadata for the list view
+		if config, err := s.configStore.GetConfig(record.TaskCode); err == nil {
+			app.Title = config.Meta.Title
+			app.Category = config.Meta.Category
+			app.Icon = config.Meta.Icon
+		}
+
+		applications[i] = app
 	}
 
 	return &PagedResponse[Application]{
@@ -190,7 +184,7 @@ func (s *ogaService) GetApplications(ctx context.Context, status string, workflo
 	}, nil
 }
 
-// GetWorkflows returns a paginated list of unique workflows with their latest status (optionally filtered by search)
+// GetWorkflows returns a paginated list of unique workflows
 func (s *ogaService) GetWorkflows(ctx context.Context, search string, page, pageSize int) (*PagedResponse[WorkflowSummary], error) {
 	if page < 1 {
 		page = 1
@@ -231,41 +225,48 @@ func (s *ogaService) GetApplication(ctx context.Context, taskID string) (*Applic
 		Data:            record.Data,
 		OgaActionData:   record.ReviewerResponse,
 		Status:          record.Status,
-		FeedbackHistory: feedbackHistoryFromRaw(record.OGAFeedbackHistory),
+		FeedbackHistory: record.OGAFeedbackHistory,
 		ReviewedAt:      record.ReviewedAt,
 		CreatedAt:       record.CreatedAt,
 		UpdatedAt:       record.UpdatedAt,
 	}
 
-	// Attach oga form: look up by meta, fall back to default
-	formID := FormIDFromTaskCode(record.TaskCode)
-	if ogaForm, err := s.formStore.GetForm(formID); err == nil {
-		app.OgaForm = ogaForm
+	// Attach task configuration
+	config, err := s.configStore.GetConfig(record.TaskCode)
+	if err != nil {
+		slog.WarnContext(ctx, "task config not found for application", "taskID", taskID, "taskCode", record.TaskCode)
 	} else {
-		slog.WarnContext(ctx, "form not found for application, using default", "taskID", taskID, "formID", formID)
-		if ogaForm, err := s.formStore.GetDefaultForm(); err == nil {
-			app.OgaForm = ogaForm
+		app.Title = config.Meta.Title
+		app.Description = config.Meta.Description
+		app.Icon = config.Meta.Icon
+		app.Category = config.Meta.Category
+
+		if config.Forms.View != "" {
+			if form, ok := s.formStore.GetForm(config.Forms.View); ok {
+				app.DataForm = form
+			} else {
+				slog.WarnContext(ctx, "view form not found", "taskCode", record.TaskCode, "formID", config.Forms.View)
+			}
+		}
+		if config.Forms.Review != "" {
+			if form, ok := s.formStore.GetForm(config.Forms.Review); ok {
+				app.OgaForm = form
+			} else {
+				slog.WarnContext(ctx, "review form not found", "taskCode", record.TaskCode, "formID", config.Forms.Review)
+			}
 		}
 	}
 
-	// TODO: This is a temporary implementation to get the Read Only form UI schema. The OGA form and dataView form will be stored in same template definition in the future, and we can get rid of this special handling to look for a separate form for data view.
-	// Try to load a separate "view" form for rendering the data in read-only mode in the UI, using a naming convention "{formID}.view"
-	dataViewFormID := formID + ".view"
-	if dataForm, err := s.formStore.GetForm(dataViewFormID); err == nil {
-		app.DataForm = dataForm
-	}
 	return app, nil
 }
 
-// ReviewApplication approves or rejects an application and sends response back to service
+// ReviewApplication approves or rejects an application
 func (s *ogaService) ReviewApplication(ctx context.Context, taskID string, reviewerResponse map[string]any) error {
-	// Get the application to retrieve service URL and workflow ID
 	app, err := s.GetApplication(ctx, taskID)
 	if err != nil {
 		return err
 	}
 
-	// Prepare response payload for the service
 	response := TaskResponse{
 		TaskID:     app.TaskID,
 		WorkflowID: app.WorkflowID,
@@ -275,34 +276,27 @@ func (s *ogaService) ReviewApplication(ctx context.Context, taskID string, revie
 		},
 	}
 
-	// Send response back to the service
 	if err := s.sendToService(ctx, app.ServiceURL, response); err != nil {
-		slog.ErrorContext(ctx, "failed to send response to service",
-			"taskID", taskID,
-			"serviceURL", app.ServiceURL,
-			"error", err)
 		return fmt.Errorf("failed to send response to service: %w", err)
 	}
 
-	// TODO: Should remove this hardcoded status and determine it based on reviewerResponse content in the future, once we define a standard config to determine it from reviewerResponse.
-	// For now assume any review action results in "DONE" status.
 	status := "DONE"
-
-	if err := s.store.UpdateStatus(taskID, status, reviewerResponse); err != nil {
-		// TODO: If this fails, we have already sent the response to the service but failed to update our record of it. We should consider how to handle this edge case - for now we just log an error.
-		slog.ErrorContext(ctx, "failed to update application status in database after successful service call", "taskID", taskID, "status", status, "error", err)
-		return fmt.Errorf("failed to update application status in database after successful service call: %w", err)
+	if config, err := s.configStore.GetConfig(app.TaskCode); err == nil && config.Behavior != nil && config.Behavior.StatusMap != nil {
+		outcomeField := config.Behavior.OutcomeField
+		if outcomeField == "" {
+			outcomeField = DefaultOutcomeField
+		}
+		if outcome, ok := reviewerResponse[outcomeField].(string); ok {
+			if mappedStatus, ok := config.Behavior.StatusMap[outcome]; ok {
+				status = mappedStatus
+			}
+		}
 	}
 
-	slog.InfoContext(ctx, "application reviewed and response sent",
-		"taskID", taskID,
-		"serviceURL", app.ServiceURL)
-
-	return nil
+	return s.store.UpdateStatus(taskID, status, reviewerResponse)
 }
 
-// FeedbackApplication sends OGA feedback to the trader via the NSW task API
-// and appends the entry to the application's feedback history.
+// FeedbackApplication sends OGA feedback to the trader
 func (s *ogaService) FeedbackApplication(ctx context.Context, taskID string, content map[string]any) error {
 	app, err := s.GetApplication(ctx, taskID)
 	if err != nil {
@@ -315,15 +309,6 @@ func (s *ogaService) FeedbackApplication(ctx context.Context, taskID string, con
 		Round:     len(app.FeedbackHistory) + 1,
 	}
 
-	entryRaw, err := json.Marshal(entry)
-	if err != nil {
-		return fmt.Errorf("failed to marshal feedback entry: %w", err)
-	}
-	var entryMap map[string]any
-	if err := json.Unmarshal(entryRaw, &entryMap); err != nil {
-		return fmt.Errorf("failed to convert feedback entry: %w", err)
-	}
-
 	response := TaskResponse{
 		TaskID:     app.TaskID,
 		WorkflowID: app.WorkflowID,
@@ -334,71 +319,34 @@ func (s *ogaService) FeedbackApplication(ctx context.Context, taskID string, con
 	}
 
 	if err := s.sendToService(ctx, app.ServiceURL, response); err != nil {
-		slog.ErrorContext(ctx, "failed to send feedback to NSW service",
-			"taskID", taskID, "serviceURL", app.ServiceURL, "error", err)
 		return fmt.Errorf("failed to send feedback to service: %w", err)
 	}
 
-	if err := s.store.AppendFeedback(taskID, entryMap); err != nil {
-		// TODO: If this fails, we have already sent the feedback to the service but failed to update our record of it. We should consider how to handle this edge case - for now we just log an error.
-		slog.ErrorContext(ctx, "failed to store feedback in database after successful service call", "taskID", taskID, "round", entry.Round, "error", err)
-		return fmt.Errorf("failed to store feedback in database after successful service call: %w", err)
-	}
-
-	slog.InfoContext(ctx, "feedback sent", "taskID", taskID, "round", entry.Round)
-	return nil
+	return s.store.AppendFeedback(taskID, entry)
 }
 
-// feedbackHistoryFromRaw converts the raw JSONB slice from the store into typed feedback entries.
-func feedbackHistoryFromRaw(raw []map[string]any) []feedback.Entry {
-	entries := make([]feedback.Entry, 0, len(raw))
-	for _, m := range raw {
-		b, err := json.Marshal(m)
-		if err != nil {
-			slog.Error("failed to marshal feedback history entry from raw", "error", err)
-			continue
-		}
-		var e feedback.Entry
-		if err := json.Unmarshal(b, &e); err != nil {
-			slog.Error("failed to unmarshal feedback history entry", "error", err)
-			continue
-		}
-		entries = append(entries, e)
-	}
-	return entries
-}
-
-// sendToService sends the task response to the originating service
 func (s *ogaService) sendToService(ctx context.Context, serviceURL string, response TaskResponse) error {
 	jsonData, err := json.Marshal(response)
 	if err != nil {
 		return fmt.Errorf("failed to marshal response: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, serviceURL, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	// Note: We use the authenticated httpClient here too, in case the serviceURL requires it.
-	// If it shouldn't, we might need a separate client or use the raw http.Client inside.
 	resp, err := s.httpClient.Post(serviceURL, "application/json", jsonData)
 	if err != nil {
-		return fmt.Errorf("failed to execute request: %w", err)
+		return err
 	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			slog.ErrorContext(ctx, "failed to close response body", "error", err)
+		}
+	}(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("service returned status code %d", resp.StatusCode)
+		return fmt.Errorf("service returned status %d", resp.StatusCode)
 	}
-
 	return nil
 }
 
-// Close closes the service and releases resources
 func (s *ogaService) Close() error {
 	if s.store != nil {
 		return s.store.Close()

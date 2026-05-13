@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/OpenNSW/nsw/oga/internal/database"
+	"github.com/OpenNSW/nsw/oga/internal/feedback"
 	"gorm.io/gorm"
 )
 
@@ -51,7 +52,7 @@ type ApplicationRecord struct {
 	Data               JSONB            `gorm:"type:text"`                                   // Injected data from service
 	ReviewerResponse   JSONB            `gorm:"type:text"`                                   // Response from reviewer
 	Status             string           `gorm:"type:varchar(50);not null;default:'PENDING'"` // PENDING, FEEDBACK_REQUESTED, DONE
-	OGAFeedbackHistory []map[string]any `gorm:"type:text;serializer:json"`
+	OGAFeedbackHistory []feedback.Entry `gorm:"type:text;serializer:json"`
 	ReviewedAt         *time.Time       // When it was reviewed
 	CreatedAt          time.Time        `gorm:"autoCreateTime"`
 	UpdatedAt          time.Time        `gorm:"autoUpdateTime"`
@@ -204,7 +205,7 @@ func (s *ApplicationStore) UpdateStatus(taskID string, status string, reviewerRe
 
 // AppendFeedback appends a feedback entry to the application's history and sets
 // the status to FEEDBACK_REQUESTED.
-func (s *ApplicationStore) AppendFeedback(taskID string, entry map[string]any) error {
+func (s *ApplicationStore) AppendFeedback(taskID string, entry feedback.Entry) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		var app ApplicationRecord
 		if err := tx.First(&app, "task_id = ?", taskID).Error; err != nil {
