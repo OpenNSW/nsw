@@ -148,11 +148,12 @@ export function ConsignmentDetailScreen() {
         </Button>
       </div>
 
-      {/* Consignment ID used as title, with date and badges — outside the card */}
+      {/* Title + ID + date + badges — outside the card */}
       <div className="mb-4 md:mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900 font-mono">{consignment.id}</h1>
-          <p className="text-xs text-gray-500">{formatDateTime(consignment.createdAt)}</p>
+          <h1 className="text-xl font-semibold text-gray-900">Consignment View</h1>
+          <p className="text-xs text-gray-500"><span className="font-medium text-gray-400">ID:</span> <span className="font-mono">{consignment.id}</span></p>
+          <p className="text-xs text-gray-500"><span className="font-medium text-gray-400">Date Created:</span> {formatDateTime(consignment.createdAt)}</p>
         </div>
         <div className="flex flex-col items-end gap-1.5">
           <Badge size="2" color={getStateColor(consignment.state)}>
@@ -223,23 +224,6 @@ export function ConsignmentDetailScreen() {
           </div>
         </div> */}
 
-        {/* HS Code section */}
-        <div className="px-4 py-4 border-b border-gray-200 bg-gray-50/30">
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 p-2 bg-blue-50 rounded-lg border border-blue-100">
-              <InfoCircledIcon className="w-4 h-4 text-blue-600" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">HS Code</h3>
-              <div className="flex items-baseline gap-2 flex-wrap">
-                <span className="text-base font-semibold text-gray-900 font-mono">{item?.hsCode?.hsCode || '—'}</span>
-              </div>
-              <p className="text-sm text-gray-600 line-clamp-2 mt-0.5">
-                {item?.hsCode?.description || 'No description available'}
-              </p>
-            </div>
-          </div>
-        </div>
 
         <div className="p-4 flex-1 flex flex-col min-h-0">
           <Flex align="center" justify="between" mb="3">
@@ -373,45 +357,7 @@ export function ConsignmentDetailScreen() {
           )}
         </div>
 
-        <div className="px-4 py-3 border-t border-gray-200 from-blue-50/50">
-          <Flex align="center" gap="2" mb="1">
-            <div className="w-1.5 h-3 bg-blue-500 rounded-full" />
-            <h3 className="text-xs font-bold text-gray-700">Next Steps</h3>
-          </Flex>
-          {consignment.state === 'INITIALIZED' ? (
-            <Text size="1" color="gray" className="flex items-center gap-1.5">
-              <InfoCircledIcon className="text-blue-500" />
-              <span className="font-medium text-gray-900">Current Bottleneck:</span>
-              {isChaView
-                ? 'Waiting for you to select an HS Code to initialize the workflow process.'
-                : 'Waiting for CHA to select an HS Code to initialize the workflow process.'}
-            </Text>
-          ) : workflowNodes.length === 0 ? (
-            <Text size="1" color="gray">
-              Task for applicants to submit their application for the FCAU process No actions required at this time.
-            </Text>
-          ) : workflowNodes.some((n) => n.state === 'READY') ? (
-            <Text size="1" color="gray" className="flex items-center gap-1.5">
-              <InfoCircledIcon className="text-blue-500" />
-              <span className="font-medium text-gray-900">Action required:</span>
-              Proceed with tasks marked as{' '}
-              <Badge size="1" color="blue" variant="soft">
-                Ready
-              </Badge>{' '}
-              in the list above.
-            </Text>
-          ) : workflowNodes.every((n) => n.state === 'COMPLETED') ? (
-            <Text size="1" color="green" weight="medium" className="flex items-center gap-1.5">
-              <CheckCircledIcon />
-              All steps have been completed. Your consignment is ready.
-            </Text>
-          ) : (
-            <Text size="1" color="gray" className="flex items-center gap-1.5">
-              <ClockIcon />
-              Waiting for dependent steps to be completed before you can proceed.
-            </Text>
-          )}
-        </div>
+        {/* Next Steps section removed */}
       </div>
 
       {/* Reuse existing HS code modal, but skip trade-flow step (flow is already known) */}
