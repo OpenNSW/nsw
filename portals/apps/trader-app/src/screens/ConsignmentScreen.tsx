@@ -6,7 +6,7 @@ import type { ConsignmentSummary, TradeFlow, ConsignmentState, CHA } from '../se
 import { createConsignment, getAllConsignments, getCHAs } from '../services/consignment.ts'
 import { useApi } from '../services/ApiContext'
 import { useRole } from '../services/RoleContext'
-import { getStateColor, formatState, formatDate } from '../utils/consignmentUtils'
+import { getStateColor, formatState, formatDateTime } from '../utils/consignmentUtils'
 import { PaginationControl } from '../components/common/PaginationControl'
 
 import { CHASearch, type CHAOption } from '../components/CHAPicker/CHASearch'
@@ -339,7 +339,7 @@ export function ConsignmentScreen() {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow mb-6">
+      <div className="mb-6">
         <div className="p-4 border-b border-gray-200">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
@@ -415,9 +415,6 @@ export function ConsignmentScreen() {
                     State
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Steps
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Created
                   </th>
                 </tr>
@@ -450,12 +447,7 @@ export function ConsignmentScreen() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <Text size="2" color="gray">
-                          {completedSteps}/{totalSteps}
-                        </Text>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Text size="2" color="gray">
-                          {consignment.createdAt ? formatDate(consignment.createdAt) : '-'}
+                          {consignment.createdAt ? formatDateTime(consignment.createdAt) : '-'}
                         </Text>
                       </td>
                     </tr>

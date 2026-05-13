@@ -157,14 +157,9 @@ export default function Payment(props: {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
+    <div className="space-y-4 mt-20">
       {/* Payment Breakdown Table */}
       <Box className="border border-gray-200 rounded-lg overflow-hidden">
-        <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-          <Text size="2" weight="bold" color="gray">
-            Payment Breakdown
-          </Text>
-        </div>
         <div className="p-0">
           <table className="w-full text-left text-sm">
             <thead>
@@ -210,25 +205,18 @@ export default function Payment(props: {
           </table>
         </div>
       </Box>
-      <h1 className="text-2xl font-bold text-gray-800">Payment</h1>
-
-      <div className="text-sm text-gray-700">
-        {isCompleted ? 'Paid Amount' : 'Amount'}:{' '}
-        <span className="font-medium">
-          {props.configs.totalAmount} {props.configs.currency}
-        </span>
-      </div>
-
       {!isCompleted && (
-        <Button
-          onClick={() => {
-            void handlePayNow()
-          }}
-          disabled={isInitiating}
-          size="3"
-        >
-          {isInitiating ? 'Initiating...' : 'Pay Now'}
-        </Button>
+        <Flex justify="end">
+          <Button
+            onClick={() => {
+              void handlePayNow()
+            }}
+            disabled={isInitiating}
+            size="3"
+          >
+            {isInitiating ? 'Initiating...' : 'Pay Now'}
+          </Button>
+        </Flex>
       )}
 
       <Dialog.Root open={isPopupOpen} onOpenChange={setIsPopupOpen}>
@@ -236,9 +224,6 @@ export default function Payment(props: {
           <Flex justify="between" align="start">
             <Box>
               <Dialog.Title>Mock Payment Gateway</Dialog.Title>
-              <Dialog.Description size="2" color="gray">
-                Mock popup for testing payment result actions.
-              </Dialog.Description>
             </Box>
             <Dialog.Close>
               <IconButton variant="ghost" color="gray" size="1">
@@ -248,13 +233,6 @@ export default function Payment(props: {
           </Flex>
 
           <Box mt="4" className="space-y-3">
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <Text size="2" color="gray">
-                Popup URL
-              </Text>
-              <p className="text-sm text-gray-900 break-all mt-1">{gatewayUrl}</p>
-            </div>
-
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
               <Text size="2" color="gray">
                 Amount
@@ -267,23 +245,24 @@ export default function Payment(props: {
 
           <Flex gap="3" justify="end" mt="5">
             <Button
-              variant="soft"
               color="red"
+              size="2"
               disabled={isProcessingResult}
               onClick={() => {
                 void handleMockGatewayResult('PAYMENT_FAILED')
               }}
             >
-              {isProcessingResult ? 'Processing...' : 'Mark Failed'}
+              {isProcessingResult ? 'Processing...' : 'Mock Fail'}
             </Button>
             <Button
               color="green"
+              size="2"
               disabled={isProcessingResult}
               onClick={() => {
                 void handleMockGatewayResult('PAYMENT_SUCCESS')
               }}
             >
-              {isProcessingResult ? 'Processing...' : 'Mark Success'}
+              {isProcessingResult ? 'Processing...' : 'Mock Success'}
             </Button>
           </Flex>
         </Dialog.Content>
