@@ -148,6 +148,22 @@ export function ConsignmentDetailScreen() {
         </Button>
       </div>
 
+      {/* Consignment ID used as title, with date and badges — outside the card */}
+      <div className="mb-4 md:mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900 font-mono">{consignment.id}</h1>
+          <p className="text-xs text-gray-500">{formatDateTime(consignment.createdAt)}</p>
+        </div>
+        <div className="flex flex-col items-end gap-1.5">
+          <Badge size="2" color={getStateColor(consignment.state)}>
+            {formatState(consignment.state)}
+          </Badge>
+          <Badge size="1" color={consignment.flow === 'IMPORT' ? 'blue' : 'green'} variant="soft">
+            {consignment.flow}
+          </Badge>
+        </div>
+      </div>
+
       <div className="bg-white rounded-lg shadow flex flex-col flex-1 min-h-0 relative">
         {refreshing && (
           <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-20 flex items-center justify-center rounded-lg">
@@ -159,7 +175,9 @@ export function ConsignmentDetailScreen() {
             </div>
           </div>
         )}
-        <div className="p-4 border-b border-gray-200">
+
+        {/* Original card header (title + id + date + badges) — commented out */}
+        {/* <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-semibold text-gray-900">Consignment</h1>
@@ -175,9 +193,10 @@ export function ConsignmentDetailScreen() {
               </Badge>
             </div>
           </div>
-        </div>
+        </div> */}
 
-        <div className="px-4 py-3 border-b border-gray-200 bg-gray-50/30">
+        {/* Original Item Details / Workflow Progress gray box — commented out */}
+        {/* <div className="px-4 py-3 border-b border-gray-200 bg-gray-50/30">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div>
               <h3 className="text-xs font-medium text-gray-500 mb-1">Item Details</h3>
@@ -200,6 +219,24 @@ export function ConsignmentDetailScreen() {
               <Text size="1" color="gray">
                 {progressPercentage === 100 ? 'All steps completed' : `${Math.round(progressPercentage)}% complete`}
               </Text>
+            </div>
+          </div>
+        </div> */}
+
+        {/* HS Code section */}
+        <div className="px-4 py-4 border-b border-gray-200 bg-gray-50/30">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 p-2 bg-blue-50 rounded-lg border border-blue-100">
+              <InfoCircledIcon className="w-4 h-4 text-blue-600" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">HS Code</h3>
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <span className="text-base font-semibold text-gray-900 font-mono">{item?.hsCode?.hsCode || '—'}</span>
+              </div>
+              <p className="text-sm text-gray-600 line-clamp-2 mt-0.5">
+                {item?.hsCode?.description || 'No description available'}
+              </p>
             </div>
           </div>
         </div>
@@ -237,7 +274,8 @@ export function ConsignmentDetailScreen() {
           </Flex>
 
           {workflowNodes.length > 0 ? (
-            <div className="flex-1 min-h-0 bg-gray-50/50 rounded-xl border border-gray-200/50 p-2 sm:p-4 shadow-inner flex flex-col overflow-hidden">
+            // Grey workflow-process box removed — original classes: bg-gray-50/50 rounded-xl border border-gray-200/50 p-2 sm:p-4 shadow-inner
+            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
               {viewMode === 'list' ? (
                 <ActionListView
                   className="flex-1 min-h-0"
@@ -335,7 +373,7 @@ export function ConsignmentDetailScreen() {
           )}
         </div>
 
-        <div className="px-4 py-3 border-t border-gray-200 bg-gradient-to-r from-blue-50/50 to-indigo-50/50">
+        <div className="px-4 py-3 border-t border-gray-200 from-blue-50/50">
           <Flex align="center" gap="2" mb="1">
             <div className="w-1.5 h-3 bg-blue-500 rounded-full" />
             <h3 className="text-xs font-bold text-gray-700">Next Steps</h3>
@@ -350,7 +388,7 @@ export function ConsignmentDetailScreen() {
             </Text>
           ) : workflowNodes.length === 0 ? (
             <Text size="1" color="gray">
-              No actions required at this time.
+              Task for applicants to submit their application for the FCAU process No actions required at this time.
             </Text>
           ) : workflowNodes.some((n) => n.state === 'READY') ? (
             <Text size="1" color="gray" className="flex items-center gap-1.5">

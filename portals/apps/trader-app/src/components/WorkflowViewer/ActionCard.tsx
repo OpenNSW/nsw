@@ -129,7 +129,7 @@ export const ActionCard = ({ step, consignmentId }: ActionCardProps) => {
         </Flex>
 
         {step.workflowNodeTemplate.description && (
-          <Box className="bg-gray-50/50 p-2 rounded border border-gray-100/50">
+          <Box className="p-2 rounded">
             <Text size="2" color="gray" className="leading-relaxed">
               {step.workflowNodeTemplate.description}
             </Text>
