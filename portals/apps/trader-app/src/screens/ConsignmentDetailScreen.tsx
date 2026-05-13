@@ -138,7 +138,8 @@ export function ConsignmentDetailScreen() {
 
   return (
     <div className="p-4 md:p-6 h-[calc(100vh-64px)] flex flex-col">
-      <div className="mb-4 md:mb-6">
+      {/* Top row: Back + Refresh */}
+      <div className="mb-3 flex items-center justify-between">
         <Button
           variant="ghost"
           color="gray"
@@ -148,39 +149,32 @@ export function ConsignmentDetailScreen() {
           <ArrowLeftIcon />
           Back
         </Button>
+        <Button variant="soft" color="blue" size="2" onClick={handleRefresh} disabled={refreshing} className="cursor-pointer">
+          <ReloadIcon className={refreshing ? 'animate-spin' : ''} />
+          Refresh
+        </Button>
       </div>
 
-      {/* Title + ID + date + badges — outside the card */}
-      <div className="mb-4 md:mb-6 flex items-center justify-between">
+      {/* Title row */}
+      <div className="mb-3 mt-2 flex items-center gap-3">
+        <h1 className="text-xl font-semibold text-gray-900">Consignment View</h1>
+        <Badge size="2" color={getStateColor(consignment.state)}>
+          {formatState(consignment.state)}
+        </Badge>
+        <Badge size="1" color={consignment.flow === 'IMPORT' ? 'blue' : 'green'} variant="soft">
+          {consignment.flow}
+        </Badge>
+      </div>
+
+      {/* ID + date row */}
+      <div className="mb-4 md:mb-6 flex items-start gap-10">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Consignment View</h1>
-          <button
-            onClick={() => setShowDetails((v) => !v)}
-            className="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-1 mt-0.5 cursor-pointer"
-          >
-            {showDetails ? 'Hide details' : 'Show details'}
-            <span className={`transition-transform duration-200 ${showDetails ? 'rotate-180' : ''}`}>▾</span>
-          </button>
-          {showDetails && (
-            <div className="mt-1 flex flex-col gap-0.5">
-              <p className="text-xs text-gray-500"><span className="font-medium text-gray-400">ID:</span> <span className="font-mono">{consignment.id}</span></p>
-              <p className="text-xs text-gray-500"><span className="font-medium text-gray-400">Date Created:</span> {formatDateTime(consignment.createdAt)}</p>
-            </div>
-          )}
+          <p className="text-xs font-semibold text-gray-400 mb-0.5">Consignment ID</p>
+          <p className="text-xs font-mono text-gray-700">{consignment.id}</p>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex items-center gap-2">
-            <Badge size="2" color={getStateColor(consignment.state)}>
-              {formatState(consignment.state)}
-            </Badge>
-            <Badge size="1" color={consignment.flow === 'IMPORT' ? 'blue' : 'green'} variant="soft">
-              {consignment.flow}
-            </Badge>
-          </div>
-          <Button variant="soft" color="blue" size="2" onClick={handleRefresh} disabled={refreshing} className="cursor-pointer">
-            <ReloadIcon className={refreshing ? 'animate-spin' : ''} />
-            Refresh
-          </Button>
+        <div>
+          <p className="text-xs font-semibold text-gray-400 mb-0.5">Date Created</p>
+          <p className="text-xs text-gray-700">{formatDateTime(consignment.createdAt)}</p>
         </div>
       </div>
 
