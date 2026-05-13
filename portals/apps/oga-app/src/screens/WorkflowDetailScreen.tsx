@@ -438,20 +438,6 @@ export function WorkflowDetailScreen() {
                         >
                           Cancel
                         </Button>
-                        {application.status !== 'FEEDBACK_REQUESTED' && (
-                          <Button
-                            variant="soft"
-                            color="amber"
-                            type="button"
-                            disabled={isSubmitting || isSendingFeedback}
-                            onClick={() => {
-                              setShowFeedbackInput(true)
-                              setActiveTab('comments')
-                            }}
-                          >
-                            Request Changes
-                          </Button>
-                        )}
                         <Button type="submit" disabled={isSubmitting || isSendingFeedback}>
                           {isSubmitting ? <Spinner size="1" /> : null}
                           Submit Review
