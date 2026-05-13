@@ -32,7 +32,7 @@ export function ActionListView({
   const groups = useMemo(() => {
     return {
       active: filteredSteps.filter((s) => s.state === 'READY' || s.state === 'IN_PROGRESS'),
-      upcoming: filteredSteps.filter((s) => s.state === 'LOCKED'),
+      // upcoming: filteredSteps.filter((s) => s.state === 'LOCKED'),
       finished: filteredSteps.filter((s) => s.state === 'COMPLETED' || s.state === 'FAILED'),
     }
   }, [filteredSteps])
@@ -136,11 +136,11 @@ export function ActionListView({
               </Box>
             ) : null}
 
-            <CollapsibleSection title="Upcoming Tasks" count={groups.upcoming.length}>
+            {/* <CollapsibleSection title="Upcoming Tasks" count={groups.upcoming.length}>
               {groups.upcoming.map((step) => (
                 <ActionCard key={step.id} step={step} consignmentId={consignmentId} />
               ))}
-            </CollapsibleSection>
+            </CollapsibleSection> */}
 
             <CollapsibleSection title="Process History" count={groups.finished.length} color="green">
               {groups.finished.map((step) => (
