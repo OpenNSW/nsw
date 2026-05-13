@@ -1,9 +1,0 @@
-{
-    "template_id": "npqs-upload-ippc--post",
-    "task_type": "FIRE_AND_FORGET",
-    "plugin_name": "generic_api_call",
-    "plugin_properties": {
-        "service_id": "ippc-hub",
-        "path": "/api/upload"
-    }
-}
