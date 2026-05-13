@@ -222,7 +222,7 @@ func (s *ogaService) GetApplication(ctx context.Context, taskID string) (*Applic
 		TaskCode:        record.TaskCode,
 		WorkflowID:      record.WorkflowID,
 		ServiceURL:      record.ServiceURL,
-		Data:            record.Data,
+		Data:            record.Data["userform"].(map[string]any),
 		OgaActionData:   record.ReviewerResponse,
 		Status:          record.Status,
 		FeedbackHistory: record.OGAFeedbackHistory,

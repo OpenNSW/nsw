@@ -1,0 +1,12 @@
+{
+  "taskCode": "fcau_sample_drop_ack_v1",
+  "meta": {
+    "title": "Sample Drop Acknowledgement",
+    "description": "Acknowledge receipt of the sample dropped by the trader.",
+    "icon": "package",
+    "category": "Food Control"
+  },
+  "forms": {
+    "review": "fcau_sample_drop_ack_v1_review"
+  }
+}

@@ -21,12 +21,12 @@ vendor/
 # Per-deployment data is local-only. Only the default examples ship in the repo;
 # agencies provide their own task configs and forms via OGA_CONFIG_DIR.
 data/*
-!data/forms/
-data/forms/*
-!data/forms/default_review.json
-!data/task-configs/
-data/task-configs/*
-!data/task-configs/default.json
+#!data/forms/
+#data/forms/*
+#!data/forms/default_review.json
+#!data/task-configs/
+#data/task-configs/*
+#!data/task-configs/default.json
 
 # OS-specific files
 .DS_Store

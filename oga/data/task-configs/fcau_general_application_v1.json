@@ -1,0 +1,20 @@
+{
+  "taskCode": "fcau_general_application_v1",
+  "meta": {
+    "title": "General Food Export Application Review",
+    "description": "Review the general application for food control administration.",
+    "icon": "clipboard-check",
+    "category": "Food Control"
+  },
+  "forms": {
+    "view": "fcau_general_application_v1_view",
+    "review": "fcau_general_application_v1_review"
+  },
+  "behavior": {
+    "statusMap": {
+      "approve": "APPROVED",
+      "reject": "REJECTED",
+      "needs_more_info": "FEEDBACK_REQUESTED"
+    }
+  }
+}

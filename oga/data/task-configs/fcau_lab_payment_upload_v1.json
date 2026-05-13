@@ -1,0 +1,18 @@
+{
+  "taskCode": "fcau_lab_payment_upload_v1",
+  "meta": {
+    "title": "Lab Payment Confirmation",
+    "description": "Confirm receipt of the lab payment uploaded by the trader.",
+    "icon": "credit-card",
+    "category": "Food Control"
+  },
+  "projections": {
+    "criticalAttachments": [
+      "labPaymentReceipt"
+    ]
+  },
+  "forms": {
+    "view": "fcau_lab_payment_upload_v1_view",
+    "review": "fcau_lab_payment_upload_v1_review"
+  }
+}

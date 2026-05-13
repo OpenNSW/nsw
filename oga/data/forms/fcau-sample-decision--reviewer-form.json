@@ -1,0 +1,36 @@
+{
+  "id": "fcau-sample-decision--reviewer-form",
+  "title": "Sample Requirement Decision",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "sample_required": {
+        "type": "boolean",
+        "title": "Is a physical consignment sample required for lab testing?",
+        "default": true,
+        "example": true
+      },
+      "reviewer_comments": {
+        "type": "string",
+        "title": "Officer Decision Remarks",
+        "example": "Consignment contains processed dairy-derived materials. Physical laboratory diagnostics are required to verify microbiological safety."
+      }
+    },
+    "required": [
+      "sample_required"
+    ]
+  },
+  "uischema": {
+    "type": "VerticalLayout",
+    "elements": [
+      {
+        "type": "Control",
+        "scope": "#/properties/sample_required"
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/reviewer_comments"
+      }
+    ]
+  }
+}

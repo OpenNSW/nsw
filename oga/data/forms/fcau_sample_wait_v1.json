@@ -1,0 +1,33 @@
+{
+  "schema": {
+    "type": "object",
+    "properties": {
+      "sample_received": {
+        "type": "string",
+        "title": "Sample Received?",
+        "description": "Confirm that the trader has delivered the consignment sample to the FCAU facility.",
+        "enum": ["no", "yes"]
+      },
+      "remarks": {
+        "type": "string",
+        "title": "Remarks"
+      }
+    },
+    "required": ["sample_received"]
+  },
+  "uiSchema": {
+    "type": "VerticalLayout",
+    "elements": [
+      {
+        "type": "Control",
+        "scope": "#/properties/sample_received",
+        "options": { "format": "radio" }
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/remarks",
+        "options": { "multi": true }
+      }
+    ]
+  }
+}

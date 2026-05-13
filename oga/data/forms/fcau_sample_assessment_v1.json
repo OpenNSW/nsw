@@ -1,0 +1,47 @@
+{
+  "schema": {
+    "type": "object",
+    "properties": {
+      "sample_number": {
+        "type": "string",
+        "title": "Issued Lab Sample Tag ID"
+      },
+      "manual_assessment_outcome": {
+        "type": "string",
+        "title": "Manual Physical Inspection Result",
+        "oneOf": [
+          { "const": "satisfactory", "title": "Satisfactory" },
+          { "const": "unsatisfactory", "title": "Unsatisfactory" }
+        ]
+      },
+      "lab_test_required": {
+        "type": "boolean",
+        "title": "Is detailed chemical/microbiological Lab Analysis required?",
+        "default": true
+      },
+      "assessment_outcome": {
+        "type": "string",
+        "title": "Manual Assessment Description & Comments"
+      }
+    },
+    "required": ["sample_number", "manual_assessment_outcome", "lab_test_required"]
+  },
+  "uiSchema": {
+    "type": "VerticalLayout",
+    "elements": [
+      { "type": "Control", "scope": "#/properties/sample_number" },
+      {
+        "type": "HorizontalLayout",
+        "elements": [
+          { "type": "Control", "scope": "#/properties/manual_assessment_outcome" },
+          { "type": "Control", "scope": "#/properties/lab_test_required" }
+        ]
+      },
+      {
+        "type": "Control",
+        "scope": "#/properties/assessment_outcome",
+        "options": { "multi": true }
+      }
+    ]
+  }
+}

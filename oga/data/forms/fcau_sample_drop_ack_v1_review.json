@@ -1,0 +1,23 @@
+{
+    "schema": {
+        "type": "object",
+        "required": [
+            "acknowledgement"
+        ],
+        "properties": {
+            "acknowledgement": {
+                "type": "boolean",
+                "title": "Sample Received"
+            }
+        }
+    },
+    "uiSchema": {
+        "type": "VerticalLayout",
+        "elements": [
+            {
+                "type": "Control",
+                "scope": "#/properties/acknowledgement"
+            }
+        ]
+    }
+}

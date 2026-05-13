@@ -1,0 +1,28 @@
+{
+  "schema": {
+    "type": "object",
+    "properties": {
+      "certificate_id": {
+        "type": "string",
+        "title": "Generated Food Health Certificate ID"
+      },
+      "certificate_url": {
+        "type": "string",
+        "title": "Digital Certificate Registry Link"
+      },
+      "authorized_signature": {
+        "type": "string",
+        "title": "Officer Cryptographic Signature Authority"
+      }
+    },
+    "required": ["certificate_id", "certificate_url", "authorized_signature"]
+  },
+  "uiSchema": {
+    "type": "VerticalLayout",
+    "elements": [
+      { "type": "Control", "scope": "#/properties/certificate_id" },
+      { "type": "Control", "scope": "#/properties/certificate_url" },
+      { "type": "Control", "scope": "#/properties/authorized_signature" }
+    ]
+  }
+}

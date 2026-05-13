@@ -1,0 +1,13 @@
+{
+  "taskCode": "fcau_sample_decision_v1",
+  "meta": {
+    "title": "Officer Sample Requirement Decision",
+    "description": "Decide whether a physical consignment sample is required for laboratory testing.",
+    "icon": "flask-conical",
+    "category": "Food Control"
+  },
+  "forms": {
+    "view": "fcau-apply-health-cert--user-form",
+    "review": "fcau-sample-decision--reviewer-form"
+  }
+}

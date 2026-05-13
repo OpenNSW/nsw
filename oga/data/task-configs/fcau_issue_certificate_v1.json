@@ -1,0 +1,13 @@
+{
+  "taskCode": "fcau_issue_certificate_v1",
+  "meta": {
+    "title": "Health Certificate Issuance",
+    "description": "Issue the final Food Health Certificate for the approved consignment.",
+    "icon": "file-check",
+    "category": "Food Control"
+  },
+  "forms": {
+    "view": "fcau-apply-health-cert--user-form",
+    "review": "fcau-issue-certificate--officer-form"
+  }
+}
