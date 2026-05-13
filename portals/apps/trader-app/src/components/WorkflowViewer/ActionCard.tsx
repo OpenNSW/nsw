@@ -84,7 +84,8 @@ export const ActionCard = ({ step, consignmentId }: ActionCardProps) => {
   return (
     <Card
       variant="classic"
-      className="mb-3 hover:shadow-lg transition-all duration-200 bg-white border border-gray-100 shadow-sm"
+      onClick={step.state !== 'LOCKED' ? handleOpen : undefined}
+      className={`mb-3 transition-all duration-200 bg-white border border-gray-100 shadow-sm ${step.state !== 'LOCKED' ? 'hover:shadow-lg cursor-pointer' : ''}`}
     >
       <Flex direction="column" gap="3">
         <Flex align="start" justify="between" gap="3">
@@ -103,26 +104,15 @@ export const ActionCard = ({ step, consignmentId }: ActionCardProps) => {
                     {config.label}
                   </Flex>
                 </Badge>
-                {step.workflowNodeTemplate.type && (
-                  <Text size="1" color="gray" className="uppercase tracking-wider font-medium opacity-70">
-                    • {step.workflowNodeTemplate.type.replace(/_/g, ' ')}
-                  </Text>
-                )}
               </Flex>
             </Box>
           </Flex>
 
           <Box>
             {isExecutable && (
-              <Button size="2" onClick={handleOpen} className="cursor-pointer">
+              <Button size="2" onClick={(e) => { e.stopPropagation(); handleOpen() }} className="cursor-pointer">
                 <PlayIcon />
                 Start Task
-              </Button>
-            )}
-            {isViewable && (
-              <Button variant="soft" color="gray" size="2" onClick={handleOpen} className="cursor-pointer">
-                <ReaderIcon />
-                View Details
               </Button>
             )}
           </Box>

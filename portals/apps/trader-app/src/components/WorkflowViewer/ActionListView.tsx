@@ -56,7 +56,7 @@ export function ActionListView({
 
   return (
     <div className={`w-full flex flex-col min-h-0 relative ${className}`}>
-      <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar min-h-0">
+<div className="flex-1 overflow-y-auto pr-2 custom-scrollbar min-h-0">
         {isConsignmentTerminal ? (
           <Box mb="6">
             <Flex align="center" justify="between" my="4" px="3">
@@ -92,7 +92,6 @@ export function ActionListView({
                       {groups.active.length}
                     </Badge>
                   </Flex>
-                  {RefreshButton}
                 </Flex>
                 <Box px="0.5">
                   {groups.active.map((step) => (
