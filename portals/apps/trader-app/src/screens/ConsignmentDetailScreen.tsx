@@ -9,6 +9,7 @@ import {
   CheckCircledIcon,
   ClockIcon,
   MagnifyingGlassIcon,
+  ReloadIcon,
 } from '@radix-ui/react-icons'
 import { WorkflowViewer, ActionListView } from '../components/WorkflowViewer'
 import type { ConsignmentDetail } from '../services/types/consignment.ts'
@@ -30,6 +31,7 @@ export function ConsignmentDetailScreen() {
   const [hsPickerOpen, setHsPickerOpen] = useState(false)
   const [initializing, setInitializing] = useState(false)
   const [viewMode, setViewMode] = useState<'list' | 'graph'>('list')
+  const [showDetails, setShowDetails] = useState(false)
 
   const { role } = useRole()
 
@@ -148,19 +150,37 @@ export function ConsignmentDetailScreen() {
         </Button>
       </div>
 
-      {/* Consignment ID used as title, with date and badges — outside the card */}
+      {/* Title + ID + date + badges — outside the card */}
       <div className="mb-4 md:mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900 font-mono">{consignment.id}</h1>
-          <p className="text-xs text-gray-500">{formatDateTime(consignment.createdAt)}</p>
+          <h1 className="text-xl font-semibold text-gray-900">Consignment View</h1>
+          <button
+            onClick={() => setShowDetails((v) => !v)}
+            className="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-1 mt-0.5 cursor-pointer"
+          >
+            {showDetails ? 'Hide details' : 'Show details'}
+            <span className={`transition-transform duration-200 ${showDetails ? 'rotate-180' : ''}`}>▾</span>
+          </button>
+          {showDetails && (
+            <div className="mt-1 flex flex-col gap-0.5">
+              <p className="text-xs text-gray-500"><span className="font-medium text-gray-400">ID:</span> <span className="font-mono">{consignment.id}</span></p>
+              <p className="text-xs text-gray-500"><span className="font-medium text-gray-400">Date Created:</span> {formatDateTime(consignment.createdAt)}</p>
+            </div>
+          )}
         </div>
-        <div className="flex flex-col items-end gap-1.5">
-          <Badge size="2" color={getStateColor(consignment.state)}>
-            {formatState(consignment.state)}
-          </Badge>
-          <Badge size="1" color={consignment.flow === 'IMPORT' ? 'blue' : 'green'} variant="soft">
-            {consignment.flow}
-          </Badge>
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex items-center gap-2">
+            <Badge size="2" color={getStateColor(consignment.state)}>
+              {formatState(consignment.state)}
+            </Badge>
+            <Badge size="1" color={consignment.flow === 'IMPORT' ? 'blue' : 'green'} variant="soft">
+              {consignment.flow}
+            </Badge>
+          </div>
+          <Button variant="soft" color="blue" size="2" onClick={handleRefresh} disabled={refreshing} className="cursor-pointer">
+            <ReloadIcon className={refreshing ? 'animate-spin' : ''} />
+            Refresh
+          </Button>
         </div>
       </div>
 
@@ -223,55 +243,8 @@ export function ConsignmentDetailScreen() {
           </div>
         </div> */}
 
-        {/* HS Code section */}
-        <div className="px-4 py-4 border-b border-gray-200 bg-gray-50/30">
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 p-2 bg-blue-50 rounded-lg border border-blue-100">
-              <InfoCircledIcon className="w-4 h-4 text-blue-600" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">HS Code</h3>
-              <div className="flex items-baseline gap-2 flex-wrap">
-                <span className="text-base font-semibold text-gray-900 font-mono">{item?.hsCode?.hsCode || '—'}</span>
-              </div>
-              <p className="text-sm text-gray-600 line-clamp-2 mt-0.5">
-                {item?.hsCode?.description || 'No description available'}
-              </p>
-            </div>
-          </div>
-        </div>
 
         <div className="p-4 flex-1 flex flex-col min-h-0">
-          <Flex align="center" justify="between" mb="3">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Workflow Process</h3>
-
-            <Flex gap="1" className="bg-gray-100 p-1 rounded-lg border border-gray-200 shadow-sm">
-              <RadixTooltip content="List View (Action Oriented)">
-                <IconButton
-                  variant={viewMode === 'list' ? 'solid' : 'soft'}
-                  color={viewMode === 'list' ? 'blue' : 'gray'}
-                  highContrast={viewMode !== 'list'}
-                  size="2"
-                  onClick={() => setViewMode('list')}
-                  className="cursor-pointer transition-all duration-200"
-                >
-                  <ListBulletIcon width="18" height="18" />
-                </IconButton>
-              </RadixTooltip>
-              <RadixTooltip content="Workflow Graph (Visualizer)">
-                <IconButton
-                  variant={viewMode === 'graph' ? 'solid' : 'soft'}
-                  color={viewMode === 'graph' ? 'blue' : 'gray'}
-                  highContrast={viewMode !== 'graph'}
-                  size="2"
-                  onClick={() => setViewMode('graph')}
-                  className="cursor-pointer transition-all duration-200"
-                >
-                  <ViewGridIcon width="18" height="18" />
-                </IconButton>
-              </RadixTooltip>
-            </Flex>
-          </Flex>
 
           {workflowNodes.length > 0 ? (
             // Grey workflow-process box removed — original classes: bg-gray-50/50 rounded-xl border border-gray-200/50 p-2 sm:p-4 shadow-inner
@@ -373,45 +346,7 @@ export function ConsignmentDetailScreen() {
           )}
         </div>
 
-        <div className="px-4 py-3 border-t border-gray-200 from-blue-50/50">
-          <Flex align="center" gap="2" mb="1">
-            <div className="w-1.5 h-3 bg-blue-500 rounded-full" />
-            <h3 className="text-xs font-bold text-gray-700">Next Steps</h3>
-          </Flex>
-          {consignment.state === 'INITIALIZED' ? (
-            <Text size="1" color="gray" className="flex items-center gap-1.5">
-              <InfoCircledIcon className="text-blue-500" />
-              <span className="font-medium text-gray-900">Current Bottleneck:</span>
-              {isChaView
-                ? 'Waiting for you to select an HS Code to initialize the workflow process.'
-                : 'Waiting for CHA to select an HS Code to initialize the workflow process.'}
-            </Text>
-          ) : workflowNodes.length === 0 ? (
-            <Text size="1" color="gray">
-              Task for applicants to submit their application for the FCAU process No actions required at this time.
-            </Text>
-          ) : workflowNodes.some((n) => n.state === 'READY') ? (
-            <Text size="1" color="gray" className="flex items-center gap-1.5">
-              <InfoCircledIcon className="text-blue-500" />
-              <span className="font-medium text-gray-900">Action required:</span>
-              Proceed with tasks marked as{' '}
-              <Badge size="1" color="blue" variant="soft">
-                Ready
-              </Badge>{' '}
-              in the list above.
-            </Text>
-          ) : workflowNodes.every((n) => n.state === 'COMPLETED') ? (
-            <Text size="1" color="green" weight="medium" className="flex items-center gap-1.5">
-              <CheckCircledIcon />
-              All steps have been completed. Your consignment is ready.
-            </Text>
-          ) : (
-            <Text size="1" color="gray" className="flex items-center gap-1.5">
-              <ClockIcon />
-              Waiting for dependent steps to be completed before you can proceed.
-            </Text>
-          )}
-        </div>
+        {/* Next Steps section removed */}
       </div>
 
       {/* Reuse existing HS code modal, but skip trade-flow step (flow is already known) */}

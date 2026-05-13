@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Badge, Box, Button, Card, Flex, Text } from '@radix-ui/themes'
 import {
   CheckCircledIcon,
+  ChevronRightIcon,
   ClockIcon,
   CrossCircledIcon,
   FileTextIcon,
@@ -81,13 +82,20 @@ export const ActionCard = ({ step, consignmentId }: ActionCardProps) => {
   const isExecutable = step.state === 'READY'
   const isViewable = step.state !== 'LOCKED' && !isExecutable
 
+  const isClickable = step.state !== 'LOCKED'
+
   return (
     <Card
       variant="classic"
-      className="mb-3 hover:shadow-lg transition-all duration-200 bg-white border border-gray-100 shadow-sm"
+      onClick={isClickable ? handleOpen : undefined}
+      className={`mb-3 transition-all duration-200 border shadow-sm group
+        ${isClickable
+          ? 'bg-white border-gray-200 hover:border-blue-300 hover:bg-blue-50/40 hover:shadow-md cursor-pointer active:scale-[0.98] active:shadow-sm'
+          : 'bg-gray-50 border-gray-100 opacity-50 cursor-not-allowed'
+        }`}
     >
       <Flex direction="column" gap="3">
-        <Flex align="start" justify="between" gap="3">
+        <Flex align="center" justify="between" gap="3">
           <Flex align="center" gap="3" className="flex-1 min-w-0">
             <Box className={`p-2.5 rounded-lg border ${statusStyles[config.color] || statusStyles.gray}`}>
               {nodeTypeIcons[step.workflowNodeTemplate.type] || <FileTextIcon className="w-5 h-5" />}
@@ -103,29 +111,15 @@ export const ActionCard = ({ step, consignmentId }: ActionCardProps) => {
                     {config.label}
                   </Flex>
                 </Badge>
-                {step.workflowNodeTemplate.type && (
-                  <Text size="1" color="gray" className="uppercase tracking-wider font-medium opacity-70">
-                    • {step.workflowNodeTemplate.type.replace(/_/g, ' ')}
-                  </Text>
-                )}
               </Flex>
             </Box>
           </Flex>
 
-          <Box>
-            {isExecutable && (
-              <Button size="2" onClick={handleOpen} className="cursor-pointer">
-                <PlayIcon />
-                Start Task
-              </Button>
-            )}
-            {isViewable && (
-              <Button variant="soft" color="gray" size="2" onClick={handleOpen} className="cursor-pointer">
-                <ReaderIcon />
-                View Details
-              </Button>
-            )}
-          </Box>
+          <ChevronRightIcon
+            className={`flex-shrink-0 transition-colors duration-200 ${isClickable ? 'text-gray-300 group-hover:text-blue-400' : 'invisible'}`}
+            width="20"
+            height="20"
+          />
         </Flex>
 
         {step.workflowNodeTemplate.description && (
