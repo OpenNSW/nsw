@@ -19,8 +19,8 @@ export function LoginScreen() {
         {/* Hero background — no clip on mobile (logo has its own strip above), diagonal on desktop */}
         <div className="absolute inset-0 [clip-path:none] lg:[clip-path:polygon(25%_0,100%_0,100%_100%,0%_100%)]">
           <div
-            className="absolute inset-0 bg-cover bg-center"
-            style={heroImageUrl ? { backgroundImage: `url(${heroImageUrl})` } : { backgroundColor: '#1e1b4b' }}
+            className="absolute inset-0 bg-cover bg-center bg-secondary-950"
+            style={heroImageUrl ? { backgroundImage: `url(${heroImageUrl})` } : undefined}
           />
           <div className="absolute inset-0 bg-black/50" />
         </div>
@@ -57,16 +57,20 @@ export function LoginScreen() {
 
           <h1 className="hidden lg:block text-3xl font-bold text-gray-900 leading-tight mb-5">{systemName}</h1>
 
-          <p className="text-md text-gray-600 leading-relaxed text-center lg:text-left">
-            {description ||
-              'A unified digital platform enabling seamless regulatory workflows and approvals for government agencies and authorised officers.'}
-          </p>
+          <p className="text-md text-gray-600 leading-relaxed text-center lg:text-left">{description}</p>
 
-          {partnerLogos && partnerLogos.length > 0 && (
+          {partnerLogos && partnerLogos.some((logo) => logo.url) && (
             <div className="flex flex-row flex-wrap items-center justify-center lg:justify-start gap-4 mt-5">
-              {partnerLogos.map((logo) => (
-                <img key={logo.url} src={logo.url} alt={logo.alt} className="h-10 object-contain opacity-80" />
-              ))}
+              {partnerLogos
+                .filter((logo) => logo.url)
+                .map((logo, index) => (
+                  <img
+                    key={`${logo.url}-${index}`}
+                    src={logo.url}
+                    alt={logo.alt}
+                    className="h-10 object-contain opacity-80"
+                  />
+                ))}
             </div>
           )}
         </div>
