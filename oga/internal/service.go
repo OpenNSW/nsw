@@ -228,7 +228,7 @@ func (s *ogaService) GetApplication(ctx context.Context, taskID string) (*Applic
 		TaskCode:        record.TaskCode,
 		WorkflowID:      record.WorkflowID,
 		ServiceURL:      record.ServiceURL,
-		Data:            unwrapTraderData(record.Data),
+		Data:            record.Data,
 		OgaActionData:   record.ReviewerResponse,
 		Status:          record.Status,
 		FeedbackHistory: feedbackHistoryFromRaw(record.OGAFeedbackHistory),
@@ -347,29 +347,6 @@ func (s *ogaService) FeedbackApplication(ctx context.Context, taskID string, con
 
 	slog.InfoContext(ctx, "feedback sent", "taskID", taskID, "round", entry.Round)
 	return nil
-}
-
-// unwrapTraderData strips the nsw-task-flow namespace wrappers ("userform" /
-// "reviewerform") from the injected payload so the OGA portal's JSONForms
-// renderer can apply the data-view schema directly. The trader-side schema is
-// authored in flat shape (e.g. {"app_type": "phyto", ...}), but nsw-task-flow
-// stores it under record.Data["userform"], so without this we'd hand
-// {userform: {...}} to a flat schema and the form would render blank.
-//
-// Preference order: userform → reviewerform → original data. Other keys (e.g.
-// inputs from input_mapping) are preserved by merging when no namespace is
-// found.
-func unwrapTraderData(data map[string]any) map[string]any {
-	if len(data) == 0 {
-		return data
-	}
-	if userform, ok := data["userform"].(map[string]any); ok {
-		return userform
-	}
-	if reviewerform, ok := data["reviewerform"].(map[string]any); ok {
-		return reviewerform
-	}
-	return data
 }
 
 // feedbackHistoryFromRaw converts the raw JSONB slice from the store into typed feedback entries.
