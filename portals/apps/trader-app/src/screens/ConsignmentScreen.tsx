@@ -313,7 +313,9 @@ export function ConsignmentScreen() {
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Consignments</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">
+          Consignments{totalCount > 0 && <span className="ml-2 text-lg font-normal text-gray-400">({totalCount})</span>}
+        </h1>
         <div className="flex gap-2">
           {role === 'cha' ? null : (
             <Button onClick={() => handleNewOpenChange(true)} disabled={creating}>
@@ -331,13 +333,6 @@ export function ConsignmentScreen() {
         creating={creating}
         onCreate={handleCreateShell}
       />
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-sm font-medium text-gray-500">Total Consignments</h3>
-          <p className="mt-2 text-3xl font-semibold text-gray-900">{totalCount}</p>
-        </div>
-      </div>
 
       <div className="mb-6">
         <div className="p-4 border-b border-gray-200">
