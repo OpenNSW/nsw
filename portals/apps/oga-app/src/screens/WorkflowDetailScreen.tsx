@@ -13,6 +13,8 @@ import { JsonForms } from '@jsonforms/react'
 import { radixRenderers } from '@opennsw/jsonforms-renderers'
 import type { JsonSchema, UISchemaElement } from '@jsonforms/core'
 import { useApi } from '../services/useApi'
+import { autoFillForm } from '../utils/formUtils'
+import { getBooleanEnv } from '../runtimeConfig'
 
 export function WorkflowDetailScreen() {
   const navigate = useNavigate()
@@ -157,6 +159,12 @@ export function WorkflowDetailScreen() {
 
   const isActionable = application.status === 'PENDING'
   const feedbackCount = application.feedbackHistory?.length ?? 0
+  const showAutoFillButton = getBooleanEnv('VITE_SHOW_AUTOFILL_BUTTON', false)
+
+  const handleAutoFill = () => {
+    if (!ogaFormConfig) return
+    setOgaFormData(autoFillForm(ogaFormConfig.schema, ogaFormData))
+  }
 
   const statusColor =
     application.status === 'APPROVED'
@@ -408,6 +416,17 @@ export function WorkflowDetailScreen() {
                         }}
                       />
                       <Flex justify="end" gap="3" mt="6">
+                        {showAutoFillButton && (
+                          <Button
+                            type="button"
+                            variant="soft"
+                            color="purple"
+                            onClick={handleAutoFill}
+                            disabled={isSubmitting || isSendingFeedback}
+                          >
+                            Demo - Auto Fill
+                          </Button>
+                        )}
                         <Button
                           variant="soft"
                           color="gray"
