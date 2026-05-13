@@ -9,6 +9,7 @@ import {
   CheckCircledIcon,
   ClockIcon,
   MagnifyingGlassIcon,
+  ReloadIcon,
 } from '@radix-ui/react-icons'
 import { WorkflowViewer, ActionListView } from '../components/WorkflowViewer'
 import type { ConsignmentDetail } from '../services/types/consignment.ts'
@@ -155,13 +156,19 @@ export function ConsignmentDetailScreen() {
           <p className="text-xs text-gray-500"><span className="font-medium text-gray-400">ID:</span> <span className="font-mono">{consignment.id}</span></p>
           <p className="text-xs text-gray-500"><span className="font-medium text-gray-400">Date Created:</span> {formatDateTime(consignment.createdAt)}</p>
         </div>
-        <div className="flex flex-col items-end gap-1.5">
-          <Badge size="2" color={getStateColor(consignment.state)}>
-            {formatState(consignment.state)}
-          </Badge>
-          <Badge size="1" color={consignment.flow === 'IMPORT' ? 'blue' : 'green'} variant="soft">
-            {consignment.flow}
-          </Badge>
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex items-center gap-2">
+            <Badge size="2" color={getStateColor(consignment.state)}>
+              {formatState(consignment.state)}
+            </Badge>
+            <Badge size="1" color={consignment.flow === 'IMPORT' ? 'blue' : 'green'} variant="soft">
+              {consignment.flow}
+            </Badge>
+          </div>
+          <Button variant="soft" color="blue" size="2" onClick={handleRefresh} disabled={refreshing} className="cursor-pointer">
+            <ReloadIcon className={refreshing ? 'animate-spin' : ''} />
+            Refresh
+          </Button>
         </div>
       </div>
 
@@ -226,36 +233,6 @@ export function ConsignmentDetailScreen() {
 
 
         <div className="p-4 flex-1 flex flex-col min-h-0">
-          <Flex align="center" justify="between" mb="3">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Workflow Process</h3>
-
-            <Flex gap="1" className="bg-gray-100 p-1 rounded-lg border border-gray-200 shadow-sm">
-              <RadixTooltip content="List View (Action Oriented)">
-                <IconButton
-                  variant={viewMode === 'list' ? 'solid' : 'soft'}
-                  color={viewMode === 'list' ? 'blue' : 'gray'}
-                  highContrast={viewMode !== 'list'}
-                  size="2"
-                  onClick={() => setViewMode('list')}
-                  className="cursor-pointer transition-all duration-200"
-                >
-                  <ListBulletIcon width="18" height="18" />
-                </IconButton>
-              </RadixTooltip>
-              <RadixTooltip content="Workflow Graph (Visualizer)">
-                <IconButton
-                  variant={viewMode === 'graph' ? 'solid' : 'soft'}
-                  color={viewMode === 'graph' ? 'blue' : 'gray'}
-                  highContrast={viewMode !== 'graph'}
-                  size="2"
-                  onClick={() => setViewMode('graph')}
-                  className="cursor-pointer transition-all duration-200"
-                >
-                  <ViewGridIcon width="18" height="18" />
-                </IconButton>
-              </RadixTooltip>
-            </Flex>
-          </Flex>
 
           {workflowNodes.length > 0 ? (
             // Grey workflow-process box removed — original classes: bg-gray-50/50 rounded-xl border border-gray-200/50 p-2 sm:p-4 shadow-inner
