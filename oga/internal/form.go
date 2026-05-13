@@ -80,7 +80,16 @@ func loadOneTradeForms(forms map[string]json.RawMessage, fsys fs.FS) error {
 			return fmt.Errorf("onetrade form %q contains invalid JSON", path)
 		}
 
-		id := strings.TrimSuffix(path, ".json")
+		var formData map[string]any
+		if err := json.Unmarshal(data, &formData); err != nil {
+			return fmt.Errorf("failed to unmarshal onetrade form %q: %w", path, err)
+		}
+
+		id, ok := formData["id"].(string)
+		if !ok {
+			return fmt.Errorf("onetrade form %q missing or invalid id field", path)
+		}
+
 		forms[id] = data
 		slog.Info("loaded onetrade form", "id", id)
 		return nil
