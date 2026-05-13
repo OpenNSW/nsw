@@ -2,11 +2,19 @@
   "taskCode": "fcau_sample_wait_v1",
   "meta": {
     "title": "Consignment Sample Delivery Wait",
-    "description": "Awaiting receipt of the consignment sample at the FCAU facility.",
+    "description": "Awaiting receipt of the consignment sample at the FCAU facility, and confirming the chain-of-custody once delivered.",
     "icon": "hourglass",
     "category": "Food Control"
   },
   "forms": {
-    "view": "fcau-apply-health-cert--user-form"
+    "view": "fcau-apply-health-cert--user-form",
+    "review": "fcau-sample-wait--reviewer-form"
+  },
+  "behavior": {
+    "outcomeField": "receipt_outcome",
+    "statusMap": {
+      "confirmed": "APPROVED",
+      "rejected": "REJECTED"
+    }
   }
 }
