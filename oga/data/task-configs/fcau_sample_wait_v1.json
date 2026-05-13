@@ -7,7 +7,6 @@
     "category": "Food Control"
   },
   "forms": {
-    "view": "fcau-apply-health-cert--user-form",
     "review": "fcau-sample-wait--reviewer-form"
   },
   "behavior": {
