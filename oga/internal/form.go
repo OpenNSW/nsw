@@ -3,10 +3,13 @@ package internal
 import (
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
+
+	onetrade "github.com/OpenNSW/one-trade-templates"
 )
 
 // FormsSubdir is the subdirectory under the config root where form files live.
@@ -19,7 +22,10 @@ type FormStore struct {
 }
 
 // NewFormStore reads all .json files from <configDir>/forms into memory.
-func NewFormStore(configDir string) (*FormStore, error) {
+// When useOneTrade is true, forms from the embedded one-trade-templates FS are
+// also loaded; their IDs are the path relative to templates/ without the .json
+// suffix (e.g. "npqs/1-application/userinput_jsonform").
+func NewFormStore(configDir string, useOneTrade bool) (*FormStore, error) {
 	dir := filepath.Join(configDir, FormsSubdir)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -45,12 +51,44 @@ func NewFormStore(configDir string) (*FormStore, error) {
 		slog.Info("loaded form", "id", id)
 	}
 
+	if useOneTrade {
+		sub, err := fs.Sub(onetrade.FS, "templates")
+		if err != nil {
+			return nil, fmt.Errorf("failed to create onetrade sub-FS: %w", err)
+		}
+		if err := loadOneTradeForms(forms, sub); err != nil {
+			return nil, err
+		}
+	}
+
 	slog.Info("form store initialized", "count", len(forms))
 	return &FormStore{forms: forms}, nil
 }
 
+// loadOneTradeForms walks fsys for *_jsonform.json files and adds them to forms.
+func loadOneTradeForms(forms map[string]json.RawMessage, fsys fs.FS) error {
+	return fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(path, "_jsonform.json") {
+			return err
+		}
+
+		data, err := fs.ReadFile(fsys, path)
+		if err != nil {
+			return fmt.Errorf("failed to read onetrade form %q: %w", path, err)
+		}
+		if !json.Valid(data) {
+			return fmt.Errorf("onetrade form %q contains invalid JSON", path)
+		}
+
+		id := strings.TrimSuffix(path, ".json")
+		forms[id] = data
+		slog.Info("loaded onetrade form", "id", id)
+		return nil
+	})
+}
+
 // GetForm returns the raw JSON for the given form ID and whether it was found.
-func (fs *FormStore) GetForm(id string) (json.RawMessage, bool) {
-	form, ok := fs.forms[id]
+func (store *FormStore) GetForm(id string) (json.RawMessage, bool) {
+	form, ok := store.forms[id]
 	return form, ok
 }

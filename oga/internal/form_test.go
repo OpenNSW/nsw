@@ -33,7 +33,7 @@ func TestFormStore_LoadsValidForms(t *testing.T) {
 	writeFormFile(t, root, "alpha.json", `{"schema":{"type":"object"},"uiSchema":{"type":"VerticalLayout"}}`)
 	writeFormFile(t, root, "beta.json", `{"schema":{"type":"object","title":"Beta"}}`)
 
-	store, err := NewFormStore(root)
+	store, err := NewFormStore(root, false)
 	if err != nil {
 		t.Fatalf("NewFormStore failed: %v", err)
 	}
@@ -51,7 +51,7 @@ func TestFormStore_GetFormReturnsRawJSON(t *testing.T) {
 	body := `{"schema":{"type":"object","required":["foo"]},"uiSchema":{"type":"VerticalLayout"}}`
 	writeFormFile(t, root, "alpha.json", body)
 
-	store, err := NewFormStore(root)
+	store, err := NewFormStore(root, false)
 	if err != nil {
 		t.Fatalf("NewFormStore failed: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestFormStore_SkipsNonJSONFiles(t *testing.T) {
 	writeFormFile(t, root, "readme.txt", `this is not a form`)
 	writeFormFile(t, root, "beta.yaml", `schema: {}`)
 
-	store, err := NewFormStore(root)
+	store, err := NewFormStore(root, false)
 	if err != nil {
 		t.Fatalf("NewFormStore failed: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestFormStore_GetFormMiss(t *testing.T) {
 	root := newFormsDir(t)
 	writeFormFile(t, root, "alpha.json", `{"schema":{"type":"object"}}`)
 
-	store, err := NewFormStore(root)
+	store, err := NewFormStore(root, false)
 	if err != nil {
 		t.Fatalf("NewFormStore failed: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestFormStore_ErrorOnInvalidJSON(t *testing.T) {
 	root := newFormsDir(t)
 	writeFormFile(t, root, "broken.json", `{this is not valid json`)
 
-	_, err := NewFormStore(root)
+	_, err := NewFormStore(root, false)
 	if err == nil {
 		t.Fatalf("expected error when loading invalid JSON, got nil")
 	}
@@ -122,7 +122,7 @@ func TestFormStore_ErrorOnMissingDir(t *testing.T) {
 	root := t.TempDir()
 	// Intentionally do not create root/forms.
 
-	_, err := NewFormStore(root)
+	_, err := NewFormStore(root, false)
 	if err == nil {
 		t.Fatalf("expected error when forms directory is missing, got nil")
 	}
@@ -137,7 +137,7 @@ func TestFormStore_IgnoresSubdirectories(t *testing.T) {
 	writeFormFile(t, root, "nested/should_be_ignored.json", `{"schema":{}}`)
 	writeFormFile(t, root, "top.json", `{"schema":{"type":"object"}}`)
 
-	store, err := NewFormStore(root)
+	store, err := NewFormStore(root, false)
 	if err != nil {
 		t.Fatalf("NewFormStore failed: %v", err)
 	}

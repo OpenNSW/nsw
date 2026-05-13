@@ -41,7 +41,7 @@ func main() {
 		log.Fatalf("failed to create task config store: %v", err)
 	}
 	// Initialize form store
-	formStore, err := internal.NewFormStore(cfg.ConfigDir)
+	formStore, err := internal.NewFormStore(cfg.ConfigDir, cfg.UseOneTradeTemplates)
 	if err != nil {
 		log.Fatalf("failed to create form store: %v", err)
 	}

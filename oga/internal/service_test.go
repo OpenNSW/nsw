@@ -91,7 +91,7 @@ func newServiceHarness(t *testing.T, writeFn func(root string), defaultConfigID 
 		t.Fatalf("NewTaskConfigStore failed: %v", err)
 	}
 
-	formStore, err := NewFormStore(root)
+	formStore, err := NewFormStore(root, false)
 	if err != nil {
 		t.Fatalf("NewFormStore failed: %v", err)
 	}

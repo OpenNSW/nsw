@@ -19,13 +19,14 @@ type NSWConfig struct {
 }
 
 type Config struct {
-	Port                string
-	DB                  database.Config
-	ConfigDir           string
-	DefaultTaskConfigID string
-	AllowedOrigins      []string
-	NSW                 NSWConfig
-	MaxRequestBytes     int64
+	Port                  string
+	DB                    database.Config
+	ConfigDir             string
+	DefaultTaskConfigID   string
+	AllowedOrigins        []string
+	NSW                   NSWConfig
+	MaxRequestBytes       int64
+	UseOneTradeTemplates  bool
 }
 
 // LoadConfig loads configuration from environment variables
@@ -88,6 +89,12 @@ func LoadConfig() (Config, error) {
 		return Config{}, err
 	}
 	cfg.NSW.TokenInsecureSkipVerify = tokenInsecureSkipVerify
+
+	useOneTradeTemplates, err := parseBoolEnv("USE_ONE_TRADE_TEMPLATES", true)
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.UseOneTradeTemplates = useOneTradeTemplates
 
 	if err := cfg.validateNSWOAuth2Config(); err != nil {
 		return Config{}, err
