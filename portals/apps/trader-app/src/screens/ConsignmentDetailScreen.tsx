@@ -31,6 +31,7 @@ export function ConsignmentDetailScreen() {
   const [hsPickerOpen, setHsPickerOpen] = useState(false)
   const [initializing, setInitializing] = useState(false)
   const [viewMode, setViewMode] = useState<'list' | 'graph'>('list')
+  const [showDetails, setShowDetails] = useState(false)
 
   const { role } = useRole()
 
@@ -153,8 +154,19 @@ export function ConsignmentDetailScreen() {
       <div className="mb-4 md:mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Consignment View</h1>
-          <p className="text-xs text-gray-500"><span className="font-medium text-gray-400">ID:</span> <span className="font-mono">{consignment.id}</span></p>
-          <p className="text-xs text-gray-500"><span className="font-medium text-gray-400">Date Created:</span> {formatDateTime(consignment.createdAt)}</p>
+          <button
+            onClick={() => setShowDetails((v) => !v)}
+            className="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-1 mt-0.5 cursor-pointer"
+          >
+            {showDetails ? 'Hide details' : 'Show details'}
+            <span className={`transition-transform duration-200 ${showDetails ? 'rotate-180' : ''}`}>▾</span>
+          </button>
+          {showDetails && (
+            <div className="mt-1 flex flex-col gap-0.5">
+              <p className="text-xs text-gray-500"><span className="font-medium text-gray-400">ID:</span> <span className="font-mono">{consignment.id}</span></p>
+              <p className="text-xs text-gray-500"><span className="font-medium text-gray-400">Date Created:</span> {formatDateTime(consignment.createdAt)}</p>
+            </div>
+          )}
         </div>
         <div className="flex flex-col items-end gap-2">
           <div className="flex items-center gap-2">
