@@ -135,7 +135,7 @@ function TraderForm(props: { formInfo: TaskFormData; pluginState: string }) {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+      <div className="pb-4 mb-2">
         <h1 className="text-2xl font-bold text-gray-800">{props.formInfo.title}</h1>
       </div>
 

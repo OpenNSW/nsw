@@ -9,7 +9,7 @@ import {
   type Category as CategoryInterface,
 } from '@jsonforms/core'
 import { JsonFormsDispatch } from '@jsonforms/react'
-import { Box, Flex, Tabs, Card, Heading } from '@radix-ui/themes'
+import { Box, Flex, Tabs, Heading } from '@radix-ui/themes'
 import { useState } from 'react'
 
 // Vertical Layout
@@ -67,9 +67,9 @@ export const GroupLayoutRenderer = ({ uischema, schema, path, renderers, cells, 
   const elements = group.elements
 
   return (
-    <Card mb="4">
+    <Box mb="6">
       {group.label && (
-        <Heading size="4" mb="4">
+        <Heading size="3" mb="3" className="text-gray-500 uppercase tracking-wide font-semibold">
           {group.label}
         </Heading>
       )}
@@ -86,7 +86,7 @@ export const GroupLayoutRenderer = ({ uischema, schema, path, renderers, cells, 
           />
         ))}
       </Flex>
-    </Card>
+    </Box>
   )
 }
 

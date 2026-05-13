@@ -6,7 +6,7 @@ import type { ConsignmentSummary, TradeFlow, ConsignmentState, CHA } from '../se
 import { createConsignment, getAllConsignments, getCHAs } from '../services/consignment.ts'
 import { useApi } from '../services/ApiContext'
 import { useRole } from '../services/RoleContext'
-import { getStateColor, formatState, formatDate } from '../utils/consignmentUtils'
+import { getStateColor, formatState, formatDateTime } from '../utils/consignmentUtils'
 import { PaginationControl } from '../components/common/PaginationControl'
 
 import { CHASearch, type CHAOption } from '../components/CHAPicker/CHASearch'
@@ -313,7 +313,9 @@ export function ConsignmentScreen() {
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Consignments</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">
+          Consignments{totalCount > 0 && <span className="ml-2 text-lg font-normal text-gray-400">({totalCount})</span>}
+        </h1>
         <div className="flex gap-2">
           {role === 'cha' ? null : (
             <Button onClick={() => handleNewOpenChange(true)} disabled={creating}>
@@ -332,14 +334,7 @@ export function ConsignmentScreen() {
         onCreate={handleCreateShell}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-sm font-medium text-gray-500">Total Consignments</h3>
-          <p className="mt-2 text-3xl font-semibold text-gray-900">{totalCount}</p>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg shadow mb-6">
+      <div className="mb-6">
         <div className="p-4 border-b border-gray-200">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
@@ -415,9 +410,6 @@ export function ConsignmentScreen() {
                     State
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Steps
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Created
                   </th>
                 </tr>
@@ -450,12 +442,7 @@ export function ConsignmentScreen() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <Text size="2" color="gray">
-                          {completedSteps}/{totalSteps}
-                        </Text>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Text size="2" color="gray">
-                          {consignment.createdAt ? formatDate(consignment.createdAt) : '-'}
+                          {consignment.createdAt ? formatDateTime(consignment.createdAt) : '-'}
                         </Text>
                       </td>
                     </tr>
