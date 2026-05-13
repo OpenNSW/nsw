@@ -115,7 +115,12 @@ func (s *ogaService) CreateApplication(ctx context.Context, req *InjectRequest) 
 	}
 
 	existing, err := s.store.GetByTaskID(req.TaskID)
-	if err == nil && existing.Status == "FEEDBACK_REQUESTED" {
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("failed to query existing application: %w", err)
+		}
+		// Record doesn't exist — fall through to create.
+	} else if existing.Status == "FEEDBACK_REQUESTED" {
 		slog.InfoContext(ctx, "trader resubmitted after feedback, resetting to PENDING", "taskID", req.TaskID)
 		return s.store.UpdateDataAndResetStatus(req.TaskID, req.Data)
 	}
@@ -220,7 +225,7 @@ func (s *ogaService) GetApplication(ctx context.Context, taskID string) (*Applic
 		Data:            record.Data,
 		OgaActionData:   record.ReviewerResponse,
 		Status:          record.Status,
-		FeedbackHistory: feedbackHistoryFromRaw(record.OGAFeedbackHistory),
+		FeedbackHistory: record.OGAFeedbackHistory,
 		ReviewedAt:      record.ReviewedAt,
 		CreatedAt:       record.CreatedAt,
 		UpdatedAt:       record.UpdatedAt,
@@ -282,8 +287,8 @@ func (s *ogaService) ReviewApplication(ctx context.Context, taskID string, revie
 			outcomeField = DefaultOutcomeField
 		}
 		if outcome, ok := reviewerResponse[outcomeField].(string); ok {
-			if s, ok := config.Behavior.StatusMap[outcome]; ok {
-				status = s
+			if mappedStatus, ok := config.Behavior.StatusMap[outcome]; ok {
+				status = mappedStatus
 			}
 		}
 	}
@@ -317,33 +322,7 @@ func (s *ogaService) FeedbackApplication(ctx context.Context, taskID string, con
 		return fmt.Errorf("failed to send feedback to service: %w", err)
 	}
 
-	entryRaw, err := json.Marshal(entry)
-	if err != nil {
-		return fmt.Errorf("failed to marshal feedback entry: %w", err)
-	}
-	var entryMap map[string]any
-	if err := json.Unmarshal(entryRaw, &entryMap); err != nil {
-		return fmt.Errorf("failed to unmarshal feedback entry: %w", err)
-	}
-
-	return s.store.AppendFeedback(taskID, entryMap)
-}
-
-func feedbackHistoryFromRaw(raw []map[string]any) []feedback.Entry {
-	entries := make([]feedback.Entry, 0, len(raw))
-	for _, m := range raw {
-		b, err := json.Marshal(m)
-		if err != nil {
-			slog.Error("failed to marshal feedback history entry from raw", "error", err)
-			continue
-		}
-		var e feedback.Entry
-		if err := json.Unmarshal(b, &e); err != nil {
-			slog.Error("failed to unmarshal feedback history entry", "error", err)
-			continue
-		}
-	}
-	return entries
+	return s.store.AppendFeedback(taskID, entry)
 }
 
 func (s *ogaService) sendToService(ctx context.Context, serviceURL string, response TaskResponse) error {
