@@ -48,7 +48,7 @@ export function WorkflowDetailScreen() {
     try {
       await submitReview(apiClient, taskId, ogaFormData)
       setSuccess(true)
-      setTimeout(() => navigate('/workflows'), 2000)
+      setTimeout(() => navigate('/workflows'), 500)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit review')
     } finally {
@@ -67,7 +67,34 @@ export function WorkflowDetailScreen() {
         const data = await fetchApplicationDetail(apiClient, taskId)
         setApplication(data)
         if (data.ogaForm) {
-          setOgaFormConfig({ schema: data.ogaForm.schema, uiSchema: data.ogaForm.uiSchema })
+          const schema = JSON.parse(JSON.stringify(data.ogaForm.schema))
+          const capitalizeOptions = (prop: any) => {
+            if (prop.oneOf) {
+              prop.oneOf = prop.oneOf.map((opt: any) => {
+                let title = opt.title || opt.const
+                if (typeof title === 'string' && title === title.toLowerCase()) {
+                  title = title
+                    .split('_')
+                    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                    .join(' ')
+                }
+                return { ...opt, title }
+              })
+            } else if (prop.enum) {
+              prop.oneOf = prop.enum.map((val: string) => {
+                const title = val
+                  .split('_')
+                  .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                  .join(' ')
+                return { const: val, title }
+              })
+              delete prop.enum
+            }
+          }
+          if (schema.properties) {
+            Object.values(schema.properties).forEach(capitalizeOptions)
+          }
+          setOgaFormConfig({ schema, uiSchema: data.ogaForm.uiSchema })
         } else {
           setOgaFormConfig(null)
         }
@@ -155,7 +182,7 @@ export function WorkflowDetailScreen() {
           : 'blue'
 
   return (
-    <div className="animate-fade-in max-w-5xl mx-auto">
+    <div className="animate-fade-in w-full">
       <Flex justify="between" align="center" mb="6">
         <Button
           variant="ghost"
@@ -214,14 +241,14 @@ export function WorkflowDetailScreen() {
         </Callout.Root>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Info */}
-        <div className="lg:col-span-1 space-y-6">
+      <div className="space-y-6">
+        {/* Main Column */}
+        <div className="space-y-6">
           <Card size="2">
             <Text size="2" weight="bold" color="gray" mb="3" as="div" className="uppercase tracking-wider">
               Application Details
             </Text>
-            <div className="space-y-4 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
               <Box>
                 <Text size="1" color="gray" as="div" mb="1">
                   Workflow ID
@@ -245,109 +272,20 @@ export function WorkflowDetailScreen() {
                 <Text size="2" weight="medium">
                   {(() => {
                     const date = new Date(application.createdAt)
-                    const datePart = date.toLocaleDateString('en-US', {
+                    return `${date.toLocaleDateString('en-US', {
                       month: 'long',
                       day: 'numeric',
                       year: 'numeric',
-                    })
-                    const timePart = date.toLocaleTimeString('en-US', {
+                    })} at ${date.toLocaleTimeString('en-US', {
                       hour: '2-digit',
                       minute: '2-digit',
                       hour12: true,
-                    })
-                    return `${datePart} at ${timePart}`
+                    })}`
                   })()}
                 </Text>
               </Box>
-              {application.reviewedAt && (
-                <Box>
-                  <Text size="1" color="gray" as="div" mb="1">
-                    Reviewed On
-                  </Text>
-                  <Text size="2" weight="medium">
-                    {(() => {
-                      const date = new Date(application.reviewedAt)
-                      const datePart = date.toLocaleDateString('en-US', {
-                        month: 'long',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })
-                      const timePart = date.toLocaleTimeString('en-US', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: true,
-                      })
-                      return `${datePart} at ${timePart}`
-                    })()}
-                  </Text>
-                </Box>
-              )}
             </div>
           </Card>
-
-          {application.reviewerNotes && application.status !== 'PENDING' && (
-            <Card size="2">
-              <Text size="2" weight="bold" color="gray" mb="3" as="div" className="uppercase tracking-wider">
-                Reviewer Notes
-              </Text>
-              <Text size="2" className="whitespace-pre-wrap">
-                {application.reviewerNotes}
-              </Text>
-            </Card>
-          )}
-        </div>
-
-        {/* Right Column: Submitted Information + Tabbed content */}
-        <div className="lg:col-span-2 space-y-6">
-          <Box className="bg-white rounded-lg p-5 border border-gray-200">
-            <Text
-              size="2"
-              weight="bold"
-              color="gray"
-              mb="3"
-              as="div"
-              className="uppercase tracking-wider flex items-center gap-2"
-            >
-              <InfoCircledIcon />
-              Submitted Information
-            </Text>
-            {(() => {
-              if (application.dataForm) {
-                return (
-                  <JsonForms
-                    schema={application.dataForm.schema}
-                    uischema={application.dataForm.uiSchema}
-                    data={application.data}
-                    renderers={radixRenderers}
-                    readonly={true}
-                  />
-                )
-              }
-
-              if (application.data && Object.keys(application.data).length > 0) {
-                return (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {Object.entries(application.data).map(([key, value]) => (
-                      <Box key={key}>
-                        <Text size="1" color="gray" as="div" className="capitalize mb-1">
-                          {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
-                        </Text>
-                        <Text size="2" weight="medium">
-                          {typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value)}
-                        </Text>
-                      </Box>
-                    ))}
-                  </div>
-                )
-              }
-
-              return (
-                <Text size="2" color="gray" className="italic">
-                  No submission data available
-                </Text>
-              )
-            })()}
-          </Box>
 
           <Box className="bg-white rounded-lg p-5 border border-gray-200">
             <Text
@@ -421,6 +359,88 @@ export function WorkflowDetailScreen() {
               />
             ) : null}
           </Box>
+
+          <Box className="bg-white rounded-lg p-5 border border-gray-200">
+            <Text
+              size="2"
+              weight="bold"
+              color="gray"
+              mb="3"
+              as="div"
+              className="uppercase tracking-wider flex items-center gap-2"
+            >
+              <InfoCircledIcon />
+              Submitted Information
+            </Text>
+            {(() => {
+              if (application.dataForm) {
+                return (
+                  <JsonForms
+                    schema={application.dataForm.schema}
+                    uischema={application.dataForm.uiSchema}
+                    data={application.data}
+                    renderers={radixRenderers}
+                    readonly={true}
+                  />
+                )
+              }
+
+              if (application.data && Object.keys(application.data).length > 0) {
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.entries(application.data).map(([key, value]) => (
+                      <Box key={key}>
+                        <Text size="1" color="gray" as="div" className="capitalize mb-1">
+                          {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
+                        </Text>
+                        <Text size="2" weight="medium">
+                          {typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value)}
+                        </Text>
+                      </Box>
+                    ))}
+                  </div>
+                )
+              }
+
+              return (
+                <Text size="2" color="gray" className="italic">
+                  No submission data available
+                </Text>
+              )
+            })()}
+          </Box>
+        </div>
+
+        {/* Sidebar elements now at the bottom of the main flow */}
+        <div className="space-y-6">
+          {application.reviewedAt && (
+            <Card size="2">
+              <Text size="2" weight="bold" color="gray" mb="3" as="div" className="uppercase tracking-wider">
+                Review Metadata
+              </Text>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+                <Box>
+                  <Text size="1" color="gray" as="div" mb="1">
+                    Reviewed On
+                  </Text>
+                  <Text size="2" weight="medium">
+                    {new Date(application.reviewedAt).toLocaleString()}
+                  </Text>
+                </Box>
+              </div>
+            </Card>
+          )}
+
+          {application.reviewerNotes && application.status !== 'PENDING' && (
+            <Card size="2">
+              <Text size="2" weight="bold" color="gray" mb="3" as="div" className="uppercase tracking-wider">
+                Reviewer Notes
+              </Text>
+              <Text size="2" className="whitespace-pre-wrap">
+                {application.reviewerNotes}
+              </Text>
+            </Card>
+          )}
 
           {application.feedbackHistory && application.feedbackHistory.length > 0 && (
             <Box className="bg-white rounded-lg p-5 border border-gray-200">

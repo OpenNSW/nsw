@@ -139,8 +139,8 @@ export function WorkflowListScreen() {
                       }}
                       className="hover:bg-blue-50/30 cursor-pointer transition-colors group text-sm"
                     >
-                      <td className="px-6 py-4 break-all font-mono text-blue-600 font-medium hover:underline">
-                        {wf.workflowId}
+                      <td className="px-6 py-4 whitespace-nowrap text-blue-600 font-medium hover:underline">
+                        {wf.companyName || wf.workflowId}
                       </td>
 
                       <td className="px-6 py-4 whitespace-nowrap text-center">{wf.taskCount}</td>
