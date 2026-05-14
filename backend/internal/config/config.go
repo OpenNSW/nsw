@@ -65,6 +65,11 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid SERVER_PORT: %w", err)
 	}
 
+	temporalPortStr := strings.TrimSpace(getEnvOrDefault("TEMPORAL_PORT", "7233"))
+	temporalPort, err := strconv.Atoi(temporalPortStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid TEMPORAL_PORT: %w", err)
+	}
 
 	cfg := &Config{
 		Database: database.Config{
@@ -123,7 +128,7 @@ func Load() (*Config, error) {
 		},
 		Temporal: temporal.Config{
 			Host:      getEnvOrDefault("TEMPORAL_HOST", "localhost"),
-			Port:      getIntOrDefault("TEMPORAL_PORT", 7233),
+			Port:      temporalPort,
 			Namespace: getEnvOrDefault("TEMPORAL_NAMESPACE", "default"),
 		},
 	}
@@ -173,17 +178,17 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// getEnvOrDefault returns the value of an environment variable or a default value
+// getEnvOrDefault returns the trimmed value of an environment variable or a default value
 func getEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
+	if value := strings.TrimSpace(os.Getenv(key)); value != "" {
 		return value
 	}
 	return defaultValue
 }
 
-// getIntOrDefault returns the integer value of an environment variable or a default value
+// getIntOrDefault returns the trimmed integer value of an environment variable or a default value
 func getIntOrDefault(key string, defaultValue int) int {
-	if value := os.Getenv(key); value != "" {
+	if value := strings.TrimSpace(os.Getenv(key)); value != "" {
 		if intValue, err := strconv.Atoi(value); err == nil {
 			return intValue
 		}
