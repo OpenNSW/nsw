@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Badge, Text, Spinner, IconButton, Button, Flex } from '@radix-ui/themes'
 import { ChevronLeftIcon, ChevronRightIcon, ArrowLeftIcon, ArchiveIcon } from '@radix-ui/react-icons'
+import { formatDistanceToNow } from 'date-fns'
 import { fetchApplications, type OGAApplication } from '../api'
 import { useApi } from '../services/useApi'
 
@@ -40,13 +41,13 @@ export function WorkflowTasksScreen() {
     void fetchData()
   }, [apiClient, workflowId, page])
 
-  const formatDateForTable = (dateString?: string) => {
+  const formatRelativeTime = (dateString?: string) => {
     if (!dateString) return '-'
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    })
+    try {
+      return formatDistanceToNow(new Date(dateString), { addSuffix: true })
+    } catch {
+      return '-'
+    }
   }
 
   if (loading && page === 1) {
@@ -151,7 +152,12 @@ export function WorkflowTasksScreen() {
                         {app.status}
                       </Badge>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-600">{formatDateForTable(app.updatedAt)}</td>
+                    <td
+                      className="px-6 py-4 whitespace-nowrap text-gray-600"
+                      title={app.updatedAt ? new Date(app.updatedAt).toLocaleString() : undefined}
+                    >
+                      {formatRelativeTime(app.updatedAt)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
