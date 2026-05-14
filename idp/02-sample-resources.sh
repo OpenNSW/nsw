@@ -1139,13 +1139,13 @@ echo ""
 
 log_info "Creating sample users..."
 
-create_user_in_ou "Private_User" "$ABCD_TRADERS_OU_ID" "user123" "user123@abcd-traders.private-sector.dev" "Both" "Roles" "$USER123_PASSWORD" "+94771234567"
+create_user_in_ou "Private_User" "$ABCD_TRADERS_OU_ID" "suresh" "suresh@abcd-traders.private-sector.dev" "Suresh" "Fernando" "$USER123_PASSWORD" "+94771234567"
 USER_123="$CREATED_USER_ID"
 
-create_user_in_ou "Private_User" "$ABCD_TRADERS_OU_ID" "user456" "user456@abcd-traders.private-sector.dev" "CHA" "Only" "$USER456_PASSWORD" "+94771234568"
+create_user_in_ou "Private_User" "$ABCD_TRADERS_OU_ID" "ramesh" "ramesh@abcd-traders.private-sector.dev" "Ramesh" "Fernando" "$USER456_PASSWORD" "+94771234568"
 USER_456="$CREATED_USER_ID"
 
-create_user_in_ou "Private_User" "$ABCD_TRADERS_OU_ID" "user789" "user789@abcd-traders.private-sector.dev" "Trader" "Only" "$USER789_PASSWORD" "+94771234569"
+create_user_in_ou "Private_User" "$ABCD_TRADERS_OU_ID" "gomesh" "gomesh@abcd-traders.private-sector.dev" "Gomesh" "Fernando" "$USER789_PASSWORD" "+94771234569"
 USER_789="$CREATED_USER_ID"
 
 create_user_in_ou "Government_User" "$NPQS_OU_ID" "npqs_user" "npqs_user@government.dev" "NPQS" "User" "$NPQS_USER_PASSWORD" "+94771234560"
