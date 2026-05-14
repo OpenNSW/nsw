@@ -1,10 +1,14 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Button, Spinner, Text } from '@radix-ui/themes'
 import { ArrowLeftIcon } from '@radix-ui/react-icons'
 import { getTaskInfo } from '../services/task'
 import { useApi } from '../services/ApiContext'
 import PluginRenderer, { type RenderInfo } from '../plugins'
+
+const POLL_INTERVAL_MS = 3000
+const PAYMENT_TERMINAL_STATES = ['COMPLETED', 'FAILED']
+const WAIT_FOR_EVENT_TERMINAL_STATES = ['COMPLETED', 'RECEIVED_CALLBACK', 'NOTIFY_FAILED', 'SUBMISSION_FAILED']
 
 export function TaskDetailScreen() {
   const { taskId } = useParams<{
@@ -15,8 +19,16 @@ export function TaskDetailScreen() {
   const [renderInfo, setRenderInfo] = useState<RenderInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const fetchTask = useCallback(async () => {
+  const stopPolling = useCallback(() => {
+    if (pollTimerRef.current) {
+      clearTimeout(pollTimerRef.current)
+      pollTimerRef.current = null
+    }
+  }, [])
+
+  const fetchTask = useCallback(async (silent = false) => {
     if (!taskId) {
       setError('Task ID is missing.')
       setLoading(false)
@@ -24,21 +36,33 @@ export function TaskDetailScreen() {
     }
 
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       setError(null)
       const taskRenderInfo = await getTaskInfo(taskId, api)
       setRenderInfo(taskRenderInfo)
+
+      // Poll for tasks that are still in progress
+      const { type, pluginState } = taskRenderInfo
+      const shouldPoll =
+        (type === 'PAYMENT' && !PAYMENT_TERMINAL_STATES.includes(pluginState)) ||
+        (type === 'WAIT_FOR_EVENT' && !WAIT_FOR_EVENT_TERMINAL_STATES.includes(pluginState))
+      if (shouldPoll) {
+        pollTimerRef.current = setTimeout(() => void fetchTask(true), POLL_INTERVAL_MS)
+      } else {
+        stopPolling()
+      }
     } catch (err) {
       setError('Failed to fetch task details.')
       console.error(err)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }, [api, taskId])
+  }, [api, taskId, stopPolling])
 
   useEffect(() => {
-    fetchTask()
-  }, [fetchTask])
+    void fetchTask()
+    return () => stopPolling()
+  }, [fetchTask, stopPolling])
 
   if (loading) {
     return (
