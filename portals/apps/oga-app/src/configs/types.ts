@@ -2,9 +2,14 @@ import { z } from 'zod'
 
 export const UIConfigSchema = z.object({
   branding: z.object({
+    systemName: z.string().min(1),
     appName: z.string().min(1),
     logoUrl: z.string().optional(),
     favicon: z.string().optional(),
+    portalName: z.string().optional(),
+    description: z.string().optional(),
+    heroImageUrl: z.string().optional(),
+    partnerLogos: z.array(z.object({ url: z.string(), alt: z.string() })).optional(),
   }),
   theme: z
     .object({
