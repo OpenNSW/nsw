@@ -41,7 +41,6 @@ export default function Payment(props: {
   const workflowId = preConsignmentId || consignmentId
   const isCompleted = props.pluginState === 'COMPLETED'
   const isInProgress = props.pluginState === 'IN_PROGRESS'
-  const isFailed = props.pluginState === 'PAYMENT_FAILED'
   const gatewayUrl = props.configs?.gatewayUrl ?? ''
 
   const refreshGatewaySession = async () => {
@@ -213,7 +212,7 @@ export default function Payment(props: {
             onClick={() => {
               void handlePayNow()
             }}
-            disabled={isInitiating || isInProgress}
+            disabled={isInitiating}
             size="3"
           >
             {isInitiating ? 'Initiating...' : 'Pay Now'}

@@ -29,6 +29,7 @@ export function TaskDetailScreen() {
   }, [])
 
   const fetchTask = useCallback(async (silent = false) => {
+    stopPolling()
     if (!taskId) {
       setError('Task ID is missing.')
       setLoading(false)

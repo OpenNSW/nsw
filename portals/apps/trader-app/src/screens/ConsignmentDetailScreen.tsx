@@ -31,7 +31,6 @@ export function ConsignmentDetailScreen() {
   const [hsPickerOpen, setHsPickerOpen] = useState(false)
   const [initializing, setInitializing] = useState(false)
   const [viewMode, setViewMode] = useState<'list' | 'graph'>('list')
-  const [showDetails, setShowDetails] = useState(false)
 
   const { role } = useRole()
 
