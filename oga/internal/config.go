@@ -19,13 +19,14 @@ type NSWConfig struct {
 }
 
 type Config struct {
-	Port            string
-	DB              database.Config
-	FormsPath       string
-	DefaultFormID   string
-	AllowedOrigins  []string
-	NSW             NSWConfig
-	MaxRequestBytes int64
+	Port                  string
+	DB                    database.Config
+	ConfigDir             string
+	DefaultTaskConfigID   string
+	AllowedOrigins        []string
+	NSW                   NSWConfig
+	MaxRequestBytes       int64
+	UseOneTradeTemplates  bool
 }
 
 // LoadConfig loads configuration from environment variables
@@ -63,11 +64,11 @@ func LoadConfig() (Config, error) {
 	}
 
 	cfg := Config{
-		Port:           envOrDefault("OGA_PORT", "8081"),
-		DB:             dbConfig,
-		FormsPath:      envOrDefault("OGA_FORMS_PATH", "./data/forms"),
-		DefaultFormID:  envOrDefault("OGA_DEFAULT_FORM_ID", "default"),
-		AllowedOrigins: parseCommaSeparated(envOrDefault("OGA_ALLOWED_ORIGINS", "*")),
+		Port:                envOrDefault("OGA_PORT", "8081"),
+		DB:                  dbConfig,
+		ConfigDir:           envOrDefault("OGA_CONFIG_DIR", "./data"),
+		DefaultTaskConfigID: envOrDefault("OGA_DEFAULT_TASK_CONFIG_ID", "default"),
+		AllowedOrigins:      parseCommaSeparated(envOrDefault("OGA_ALLOWED_ORIGINS", "*")),
 		NSW: NSWConfig{
 			BaseURL:      os.Getenv("OGA_NSW_API_BASE_URL"),
 			ClientID:     os.Getenv("OGA_NSW_CLIENT_ID"),
@@ -88,6 +89,12 @@ func LoadConfig() (Config, error) {
 		return Config{}, err
 	}
 	cfg.NSW.TokenInsecureSkipVerify = tokenInsecureSkipVerify
+
+	useOneTradeTemplates, err := parseBoolEnv("USE_ONE_TRADE_TEMPLATES", true)
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.UseOneTradeTemplates = useOneTradeTemplates
 
 	if err := cfg.validateNSWOAuth2Config(); err != nil {
 		return Config{}, err

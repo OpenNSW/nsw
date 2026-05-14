@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/OpenNSW/nsw/oga/internal/database"
+	"github.com/OpenNSW/nsw/oga/internal/feedback"
 )
 
 // ---------- helpers ----------
@@ -393,7 +394,7 @@ func TestApplicationStore_AppendFeedback(t *testing.T) {
 	store := newTestStore(t)
 	seedRecord(t, store, "task-fb-1", nil)
 
-	feedback1 := map[string]any{"comment": "needs revision", "round": float64(1)}
+	feedback1 := feedback.Entry{Content: map[string]any{"comment": "needs revision"}, Round: 1}
 	if err := store.AppendFeedback("task-fb-1", feedback1); err != nil {
 		t.Fatalf("AppendFeedback round 1 failed: %v", err)
 	}
@@ -407,7 +408,7 @@ func TestApplicationStore_AppendFeedback(t *testing.T) {
 	}
 
 	// Append a second round
-	feedback2 := map[string]any{"comment": "still needs work", "round": float64(2)}
+	feedback2 := feedback.Entry{Content: map[string]any{"comment": "still needs work"}, Round: 2}
 	if err := store.AppendFeedback("task-fb-1", feedback2); err != nil {
 		t.Fatalf("AppendFeedback round 2 failed: %v", err)
 	}
@@ -416,7 +417,7 @@ func TestApplicationStore_AppendFeedback(t *testing.T) {
 	if len(app.OGAFeedbackHistory) != 2 {
 		t.Errorf("expected 2 feedback entries, got %d", len(app.OGAFeedbackHistory))
 	}
-	if app.OGAFeedbackHistory[1]["comment"] != "still needs work" {
+	if app.OGAFeedbackHistory[1].Content["comment"] != "still needs work" {
 		t.Errorf("unexpected second feedback comment: %v", app.OGAFeedbackHistory[1])
 	}
 }
@@ -424,7 +425,7 @@ func TestApplicationStore_AppendFeedback(t *testing.T) {
 func TestApplicationStore_AppendFeedback_NonExistent(t *testing.T) {
 	store := newTestStore(t)
 
-	err := store.AppendFeedback("nonexistent", map[string]any{"comment": "nope"})
+	err := store.AppendFeedback("nonexistent", feedback.Entry{Content: map[string]any{"comment": "nope"}})
 	if err == nil {
 		t.Error("expected error for feedback on non-existent task")
 	}
@@ -437,7 +438,7 @@ func TestApplicationStore_UpdateDataAndResetStatus(t *testing.T) {
 	seedRecord(t, store, "task-resub-1", JSONB{"old": "data"})
 
 	// Simulate OGA requesting feedback
-	_ = store.AppendFeedback("task-resub-1", map[string]any{"comment": "fix it"})
+	_ = store.AppendFeedback("task-resub-1", feedback.Entry{Content: map[string]any{"comment": "fix it"}})
 
 	app, _ := store.GetByTaskID("task-resub-1")
 	if app.Status != "FEEDBACK_REQUESTED" {

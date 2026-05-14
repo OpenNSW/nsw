@@ -31,10 +31,13 @@ type ServerConfig struct {
 	Port               int
 	ServiceURL         string
 	ServicesConfigPath string
-	TemplatesDir       string // directory of JSON templates (default: internal/template/data/npqs)
-	TaskFlowDevMode    bool   // if true, the taskv2 dispatcher swallows external HTTP errors
-	Debug              bool
-	LogLevel           slog.Level
+	// TemplatesDir controls where task templates are loaded from.
+	// "embedded" (default) uses the one-trade-templates module bundled in the binary.
+	// Any other value is treated as a local filesystem directory path, e.g. for dev overrides.
+	TemplatesDir    string
+	TaskFlowDevMode bool // if true, the taskv2 dispatcher swallows external HTTP errors
+	Debug           bool
+	LogLevel        slog.Level
 }
 
 // CORSConfig holds CORS configuration
@@ -83,7 +86,7 @@ func Load() (*Config, error) {
 			Port:               serverPort,
 			ServiceURL:         getEnvOrDefault("SERVICE_URL", fmt.Sprintf("http://localhost:%d", serverPort)),
 			ServicesConfigPath: getEnvOrDefault("SERVICES_CONFIG_PATH", "configs/services.json"),
-			TemplatesDir:       getEnvOrDefault("TASK_TEMPLATES_DIR", "internal/template/data"),
+			TemplatesDir:       getEnvOrDefault("TASK_TEMPLATES_DIR", "embedded"),
 			TaskFlowDevMode:    getBoolOrDefault("TASK_FLOW_DEV_MODE", true),
 			Debug:              getBoolOrDefault("SERVER_DEBUG", true),
 			LogLevel:           parseLogLevel(getEnvOrDefault("SERVER_LOG_LEVEL", "info")),

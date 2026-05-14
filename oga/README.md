@@ -28,9 +28,10 @@ Each government agency runs its own OGA instance with its own database, ensuring
 ## Features
 
 - **Data Injection** – External services POST data for OGA review via `/api/oga/inject`
-- **Dynamic Review Forms** - Metadata-driven form selection using [JSON Forms](https://jsonforms.io/) schema
+- **Task Configurations** – Per-taskCode metadata (title, icon, category), form references, and outcome-to-status mapping
+- **Dynamic Forms** – Reusable [JSON Forms](https://jsonforms.io/) definitions referenced by ID from task configs
 - **Paginated Listings** – Fetch applications with status filtering and pagination
-- **Review Workflow** - Approve/Reject with configurable reviewer response fields
+- **Review Workflow** – Approve/Reject driven by configurable status maps
 - **Callback Responses** – Automatically POSTs review results back to the originating service
 - **Per-Agency Isolation** – Each agency instance has its own database and port
 - **Graceful Shutdown** -- Signal-based shutdown with in-flight request draining
@@ -82,26 +83,26 @@ OGA_PORT=8082 OGA_DB_PATH=./fcau_applications.db go run ./cmd/server
 
 All configuration is via environment variables:
 
-| Variable              | Description                             | Default                 |
-|-----------------------|-----------------------------------------|-------------------------|
-| `OGA_PORT`            | HTTP server port                        | `8081`                  |
-| `OGA_DB_DRIVER`       | Database driver (`sqlite`, `postgres`)  | `sqlite`                |
-| `OGA_DB_PATH`         | Path to SQLite database file            | `./oga_applications.db` |
-| `OGA_DB_HOST`         | PostgreSQL host                         | `localhost`             |
-| `OGA_DB_PORT`         | PostgreSQL port                         | `5432`                  |
-| `OGA_DB_USER`         | PostgreSQL user                         | `postgres`              |
-| `OGA_DB_PASSWORD`     | PostgreSQL password                     | `changeme`              |
-| `OGA_DB_NAME`         | PostgreSQL database name                | `oga_db`                |
-| `OGA_DB_SSLMODE`      | PostgreSQL SSL mode                     | `disable`               |
-| `OGA_FORMS_PATH`      | Directory containing form JSON files    | `./data/forms`          |
-| `OGA_DEFAULT_FORM_ID` | Fallback form ID when no metadata match | `default`               |
-| `OGA_ALLOWED_ORIGINS` | Comma-separated CORS origins (`*` to allow all) | `*`               |
-| `OGA_NSW_API_BASE_URL`    | NSW API base URL for calling NSW endpoints | `http://localhost:8080/api/v1` |
-| `OGA_NSW_CLIENT_ID`       | OAuth2 client ID for OGA -> NSW         | required                |
-| `OGA_NSW_CLIENT_SECRET`   | OAuth2 client secret for OGA -> NSW     | required                |
-| `OGA_NSW_TOKEN_URL`       | OAuth2 token endpoint URL               | required                |
-| `OGA_NSW_SCOPES`          | Optional comma-separated OAuth2 scopes  | empty                   |
-| `OGA_NSW_TOKEN_INSECURE_SKIP_VERIFY` | DEV-only: skip TLS verification for token fetch | `false` |
+| Variable                             | Description                                            | Default                        |
+|--------------------------------------|--------------------------------------------------------|--------------------------------|
+| `OGA_PORT`                           | HTTP server port                                       | `8081`                         |
+| `OGA_DB_DRIVER`                      | Database driver (`sqlite`, `postgres`)                 | `sqlite`                       |
+| `OGA_DB_PATH`                        | Path to SQLite database file                           | `./oga_applications.db`        |
+| `OGA_DB_HOST`                        | PostgreSQL host                                        | `localhost`                    |
+| `OGA_DB_PORT`                        | PostgreSQL port                                        | `5432`                         |
+| `OGA_DB_USER`                        | PostgreSQL user                                        | `postgres`                     |
+| `OGA_DB_PASSWORD`                    | PostgreSQL password                                    | `changeme`                     |
+| `OGA_DB_NAME`                        | PostgreSQL database name                               | `oga_db`                       |
+| `OGA_DB_SSLMODE`                     | PostgreSQL SSL mode                                    | `disable`                      |
+| `OGA_CONFIG_DIR`                     | Root directory containing `task-configs/` and `forms/` | `./data`                       |
+| `OGA_DEFAULT_TASK_CONFIG_ID`         | Fallback task config ID when `taskCode` has no match   | `default`                      |
+| `OGA_ALLOWED_ORIGINS`                | Comma-separated CORS origins (`*` to allow all)        | `*`                            |
+| `OGA_NSW_API_BASE_URL`               | NSW API base URL for calling NSW endpoints             | `http://localhost:8080/api/v1` |
+| `OGA_NSW_CLIENT_ID`                  | OAuth2 client ID for OGA -> NSW                        | required                       |
+| `OGA_NSW_CLIENT_SECRET`              | OAuth2 client secret for OGA -> NSW                    | required                       |
+| `OGA_NSW_TOKEN_URL`                  | OAuth2 token endpoint URL                              | required                       |
+| `OGA_NSW_SCOPES`                     | Optional comma-separated OAuth2 scopes                 | empty                          |
+| `OGA_NSW_TOKEN_INSECURE_SKIP_VERIFY` | DEV-only: skip TLS verification for token fetch        | `false`                        |
 
 See [`.env.example`](.env.example) for a template.
 
@@ -123,12 +124,13 @@ See [docs/api.md](docs/api.md) for complete API documentation with request/respo
 
 Detailed documentation lives in the [`docs/`](docs/) folder:
 
-| Document                                   | Description                                        |
-|--------------------------------------------|----------------------------------------------------|
-| [Architecture](docs/architecture.md)       | System design, layered architecture, data flow     |
-| [API Reference](docs/api.md)               | Complete endpoint docs with examples               |
-| [Dynamic Forms](docs/dynamic-forms.md)     | How the form system works and how to add new forms |
-| [NSW Integration](docs/nsw-integration.md) | How OGA connects to the NSW workflow engine        |
+| Document                                    | Description                                                                                |
+|---------------------------------------------|--------------------------------------------------------------------------------------------|
+| [Architecture](docs/architecture.md)        | System design, layered architecture, data flow                                             |
+| [API Reference](docs/api.md)                | Complete endpoint docs with examples                                                       |
+| [Task Configurations](docs/task-configs.md) | Per-taskCode metadata, form references, and status-mapping behavior; how to add a new task |
+| [Forms](docs/forms.md)                      | JSON Forms file structure and how to add new forms referenced from task configs            |
+| [NSW Integration](docs/nsw-integration.md)  | How OGA connects to the NSW workflow engine                                                |
 
 ## Project Structure
 
@@ -140,13 +142,24 @@ oga/
 │   ├── config.go               # Environment-based configuration
 │   ├── handler.go              # HTTP handlers for all endpoints
 │   ├── service.go              # Business logic, callback dispatch
-│   ├── store.go                # GORM + SQLite database operations
-│   ├── form.go                 # Form store -- loads and serves form definitions
-│   └── utils.go                # JSON response helpers
-├── data/forms/                 # Review form definitions (JSON Forms format)
-│   ├── default.json            # Generic approval/rejection form
-│   └── consignment:moa:npqs:phytosanitary:001.json
+│   ├── store.go                # GORM-based application repository
+│   ├── task_config.go          # TaskConfigStore -- per-taskCode UI metadata and form refs
+│   ├── form.go                 # FormStore -- pure JSON Forms definitions
+│   ├── utils.go                # JSON response helpers
+│   ├── database/               # Driver setup and connection (SQLite + PostgreSQL)
+│   ├── feedback/               # Trader feedback endpoint
+│   └── storage/                # Upload/download URL handling for file attachments
+├── pkg/
+│   ├── httpclient/             # OAuth2-aware HTTP client used for outbound NSW calls
+│   └── httputil/               # Shared HTTP helpers
+├── data/                       # Local config dir (gitignored; only defaults are tracked)
+│   ├── task-configs/
+│   │   └── default.json        # Default fallback task config (shipped in repo)
+│   └── forms/
+│       └── default_review.json # Default review form (shipped in repo)
 ├── docs/                       # Documentation
+├── Dockerfile
+├── workload.yaml
 ├── .env.example                # Example environment configuration
 ├── go.mod
 └── go.sum
@@ -159,7 +172,7 @@ Please read the project-level [CONTRIBUTING.md](../docs/CONTRIBUTING.md) before 
 When working on the OGA module:
 
 1. All application code lives in `internal/` (unexported package)
-2. Form definitions go in `data/forms/` as JSON files
+2. Task configs go in `data/task-configs/` and form definitions go in `data/forms/`. See [`docs/task-configs.md`](docs/task-configs.md) and [`docs/forms.md`](docs/forms.md).
 3. The service uses Go's standard `net/http` with `http.ServeMux` -- no external routing frameworks
 4. Database migrations are handled automatically by GORM's `AutoMigrate`
 5. Run `go vet ./...` and `go build ./...` before submitting PRs

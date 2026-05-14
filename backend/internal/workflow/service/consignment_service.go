@@ -18,16 +18,18 @@ import (
 // It coordinates between workflow templates, nodes, and the workflow manager.
 // It also implements WorkflowEventHandler for domain-specific lifecycle callbacks.
 type ConsignmentService struct {
-	db               *gorm.DB
-	templateProvider TemplateProvider
-	wm               workflowmanager.Manager
+	db                 *gorm.DB
+	templateProvider   TemplateProvider
+	templateProviderV2 TemplateProviderV2
+	wm                 workflowmanager.Manager
 }
 
 // NewConsignmentService creates a new instance of ConsignmentService.
-func NewConsignmentService(db *gorm.DB, templateProvider TemplateProvider) *ConsignmentService {
+func NewConsignmentService(db *gorm.DB, templateProvider TemplateProvider, templateProviderV2 TemplateProviderV2) *ConsignmentService {
 	return &ConsignmentService{
-		db:               db,
-		templateProvider: templateProvider,
+		db:                 db,
+		templateProvider:   templateProvider,
+		templateProviderV2: templateProviderV2,
 	}
 }
 
@@ -138,7 +140,18 @@ func (s *ConsignmentService) InitializeConsignmentByID(
 		return nil, fmt.Errorf("workflow manager currently supports only one HS code")
 	}
 
-	wt, err := s.templateProvider.GetWorkflowTemplateByHSCodeIDAndFlowV2(ctx, hsCodeIDs[0], consignment.Flow)
+	wtId, err := s.templateProvider.GetWorkflowTemplateIDByHSCodeIDAndFlowV2(ctx, hsCodeIDs[0], consignment.Flow)
+	if err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("failed to get workflow template ID: %w", err)
+	}
+
+	if wtId == "" {
+		tx.Rollback()
+		return nil, fmt.Errorf("no workflow template ID found for HS code %s and flow %s", hsCodeIDs[0], consignment.Flow)
+	}
+
+	wt, err := s.templateProviderV2.GetWorkflowTemplateByID(ctx, wtId)
 	if err != nil {
 		tx.Rollback()
 		return nil, fmt.Errorf("failed to get workflow template: %w", err)

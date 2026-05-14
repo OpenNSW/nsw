@@ -358,6 +358,7 @@ for entry in "${OGA_INSTANCES[@]}"; do
     VITE_IDP_CLIENT_ID="$idp_client_id" \
     VITE_APP_URL="http://localhost:${app_port}" \
     VITE_IDP_SCOPES="$IDP_SCOPES" \
+    VITE_SHOW_AUTOFILL_BUTTON="$SHOW_AUTOFILL_BUTTON" \
     VITE_IDP_PLATFORM="$IDP_PLATFORM" \
     pnpm run dev
 done

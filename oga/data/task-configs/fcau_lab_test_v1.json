@@ -1,0 +1,12 @@
+{
+  "taskCode": "fcau_lab_test_v1",
+  "meta": {
+    "title": "Laboratory Testing Diagnostics",
+    "description": "Awaiting laboratory diagnostic results for the consignment sample.",
+    "icon": "test-tube",
+    "category": "Food Control"
+  },
+  "forms": {
+    "review": "fcau-lab-test--officer-form"
+  }
+}
