@@ -30,36 +30,7 @@ VALUES
         'NPQS Phytosanitary Application',
         'Trader submits phytosanitary export application. NPQS officer reviews and provides a decision (approve / reject / needs more info). The approval also sets sample_required and fumigation_required flags.',
         'SIMPLE_FORM',
-        '{
-            "formId": "npqs-application-form",
-            "submission": {
-                "serviceId": "npqs",
-                "url": "/api/review",
-                "request": {
-                    "taskCode": "npqs_application_v1"
-                }
-            },
-            "callback": {
-                "response": {
-                    "display": {
-                        "formId": "npqs-application-review-response"
-                    },
-                    "mapping": {
-                        "review_outcome":      "review_outcome",
-                        "reference_number":    "reference_number",
-                        "sample_required":     "sample_required",
-                        "fumigation_required": "fumigation_required"
-                    }
-                },
-                "transition": {
-                    "field":   "review_outcome",
-                    "default": "OGA_VERIFICATION_APPROVED",
-                    "mapping": {
-                        "needs_more_info": "OGA_VERIFICATION_FEEDBACK"
-                    }
-                }
-            }
-        }',
+        '{}'::jsonb,
         '[]'
     ),
 
@@ -71,30 +42,7 @@ VALUES
         'Wait for Sample Receipt',
         'Waits for the NPQS facility to confirm physical receipt of the consignment sample. Notifies the NPQS queue service with the reference number.',
         'WAIT_FOR_EVENT',
-        '{
-            "display": {
-                "title": {
-                    "waiting":   "Waiting for Sample Receipt",
-                    "failed":    "Sample Receipt Notification Failed",
-                    "completed": "Sample Receipt Confirmed"
-                },
-                "description": {
-                    "waiting":   "Your consignment has been registered. The NPQS facility will confirm receipt of the physical sample before lab testing begins.",
-                    "failed":    "The sample receipt notification could not be delivered. Please contact the NPQS helpdesk.",
-                    "completed": "The NPQS facility has confirmed receipt of your consignment sample. Lab testing is now in progress."
-                }
-            },
-            "submission": {
-                "serviceId": "npqs",
-                "url":       "/api/queue",
-                "request": {
-                    "taskCode": "npqs_sample_wait_v1",
-                    "template": {
-                        "referenceNumber": "npqs_reference_number"
-                    }
-                }
-            }
-        }',
+        '{}'::jsonb,
         '[]'
     ),
 
@@ -107,35 +55,7 @@ VALUES
         'Wait for Lab Result',
         'Waits for the NPQS lab to return a pass/fail result. On callback the lab_result field is extracted and propagated to the workflow context.',
         'WAIT_FOR_EVENT',
-        '{
-            "display": {
-                "title": {
-                    "waiting":   "Waiting for Lab Test Results",
-                    "failed":    "Lab Result Notification Failed",
-                    "completed": "Lab Test Results Received"
-                },
-                "description": {
-                    "waiting":   "Laboratory testing is underway. You will be notified once results are available.",
-                    "failed":    "The lab result notification could not be delivered. Please contact the NPQS helpdesk.",
-                    "completed": "Laboratory testing is complete. Please check the test outcome below."
-                }
-            },
-            "submission": {
-                "serviceId": "npqs",
-                "url":       "/api/queue",
-                "request": {
-                    "taskCode": "npqs_lab_wait_v1",
-                    "template": {
-                        "referenceNumber": "npqs_reference_number"
-                    }
-                },
-                "response": {
-                    "mapping": {
-                        "lab_result": "lab_result"
-                    }
-                }
-            }
-        }',
+        '{}'::jsonb,
         '[]'
     ),
 
@@ -147,30 +67,7 @@ VALUES
         'Wait for Fumigation Completion',
         'Waits for the fumigation treatment to be completed and certified before proceeding to visual inspection.',
         'WAIT_FOR_EVENT',
-        '{
-            "display": {
-                "title": {
-                    "waiting":   "Waiting for Fumigation Treatment Completion",
-                    "failed":    "Fumigation Notification Failed",
-                    "completed": "Fumigation Treatment Completed"
-                },
-                "description": {
-                    "waiting":   "Fumigation treatment is being arranged. You will be notified once it is complete.",
-                    "failed":    "The fumigation completion notification could not be delivered. Please contact the NPQS helpdesk.",
-                    "completed": "Fumigation treatment has been completed and certified. The process will now continue."
-                }
-            },
-            "submission": {
-                "serviceId": "npqs",
-                "url":       "/api/queue",
-                "request": {
-                    "taskCode": "npqs_fumigation_wait_v1",
-                    "template": {
-                        "referenceNumber": "npqs_reference_number"
-                    }
-                }
-            }
-        }',
+        '{}'::jsonb,
         '[]'
     ),
 
@@ -183,35 +80,7 @@ VALUES
         'Visual Inspection Requirement Check',
         'NPQS officer determines whether a visual inspection is required for this consignment. Result is fed back via callback.',
         'WAIT_FOR_EVENT',
-        '{
-            "display": {
-                "title": {
-                    "waiting":   "Awaiting Visual Inspection Decision",
-                    "failed":    "Visual Inspection Decision Notification Failed",
-                    "completed": "Visual Inspection Decision Received"
-                },
-                "description": {
-                    "waiting":   "An NPQS officer is determining whether a visual inspection of your consignment is required.",
-                    "failed":    "The visual inspection decision notification could not be delivered. Please contact the NPQS helpdesk.",
-                    "completed": "The NPQS officer has determined whether a visual inspection is required. The process will continue accordingly."
-                }
-            },
-            "submission": {
-                "serviceId": "npqs",
-                "url":       "/api/queue",
-                "request": {
-                    "taskCode": "npqs_visual_decision_v1",
-                    "template": {
-                        "referenceNumber": "npqs_reference_number"
-                    }
-                },
-                "response": {
-                    "mapping": {
-                        "visual_inspection_required": "visual_inspection_required"
-                    }
-                }
-            }
-        }',
+        '{}'::jsonb,
         '[]'
     ),
 
@@ -224,35 +93,7 @@ VALUES
         'Visual Inspection Result',
         'Waits for the visual inspection of the consignment to be completed. Returns a pass/fail result.',
         'WAIT_FOR_EVENT',
-        '{
-            "display": {
-                "title": {
-                    "waiting":   "Visual Inspection In Progress",
-                    "failed":    "Visual Inspection Notification Failed",
-                    "completed": "Visual Inspection Complete"
-                },
-                "description": {
-                    "waiting":   "A physical visual inspection of your consignment is being carried out by an NPQS officer.",
-                    "failed":    "The visual inspection result notification could not be delivered. Please contact the NPQS helpdesk.",
-                    "completed": "The visual inspection of your consignment is complete. Please check the outcome below."
-                }
-            },
-            "submission": {
-                "serviceId": "npqs",
-                "url":       "/api/queue",
-                "request": {
-                    "taskCode": "npqs_visual_result_v1",
-                    "template": {
-                        "referenceNumber": "npqs_reference_number"
-                    }
-                },
-                "response": {
-                    "mapping": {
-                        "visual_result": "visual_result"
-                    }
-                }
-            }
-        }',
+        '{}'::jsonb,
         '[]'
     ),
 
@@ -265,36 +106,7 @@ VALUES
         'Shipping Documents Submission & Review',
         'Trader uploads required shipping documents (Bill of Lading, Packing List, Commercial Invoice). NPQS officer reviews and approves or requests corrections.',
         'SIMPLE_FORM',
-        '{
-            "formId": "npqs-shipping-docs-form",
-            "submission": {
-                "serviceId": "npqs",
-                "url": "/api/review",
-                "request": {
-                    "taskCode": "npqs_shipping_docs_v1",
-                    "template": {
-                        "referenceNumber": "npqs_reference_number"
-                    }
-                }
-            },
-            "callback": {
-                "response": {
-                    "display": {
-                        "formId": "npqs-shipping-docs-review-response"
-                    },
-                    "mapping": {
-                        "review_outcome": "doc_review_result"
-                    }
-                },
-                "transition": {
-                    "field":   "review_outcome",
-                    "default": "OGA_VERIFICATION_APPROVED",
-                    "mapping": {
-                        "needs_more_info": "OGA_VERIFICATION_FEEDBACK"
-                    }
-                }
-            }
-        }',
+        '{}'::jsonb,
         '[]'
     ),
 
@@ -307,27 +119,7 @@ VALUES
         'Phytosanitary Certificate Fee Payment',
         'Processes the NPQS phytosanitary certificate issuance fee. On success emits payment_status=success and the payment reference number.',
         'PAYMENT',
-        '{
-            "currency":    "LKR",
-            "ttl":         3600,
-            "orgId":       "NPQS",
-            "serviceType": "PHYTOSANITARY CERTIFICATE",
-            "breakdown": [
-                {
-                    "description": "Phytosanitary Certificate Processing Fee",
-                    "category":    "ADDITION",
-                    "type":        "FIXED",
-                    "quantity":    "1",
-                    "unitPrice":   "1500.00"
-                },
-                {
-                    "description": "VAT",
-                    "category":    "ADDITION",
-                    "type":        "PERCENTAGE",
-                    "value":       "18"
-                }
-            ]
-        }',
+        '{}'::jsonb,
         '[]'
     ),
 
@@ -340,39 +132,7 @@ VALUES
         'Phytosanitary Certificate Issuance',
         'NPQS officer issues the phytosanitary certificate and provides the certificate ID and URL via callback.',
         'WAIT_FOR_EVENT',
-        '{
-            "display": {
-                "title": {
-                    "waiting":   "Awaiting Certificate Issuance",
-                    "failed":    "Certificate Issuance Notification Failed",
-                    "completed": "Phytosanitary Certificate Issued"
-                },
-                "description": {
-                    "waiting":   "An NPQS officer is finalising and issuing your phytosanitary certificate. You will be notified once it is ready.",
-                    "failed":    "The certificate issuance notification could not be delivered. Please contact the NPQS helpdesk.",
-                    "completed": "Your phytosanitary certificate has been issued successfully. The certificate details are shown below."
-                }
-            },
-            "submission": {
-                "serviceId": "npqs",
-                "url":       "/api/queue",
-                "request": {
-                    "taskCode": "npqs_certificate_issue_v1",
-                    "template": {
-                        "referenceNumber": "npqs_reference_number"
-                    }
-                },
-                "response": {
-                    "display": {
-                        "formId": "npqs-certificate-officer-form"
-                    },
-                    "mapping": {
-                        "certificate_id":  "certificate_id",
-                        "certificate_url": "certificate_url"
-                    }
-                }
-            }
-        }',
+        '{}'::jsonb,
         '[]'
     ),
 
@@ -384,31 +144,6 @@ VALUES
         'IPPC Hub Registration Upload',
         'Notifies the NPQS service to upload the issued certificate to the IPPC hub. Waits for upload confirmation.',
         'WAIT_FOR_EVENT',
-        '{
-            "display": {
-                "title": {
-                    "waiting":   "Uploading to IPPC Hub",
-                    "failed":    "IPPC Hub Upload Notification Failed",
-                    "completed": "IPPC Hub Upload Complete"
-                },
-                "description": {
-                    "waiting":   "Your phytosanitary certificate is being registered with the International Plant Protection Convention (IPPC) hub.",
-                    "failed":    "The IPPC upload notification could not be delivered. Please contact the NPQS helpdesk.",
-                    "completed": "Your phytosanitary certificate has been successfully registered with the IPPC hub. The process is now complete."
-                }
-            },
-            "submission": {
-                "serviceId": "npqs",
-                "url":       "/api/queue",
-                "request": {
-                    "taskCode": "npqs_ippc_upload_v1",
-                    "template": {
-                        "referenceNumber": "npqs_reference_number",
-                        "certificateId":   "npqs_certificate_id",
-                        "certificateUrl":  "npqs_certificate_url"
-                    }
-                }
-            }
-        }',
+        '{}'::jsonb,
         '[]'
     );
