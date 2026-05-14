@@ -5,6 +5,9 @@ import type { WorkflowNode } from '../../services/types/consignment'
 import { ActionCard } from './ActionCard'
 import { CollapsibleSection } from './CollapsibleSection'
 
+const sortByUpdatedAt = (a: WorkflowNode, b: WorkflowNode) =>
+  new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+
 interface ActionListViewProps {
   steps: WorkflowNode[]
   consignmentId: string
@@ -33,7 +36,10 @@ export function ActionListView({
     return {
       active: filteredSteps.filter((s) => s.state === 'READY' || s.state === 'IN_PROGRESS'),
       // upcoming: filteredSteps.filter((s) => s.state === 'LOCKED'),
-      finished: filteredSteps.filter((s) => s.state === 'COMPLETED' || s.state === 'FAILED'),
+      finished: filteredSteps
+        .filter((s) => s.state === 'COMPLETED' || s.state === 'FAILED')
+        .slice()
+        .sort(sortByUpdatedAt),
     }
   }, [filteredSteps])
 
@@ -41,7 +47,10 @@ export function ActionListView({
 
   const displaySteps = useMemo(() => {
     if (isConsignmentTerminal) {
-      return filteredSteps.filter((s) => s.state === 'COMPLETED' || s.state === 'FAILED')
+      return filteredSteps
+        .filter((s) => s.state === 'COMPLETED' || s.state === 'FAILED')
+        .slice()
+        .sort(sortByUpdatedAt)
     }
     return filteredSteps
   }, [filteredSteps, isConsignmentTerminal])
