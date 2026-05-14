@@ -24,7 +24,14 @@ export function TopBar() {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
       {/* Logo */}
-      <div className="flex items-center">
+      <div className="flex items-center gap-3">
+        {appConfig.branding.systemLogoUrl && (
+          <img
+            src={appConfig.branding.systemLogoUrl}
+            alt={appConfig.branding.systemName || 'Logo'}
+            className="h-12 w-auto object-contain"
+          />
+        )}
         <span className="text-xl font-bold text-gray-900">{appConfig.branding.appName}</span>
       </div>
 

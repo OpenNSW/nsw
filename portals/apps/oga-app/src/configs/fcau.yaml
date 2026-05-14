@@ -1,8 +1,9 @@
 branding:
   systemName: 'Trade National Single Window'
-  appName: 'Food Control Administration Unit (FCAU)'
+  systemLogoUrl: 'https://onetrade.lk/public/frontend/images/logo.png'
+  appName: 'FCAU Portal'
   logoUrl: 'https://eohfs.health.gov.lk/food/templates/temp-food/images/new/logo.png'
-  favicon: 'https://toppng.com/uploads/preview/google-favicon-vector-11573977012mieoxurfqx.png'
+  favicon: 'https://onetrade.lk/public/frontend/images/favicon.png'
   portalName: 'FCAU Portal'
   description: 'Ensuring food safety and regulatory compliance through efficient administration of food control certifications and approvals.'
   heroImageUrl: 'https://images.unsplash.com/photo-1551218372-458e7a497df5?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'
