@@ -182,7 +182,7 @@ export function WorkflowDetailScreen() {
           : 'blue'
 
   return (
-    <div className="animate-fade-in w-full">
+    <div className="animate-fade-in max-w-6xl mx-auto">
       <Flex justify="between" align="center" mb="6">
         <Button
           variant="ghost"
