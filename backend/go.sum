@@ -4,8 +4,8 @@ github.com/OpenNSW/go-temporal-workflow v0.3.3 h1:Zed6UOxZdDCMR2xPcr2fRzAbZOqSHD
 github.com/OpenNSW/go-temporal-workflow v0.3.3/go.mod h1:YryMiRQ9MBkQUpAz8CwYnW56uFEYqb/cmmOd/YaYmao=
 github.com/OpenNSW/nsw-task-flow v0.0.0-20260511035504-436fdb33821a h1:1XBz6zzjn4cRQnQz7gTYR4jt3xF2p20pfINhZEukcQ4=
 github.com/OpenNSW/nsw-task-flow v0.0.0-20260511035504-436fdb33821a/go.mod h1:qj6lfr3IImQknk/eI3suooVC9bbOX7QZlRGgSCDNHC0=
-github.com/OpenNSW/one-trade-templates v0.0.0-20260514035320-11877a86cc75 h1:lrKpSaLbkmwSXICRk57YvngJgN0mivRfaPjvUacKd64=
-github.com/OpenNSW/one-trade-templates v0.0.0-20260514035320-11877a86cc75/go.mod h1:tkTARwhlzhmKCVdWt1Jg/hamgTEnwVcR6yeHrT1Qt9I=
+github.com/OpenNSW/one-trade-templates v0.0.0-20260514053724-ae8456fb53a1 h1:u4ibHjWBEN+fZcXZqJRIbI3M0WGGlkO8w+rlh28/42k=
+github.com/OpenNSW/one-trade-templates v0.0.0-20260514053724-ae8456fb53a1/go.mod h1:tkTARwhlzhmKCVdWt1Jg/hamgTEnwVcR6yeHrT1Qt9I=
 github.com/aws/aws-sdk-go-v2 v1.41.7 h1:DWpAJt66FmnnaRIOT/8ASTucrvuDPZASqhhLey6tLY8=
 github.com/aws/aws-sdk-go-v2 v1.41.7/go.mod h1:4LAfZOPHNVNQEckOACQx60Y8pSRjIkNZQz1w92xpMJc=
 github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.10 h1:gx1AwW1Iyk9Z9dD9F4akX5gnN3QZwUB20GGKH/I+Rho=
