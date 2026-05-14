@@ -117,6 +117,7 @@ OGA_APP_NPQS_BRANDING="${OGA_APP_NPQS_BRANDING:-npqs}"
 OGA_APP_FCAU_BRANDING="${OGA_APP_FCAU_BRANDING:-fcau}"
 OGA_APP_IRD_BRANDING="${OGA_APP_IRD_BRANDING:-ird}"
 OGA_APP_CDA_BRANDING="${OGA_APP_CDA_BRANDING:-cda}"
+TRADER_APP_BRANDING_PATH="${TRADER_APP_BRANDING_PATH:-./src/configs/trader.json}"
 
 OGA_NSW_NPQS_CLIENT_ID="${OGA_NSW_NPQS_CLIENT_ID:-NPQS_TO_NSW}"
 OGA_NSW_FCAU_CLIENT_ID="${OGA_NSW_FCAU_CLIENT_ID:-FCAU_TO_NSW}"
@@ -163,6 +164,32 @@ ensure_branding_file() {
         "alt": ""
       }
     ]
+  }
+}
+EOF
+  fi
+}
+
+ensure_branding_json_file() {
+  local app_path="$1"
+  local file_name="$2"
+  local app_name="$3"
+  local config_dir="$ROOT_DIR/${app_path}/src/configs"
+  local file_path="${config_dir}/${file_name}"
+  if [[ ! -f "$file_path" ]]; then
+    mkdir -p "$config_dir"
+    cat >"$file_path" <<EOF
+{
+  "branding": {
+    "systemName": "NSW",
+    "appName": "${app_name}",
+    "logoUrl": "",
+    "systemLogoUrl": "",
+    "favicon": "",
+    "portalName": "",
+    "description": "",
+    "heroImageUrl": "",
+    "partnerLogos": [{ "url": "", "alt": "" }]
   }
 }
 EOF
@@ -386,7 +413,10 @@ start_service "trader-app" "$ROOT_DIR/portals/apps/trader-app" env \
   VITE_IDP_TRADER_GROUP_NAME="$TRADER_IDP_TRADER_GROUP_NAME" \
   VITE_IDP_CHA_GROUP_NAME="$TRADER_IDP_CHA_GROUP_NAME" \
   VITE_SHOW_AUTOFILL_BUTTON="$SHOW_AUTOFILL_BUTTON" \
+  VITE_BRANDING_PATH="$TRADER_APP_BRANDING_PATH" \
   pnpm run dev -- --port "$TRADER_APP_PORT"
+
+ensure_branding_json_file "portals/apps/trader-app" "trader.json" "Trader Portal"
 
 # Backend must wait for Temporal before starting
 if [[ "$RUN_TEMPORAL" == "true" ]]; then
