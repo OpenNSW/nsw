@@ -117,7 +117,7 @@ export function WorkflowListScreen() {
                 <thead>
                   <tr className="bg-gray-50/50 border-b border-gray-200 text-left">
                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Consignment ID
+                      Company Name
                     </th>
                     <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center">
                       Tasks
@@ -140,7 +140,8 @@ export function WorkflowListScreen() {
                       className="hover:bg-blue-50/30 cursor-pointer transition-colors group text-sm"
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-blue-600 font-medium hover:underline">
-                        {wf.companyName || wf.workflowId}
+                        {/* TODO: REMOVE THIS AFTER DEMO */}
+                        {"ADAM PVT LTD"}
                       </td>
 
                       <td className="px-6 py-4 whitespace-nowrap text-center">{wf.taskCount}</td>
