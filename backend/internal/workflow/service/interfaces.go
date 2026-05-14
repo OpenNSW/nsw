@@ -15,6 +15,9 @@ type TemplateProvider interface {
 	// GetWorkflowTemplateByHSCodeIDAndFlowV2 retrieves the workflow template associated with a given HS code and consignment flow.
 	GetWorkflowTemplateByHSCodeIDAndFlowV2(ctx context.Context, hsCodeID string, flow model.ConsignmentFlow) (*model.WorkflowTemplateV2, error)
 
+	// GetWorkflowTemplateIDByHSCodeIDAndFlowV2 retrieves the ID of the workflow template associated with a given HS code and consignment flow.
+	GetWorkflowTemplateIDByHSCodeIDAndFlowV2(ctx context.Context, hsCodeID string, flow model.ConsignmentFlow) (string, error)
+
 	// GetWorkflowTemplateByID retrieves a workflow template by its ID.
 	GetWorkflowTemplateByID(ctx context.Context, id string) (*model.WorkflowTemplate, error)
 
@@ -33,3 +36,10 @@ type TemplateProvider interface {
 
 // Compile-time interface compliance checks
 var _ TemplateProvider = (*TemplateService)(nil)
+
+// TemplateProviderV2
+type TemplateProviderV2 interface {
+	GetWorkflowTemplateByID(ctx context.Context, id string) (*model.WorkflowTemplateV2, error)
+}
+
+var _ TemplateProviderV2 = (*FileBasedTemplateService)(nil)

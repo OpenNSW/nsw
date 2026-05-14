@@ -1,0 +1,37 @@
+{
+    "id": "fcau-wait-sample-flow",
+    "name": "Wait for Sample Receipt",
+    "version": 1,
+    "nodes": [
+        {
+            "id": "start",
+            "type": "START"
+        },
+        {
+            "id": "wait_sample_task",
+            "type": "TASK",
+            "task_template_id": "fcau-wait-sample--wait",
+            "input_mapping": {
+                "reference_number": "reference_number",
+                "userform": "userform"
+            },
+            "output_mapping": {}
+        },
+        {
+            "id": "end",
+            "type": "END"
+        }
+    ],
+    "edges": [
+        {
+            "id": "e1",
+            "source_id": "start",
+            "target_id": "wait_sample_task"
+        },
+        {
+            "id": "e2",
+            "source_id": "wait_sample_task",
+            "target_id": "end"
+        }
+    ]
+}
