@@ -221,7 +221,7 @@ export default function Payment(props: {
       )}
 
       <Dialog.Root open={isPopupOpen} onOpenChange={setIsPopupOpen}>
-        <Dialog.Content maxWidth="520px">
+        <Dialog.Content width="95vw" maxWidth="550px">
           <Flex justify="between" align="start">
             <Box>
               <Dialog.Title>Mock Payment Gateway</Dialog.Title>

@@ -73,7 +73,8 @@ export function HSCodePicker({
   return (
     <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       <Dialog.Content
-        maxWidth="600px"
+        width="95vw"
+        maxWidth="550px"
         style={{ minHeight: '500px', display: 'flex', flexDirection: 'column' }}
         onInteractOutside={(e) => e.preventDefault()}
       >

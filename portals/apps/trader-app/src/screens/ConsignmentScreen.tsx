@@ -42,7 +42,8 @@ function NewConsignmentDialog({ open, onOpenChange, chaOptions, creating, onCrea
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Content
-        maxWidth="450px"
+        width="95vw"
+        maxWidth="550px"
         style={{ minHeight: '420px', display: 'flex', flexDirection: 'column' }}
         onInteractOutside={(e: Event) => e.preventDefault()}
       >
