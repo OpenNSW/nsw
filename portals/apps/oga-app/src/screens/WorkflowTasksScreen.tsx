@@ -122,7 +122,7 @@ export function WorkflowTasksScreen() {
                             {app.icon.slice('emoji:'.length)}
                           </span>
                         )}
-                        <Text size="2" weight="bold" className="text-gray-900">
+                        <Text size="2" weight="medium" className="text-blue-600 hover:underline">
                           {app.title || 'Standard Review'}
                         </Text>
                       </Flex>
