@@ -1,8 +1,0 @@
-{
-    "template_id": "fcau-pay-lab-fee--payment",
-    "task_type": "PAYMENT",
-    "plugin_name": "generic_payment",
-    "plugin_properties": {
-        "task_code": "fcau_lab_fee_payment_v1"
-    }
-}
