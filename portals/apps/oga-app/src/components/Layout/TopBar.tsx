@@ -3,7 +3,7 @@ import { SignedIn, SignedOut, SignInButton, UserDropdown, useAsgardeo } from '@a
 import { appConfig } from '../../config'
 
 export function TopBar() {
-  const { signOut } = useAsgardeo()
+  const { signOut } = useAsgardeo() as any
 
   const handleSignOut = async () => {
     try {
@@ -23,9 +23,16 @@ export function TopBar() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
-      {/* Logo */}
-      <div className="flex items-center">
-        <span className="text-xl font-bold text-gray-900">{appConfig.branding.appName}</span>
+      {/* Logo + App Name */}
+      <div className="flex items-center gap-3">
+        {appConfig.branding.systemLogoUrl && (
+          <img
+            src={appConfig.branding.systemLogoUrl}
+            alt={appConfig.branding.portalName}
+            className="h-8 w-auto object-contain"
+          />
+        )}
+        <span className="text-xl font-bold text-gray-900">{appConfig.branding.portalName}</span>
       </div>
 
       {/* Right Side Actions */}
@@ -49,7 +56,11 @@ export function TopBar() {
         {/* User */}
         <div className="flex items-center gap-3 pl-3 border-l border-gray-200">
           <SignedIn>
-            <UserDropdown onSignOut={handleSignOut} />
+            <UserDropdown
+              onSignOut={() => {
+                void handleSignOut()
+              }}
+            />
           </SignedIn>
           <SignedOut>
             <SignInButton />

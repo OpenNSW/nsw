@@ -148,9 +148,17 @@ ensure_branding_file() {
     mkdir -p "$config_dir"
     cat >"$file_path" <<EOF
 branding:
+  systemName: "NSW"
   appName: "${app_name}"
   logoUrl: ""
+  systemLogoUrl: ""
   favicon: ""
+  portalName: ""
+  description: ""
+  heroImageUrl: ""
+  partnerLogos:
+    - url: ""
+      alt: ""
 EOF
   fi
 }

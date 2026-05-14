@@ -5,6 +5,7 @@ export const UIConfigSchema = z.object({
     systemName: z.string().min(1),
     appName: z.string().min(1),
     logoUrl: z.string().optional(),
+    systemLogoUrl: z.string().optional(),
     favicon: z.string().optional(),
     portalName: z.string().optional(),
     description: z.string().optional(),

@@ -2,6 +2,7 @@ branding:
   systemName: 'NSW'
   appName: 'OGA Officer Portal'
   logoUrl: ''
+  systemLogoUrl: ''
   favicon: ''
   portalName: 'OGA Portal'
   description: 'A unified digital platform enabling seamless regulatory workflows and approvals for government agencies and authorised officers.'

@@ -141,9 +141,17 @@ function ensure_branding_file($FileName, $AppName) {
         New-Item -ItemType Directory -Path $ConfigDir -Force | Out-Null
         $Content = @"
 branding:
+  systemName: "NSW"
   appName: "$AppName"
   logoUrl: ""
+  systemLogoUrl: ""
   favicon: ""
+  portalName: ""
+  description: ""
+  heroImageUrl: ""
+  partnerLogos:
+    - url: ""
+      alt: ""
 "@
         Set-Content -Path $FilePath -Value $Content
     }
