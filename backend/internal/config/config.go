@@ -65,12 +65,6 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid SERVER_PORT: %w", err)
 	}
 
-	temporalHost := strings.TrimSpace(getEnvOrDefault("TEMPORAL_HOST", "localhost"))
-	temporalPort, err := strconv.Atoi(strings.TrimSpace(getEnvOrDefault("TEMPORAL_PORT", "7233")))
-	if err != nil {
-		return nil, fmt.Errorf("invalid TEMPORAL_PORT: %w", err)
-	}
-	temporalNamespace := strings.TrimSpace(getEnvOrDefault("TEMPORAL_NAMESPACE", "default"))
 
 	cfg := &Config{
 		Database: database.Config{
