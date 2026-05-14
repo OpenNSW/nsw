@@ -11,12 +11,13 @@ const PAYMENT_TERMINAL_STATES = ['COMPLETED', 'FAILED']
 const WAIT_FOR_EVENT_TERMINAL_STATES = ['COMPLETED', 'RECEIVED_CALLBACK', 'NOTIFY_FAILED', 'SUBMISSION_FAILED']
 
 export function TaskDetailScreen() {
-  const { taskId, consignmentId, preConsignmentId } = useParams<{
+  const { taskId } = useParams<{
     taskId: string
     consignmentId?: string
     preConsignmentId?: string
   }>()
   const navigate = useNavigate()
+  const goBack = () => navigate(-1)
   const api = useApi()
   const [renderInfo, setRenderInfo] = useState<RenderInfo | null>(null)
   const [loading, setLoading] = useState(true)
