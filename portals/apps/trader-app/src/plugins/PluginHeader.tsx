@@ -14,18 +14,11 @@ const TYPE_COLORS: Record<TaskType, string> = {
   FIRE_AND_FORGET: 'bg-sky-50 text-sky-700 ring-sky-200',
 }
 
-const STATE_STYLES: Record<string, string> = {
-  INITIALIZED: 'bg-gray-100 text-gray-600 ring-gray-200',
+const PLUGIN_STATE_STYLES: Record<string, string> = {
+  INITIALIZED: 'bg-sky-50 text-sky-700 ring-sky-200',
   IN_PROGRESS: 'bg-blue-50 text-blue-700 ring-blue-200',
   COMPLETED: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-  FAILED: 'bg-red-50 text-red-700 ring-red-200',
-}
-
-const STATE_DOTS: Record<string, string> = {
-  INITIALIZED: 'bg-gray-400',
-  IN_PROGRESS: 'bg-blue-500 animate-pulse',
-  COMPLETED: 'bg-emerald-500',
-  FAILED: 'bg-red-500',
+  FAILED: 'bg-rose-50 text-rose-700 ring-rose-200',
 }
 
 function formatPluginState(pluginState: string): string {
@@ -33,6 +26,10 @@ function formatPluginState(pluginState: string): string {
     .replace(/_/g, ' ')
     .toLowerCase()
     .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+function getPluginStateStyle(pluginState: string): string {
+  return PLUGIN_STATE_STYLES[pluginState] ?? 'bg-blue-50 text-blue-700 ring-blue-200'
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -46,16 +43,11 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 export default function PluginHeader({
   type,
-  state,
   pluginState,
 }: {
   type: TaskType
-  state: string
   pluginState: string
 }) {
-  const stateStyle = STATE_STYLES[state] ?? 'bg-gray-100 text-gray-600 ring-gray-200'
-  const stateDot = STATE_DOTS[state] ?? 'bg-gray-400'
-
   return (
     <div className="flex items-start justify-between gap-4 flex-wrap">
       <Field label="Type">
@@ -67,24 +59,15 @@ export default function PluginHeader({
         </span>
       </Field>
 
-      <div className="flex items-start gap-4 flex-wrap">
-        <Field label="State">
-          <span
-            className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium ring-1 ring-inset ${stateStyle}`}
-          >
-            <span className={`w-2 h-2 rounded-full shrink-0 ${stateDot}`} />
-            {state
-              .replace(/_/g, ' ')
-              .toLowerCase()
-              .replace(/\b\w/g, (c) => c.toUpperCase())}
-          </span>
-        </Field>
-
-        <Field label="Plugin State">
-          <span className="inline-flex items-center rounded-full px-4 py-1.5 text-sm font-medium bg-gray-100 text-gray-500 ring-1 ring-inset ring-gray-200">
-            {formatPluginState(pluginState)}
-          </span>
-        </Field>
+      <div className="flex flex-col items-end gap-1">
+        <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Current State</span>
+        <span
+          className={`inline-flex items-center rounded-full px-4 py-1.5 text-sm font-medium ring-1 ring-inset ${getPluginStateStyle(
+            pluginState,
+          )}`}
+        >
+          {formatPluginState(pluginState)}
+        </span>
       </div>
     </div>
   )

@@ -28,7 +28,7 @@ export default function PluginRenderer({
   response: RenderInfo
   onTaskUpdated?: () => Promise<void>
 }) {
-  const { type, state, content, pluginState } = response
+  const { type, content, pluginState } = response
 
   let plugin: React.ReactNode
   switch (type) {
@@ -50,7 +50,7 @@ export default function PluginRenderer({
 
   return (
     <div className="space-y-4">
-      <PluginHeader type={type} state={state} pluginState={pluginState} />
+      <PluginHeader type={type} pluginState={pluginState} />
       {plugin}
     </div>
   )
