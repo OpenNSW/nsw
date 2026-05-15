@@ -25,8 +25,8 @@ type Config struct {
 	DefaultTaskConfigID   string
 	AllowedOrigins        []string
 	NSW                   NSWConfig
-	MaxRequestBytes       int64
-	UseOneTradeTemplates  bool
+	MaxRequestBytes    int64
+	OneTradeBaseURL    string
 }
 
 // LoadConfig loads configuration from environment variables
@@ -90,11 +90,7 @@ func LoadConfig() (Config, error) {
 	}
 	cfg.NSW.TokenInsecureSkipVerify = tokenInsecureSkipVerify
 
-	useOneTradeTemplates, err := parseBoolEnv("USE_ONE_TRADE_TEMPLATES", true)
-	if err != nil {
-		return Config{}, err
-	}
-	cfg.UseOneTradeTemplates = useOneTradeTemplates
+	cfg.OneTradeBaseURL = envOrDefault("ONE_TRADE_BASE_URL", defaultOneTradeBaseURL)
 
 	if err := cfg.validateNSWOAuth2Config(); err != nil {
 		return Config{}, err

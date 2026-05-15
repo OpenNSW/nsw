@@ -3,7 +3,6 @@ module github.com/OpenNSW/nsw/oga
 go 1.25.0
 
 require (
-	github.com/OpenNSW/one-trade-templates v0.0.0-20260514053724-ae8456fb53a1
 	golang.org/x/oauth2 v0.36.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/driver/sqlite v1.6.0

@@ -5,27 +5,22 @@ package template
 import (
 	"encoding/json"
 	"fmt"
-	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
 
 	engine "github.com/OpenNSW/go-temporal-workflow"
-	onetrade "github.com/OpenNSW/one-trade-templates"
 	"github.com/OpenNSW/nsw-task-flow/orchestrator"
 )
 
 // Load loads templates into registry from source.
-// When source is empty or "embedded", templates are loaded from the bundled
-// one-trade-templates module (compiled into the binary).
+// When source is empty or "embedded", templates are fetched from the
+// one-trade-templates GitHub repository at the default main-branch URL.
 // Any other value is treated as a local filesystem directory path.
 func Load(registry *orchestrator.TaskTemplateRegistry, source string) error {
 	if source == "" || source == "embedded" {
-		sub, err := fs.Sub(onetrade.FS, "templates")
-		if err != nil {
-			return fmt.Errorf("templates: embedded FS: %w", err)
-		}
-		return loadFromFS(registry, sub)
+		client := newOneTradeClient(defaultOneTradeBaseURL)
+		return loadFromRemote(registry, client)
 	}
 	return LoadFromDir(registry, source)
 }
@@ -57,28 +52,26 @@ func LoadFromDir(registry *orchestrator.TaskTemplateRegistry, templatesDir strin
 	return nil
 }
 
-// loadFromFS mirrors LoadFromDir but reads from an fs.FS instead of the OS filesystem.
-func loadFromFS(registry *orchestrator.TaskTemplateRegistry, fsys fs.FS) error {
+// loadFromRemote fetches the manifest from client and registers each template
+// listed in byId with the registry.
+func loadFromRemote(registry *orchestrator.TaskTemplateRegistry, client *oneTradeClient) error {
 	if registry == nil {
 		return fmt.Errorf("templates: registry is required")
 	}
-	walkErr := fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
+
+	manifest, err := client.fetchManifest()
+	if err != nil {
+		return fmt.Errorf("templates: %w", err)
+	}
+
+	for _, path := range manifest.ByID {
+		data, err := client.fetchFile(path)
 		if err != nil {
-			return err
-		}
-		if d.IsDir() || filepath.Ext(path) != ".json" {
-			return nil
-		}
-		data, err := fs.ReadFile(fsys, path)
-		if err != nil {
-			return fmt.Errorf("read %s: %w", path, err)
+			return fmt.Errorf("templates: %w", err)
 		}
 		registerJSON(registry, path, data)
-		return nil
-	})
-	if walkErr != nil {
-		return fmt.Errorf("templates: walk embedded FS: %w", walkErr)
 	}
+
 	return nil
 }
 
@@ -86,10 +79,10 @@ func loadFromFS(registry *orchestrator.TaskTemplateRegistry, fsys fs.FS) error {
 func registerJSON(registry *orchestrator.TaskTemplateRegistry, path string, data []byte) {
 	// 1. Task template entry — has template_id + plugin_name
 	var entry orchestrator.TaskTemplateEntry
-	if err := json.Unmarshal(data, &entry); err == nil && entry.TemplateID != "" && entry.PluginName != "" {
+	if err := json.Unmarshal(data, &entry); err == nil && entry.ID != "" && entry.PluginName != "" {
 		registry.Register(entry)
-		slog.Info("templates: registered task template",
-			"templateId", entry.TemplateID, "taskType", entry.TaskType, "plugin", entry.PluginName)
+		// slog.Info("templates: registered task template",
+		// 	"templateId", entry.ID, "taskType", entry.TaskType, "plugin", entry.PluginName)
 		return
 	}
 
@@ -97,8 +90,8 @@ func registerJSON(registry *orchestrator.TaskTemplateRegistry, path string, data
 	var workflowDef engine.WorkflowDefinition
 	if err := json.Unmarshal(data, &workflowDef); err == nil && workflowDef.ID != "" && len(workflowDef.Nodes) > 0 {
 		registry.RegisterWorkflow(workflowDef)
-		slog.Info("templates: registered sub-workflow",
-			"id", workflowDef.ID, "name", workflowDef.Name, "nodes", len(workflowDef.Nodes))
+		// slog.Info("templates: registered sub-workflow",
+		// 	"id", workflowDef.ID, "name", workflowDef.Name, "nodes", len(workflowDef.Nodes))
 		return
 	}
 
@@ -108,7 +101,7 @@ func registerJSON(registry *orchestrator.TaskTemplateRegistry, path string, data
 	}
 	if err := json.Unmarshal(data, &generic); err == nil && generic.ID != "" {
 		registry.RegisterGenericTemplate(generic.ID, data)
-		slog.Info("templates: registered generic template", "id", generic.ID, "path", path)
+		// slog.Info("templates: registered generic template", "id", generic.ID, "path", path)
 		return
 	}
 

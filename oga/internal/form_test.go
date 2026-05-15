@@ -2,6 +2,8 @@ package internal
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -33,7 +35,7 @@ func TestFormStore_LoadsValidForms(t *testing.T) {
 	writeFormFile(t, root, "alpha.json", `{"schema":{"type":"object"},"uiSchema":{"type":"VerticalLayout"}}`)
 	writeFormFile(t, root, "beta.json", `{"schema":{"type":"object","title":"Beta"}}`)
 
-	store, err := NewFormStore(root, false)
+	store, err := NewFormStore(root, "")
 	if err != nil {
 		t.Fatalf("NewFormStore failed: %v", err)
 	}
@@ -51,7 +53,7 @@ func TestFormStore_GetFormReturnsRawJSON(t *testing.T) {
 	body := `{"schema":{"type":"object","required":["foo"]},"uiSchema":{"type":"VerticalLayout"}}`
 	writeFormFile(t, root, "alpha.json", body)
 
-	store, err := NewFormStore(root, false)
+	store, err := NewFormStore(root, "")
 	if err != nil {
 		t.Fatalf("NewFormStore failed: %v", err)
 	}
@@ -77,7 +79,7 @@ func TestFormStore_SkipsNonJSONFiles(t *testing.T) {
 	writeFormFile(t, root, "readme.txt", `this is not a form`)
 	writeFormFile(t, root, "beta.yaml", `schema: {}`)
 
-	store, err := NewFormStore(root, false)
+	store, err := NewFormStore(root, "")
 	if err != nil {
 		t.Fatalf("NewFormStore failed: %v", err)
 	}
@@ -98,7 +100,7 @@ func TestFormStore_GetFormMiss(t *testing.T) {
 	root := newFormsDir(t)
 	writeFormFile(t, root, "alpha.json", `{"schema":{"type":"object"}}`)
 
-	store, err := NewFormStore(root, false)
+	store, err := NewFormStore(root, "")
 	if err != nil {
 		t.Fatalf("NewFormStore failed: %v", err)
 	}
@@ -112,7 +114,7 @@ func TestFormStore_ErrorOnInvalidJSON(t *testing.T) {
 	root := newFormsDir(t)
 	writeFormFile(t, root, "broken.json", `{this is not valid json`)
 
-	_, err := NewFormStore(root, false)
+	_, err := NewFormStore(root, "")
 	if err == nil {
 		t.Fatalf("expected error when loading invalid JSON, got nil")
 	}
@@ -122,7 +124,7 @@ func TestFormStore_ErrorOnMissingDir(t *testing.T) {
 	root := t.TempDir()
 	// Intentionally do not create root/forms.
 
-	_, err := NewFormStore(root, false)
+	_, err := NewFormStore(root, "")
 	if err == nil {
 		t.Fatalf("expected error when forms directory is missing, got nil")
 	}
@@ -137,7 +139,7 @@ func TestFormStore_IgnoresSubdirectories(t *testing.T) {
 	writeFormFile(t, root, "nested/should_be_ignored.json", `{"schema":{}}`)
 	writeFormFile(t, root, "top.json", `{"schema":{"type":"object"}}`)
 
-	store, err := NewFormStore(root, false)
+	store, err := NewFormStore(root, "")
 	if err != nil {
 		t.Fatalf("NewFormStore failed: %v", err)
 	}
@@ -150,5 +152,44 @@ func TestFormStore_IgnoresSubdirectories(t *testing.T) {
 	}
 	if _, ok := store.GetForm("nested/should_be_ignored"); ok {
 		t.Errorf("nested file should not be discovered under any key")
+	}
+}
+
+func TestLoadOneTradeForms_ManifestBased(t *testing.T) {
+	const formID = "npqs-apply-phyto-cert--user-form"
+	const formPath = "templates/npqs/1-application/userinput_jsonform.json"
+	formBody := `{"id":"` + formID + `","schema":{"type":"object"},"uischema":{"type":"VerticalLayout"}}`
+	manifest := `{"byId":{"` + formID + `":"` + formPath + `"}}`
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/manifest.json":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(manifest))
+		case "/" + formPath:
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(formBody))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	forms := make(map[string]json.RawMessage)
+	client := newOneTradeClient(srv.URL)
+	if err := loadOneTradeForms(forms, client); err != nil {
+		t.Fatalf("loadOneTradeForms failed: %v", err)
+	}
+
+	raw, ok := forms[formID]
+	if !ok {
+		t.Fatalf("expected form %q to be loaded", formID)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatalf("returned form is not valid JSON: %v", err)
+	}
+	if got["schema"] == nil {
+		t.Errorf("expected schema field in returned form")
 	}
 }
