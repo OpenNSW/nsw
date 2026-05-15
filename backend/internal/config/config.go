@@ -87,13 +87,13 @@ func Load() (*Config, error) {
 			Type:           getEnvOrDefault("STORAGE_TYPE", "local"),
 			LocalBaseDir:   getEnvOrDefault("STORAGE_LOCAL_BASE_DIR", "./bucket"),
 			LocalPublicURL: getEnvOrDefault("STORAGE_LOCAL_PUBLIC_URL", getEnvOrDefault("SERVICE_URL", fmt.Sprintf("http://localhost:%d", serverPort))),
-			S3Endpoint:     os.Getenv("STORAGE_S3_ENDPOINT"),
+			S3Endpoint:     getEnvOrDefault("STORAGE_S3_ENDPOINT", ""),
 			S3Bucket:       getEnvOrDefault("STORAGE_S3_BUCKET", "nsw-uploads"),
 			S3Region:       getEnvOrDefault("STORAGE_S3_REGION", "us-east-1"),
-			S3AccessKey:    os.Getenv("STORAGE_S3_ACCESS_KEY"),
-			S3SecretKey:    os.Getenv("STORAGE_S3_SECRET_KEY"),
+			S3AccessKey:    getEnvOrDefault("STORAGE_S3_ACCESS_KEY", ""),
+			S3SecretKey:    getEnvOrDefault("STORAGE_S3_SECRET_KEY", ""),
 			S3UseSSL:       getBoolOrDefault("STORAGE_S3_USE_SSL", true),
-			S3PublicURL:    os.Getenv("STORAGE_S3_PUBLIC_URL"),
+			S3PublicURL:    getEnvOrDefault("STORAGE_S3_PUBLIC_URL", ""),
 			LocalPutSecret: getEnvOrDefault("STORAGE_LOCAL_PUT_SECRET", "local-dev-secret"),
 			PresignTTL:     getDurationOrDefault("STORAGE_PRESIGN_TTL", 15*time.Minute),
 		},
@@ -107,7 +107,7 @@ func Load() (*Config, error) {
 		Notification: NotificationConfig{
 			SMTPHost:     getEnvOrDefault("EMAIL_SMTP_HOST", "localhost"),
 			SMTPPort:     getIntEnvOrDefault("EMAIL_SMTP_PORT", 587),
-			SMTPUsername: os.Getenv("EMAIL_SMTP_USERNAME"),
+			SMTPUsername: getEnvOrDefault("EMAIL_SMTP_USERNAME", ""),
 			SMTPPassword: os.Getenv("EMAIL_SMTP_PASSWORD"),
 			SMTPSender:   getEnvOrDefault("EMAIL_SMTP_SENDER", "noreply@nsw.local"),
 			TemplateRoot: getEnvOrDefault("EMAIL_TEMPLATE_ROOT", "./configs/email-templates"),
@@ -129,7 +129,7 @@ func Load() (*Config, error) {
 
 // Validate checks that all required configuration is present
 func (c *Config) Validate() error {
-	if strings.TrimSpace(c.Server.ServiceURL) == "" {
+	if c.Server.ServiceURL == "" {
 		return fmt.Errorf("SERVICE_URL is required")
 	}
 	if err := validation.HTTPURL("SERVICE_URL", c.Server.ServiceURL); err != nil {
