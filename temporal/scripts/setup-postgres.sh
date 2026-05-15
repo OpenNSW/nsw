@@ -25,8 +25,8 @@ echo "[setup-postgres] Initializing Temporal databases and schema..."
 create_db_if_needed() {
   _db="$1"
   echo "[setup-postgres] Ensuring database '${_db}' exists..."
-  # --database here sets the target DB to create; connect via default 'postgres' db
-  if ! _out=$(sql_tool create-database --database "${_db}" 2>&1); then
+
+  if ! _out=$(sql_tool --database "${_db}" create-database 2>&1); then
     echo "${_out}" >&2
     echo "${_out}" | grep -qi "already exists" && return 0
     echo "[setup-postgres] Failed to create database '${_db}'." >&2
