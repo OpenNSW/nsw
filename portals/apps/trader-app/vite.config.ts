@@ -60,7 +60,7 @@ function brandingConfigPlugin(): Plugin {
     transform(code) {
       if (!code.includes('__BRANDING_CONFIG__')) return null
       return {
-        code: code.replace(/__BRANDING_CONFIG__/g, JSON.stringify(currentConfig)),
+        code: code.replace(/__BRANDING_CONFIG__/g, () => JSON.stringify(currentConfig)),
         map: null,
       }
     },

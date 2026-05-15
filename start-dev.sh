@@ -403,6 +403,8 @@ for entry in "${OGA_INSTANCES[@]}"; do
     pnpm run dev
 done
 
+ensure_branding_json_file "portals/apps/trader-app" "trader.json" "Trader Portal"
+
 start_service "trader-app" "$ROOT_DIR/portals/apps/trader-app" env \
   VITE_API_BASE_URL="http://localhost:${BACKEND_PORT}" \
   VITE_IDP_BASE_URL="$IDP_PUBLIC_URL" \
@@ -416,7 +418,6 @@ start_service "trader-app" "$ROOT_DIR/portals/apps/trader-app" env \
   VITE_BRANDING_PATH="$TRADER_APP_BRANDING_PATH" \
   pnpm run dev -- --port "$TRADER_APP_PORT"
 
-ensure_branding_json_file "portals/apps/trader-app" "trader.json" "Trader Portal"
 
 # Backend must wait for Temporal before starting
 if [[ "$RUN_TEMPORAL" == "true" ]]; then
