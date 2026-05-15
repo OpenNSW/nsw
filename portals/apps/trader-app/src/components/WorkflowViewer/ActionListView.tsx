@@ -5,8 +5,7 @@ import type { WorkflowNode } from '../../services/types/consignment'
 import { ActionCard } from './ActionCard'
 import { CollapsibleSection } from './CollapsibleSection'
 
-const sortByUpdatedAt = (a: WorkflowNode, b: WorkflowNode) =>
-  new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+const sortByUpdatedAt = (a: WorkflowNode, b: WorkflowNode) => b.updatedAt.localeCompare(a.updatedAt)
 
 interface ActionListViewProps {
   steps: WorkflowNode[]
@@ -35,11 +34,7 @@ export function ActionListView({
   const groups = useMemo(() => {
     return {
       active: filteredSteps.filter((s) => s.state === 'READY' || s.state === 'IN_PROGRESS'),
-      // upcoming: filteredSteps.filter((s) => s.state === 'LOCKED'),
-      finished: filteredSteps
-        .filter((s) => s.state === 'COMPLETED' || s.state === 'FAILED')
-        .slice()
-        .sort(sortByUpdatedAt),
+      finished: filteredSteps.filter((s) => s.state === 'COMPLETED' || s.state === 'FAILED').sort(sortByUpdatedAt),
     }
   }, [filteredSteps])
 
@@ -47,10 +42,7 @@ export function ActionListView({
 
   const displaySteps = useMemo(() => {
     if (isConsignmentTerminal) {
-      return filteredSteps
-        .filter((s) => s.state === 'COMPLETED' || s.state === 'FAILED')
-        .slice()
-        .sort(sortByUpdatedAt)
+      return filteredSteps.filter((s) => s.state === 'COMPLETED' || s.state === 'FAILED').sort(sortByUpdatedAt)
     }
     return filteredSteps
   }, [filteredSteps, isConsignmentTerminal])
@@ -65,7 +57,7 @@ export function ActionListView({
 
   return (
     <div className={`w-full flex flex-col min-h-0 relative ${className}`}>
-<div className="flex-1 overflow-y-auto pr-2 custom-scrollbar min-h-0">
+      <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar min-h-0">
         {isConsignmentTerminal ? (
           <Box mb="6">
             <Flex align="center" justify="between" my="4" px="3">
@@ -143,12 +135,6 @@ export function ActionListView({
                 </Text>
               </Box>
             ) : null}
-
-            {/* <CollapsibleSection title="Upcoming Tasks" count={groups.upcoming.length}>
-              {groups.upcoming.map((step) => (
-                <ActionCard key={step.id} step={step} consignmentId={consignmentId} />
-              ))}
-            </CollapsibleSection> */}
 
             <CollapsibleSection title="Process History" count={groups.finished.length} color="green">
               {groups.finished.map((step) => (

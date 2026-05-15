@@ -416,9 +416,6 @@ export function ConsignmentScreen() {
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredConsignments.map((consignment) => {
-                  const completedSteps = consignment.completedWorkflowNodeCount || 0
-                  const totalSteps = consignment.workflowNodeCount || 0
-
                   return (
                     <tr
                       key={consignment.id}

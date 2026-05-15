@@ -11,11 +11,7 @@ const PAYMENT_TERMINAL_STATES = ['COMPLETED', 'FAILED']
 const WAIT_FOR_EVENT_TERMINAL_STATES = ['COMPLETED', 'RECEIVED_CALLBACK', 'NOTIFY_FAILED', 'SUBMISSION_FAILED']
 
 export function TaskDetailScreen() {
-  const { taskId } = useParams<{
-    taskId: string
-    consignmentId?: string
-    preConsignmentId?: string
-  }>()
+  const { taskId } = useParams<{ taskId: string }>()
   const navigate = useNavigate()
   const goBack = () => navigate(-1)
   const api = useApi()
@@ -31,37 +27,45 @@ export function TaskDetailScreen() {
     }
   }, [])
 
-  const fetchTask = useCallback(async (silent = false) => {
-    stopPolling()
-    if (!taskId) {
-      setError('Task ID is missing.')
-      setLoading(false)
-      return
-    }
-
-    try {
-      if (!silent) setLoading(true)
-      setError(null)
-      const taskRenderInfo = await getTaskInfo(taskId, api)
-      setRenderInfo(taskRenderInfo)
-
-      // Poll for tasks that are still in progress
-      const { type, pluginState } = taskRenderInfo
-      const shouldPoll =
-        (type === 'PAYMENT' && !PAYMENT_TERMINAL_STATES.includes(pluginState)) ||
-        (type === 'WAIT_FOR_EVENT' && !WAIT_FOR_EVENT_TERMINAL_STATES.includes(pluginState))
-      if (shouldPoll) {
-        pollTimerRef.current = setTimeout(() => void fetchTask(true), POLL_INTERVAL_MS)
-      } else {
-        stopPolling()
+  const fetchTask = useCallback(
+    async (silent = false) => {
+      stopPolling()
+      if (!taskId) {
+        setError('Task ID is missing.')
+        setLoading(false)
+        return
       }
-    } catch (err) {
-      setError('Failed to fetch task details.')
-      console.error(err)
-    } finally {
-      if (!silent) setLoading(false)
-    }
-  }, [api, taskId, stopPolling])
+
+      try {
+        if (!silent) setLoading(true)
+        if (!silent) setError(null)
+        const taskRenderInfo = await getTaskInfo(taskId, api)
+        setRenderInfo(taskRenderInfo)
+
+        // Poll for tasks that are still in progress
+        const { type, pluginState } = taskRenderInfo
+        const shouldPoll =
+          (type === 'PAYMENT' && !PAYMENT_TERMINAL_STATES.includes(pluginState)) ||
+          (type === 'WAIT_FOR_EVENT' && !WAIT_FOR_EVENT_TERMINAL_STATES.includes(pluginState))
+        if (shouldPoll) {
+          pollTimerRef.current = setTimeout(() => void fetchTask(true), POLL_INTERVAL_MS)
+        } else {
+          stopPolling()
+        }
+      } catch (err) {
+        if (silent) {
+          console.error('Background poll failed:', err)
+          pollTimerRef.current = setTimeout(() => void fetchTask(true), POLL_INTERVAL_MS)
+        } else {
+          setError('Failed to fetch task details.')
+          console.error(err)
+        }
+      } finally {
+        if (!silent) setLoading(false)
+      }
+    },
+    [api, taskId, stopPolling],
+  )
 
   useEffect(() => {
     void fetchTask()

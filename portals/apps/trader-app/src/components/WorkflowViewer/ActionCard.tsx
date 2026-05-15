@@ -1,6 +1,6 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Badge, Box, Button, Card, Flex, Text } from '@radix-ui/themes'
+import { Badge, Box, Card, Flex, Text } from '@radix-ui/themes'
 import {
   CheckCircledIcon,
   ChevronRightIcon,
@@ -79,19 +79,29 @@ export const ActionCard = ({ step, consignmentId }: ActionCardProps) => {
   }
 
   const label = step.workflowNodeTemplate.name || `Step ${step.id.split('-').pop()}`
-  const isExecutable = step.state === 'READY'
-  const isViewable = step.state !== 'LOCKED' && !isExecutable
-
   const isClickable = step.state !== 'LOCKED'
 
   return (
     <Card
       variant="classic"
+      role={isClickable ? 'button' : undefined}
+      tabIndex={isClickable ? 0 : -1}
       onClick={isClickable ? handleOpen : undefined}
+      onKeyDown={
+        isClickable
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                handleOpen()
+              }
+            }
+          : undefined
+      }
       className={`mb-3 transition-all duration-200 border shadow-sm group
-        ${isClickable
-          ? 'bg-white border-gray-200 hover:border-blue-300 hover:bg-blue-50/40 hover:shadow-md cursor-pointer active:scale-[0.98] active:shadow-sm'
-          : 'bg-gray-50 border-gray-100 opacity-50 cursor-not-allowed'
+        ${
+          isClickable
+            ? 'bg-white border-gray-200 hover:border-blue-300 hover:bg-blue-50/40 hover:shadow-md cursor-pointer active:scale-[0.98] active:shadow-sm'
+            : 'bg-gray-50 border-gray-100 opacity-50 cursor-not-allowed'
         }`}
     >
       <Flex direction="column" gap="3">

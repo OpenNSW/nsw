@@ -40,7 +40,6 @@ export default function Payment(props: {
 
   const workflowId = preConsignmentId || consignmentId
   const isCompleted = props.pluginState === 'COMPLETED'
-  const isInProgress = props.pluginState === 'IN_PROGRESS'
   const gatewayUrl = props.configs?.gatewayUrl ?? ''
 
   const refreshGatewaySession = async () => {
