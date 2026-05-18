@@ -48,7 +48,7 @@ function App() {
       <Route
         path="/login"
         element={
-          <SignedOut>
+          <SignedOut fallback={<Navigate to="/" replace />}>
             <LoginScreen />
           </SignedOut>
         }
