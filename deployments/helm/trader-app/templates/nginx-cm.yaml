@@ -24,6 +24,10 @@ data:
         add_header X-Content-Type-Options "nosniff" always;
         add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
+        # Dynamically inject runtime-env.js into the head to prevent module loading race condition
+        sub_filter '<head>' '<head><script src="/runtime-env.js"></script>';
+        sub_filter_once on;
+
         location / {
             root /usr/share/nginx/html;
             try_files $uri $uri/ /index.html;

@@ -39,12 +39,12 @@ spec:
             - name: OGA_DB_USER
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.config.database.credentialsSecretName | default (printf "%s-db-credentials" .Release.Name) }}
+                  name: {{ .Values.config.database.credentialsSecretName | default (printf "%s-db-credentials" (include "oga-backend.fullname" .)) }}
                   key: {{ .Values.config.database.userKey | default "user" }}
             - name: OGA_DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.config.database.credentialsSecretName | default (printf "%s-db-credentials" .Release.Name) }}
+                  name: {{ .Values.config.database.credentialsSecretName | default (printf "%s-db-credentials" (include "oga-backend.fullname" .)) }}
                   key: password
             - name: OGA_PORT
               value: {{ .Values.config.port | default "8081" | quote }}
@@ -99,4 +99,4 @@ spec:
       volumes:
         - name: forms-volume
           configMap:
-            name: {{ .Release.Name }}-forms
+            name: {{ include "oga-backend.fullname" . }}-forms

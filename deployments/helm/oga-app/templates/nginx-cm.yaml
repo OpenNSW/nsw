@@ -36,12 +36,16 @@ data:
         root /usr/share/nginx/html;
         index index.html;
 
+        # Dynamically inject runtime-env.js into the head to prevent module loading race condition
+        sub_filter '<head>' '<head><script src="/runtime-env.js"></script>';
+        sub_filter_once on;
+
         location / {
             try_files $uri $uri/ /index.html;
         }
 
         location = /runtime-env.js {
-            alias /tmp/runtime-env.js;
+            try_files $uri =404;
         }
 
         location /api/api/oga/ {
