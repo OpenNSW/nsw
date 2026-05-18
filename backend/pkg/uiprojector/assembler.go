@@ -3,6 +3,7 @@ package uiprojector
 import (
 	"context"
 	"fmt"
+	"maps"
 )
 
 // TemplateProvider abstracts the resolution of TemplateID to raw bytes.
@@ -16,20 +17,15 @@ type Assembler struct {
 	projectors       map[string]Projector
 }
 
-func NewAssembler(tp TemplateProvider, projectors map[string]Projector) *Assembler {
+func NewAssembler(tp TemplateProvider, projectors map[string]Projector) (*Assembler, error) {
 	if tp == nil {
-		panic("uiprojector: template provider is nil")
-	}
-
-	p := make(map[string]Projector, len(projectors))
-	for k, v := range projectors {
-		p[k] = v
+		return nil, fmt.Errorf("uiprojector: template provider is required")
 	}
 
 	return &Assembler{
 		templateProvider: tp,
-		projectors:       p,
-	}
+		projectors:       maps.Clone(projectors),
+	}, nil
 }
 
 // Assemble is the "pure" transformation logic.
@@ -37,6 +33,8 @@ func (a *Assembler) Assemble(ctx context.Context, blueprint *Blueprint, facts Fa
 	if blueprint == nil {
 		return nil, fmt.Errorf("assembler: blueprint is nil")
 	}
+
+	// TODO: Should add a cache to cache the frequently fetched templates. Should decide whether the template should be from the TemplateProvider level or This Level.
 
 	sections := make(map[string]Section, len(blueprint.Sections))
 

@@ -37,7 +37,10 @@ tp := MyTemplateProvider{}
 projectors := uiprojector.DefaultProjectors()
 
 // 2. Initialize Assembler
-asm := uiprojector.NewAssembler(tp, projectors)
+asm, err := uiprojector.NewAssembler(tp, projectors)
+if err != nil {
+    // handle error
+}
 
 // 3. Assemble a view
 blueprint := &uiprojector.Blueprint{
@@ -73,5 +76,5 @@ You can register custom projectors by adding them to the map passed to `NewAssem
 ```go
 projectors := uiprojector.DefaultProjectors()
 projectors["CHARTS"] = &ChartProjector{}
-asm := uiprojector.NewAssembler(tp, projectors)
+asm, err := uiprojector.NewAssembler(tp, projectors)
 ```

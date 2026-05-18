@@ -36,7 +36,8 @@ func TestUIProjectorIntegration(t *testing.T) {
 		"FORM":     uiprojector.NewFormProjector(),
 		"MARKDOWN": uiprojector.NewMarkdownProjector(),
 	}
-	assembler := uiprojector.NewAssembler(provider, projectors)
+	assembler, err := uiprojector.NewAssembler(provider, projectors)
+	require.NoError(t, err)
 
 	// 2. Define a Blueprint for a complex view
 	blueprint := &uiprojector.Blueprint{
