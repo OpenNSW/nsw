@@ -80,5 +80,5 @@ jobs:
       - name: Trigger Renovate Bot Webhook
         run: |
           curl -X POST -H "Content-Type: application/json" \
-          -d '{"repository": "${{ github.repository }}"}' \
+          -d '{"repository": "${{ github.repository_owner }}/nsw-gitops"}' \
           https://app.renovatebot.com/webhook/github
