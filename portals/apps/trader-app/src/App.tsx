@@ -14,7 +14,7 @@ import { UploadProvider } from '@opennsw/jsonforms-renderers'
 import { uploadFile, getDownloadUrl } from './services/storage'
 import { useAuthContext } from './hooks/useAuthContext'
 import { UnauthorizedScreen } from './screens/UnauthorizedScreen.tsx'
-import { appConfig } from './config'
+import { appConfig, displayName } from './config'
 import { useEffect } from 'react'
 
 function UploadWrapper({ children }: { children: ReactNode }) {
@@ -46,7 +46,7 @@ function ProtectedLayout() {
 
 function App() {
   useEffect(() => {
-    document.title = `${appConfig.branding.portalName || appConfig.branding.appName} | ${appConfig.branding.systemName}`
+    document.title = `${displayName} | ${appConfig.branding.systemName}`
 
     if (appConfig.branding.favicon) {
       const link = (document.querySelector("link[rel~='icon']") as HTMLLinkElement) ?? document.createElement('link')

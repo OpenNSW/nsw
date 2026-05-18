@@ -141,13 +141,15 @@ OGA_INSTANCES=(
 )
 
 ensure_branding_file() {
-  local branding_name="$1"
-  local app_name="$2"
-  local config_dir="$ROOT_DIR/portals/apps/oga-app/public/configs"
-  local file_path="${config_dir}/${branding_name}.branding.json"
-  if [[ ! -f "$file_path" ]]; then
-    mkdir -p "$config_dir"
-    cat >"$file_path" <<EOF
+  if [[ $# -eq 2 ]]; then
+    # OGA App logic (2 arguments)
+    local branding_name="$1"
+    local app_name="$2"
+    local config_dir="$ROOT_DIR/portals/apps/oga-app/public/configs"
+    local file_path="${config_dir}/${branding_name}.branding.json"
+    if [[ ! -f "$file_path" ]]; then
+      mkdir -p "$config_dir"
+      cat >"$file_path" <<EOF
 {
   "branding": {
     "systemName": "NSW",
@@ -167,18 +169,19 @@ ensure_branding_file() {
   }
 }
 EOF
-  fi
-}
+    fi
+  else
+    # Trader App/Generic logic (3 arguments)
+    local app_path="$1"
+    local file_name="$2"
+    local app_name="$3"
+    local config_dir="$ROOT_DIR/${app_path}/src/configs"
+    local file_path="${config_dir}/${file_name}"
 
-ensure_branding_json_file() {
-  local app_path="$1"
-  local file_name="$2"
-  local app_name="$3"
-  local config_dir="$ROOT_DIR/${app_path}/src/configs"
-  local file_path="${config_dir}/${file_name}"
-  if [[ ! -f "$file_path" ]]; then
-    mkdir -p "$config_dir"
-    cat >"$file_path" <<EOF
+    if [[ ! -f "$file_path" ]]; then
+      mkdir -p "$config_dir"
+      if [[ "$file_name" == *.json ]]; then
+        cat >"$file_path" <<EOF
 {
   "branding": {
     "systemName": "NSW",
@@ -193,8 +196,26 @@ ensure_branding_json_file() {
   }
 }
 EOF
+      else
+        cat >"$file_path" <<EOF
+branding:
+  systemName: "NSW"
+  appName: "${app_name}"
+  logoUrl: ""
+  systemLogoUrl: ""
+  favicon: ""
+  portalName: ""
+  description: ""
+  heroImageUrl: ""
+  partnerLogos:
+    - url: ""
+      alt: ""
+EOF
+      fi
+    fi
   fi
 }
+
 
 # ---------------------------------------------------------------------------
 # wait_for_temporal: wait until Temporal's gRPC endpoint is fully ready
@@ -403,7 +424,7 @@ for entry in "${OGA_INSTANCES[@]}"; do
     pnpm run dev
 done
 
-ensure_branding_json_file "portals/apps/trader-app" "trader.json" "Trader Portal"
+ensure_branding_file "portals/apps/trader-app" "trader.json" "Trader Portal"
 
 start_service "trader-app" "$ROOT_DIR/portals/apps/trader-app" env \
   VITE_API_BASE_URL="http://localhost:${BACKEND_PORT}" \

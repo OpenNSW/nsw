@@ -1,9 +1,9 @@
 import { useAsgardeo } from '@asgardeo/react'
-import { appConfig } from '../config'
+import { appConfig, displayName } from '../config'
 
 export function LoginScreen() {
   const { signIn } = useAsgardeo()
-  const { systemName, appName, logoUrl, portalName, description, heroImageUrl, partnerLogos } = appConfig.branding
+  const { systemName, appName, logoUrl, description, heroImageUrl, partnerLogos } = appConfig.branding
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-white lg:overflow-hidden overflow-y-auto">
@@ -33,7 +33,7 @@ export function LoginScreen() {
           <div className="bg-secondary-950/80 border-2 border-white/30 py-10 px-8 xl:px-12 rounded-2xl flex flex-col xl:flex-row items-center gap-6 xl:gap-10 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
             <div className="flex flex-col xl:flex-row items-center gap-8 xl:gap-12">
               <div className="flex flex-col items-center xl:items-start text-center xl:text-left">
-                <h2 className="text-2xl font-bold text-white tracking-wide">{portalName || appName}</h2>
+                <h2 className="text-2xl font-bold text-white tracking-wide">{displayName}</h2>
                 <p className="text-white/60 text-xs mt-1">Sign in to continue to your consignments.</p>
               </div>
 

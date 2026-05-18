@@ -41,3 +41,7 @@ export function validateConfig(parsed: unknown, instanceId: string): UIConfig {
   }
   return result.data
 }
+
+export function getDisplayName(config: UIConfig): string {
+  return config.branding.portalName || config.branding.appName
+}

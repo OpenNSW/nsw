@@ -8,17 +8,20 @@ import type { Plugin } from 'vite'
 function deepMerge(base: Record<string, unknown>, override: Record<string, unknown>): Record<string, unknown> {
   const result = { ...base }
   for (const key of Object.keys(override)) {
+    const baseValue = base[key]
+    const overrideValue = override[key]
+
     if (
-      override[key] &&
-      typeof override[key] === 'object' &&
-      !Array.isArray(override[key]) &&
-      base[key] &&
-      typeof base[key] === 'object' &&
-      !Array.isArray(base[key])
+      baseValue &&
+      overrideValue &&
+      typeof baseValue === 'object' &&
+      typeof overrideValue === 'object' &&
+      !Array.isArray(baseValue) &&
+      !Array.isArray(overrideValue)
     ) {
-      result[key] = deepMerge(base[key] as Record<string, unknown>, override[key] as Record<string, unknown>)
+      result[key] = deepMerge(baseValue as Record<string, unknown>, overrideValue as Record<string, unknown>)
     } else {
-      result[key] = override[key]
+      result[key] = overrideValue
     }
   }
   return result
@@ -44,8 +47,6 @@ function brandingConfigPlugin(): Plugin {
   }
 
   function loadMerged(): Record<string, unknown> {
-    console.log(`[branding-config] default: ${defaultJsonPath}`)
-    if (customJsonPath) console.log(`[branding-config] custom:  ${customJsonPath}`)
     let merged = readJson(defaultJsonPath)
     if (customJsonPath && fs.existsSync(customJsonPath)) {
       merged = deepMerge(merged, readJson(customJsonPath))
@@ -67,7 +68,7 @@ function brandingConfigPlugin(): Plugin {
     configureServer(server) {
       server.watcher.add(watchedPaths)
       server.watcher.on('change', (file) => {
-        if (!watchedPaths.map(path.normalize).includes(path.normalize(file))) return
+        if (!watchedPaths.map((p) => path.normalize(p)).includes(path.normalize(file))) return
         currentConfig = loadMerged()
         server.moduleGraph.invalidateAll()
         server.ws.send({ type: 'full-reload' })
