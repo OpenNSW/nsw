@@ -1,21 +1,22 @@
 package uiprojector
 
-// Built-in projector keys. These are the names under which DefaultProjectors
-// registers the projectors shipped with this package. Consumers may use any
-// other string as a key when registering additional projectors.
+// Built-in projector keys. These are the names returned by each projector's
+// Type() method, and they match the SectionBlueprint.Projector values used in
+// blueprints. Consumers may register additional projectors whose Type() returns
+// any other unique string.
 const (
-	ProjectorForm     = "FORM"
-	ProjectorMarkdown = "MARKDOWN"
-	ProjectorRaw      = "RAW"
+	ProjectorForm     ProjectorType = "FORM"
+	ProjectorMarkdown ProjectorType = "MARKDOWN"
+	ProjectorRaw      ProjectorType = "RAW"
 )
 
-// DefaultProjectors returns a fresh map containing the projectors shipped with
-// this package. The returned map is owned by the caller and safe to mutate —
-// add, override, or delete entries before passing it to NewAssembler.
-func DefaultProjectors() map[string]Projector {
-	return map[string]Projector{
-		ProjectorForm:     NewFormProjector(),
-		ProjectorMarkdown: NewMarkdownProjector(),
-		ProjectorRaw:      NewRawProjector(),
+// DefaultProjectors returns a fresh slice containing the projectors shipped
+// with this package. The returned slice is owned by the caller and safe to
+// mutate — append, replace, or drop entries before passing it to NewAssembler.
+func DefaultProjectors() []Projector {
+	return []Projector{
+		NewFormProjector(),
+		NewMarkdownProjector(),
+		NewRawProjector(),
 	}
 }

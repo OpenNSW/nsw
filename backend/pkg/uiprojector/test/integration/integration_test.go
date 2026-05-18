@@ -32,9 +32,9 @@ func TestUIProjectorIntegration(t *testing.T) {
 
 	// 1. Initialize Assembler with real projectors
 	provider := &fileTemplateProvider{basePath: testDataPath}
-	projectors := map[string]uiprojector.Projector{
-		"FORM":     uiprojector.NewFormProjector(),
-		"MARKDOWN": uiprojector.NewMarkdownProjector(),
+	projectors := []uiprojector.Projector{
+		uiprojector.NewFormProjector(),
+		uiprojector.NewMarkdownProjector(),
 	}
 	assembler, err := uiprojector.NewAssembler(provider, projectors)
 	require.NoError(t, err)

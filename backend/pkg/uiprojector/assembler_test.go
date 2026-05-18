@@ -27,11 +27,14 @@ func (s *stubTemplateProvider) GetTemplate(_ context.Context, id string) ([]byte
 }
 
 type stubProjector struct {
+	typeName     uiprojector.ProjectorType
 	lastTemplate []byte
 	lastData     any
 	out          any
 	err          error
 }
+
+func (p *stubProjector) Type() uiprojector.ProjectorType { return p.typeName }
 
 func (p *stubProjector) Project(_ context.Context, template []byte, data any) (any, error) {
 	p.lastTemplate = template
@@ -50,23 +53,45 @@ func TestNewAssembler(t *testing.T) {
 		assert.Contains(t, err.Error(), "template provider is required")
 	})
 
-	t.Run("deep copies the projectors map", func(t *testing.T) {
-		pMap := map[string]uiprojector.Projector{"P1": &stubProjector{}}
-		tp := &stubTemplateProvider{}
-		asm, err := uiprojector.NewAssembler(tp, pMap)
+	t.Run("returns error on duplicate projector type", func(t *testing.T) {
+		asm, err := uiprojector.NewAssembler(&stubTemplateProvider{}, []uiprojector.Projector{
+			&stubProjector{typeName: "DUP"},
+			&stubProjector{typeName: "DUP"},
+		})
+		assert.Error(t, err)
+		assert.Nil(t, asm)
+		assert.Contains(t, err.Error(), "duplicate projector type")
+	})
+
+	t.Run("returns error on empty Type()", func(t *testing.T) {
+		asm, err := uiprojector.NewAssembler(&stubTemplateProvider{}, []uiprojector.Projector{
+			&stubProjector{typeName: ""},
+		})
+		assert.Error(t, err)
+		assert.Nil(t, asm)
+		assert.Contains(t, err.Error(), "empty Type()")
+	})
+
+	t.Run("returns error on nil projector entry", func(t *testing.T) {
+		asm, err := uiprojector.NewAssembler(&stubTemplateProvider{}, []uiprojector.Projector{nil})
+		assert.Error(t, err)
+		assert.Nil(t, asm)
+		assert.Contains(t, err.Error(), "nil projector")
+	})
+
+	t.Run("does not retain caller's slice", func(t *testing.T) {
+		list := []uiprojector.Projector{&stubProjector{typeName: "P1"}}
+		tp := &stubTemplateProvider{templates: map[string][]byte{"t": []byte("x")}}
+		asm, err := uiprojector.NewAssembler(tp, list)
 		require.NoError(t, err)
 
-		// Mutate original map
-		delete(pMap, "P1")
-		pMap["P2"] = &stubProjector{}
+		// Mutate the caller's slice; assembler keeps its own registry.
+		list[0] = &stubProjector{typeName: "P2"}
 
-		// Assembler should be unaffected
 		ctx := context.Background()
-		tp.templates = map[string][]byte{"t": []byte("x")}
 		bp := &uiprojector.Blueprint{Sections: map[string]uiprojector.SectionBlueprint{
 			"zone1": {ID: "s", TemplateID: "t", Projector: "P1"},
 		}}
-
 		_, err = asm.Assemble(ctx, bp, uiprojector.Facts{})
 		assert.NoError(t, err, "Assembler should still have P1")
 
@@ -84,9 +109,9 @@ func TestAssembler_Assemble_HappyPath(t *testing.T) {
 		"tpl-a": []byte("A"),
 		"tpl-b": []byte("B"),
 	}}
-	pA := &stubProjector{out: "rendered-A"}
-	pB := &stubProjector{out: "rendered-B"}
-	asm, err := uiprojector.NewAssembler(tp, map[string]uiprojector.Projector{"PA": pA, "PB": pB})
+	pA := &stubProjector{typeName: "PA", out: "rendered-A"}
+	pB := &stubProjector{typeName: "PB", out: "rendered-B"}
+	asm, err := uiprojector.NewAssembler(tp, []uiprojector.Projector{pA, pB})
 	require.NoError(t, err)
 
 	blueprint := &uiprojector.Blueprint{
@@ -123,8 +148,8 @@ func TestAssembler_Assemble_HappyPath(t *testing.T) {
 func TestAssembler_Assemble_SkipsHiddenSections(t *testing.T) {
 	ctx := context.Background()
 	tp := &stubTemplateProvider{templates: map[string][]byte{"t": []byte("x")}}
-	p := &stubProjector{out: "ok"}
-	asm, err := uiprojector.NewAssembler(tp, map[string]uiprojector.Projector{"P": p})
+	p := &stubProjector{typeName: "P", out: "ok"}
+	asm, err := uiprojector.NewAssembler(tp, []uiprojector.Projector{p})
 	require.NoError(t, err)
 
 	blueprint := &uiprojector.Blueprint{
@@ -167,7 +192,7 @@ func TestAssembler_Assemble_TemplateFetchError(t *testing.T) {
 	ctx := context.Background()
 	fetchErr := errors.New("boom")
 	tp := &stubTemplateProvider{err: fetchErr}
-	asm, err := uiprojector.NewAssembler(tp, map[string]uiprojector.Projector{"P": &stubProjector{}})
+	asm, err := uiprojector.NewAssembler(tp, []uiprojector.Projector{&stubProjector{typeName: "P"}})
 	require.NoError(t, err)
 
 	bp := &uiprojector.Blueprint{Sections: map[string]uiprojector.SectionBlueprint{
@@ -183,7 +208,7 @@ func TestAssembler_Assemble_TemplateFetchError(t *testing.T) {
 func TestAssembler_Assemble_UnknownProjector(t *testing.T) {
 	ctx := context.Background()
 	tp := &stubTemplateProvider{templates: map[string][]byte{"t": []byte("x")}}
-	asm, err := uiprojector.NewAssembler(tp, map[string]uiprojector.Projector{})
+	asm, err := uiprojector.NewAssembler(tp, nil)
 	require.NoError(t, err)
 
 	bp := &uiprojector.Blueprint{Sections: map[string]uiprojector.SectionBlueprint{
@@ -200,8 +225,8 @@ func TestAssembler_Assemble_ProjectorError(t *testing.T) {
 	ctx := context.Background()
 	tp := &stubTemplateProvider{templates: map[string][]byte{"t": []byte("x")}}
 	projErr := errors.New("render failed")
-	p := &stubProjector{err: projErr}
-	asm, err := uiprojector.NewAssembler(tp, map[string]uiprojector.Projector{"P": p})
+	p := &stubProjector{typeName: "P", err: projErr}
+	asm, err := uiprojector.NewAssembler(tp, []uiprojector.Projector{p})
 	require.NoError(t, err)
 
 	bp := &uiprojector.Blueprint{Sections: map[string]uiprojector.SectionBlueprint{
@@ -217,8 +242,8 @@ func TestAssembler_Assemble_ProjectorError(t *testing.T) {
 func TestAssembler_Assemble_DataKeyMissingPassesNil(t *testing.T) {
 	ctx := context.Background()
 	tp := &stubTemplateProvider{templates: map[string][]byte{"t": []byte("x")}}
-	p := &stubProjector{out: "ok"}
-	asm, err := uiprojector.NewAssembler(tp, map[string]uiprojector.Projector{"P": p})
+	p := &stubProjector{typeName: "P", out: "ok"}
+	asm, err := uiprojector.NewAssembler(tp, []uiprojector.Projector{p})
 	require.NoError(t, err)
 
 	bp := &uiprojector.Blueprint{Sections: map[string]uiprojector.SectionBlueprint{

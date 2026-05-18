@@ -8,8 +8,15 @@ import (
 	"text/template"
 )
 
+// ProjectorType identifies a projector implementation. External packages may
+// declare their own ProjectorType constants to register custom projectors.
+type ProjectorType string
+
 // Projector defines the interface for transforming raw template + data into a UI payload.
+// Type returns the identifier under which the projector is registered; it must match
+// the SectionBlueprint.Projector values used in blueprints.
 type Projector interface {
+	Type() ProjectorType
 	Project(ctx context.Context, templateContent []byte, data any) (any, error)
 }
 
@@ -19,6 +26,8 @@ type FormProjector struct{}
 func NewFormProjector() *FormProjector {
 	return &FormProjector{}
 }
+
+func (p *FormProjector) Type() ProjectorType { return ProjectorForm }
 
 func (p *FormProjector) Project(ctx context.Context, templateContent []byte, data any) (any, error) {
 	var schema map[string]any
@@ -40,6 +49,8 @@ func NewMarkdownProjector() *MarkdownProjector {
 	return &MarkdownProjector{}
 }
 
+func (p *MarkdownProjector) Type() ProjectorType { return ProjectorMarkdown }
+
 func (p *MarkdownProjector) Project(ctx context.Context, templateContent []byte, data any) (any, error) {
 	tmpl, err := template.New("markdown").Parse(string(templateContent))
 	if err != nil {
@@ -60,6 +71,8 @@ type RawProjector struct{}
 func NewRawProjector() *RawProjector {
 	return &RawProjector{}
 }
+
+func (p *RawProjector) Type() ProjectorType { return ProjectorRaw }
 
 func (p *RawProjector) Project(ctx context.Context, templateContent []byte, data any) (any, error) {
 	return data, nil

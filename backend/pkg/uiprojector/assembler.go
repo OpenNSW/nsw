@@ -3,7 +3,6 @@ package uiprojector
 import (
 	"context"
 	"fmt"
-	"maps"
 )
 
 // TemplateProvider abstracts the resolution of TemplateID to raw bytes.
@@ -14,17 +13,34 @@ type TemplateProvider interface {
 // Assembler transforms a Blueprint and Facts into a list of rendered Sections.
 type Assembler struct {
 	templateProvider TemplateProvider
-	projectors       map[string]Projector
+	projectors       map[ProjectorType]Projector
 }
 
-func NewAssembler(tp TemplateProvider, projectors map[string]Projector) (*Assembler, error) {
+// NewAssembler builds an Assembler from a TemplateProvider and a slice of Projectors.
+// Each projector's Type() is used as its registration key; duplicate types return an error.
+func NewAssembler(tp TemplateProvider, projectors []Projector) (*Assembler, error) {
 	if tp == nil {
 		return nil, fmt.Errorf("uiprojector: template provider is required")
 	}
 
+	registry := make(map[ProjectorType]Projector, len(projectors))
+	for _, p := range projectors {
+		if p == nil {
+			return nil, fmt.Errorf("uiprojector: nil projector in registration list")
+		}
+		t := p.Type()
+		if t == "" {
+			return nil, fmt.Errorf("uiprojector: projector %T returned empty Type()", p)
+		}
+		if _, exists := registry[t]; exists {
+			return nil, fmt.Errorf("uiprojector: duplicate projector type %q", t)
+		}
+		registry[t] = p
+	}
+
 	return &Assembler{
 		templateProvider: tp,
-		projectors:       maps.Clone(projectors),
+		projectors:       registry,
 	}, nil
 }
 
@@ -45,7 +61,7 @@ func (a *Assembler) Assemble(ctx context.Context, blueprint *Blueprint, facts Fa
 		}
 
 		// 2. Resolve Projector (Fail fast)
-		proj, ok := a.projectors[sb.Projector]
+		proj, ok := a.projectors[ProjectorType(sb.Projector)]
 		if !ok {
 			return nil, fmt.Errorf("assembler: unknown projector %s", sb.Projector)
 		}
@@ -72,7 +88,7 @@ func (a *Assembler) Assemble(ctx context.Context, blueprint *Blueprint, facts Fa
 
 		sections[zone] = Section{
 			ID:      sb.ID,
-			Type:    SectionType(sb.Projector),
+			Type:    SectionType(proj.Type()),
 			Title:   sb.Title,
 			Content: content,
 		}

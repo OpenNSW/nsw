@@ -8,27 +8,29 @@ import (
 )
 
 func TestProjectorConstants(t *testing.T) {
-	assert.Equal(t, "FORM", uiprojector.ProjectorForm)
-	assert.Equal(t, "MARKDOWN", uiprojector.ProjectorMarkdown)
-	assert.Equal(t, "RAW", uiprojector.ProjectorRaw)
+	assert.Equal(t, uiprojector.ProjectorType("FORM"), uiprojector.ProjectorForm)
+	assert.Equal(t, uiprojector.ProjectorType("MARKDOWN"), uiprojector.ProjectorMarkdown)
+	assert.Equal(t, uiprojector.ProjectorType("RAW"), uiprojector.ProjectorRaw)
 }
 
 func TestDefaultProjectors_RegistersBuiltIns(t *testing.T) {
 	p := uiprojector.DefaultProjectors()
 
 	assert.Len(t, p, 3)
-	assert.IsType(t, &uiprojector.FormProjector{}, p[uiprojector.ProjectorForm])
-	assert.IsType(t, &uiprojector.MarkdownProjector{}, p[uiprojector.ProjectorMarkdown])
-	assert.IsType(t, &uiprojector.RawProjector{}, p[uiprojector.ProjectorRaw])
+	byType := make(map[uiprojector.ProjectorType]uiprojector.Projector, len(p))
+	for _, proj := range p {
+		byType[proj.Type()] = proj
+	}
+	assert.IsType(t, &uiprojector.FormProjector{}, byType[uiprojector.ProjectorForm])
+	assert.IsType(t, &uiprojector.MarkdownProjector{}, byType[uiprojector.ProjectorMarkdown])
+	assert.IsType(t, &uiprojector.RawProjector{}, byType[uiprojector.ProjectorRaw])
 }
 
-func TestDefaultProjectors_ReturnsIndependentMaps(t *testing.T) {
+func TestDefaultProjectors_ReturnsIndependentSlices(t *testing.T) {
 	a := uiprojector.DefaultProjectors()
 	b := uiprojector.DefaultProjectors()
 
-	delete(a, uiprojector.ProjectorForm)
-	a["CUSTOM"] = uiprojector.NewRawProjector()
+	a[0] = uiprojector.NewRawProjector()
 
-	assert.Contains(t, b, uiprojector.ProjectorForm, "mutating one map must not affect another")
-	assert.NotContains(t, b, "CUSTOM")
+	assert.IsType(t, &uiprojector.FormProjector{}, b[0], "mutating one slice must not affect another")
 }
