@@ -78,7 +78,10 @@ jobs:
     if: github.event_name != 'pull_request'
     steps:
       - name: Trigger Renovate Bot Webhook
+        # NOTE: If we need to support N deployment repositories in the future, delete this Renovate webhook step.
+        # Hardcoding N webhooks creates tight coupling. The best decoupled solution is to use ArgoCD Image Updater
+        # running in the cluster to poll GHCR and automatically update target GitOps repos.
         run: |
           curl -X POST -H "Content-Type: application/json" \
-          -d '{"repository": "${{ github.repository }}"}' \
+          -d '{"repository": "${{ github.repository_owner }}/nsw-gitops"}' \
           https://app.renovatebot.com/webhook/github

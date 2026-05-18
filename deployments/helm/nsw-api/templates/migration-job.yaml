@@ -2,7 +2,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "nsw-api.fullname" . }}-migration-{{ .Values.dbMigrations.image.tag | default .Values.image.tag | truncate 7 }}
+  name: {{ include "nsw-api.fullname" . }}-migration-{{ .Values.dbMigrations.image.tag | default .Values.image.tag | trunc 7 | trimSuffix "-" }}
   labels:
     {{- include "nsw-api.labels" . | nindent 4 }}
   annotations:
