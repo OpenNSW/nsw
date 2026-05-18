@@ -42,6 +42,40 @@ func (p *stubProjector) Project(_ context.Context, template []byte, data any) (a
 	return p.out, nil
 }
 
+func TestNewAssembler(t *testing.T) {
+	t.Run("panics on nil TemplateProvider", func(t *testing.T) {
+		assert.Panics(t, func() {
+			uiprojector.NewAssembler(nil, nil)
+		})
+	})
+
+	t.Run("deep copies the projectors map", func(t *testing.T) {
+		pMap := map[string]uiprojector.Projector{"P1": &stubProjector{}}
+		tp := &stubTemplateProvider{}
+		asm := uiprojector.NewAssembler(tp, pMap)
+
+		// Mutate original map
+		delete(pMap, "P1")
+		pMap["P2"] = &stubProjector{}
+
+		// Assembler should be unaffected
+		ctx := context.Background()
+		tp.templates = map[string][]byte{"t": []byte("x")}
+		bp := &uiprojector.Blueprint{Sections: []uiprojector.SectionBlueprint{
+			{ID: "s", TemplateID: "t", Projector: "P1"},
+		}}
+
+		_, err := asm.Assemble(ctx, bp, uiprojector.Facts{})
+		assert.NoError(t, err, "Assembler should still have P1")
+
+		bp2 := &uiprojector.Blueprint{Sections: []uiprojector.SectionBlueprint{
+			{ID: "s", TemplateID: "t", Projector: "P2"},
+		}}
+		_, err = asm.Assemble(ctx, bp2, uiprojector.Facts{})
+		assert.Error(t, err, "Assembler should NOT have P2")
+	})
+}
+
 func TestAssembler_Assemble_HappyPath(t *testing.T) {
 	ctx := context.Background()
 	tp := &stubTemplateProvider{templates: map[string][]byte{
@@ -111,6 +145,15 @@ func TestAssembler_Assemble_EmptyBlueprint(t *testing.T) {
 	sections, err := asm.Assemble(ctx, &uiprojector.Blueprint{}, uiprojector.Facts{})
 	require.NoError(t, err)
 	assert.Empty(t, sections)
+}
+
+func TestAssembler_Assemble_BlueprintIsNil(t *testing.T) {
+	ctx := context.Background()
+	asm := uiprojector.NewAssembler(&stubTemplateProvider{}, nil)
+
+	_, err := asm.Assemble(ctx, nil, uiprojector.Facts{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "blueprint is nil")
 }
 
 func TestAssembler_Assemble_TemplateFetchError(t *testing.T) {

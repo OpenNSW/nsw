@@ -7,9 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestVisibilityEvaluator_ShouldRender(t *testing.T) {
-	e := uiprojector.NewVisibilityEvaluator()
-
+func TestShouldRender(t *testing.T) {
 	tests := []struct {
 		name    string
 		section uiprojector.SectionBlueprint
@@ -124,7 +122,7 @@ func TestVisibilityEvaluator_ShouldRender(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := e.ShouldRender(tt.section, tt.facts)
+			got := uiprojector.ShouldRender(tt.section, tt.facts)
 			assert.Equal(t, tt.want, got)
 		})
 	}

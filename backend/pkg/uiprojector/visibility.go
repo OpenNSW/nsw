@@ -4,14 +4,8 @@ import (
 	"strings"
 )
 
-// VisibilityEvaluator implements generic visibility logic.
-type VisibilityEvaluator struct{}
-
-func NewVisibilityEvaluator() *VisibilityEvaluator {
-	return &VisibilityEvaluator{}
-}
-
-func (e *VisibilityEvaluator) ShouldRender(section SectionBlueprint, facts Facts) bool {
+// ShouldRender implements generic visibility logic.
+func ShouldRender(section SectionBlueprint, facts Facts) bool {
 	if section.VisibleWhen == nil {
 		return true
 	}

@@ -17,34 +17,45 @@ type Assembler struct {
 }
 
 func NewAssembler(tp TemplateProvider, projectors map[string]Projector) *Assembler {
+	if tp == nil {
+		panic("uiprojector: template provider is nil")
+	}
+
+	p := make(map[string]Projector, len(projectors))
+	for k, v := range projectors {
+		p[k] = v
+	}
+
 	return &Assembler{
 		templateProvider: tp,
-		projectors:       projectors,
+		projectors:       p,
 	}
 }
 
 // Assemble is the "pure" transformation logic.
 func (a *Assembler) Assemble(ctx context.Context, blueprint *Blueprint, facts Facts) ([]Section, error) {
-	var sections []Section
+	if blueprint == nil {
+		return nil, fmt.Errorf("assembler: blueprint is nil")
+	}
 
-	evaluator := NewVisibilityEvaluator()
+	sections := make([]Section, 0, len(blueprint.Sections))
 
 	for _, sb := range blueprint.Sections {
 		// 1. Visibility Check
-		if !evaluator.ShouldRender(sb, facts) {
+		if !ShouldRender(sb, facts) {
 			continue
 		}
 
-		// 2. Fetch Template
-		templateContent, err := a.templateProvider.GetTemplate(ctx, sb.TemplateID)
-		if err != nil {
-			return nil, fmt.Errorf("assembler: failed to fetch template %s: %w", sb.TemplateID, err)
-		}
-
-		// 3. Resolve Projector
+		// 2. Resolve Projector (Fail fast)
 		proj, ok := a.projectors[sb.Projector]
 		if !ok {
 			return nil, fmt.Errorf("assembler: unknown projector %s", sb.Projector)
+		}
+
+		// 3. Fetch Template
+		templateContent, err := a.templateProvider.GetTemplate(ctx, sb.TemplateID)
+		if err != nil {
+			return nil, fmt.Errorf("assembler: failed to fetch template %s: %w", sb.TemplateID, err)
 		}
 
 		// 4. Pluck Data from Registry via DataKey
