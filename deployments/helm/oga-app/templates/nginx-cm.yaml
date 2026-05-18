@@ -41,7 +41,7 @@ data:
         }
 
         location = /runtime-env.js {
-            alias /tmp/runtime-env.js;
+            alias /usr/share/nginx/html/runtime-env.js;
         }
 
         location /api/api/oga/ {
