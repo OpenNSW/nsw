@@ -1,8 +1,28 @@
 import { validateConfig, getDisplayName } from './configs/types'
 import type { UIConfig } from './configs/types'
 
-declare const __BRANDING_CONFIG__: unknown
+export let appConfig: UIConfig = {} as UIConfig
+export let displayName = ''
 
-export const appConfig: UIConfig = validateConfig(__BRANDING_CONFIG__, 'VITE_BRANDING_PATH')
+export async function initAppConfig(): Promise<void> {
+  try {
+    const res = await fetch('/configs/branding.json')
+    if (!res.ok) {
+      throw new Error(`Failed to load branding configuration: ${res.statusText}`)
+    }
 
-export const displayName = getDisplayName(appConfig)
+    const configData = (await res.json()) as Record<string, unknown>
+    appConfig = validateConfig(configData, 'branding.json')
+    displayName = getDisplayName(appConfig)
+  } catch (error) {
+    console.error('Failed to load branding configuration:', error)
+    // Absolute fallback to prevent breaking the application completely
+    appConfig = {
+      branding: {
+        systemName: 'NSW',
+        appName: 'Trader Portal',
+      },
+    } as UIConfig
+    displayName = 'Trader Portal'
+  }
+}

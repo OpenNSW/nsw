@@ -117,7 +117,6 @@ OGA_APP_NPQS_BRANDING="${OGA_APP_NPQS_BRANDING:-npqs}"
 OGA_APP_FCAU_BRANDING="${OGA_APP_FCAU_BRANDING:-fcau}"
 OGA_APP_IRD_BRANDING="${OGA_APP_IRD_BRANDING:-ird}"
 OGA_APP_CDA_BRANDING="${OGA_APP_CDA_BRANDING:-cda}"
-TRADER_APP_BRANDING_PATH="${TRADER_APP_BRANDING_PATH:-./src/configs/trader.json}"
 
 OGA_NSW_NPQS_CLIENT_ID="${OGA_NSW_NPQS_CLIENT_ID:-NPQS_TO_NSW}"
 OGA_NSW_FCAU_CLIENT_ID="${OGA_NSW_FCAU_CLIENT_ID:-FCAU_TO_NSW}"
@@ -424,8 +423,6 @@ for entry in "${OGA_INSTANCES[@]}"; do
     pnpm run dev
 done
 
-ensure_branding_file "portals/apps/trader-app" "trader.json" "Trader Portal"
-
 start_service "trader-app" "$ROOT_DIR/portals/apps/trader-app" env \
   VITE_API_BASE_URL="http://localhost:${BACKEND_PORT}" \
   VITE_IDP_BASE_URL="$IDP_PUBLIC_URL" \
@@ -436,7 +433,6 @@ start_service "trader-app" "$ROOT_DIR/portals/apps/trader-app" env \
   VITE_IDP_TRADER_GROUP_NAME="$TRADER_IDP_TRADER_GROUP_NAME" \
   VITE_IDP_CHA_GROUP_NAME="$TRADER_IDP_CHA_GROUP_NAME" \
   VITE_SHOW_AUTOFILL_BUTTON="$SHOW_AUTOFILL_BUTTON" \
-  VITE_BRANDING_PATH="$TRADER_APP_BRANDING_PATH" \
   pnpm run dev -- --port "$TRADER_APP_PORT"
 
 

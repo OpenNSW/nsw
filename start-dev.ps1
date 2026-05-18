@@ -206,7 +206,6 @@ branding:
     - url: ""
       alt: ""
 "@
-                Set-Content -Path $FilePath -Value $Content
             }
         }
     }
@@ -395,10 +394,8 @@ $TraderEnv = @{
     VITE_IDP_TRADER_GROUP_NAME = $TRADER_IDP_TRADER_GROUP_NAME
     VITE_IDP_CHA_GROUP_NAME = $TRADER_IDP_CHA_GROUP_NAME
     VITE_SHOW_AUTOFILL_BUTTON = $SHOW_AUTOFILL_BUTTON
-    VITE_BRANDING_PATH = $TRADER_APP_BRANDING_PATH
     TRADER_APP_PORT = $TRADER_APP_PORT
 }
-ensure_branding_file "portals/apps/trader-app" "trader.json" "Trader Portal"
 Start-ServiceJob -Name "trader-app" -Dir (Join-Path $ROOT_DIR "portals/apps/trader-app") -EnvVars $TraderEnv -ScriptBlock {
     param($Name, $Dir, $EnvVars)
     foreach ($Key in $EnvVars.Keys) { Set-Item "env:$Key" $EnvVars[$Key] }

@@ -23,6 +23,3 @@ dist-ssr
 *.sln
 *.sw?
 
-# Configs
-src/configs/*.json
-!src/configs/default.json

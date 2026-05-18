@@ -8,6 +8,7 @@ import { Theme } from '@radix-ui/themes'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AsgardeoProvider } from '@asgardeo/react'
 import { getEnv } from './runtimeConfig'
+import { initAppConfig } from './config'
 
 type TraderAsgardeoProviderProps = ComponentProps<typeof AsgardeoProvider> & {
   periodicTokenRefresh?: boolean
@@ -31,25 +32,31 @@ const IDP_SCOPES = rawScopes
   ? rawScopes.split(',').map((s: string) => s.trim())
   : ['openid', 'profile', 'group', 'email']
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <ErrorBoundary>
-      <TraderAsgardeoProvider
-        clientId={CLIENT_ID}
-        baseUrl={IDP_BASE_URL}
-        platform={IDP_PLATFORM}
-        afterSignInUrl={APP_URL}
-        afterSignOutUrl={APP_URL}
-        scopes={IDP_SCOPES}
-        storage="sessionStorage"
-        periodicTokenRefresh
-      >
-        <Theme>
-          <BrowserRouter>
-            <App />
-          </BrowserRouter>
-        </Theme>
-      </TraderAsgardeoProvider>
-    </ErrorBoundary>
-  </StrictMode>,
-)
+initAppConfig()
+  .then(() => {
+    createRoot(document.getElementById('root')!).render(
+      <StrictMode>
+        <ErrorBoundary>
+          <TraderAsgardeoProvider
+            clientId={CLIENT_ID}
+            baseUrl={IDP_BASE_URL}
+            platform={IDP_PLATFORM}
+            afterSignInUrl={APP_URL}
+            afterSignOutUrl={APP_URL}
+            scopes={IDP_SCOPES}
+            storage="sessionStorage"
+            periodicTokenRefresh
+          >
+            <Theme>
+              <BrowserRouter>
+                <App />
+              </BrowserRouter>
+            </Theme>
+          </TraderAsgardeoProvider>
+        </ErrorBoundary>
+      </StrictMode>,
+    )
+  })
+  .catch((err) => {
+    console.error('Failed to initialize configuration:', err)
+  })

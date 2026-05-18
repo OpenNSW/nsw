@@ -2,84 +2,10 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 import * as path from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
-import fs from 'node:fs'
-import type { Plugin } from 'vite'
-
-function deepMerge(base: Record<string, unknown>, override: Record<string, unknown>): Record<string, unknown> {
-  const result = { ...base }
-  for (const key of Object.keys(override)) {
-    const baseValue = base[key]
-    const overrideValue = override[key]
-
-    if (
-      baseValue &&
-      overrideValue &&
-      typeof baseValue === 'object' &&
-      typeof overrideValue === 'object' &&
-      !Array.isArray(baseValue) &&
-      !Array.isArray(overrideValue)
-    ) {
-      result[key] = deepMerge(baseValue as Record<string, unknown>, overrideValue as Record<string, unknown>)
-    } else {
-      result[key] = overrideValue
-    }
-  }
-  return result
-}
-
-function brandingConfigPlugin(): Plugin {
-  const defaultJsonPath = path.resolve(import.meta.dirname, 'src/configs/default.json')
-  const brandingPath = process.env.VITE_BRANDING_PATH
-  const customJsonPath = brandingPath ? path.resolve(import.meta.dirname, brandingPath) : null
-  const watchedPaths = [defaultJsonPath, ...(customJsonPath ? [customJsonPath] : [])]
-
-  function readJson(filePath: string): Record<string, unknown> {
-    const content = fs.readFileSync(filePath, 'utf8')
-    try {
-      return JSON.parse(content) as Record<string, unknown>
-    } catch {
-      throw new Error(
-        `[branding-config] "${filePath}" is not valid JSON.\n` +
-          `Content preview: ${content.slice(0, 120)}\n` +
-          `Tip: if VITE_BRANDING_PATH still points to a .yaml file, update it to .json in your .env file.`,
-      )
-    }
-  }
-
-  function loadMerged(): Record<string, unknown> {
-    let merged = readJson(defaultJsonPath)
-    if (customJsonPath && fs.existsSync(customJsonPath)) {
-      merged = deepMerge(merged, readJson(customJsonPath))
-    }
-    return merged
-  }
-
-  let currentConfig = loadMerged()
-
-  return {
-    name: 'branding-config',
-    transform(code) {
-      if (!code.includes('__BRANDING_CONFIG__')) return null
-      return {
-        code: code.replace(/__BRANDING_CONFIG__/g, () => JSON.stringify(currentConfig)),
-        map: null,
-      }
-    },
-    configureServer(server) {
-      server.watcher.add(watchedPaths)
-      server.watcher.on('change', (file) => {
-        if (!watchedPaths.map((p) => path.normalize(p)).includes(path.normalize(file))) return
-        currentConfig = loadMerged()
-        server.moduleGraph.invalidateAll()
-        server.ws.send({ type: 'full-reload' })
-      })
-    },
-  }
-}
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), brandingConfigPlugin()],
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
       '@opennsw/ui': path.resolve(import.meta.dirname, '../../packages/ui/src'),
