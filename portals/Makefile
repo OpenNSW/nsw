@@ -26,14 +26,15 @@ help:
 	@echo "  make type-check     - Run TypeScript type checking"
 	@echo ""
 
-# Setup pnpm if not installed
+# Setup pnpm via corepack (reads version from package.json packageManager field)
 setup:
 	@echo "🔧 Setting up development environment..."
-	@command -v pnpm >/dev/null 2>&1 || { \
-		echo "📥 Installing pnpm globally..."; \
-		npm install -g pnpm@10.28.1; \
+	@command -v corepack >/dev/null 2>&1 || { \
+		echo "❌ corepack not found — install Node.js 22+ (see docs/SETUP_WORKSPACE.md)"; \
+		exit 1; \
 	}
-	@echo "✅ pnpm is installed"
+	@corepack enable
+	@echo "✅ pnpm available via corepack"
 	@$(MAKE) install
 	@echo "✅ Setup complete!"
 

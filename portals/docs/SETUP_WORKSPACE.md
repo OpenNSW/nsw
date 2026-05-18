@@ -19,14 +19,14 @@ This project uses **strict version enforcement** to ensure consistent dependency
 | Tool        | Required Version | Why?                                       |
 | ----------- | ---------------- | ------------------------------------------ |
 | **Node.js** | `v22.18.0`       | Locked to prevent lockfile inconsistencies |
-| **pnpm**    | `v10.28.1`       | Enforced via `packageManager` field        |
+| **pnpm**    | `v11.1.2`        | Enforced via `packageManager` field        |
 
 > **⚠️ Important**: Using different versions will cause `pnpm-lock.yaml` to change unexpectedly, creating merge conflicts and CI failures.
 
 ### Why These Specific Versions?
 
 - **Node v22.x**: Latest stable version with modern JavaScript features
-- **pnpm v10.28.x**: Latest stable version with improved monorepo support
+- **pnpm v11.1.x**: Latest stable version with improved monorepo support
 - **Locked versions**: Prevents platform-specific lockfile differences (e.g., `libc: [glibc]` appearing/disappearing)
 
 ---
@@ -82,13 +82,13 @@ corepack enable
 
 # Verify pnpm installation
 pnpm --version
-# Expected output: 10.28.1
+# Expected output: 11.1.2
 ```
 
 **Alternative (manual installation):**
 
 ```bash
-npm install -g pnpm@10.28.1
+npm install -g pnpm@11.1.2
 ```
 
 ### Step 5: Install Dependencies
@@ -232,11 +232,11 @@ corepack enable
 pnpm --version
 
 # Method 2: Manual installation
-npm install -g pnpm@10.28.1
+npm install -g pnpm@11.1.2
 
 # Verify
 pnpm --version
-# Must show: 10.28.1
+# Must show: 11.1.2
 ```
 
 #### 6. Fresh Install
@@ -350,8 +350,8 @@ node --version
 
 # 2. Verify pnpm version
 pnpm --version
-# Expected: 10.28.1
-# If wrong: npm install -g pnpm@10.28.1 OR corepack enable
+# Expected: 11.1.2
+# If wrong: npm install -g pnpm@11.1.2 OR corepack enable
 
 # 3. Clean install
 rm -rf node_modules apps/*/node_modules packages/*/node_modules
@@ -393,7 +393,7 @@ pnpm --filter @opennsw/ui build
 corepack enable
 
 # Or install manually
-npm install -g pnpm@10.28.1
+npm install -g pnpm@11.1.2
 ```
 
 ---
@@ -423,7 +423,7 @@ node --version
 
 # 2. Check pnpm version
 pnpm --version
-# ✅ Expected: 10.28.1
+# ✅ Expected: 11.1.2
 
 # 3. Check if in correct directory
 pwd
@@ -487,7 +487,7 @@ node --version && pnpm --version
 Compare outputs. Everyone should have:
 
 - Node: `v22.18.0`
-- pnpm: `10.28.1`
+- pnpm: `11.1.2`
 
 ### Clean Slate Reset
 
@@ -502,7 +502,7 @@ rm -rf .pnpm-store pnpm-lock.yaml
 # 2. Reinstall Node/pnpm (start from scratch)
 nvm install 22.18.0
 nvm use 22.18.0
-npm install -g pnpm@10.28.1
+npm install -g pnpm@11.1.2
 
 # 3. Fresh install
 pnpm install
@@ -532,10 +532,10 @@ If you're still stuck:
 
 Always keep your Node.js and pnpm versions up to date with security patches. The team will coordinate version updates through pull requests to ensure everyone stays synchronized.
 
-**Current versions locked as of:** January 2026
+**Current versions locked as of:** May 2026
 
 - Node.js: v22.18.0
-- pnpm: v10.28.1
+- pnpm: v11.1.2
 
 When updating these versions, the team lead will:
 
@@ -549,14 +549,14 @@ When updating these versions, the team lead will:
 
 This section tracks recommended future upgrades and the migration process.
 
-### Current Status (Jan 2026)
+### Current Status (May 2026)
 
 - **Node.js:** `v22.18.0` (Locked)
-- **pnpm:** `v10.28.1` (Locked)
+- **pnpm:** `v11.1.2` (Locked)
 
 ### How to Update (Maintainer Guide)
 
-et's say we're going to `Update Node.js from v22.18.0 to v24.13.0` and `Update pnpm from 10.28.1 to 10.28.2`
+Let's say we're going to update the project dependencies.
 
 #### Step 1: Update Node.js to v24.13.0
 
@@ -572,7 +572,7 @@ et's say we're going to `Update Node.js from v22.18.0 to v24.13.0` and `Update p
    {
      "engines": {
        "node": "24.13.0",
-       "pnpm": "10.28.2"
+       "pnpm": "11.1.3"
      }
    }
    ```
@@ -582,12 +582,12 @@ et's say we're going to `Update Node.js from v22.18.0 to v24.13.0` and `Update p
    use-node-version=24.13.0
    ```
 
-#### Step 2: Update pnpm to v10.28.2
+#### Step 2: Update pnpm to v11.1.3
 
 1. **Update `package.json` packageManager:**
    ```json
    {
-     "packageManager": "pnpm@10.28.2"
+     "packageManager": "pnpm@11.1.3"
    }
    ```
 
@@ -604,7 +604,7 @@ node --version  # Should show v24.13.0
 # Update pnpm
 corepack enable
 # OR manually
-npm install -g pnpm@10.28.2
+npm install -g pnpm@11.1.3
 
 # Clean install
 rm -rf node_modules apps/*/node_modules packages/*/node_modules
@@ -668,7 +668,7 @@ git checkout main -- .nvmrc package.json .npmrc
 nvm use 22.18.0
 
 # 3. Reinstall old pnpm
-npm install -g pnpm@10.28.1
+npm install -g pnpm@11.1.2
 
 # 4. Restore lockfile
 git checkout main -- pnpm-lock.yaml
@@ -684,7 +684,7 @@ pnpm install
 
 **Current recommendation for your team:**
 
-1. **✅ Update pnpm to v10.28.2** - Safe patch update, minimal risk
+1. **✅ Update pnpm to v11.1.3** - Safe patch update, minimal risk
 2. **🟡 Plan Node.js v24 upgrade** - Current LTS, but coordinate with team first
 3. **📝 Create migration plan** - Use this guide
 4. **🧪 Test thoroughly** - Run full test suite before team rollout
