@@ -1,5 +1,7 @@
 package model
 
+import "github.com/OpenNSW/nsw/internal/hscode"
+
 // WorkflowTemplateMap represents the mapping between HSCode and Workflow.
 type WorkflowTemplateMap struct {
 	BaseModel
@@ -8,7 +10,7 @@ type WorkflowTemplateMap struct {
 	WorkflowTemplateID string          `gorm:"type:text;column:workflow_template_id;not null" json:"workflowTemplateId"`
 
 	// Relationships
-	HSCode           HSCode           `gorm:"foreignKey:HSCodeID;references:ID" json:"hsCode"`
+	HSCode           hscode.HSCode    `gorm:"foreignKey:HSCodeID;references:ID" json:"hsCode"`
 	WorkflowTemplate WorkflowTemplate `gorm:"foreignKey:WorkflowTemplateID;references:ID" json:"workflowTemplate"`
 }
 
@@ -23,7 +25,7 @@ type WorkflowTemplateMapV2 struct {
 	WorkflowTemplateID string          `gorm:"type:text;column:workflow_template_id;not null" json:"workflowTemplateId"`
 
 	// Relationships
-	HSCode           HSCode             `gorm:"foreignKey:HSCodeID;references:ID" json:"hsCode"`
+	HSCode           hscode.HSCode      `gorm:"foreignKey:HSCodeID;references:ID" json:"hsCode"`
 	WorkflowTemplate WorkflowTemplateV2 `gorm:"foreignKey:WorkflowTemplateID;references:ID" json:"workflowTemplate"`
 }
 

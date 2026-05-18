@@ -10,6 +10,7 @@ import (
 
 	workflowmanager "github.com/OpenNSW/go-temporal-workflow"
 
+	"github.com/OpenNSW/nsw/internal/hscode"
 	"github.com/OpenNSW/nsw/internal/profile/cha"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/OpenNSW/nsw/utils"
@@ -400,14 +401,14 @@ func (s *ConsignmentService) markConsignmentAsFinished(tx *gorm.DB, consignmentI
 // hsCodeBatchLoader handles batch loading of HS codes for JSONB items
 type hsCodeBatchLoader struct {
 	db        *gorm.DB
-	hsCodeMap map[string]model.HSCode
+	hsCodeMap map[string]hscode.HSCode
 	hsCodeIDs map[string]struct{}
 }
 
 func newHSCodeBatchLoader(db *gorm.DB) *hsCodeBatchLoader {
 	return &hsCodeBatchLoader{
 		db:        db,
-		hsCodeMap: make(map[string]model.HSCode),
+		hsCodeMap: make(map[string]hscode.HSCode),
 		hsCodeIDs: make(map[string]struct{}),
 	}
 }
@@ -428,7 +429,7 @@ func (loader *hsCodeBatchLoader) load(ctx context.Context) error {
 		hsCodeIDList = append(hsCodeIDList, id)
 	}
 
-	var hsCodes []model.HSCode
+	var hsCodes []hscode.HSCode
 	if err := loader.db.WithContext(ctx).Where("id IN ?", hsCodeIDList).Find(&hsCodes).Error; err != nil {
 		return fmt.Errorf("failed to batch load HS codes: %w", err)
 	}
@@ -440,10 +441,10 @@ func (loader *hsCodeBatchLoader) load(ctx context.Context) error {
 	return nil
 }
 
-func (loader *hsCodeBatchLoader) get(id string) (model.HSCode, error) {
+func (loader *hsCodeBatchLoader) get(id string) (hscode.HSCode, error) {
 	hsCode, exists := loader.hsCodeMap[id]
 	if !exists {
-		return model.HSCode{}, fmt.Errorf("HS code not found for ID %s", id)
+		return hscode.HSCode{}, fmt.Errorf("HS code not found for ID %s", id)
 	}
 	return hsCode, nil
 }
@@ -551,7 +552,7 @@ func (s *ConsignmentService) buildConsignmentItemResponseDTOs(items []model.Cons
 			return nil, err
 		}
 		itemResponseDTOs = append(itemResponseDTOs, model.ConsignmentItemResponseDTO{
-			HSCode: model.HSCodeResponseDTO{
+			HSCode: hscode.ResponseDTO{
 				HSCodeID:    hsCode.ID,
 				HSCode:      hsCode.HSCode,
 				Description: hsCode.Description,

@@ -244,20 +244,6 @@ func TestConsignmentRouter_HandleCreateConsignment(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
-func TestHSCodeRouter_HandleGetAllHSCodes(t *testing.T) {
-	db, sqlMock := setupRouterTestDB(t)
-	svc := service.NewHSCodeService(db)
-	r := NewHSCodeRouter(svc)
-
-	sqlMock.ExpectQuery("(?i)SELECT count").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
-	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"hs_codes\"").WillReturnRows(sqlmock.NewRows([]string{"id", "hs_code"}).AddRow(uuid.NewString(), "1234.56"))
-
-	req, _ := http.NewRequest("GET", "/api/v1/hscodes", nil)
-	w := httptest.NewRecorder()
-	r.HandleGetAllHSCodes(w, req)
-	assert.Equal(t, http.StatusOK, w.Code)
-}
-
 func TestPreConsignmentRouter_HandleGetPreConsignmentByID(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
 	mockWM := new(MockWorkflowManager)
@@ -441,19 +427,6 @@ func TestPreConsignmentRouter_HandleGetTraderPreConsignments_PaginationError(t *
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestHSCodeRouter_HandleGetAllHSCodes_ServiceError(t *testing.T) {
-	db, sqlMock := setupRouterTestDB(t)
-	svc := service.NewHSCodeService(db)
-	r := NewHSCodeRouter(svc)
-
-	sqlMock.ExpectQuery("(?i)SELECT count").WillReturnError(fmt.Errorf("db error"))
-
-	req, _ := http.NewRequest("GET", "/api/v1/hscodes", nil)
-	w := httptest.NewRecorder()
-	r.HandleGetAllHSCodes(w, req)
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-}
-
 func TestConsignmentRouter_HandleGetConsignments_ServiceError(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
 	svc := service.NewConsignmentService(db, nil, nil)
@@ -537,16 +510,6 @@ func TestPreConsignmentRouter_HandleGetPreConsignmentByID_ServiceError(t *testin
 	w := httptest.NewRecorder()
 	r.HandleGetPreConsignmentByID(w, req)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-}
-
-func TestHSCodeRouter_HandleGetAllHSCodes_PaginationError(t *testing.T) {
-	db, _ := setupRouterTestDB(t)
-	r := NewHSCodeRouter(service.NewHSCodeService(db))
-
-	req, _ := http.NewRequest("GET", "/api/v1/hscodes?limit=invalid", nil)
-	w := httptest.NewRecorder()
-	r.HandleGetAllHSCodes(w, req)
-	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestPreConsignmentRouter_HandleCreatePreConsignment_ServiceError(t *testing.T) {

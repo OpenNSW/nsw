@@ -10,6 +10,7 @@ import (
 	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/config"
 	"github.com/OpenNSW/nsw/internal/database"
+	"github.com/OpenNSW/nsw/internal/hscode"
 	"github.com/OpenNSW/nsw/internal/middleware"
 	"github.com/OpenNSW/nsw/internal/payments"
 	"github.com/OpenNSW/nsw/internal/profile/cha"
@@ -82,7 +83,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	templateService := service.NewTemplateService(db)
 	chaService := cha.NewService(db)
-	hsCodeService := service.NewHSCodeService(db)
+	hsCodeService := hscode.NewService(db)
 
 	temporalClient, err := temporal.NewClient(cfg.Temporal)
 	if err != nil {
@@ -111,7 +112,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	// preConsignmentService := service.NewPreConsignmentService(db, templateService, wm)
 	// preConsignmentRouter := router.NewPreConsignmentRouter(preConsignmentService)
 
-	hsCodeRouter := router.NewHSCodeRouter(hsCodeService)
+	hsCodeRouter := hscode.NewRouter(hsCodeService)
 	chaHandler := cha.NewHandler(chaService)
 
 	storageDriver, err := uploads.NewStorageFromConfig(ctx, cfg.Storage)
@@ -200,7 +201,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	// alongside these without restructuring the mux.
 	mux.Handle("POST /api/v1/tasks", withAuth(http.HandlerFunc(tmHandler.HandleExecuteTask)))
 	mux.Handle("GET /api/v1/tasks/{id}", withAuth(http.HandlerFunc(tmHandler.HandleGetTask)))
-	mux.Handle("GET /api/v1/hscodes", withAuth(http.HandlerFunc(hsCodeRouter.HandleGetAllHSCodes)))
+	mux.Handle("GET /api/v1/hscodes", withAuth(http.HandlerFunc(hsCodeRouter.HandleGetAll)))
 	mux.Handle("GET /api/v1/chas", withAuth(http.HandlerFunc(chaHandler.HandleGetCHAs)))
 	mux.Handle("POST /api/v1/consignments", withAuth(http.HandlerFunc(consignmentRouter.HandleCreateConsignment)))
 	mux.Handle("GET /api/v1/consignments/{id}", withAuth(http.HandlerFunc(consignmentRouter.HandleGetConsignmentByID)))

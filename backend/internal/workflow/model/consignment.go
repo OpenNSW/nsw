@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 
+	"github.com/OpenNSW/nsw/internal/hscode"
 	"github.com/OpenNSW/nsw/internal/profile/cha"
 )
 
@@ -50,15 +51,7 @@ type ConsignmentItem struct {
 
 // ConsignmentItemResponseDTO represents an individual item in the consignment response.
 type ConsignmentItemResponseDTO struct {
-	HSCode HSCodeResponseDTO `json:"hsCode"` // Full HS Code details
-}
-
-// HSCodeResponseDTO represents HS Code details in the response.
-type HSCodeResponseDTO struct {
-	HSCodeID    string `json:"hsCodeId"`    // HS Code ID
-	HSCode      string `json:"hsCode"`      // HS Code
-	Description string `json:"description"` // Description of the HS Code
-	Category    string `json:"category"`    // Category of the HS Code
+	HSCode hscode.ResponseDTO `json:"hsCode"` // Full HS Code details
 }
 
 // InitializeConsignmentDTO is the request body for PUT /consignments/{id}/initialize (Stage 2 – CHA selects HS Code(s)).
