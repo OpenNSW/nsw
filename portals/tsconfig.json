@@ -1,9 +1,8 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
-      "@lsf/ui": ["ui/src"],
-      "@opennsw/jsonforms-renderers": ["packages/jsonforms-renderers/src"]
+      "@opennsw/ui": ["./packages/ui/src/index.ts"],
+      "@opennsw/jsonforms-renderers": ["./packages/jsonforms-renderers/src/index.ts"]
     }
   },
   "files": [],
