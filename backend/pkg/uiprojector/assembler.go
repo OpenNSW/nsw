@@ -33,14 +33,14 @@ func NewAssembler(tp TemplateProvider, projectors map[string]Projector) *Assembl
 }
 
 // Assemble is the "pure" transformation logic.
-func (a *Assembler) Assemble(ctx context.Context, blueprint *Blueprint, facts Facts) ([]Section, error) {
+func (a *Assembler) Assemble(ctx context.Context, blueprint *Blueprint, facts Facts) (map[string]Section, error) {
 	if blueprint == nil {
 		return nil, fmt.Errorf("assembler: blueprint is nil")
 	}
 
-	sections := make([]Section, 0, len(blueprint.Sections))
+	sections := make(map[string]Section, len(blueprint.Sections))
 
-	for _, sb := range blueprint.Sections {
+	for zone, sb := range blueprint.Sections {
 		// 1. Visibility Check
 		if !ShouldRender(sb, facts) {
 			continue
@@ -72,12 +72,12 @@ func (a *Assembler) Assemble(ctx context.Context, blueprint *Blueprint, facts Fa
 			return nil, fmt.Errorf("assembler: projection failed for section %s: %w", sb.ID, err)
 		}
 
-		sections = append(sections, Section{
+		sections[zone] = Section{
 			ID:      sb.ID,
 			Type:    SectionType(sb.Projector),
 			Title:   sb.Title,
 			Content: content,
-		})
+		}
 	}
 
 	return sections, nil

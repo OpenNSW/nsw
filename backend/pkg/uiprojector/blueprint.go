@@ -2,8 +2,8 @@ package uiprojector
 
 // Blueprint defines the layout and rules for a UI view.
 type Blueprint struct {
-	ID       string             `json:"id"`
-	Sections []SectionBlueprint `json:"sections"`
+	ID       string                      `json:"id"`
+	Sections map[string]SectionBlueprint `json:"sections"`
 }
 
 // SectionBlueprint defines an individual component within a layout.

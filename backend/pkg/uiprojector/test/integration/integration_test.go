@@ -41,15 +41,15 @@ func TestUIProjectorIntegration(t *testing.T) {
 	// 2. Define a Blueprint for a complex view
 	blueprint := &uiprojector.Blueprint{
 		ID: "consignment_review",
-		Sections: []uiprojector.SectionBlueprint{
-			{
+		Sections: map[string]uiprojector.SectionBlueprint{
+			"header": {
 				ID:         "header",
 				Title:      "Consignment Status",
 				TemplateID: "markdown.md",
 				Projector:  "MARKDOWN",
 				DataKey:    "summary",
 			},
-			{
+			"declaration_form": {
 				ID:         "declaration_form",
 				Title:      "Import Declaration",
 				TemplateID: "form.json",
@@ -59,7 +59,7 @@ func TestUIProjectorIntegration(t *testing.T) {
 					States: []string{"INITIALIZED", "IN_PROGRESS"},
 				},
 			},
-			{
+			"approval_note": {
 				ID:         "approval_note",
 				Title:      "Final Approval",
 				TemplateID: "markdown.md",
@@ -92,15 +92,16 @@ func TestUIProjectorIntegration(t *testing.T) {
 
 		// Should have header and declaration form (not approval note)
 		assert.Len(t, sections, 2)
-		assert.Equal(t, "header", sections[0].ID)
-		assert.Equal(t, "declaration_form", sections[1].ID)
+		assert.Contains(t, sections, "header")
+		assert.Contains(t, sections, "declaration_form")
+		assert.NotContains(t, sections, "approval_note")
 
 		// Verify Markdown content
-		assert.Contains(t, sections[0].Content.(string), "Welcome, Trader Joe!")
-		assert.Contains(t, sections[0].Content.(string), "In Progress")
+		assert.Contains(t, sections["header"].Content.(string), "Welcome, Trader Joe!")
+		assert.Contains(t, sections["header"].Content.(string), "In Progress")
 
 		// Verify Form content
-		formContent := sections[1].Content.(uiprojector.FormContent)
+		formContent := sections["declaration_form"].Content.(uiprojector.FormContent)
 		assert.NotNil(t, formContent.Schema)
 		assert.Equal(t, "John Doe", formContent.FormData.(map[string]any)["name"])
 	})
@@ -125,15 +126,16 @@ func TestUIProjectorIntegration(t *testing.T) {
 
 		// Should have header and approval note (not declaration form)
 		assert.Len(t, sections, 2)
-		assert.Equal(t, "header", sections[0].ID)
-		assert.Equal(t, "approval_note", sections[1].ID)
+		assert.Contains(t, sections, "header")
+		assert.Contains(t, sections, "approval_note")
+		assert.NotContains(t, sections, "declaration_form")
 
-		assert.Contains(t, sections[1].Content.(string), "Welcome, Officer Smith!")
+		assert.Contains(t, sections["approval_note"].Content.(string), "Welcome, Officer Smith!")
 	})
 
 	t.Run("DataKey Requirement Validation", func(t *testing.T) {
 		// Add a section that requires a specific data key to be present
-		blueprint.Sections = append(blueprint.Sections, uiprojector.SectionBlueprint{
+		blueprint.Sections["conditional_section"] = uiprojector.SectionBlueprint{
 			ID:         "conditional_section",
 			TemplateID: "markdown.md",
 			Projector:  "MARKDOWN",
@@ -141,7 +143,7 @@ func TestUIProjectorIntegration(t *testing.T) {
 			VisibleWhen: &uiprojector.VisibleWhen{
 				RequireDataKey: "extra_info",
 			},
-		})
+		}
 
 		facts := uiprojector.Facts{
 			State: "IN_PROGRESS",
@@ -154,22 +156,13 @@ func TestUIProjectorIntegration(t *testing.T) {
 		require.NoError(t, err)
 
 		// conditional_section should be missing because extra_info data key is missing
-		for _, s := range sections {
-			assert.NotEqual(t, "conditional_section", s.ID)
-		}
+		assert.NotContains(t, sections, "conditional_section")
 
 		// Now add the data key
 		facts.Data["extra_info"] = map[string]any{"name": "Admin", "status": "Online"}
 		sections, err = assembler.Assemble(ctx, blueprint, facts)
 		require.NoError(t, err)
 
-		found := false
-		for _, s := range sections {
-			if s.ID == "conditional_section" {
-				found = true
-				break
-			}
-		}
-		assert.True(t, found, "conditional_section should be present when DataKey exists")
+		assert.Contains(t, sections, "conditional_section", "conditional_section should be present when DataKey exists")
 	})
 }
