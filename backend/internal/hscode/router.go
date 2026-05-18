@@ -47,7 +47,7 @@ func (h *Router) HandleGetAll(w http.ResponseWriter, r *http.Request) {
 	// Get HS codes from service
 	hsCodes, err := h.service.GetAll(r.Context(), filter)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "failed to retrieve HS Codes", http.StatusInternalServerError)
 		return
 	}
 
