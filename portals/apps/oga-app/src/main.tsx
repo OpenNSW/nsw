@@ -7,6 +7,7 @@ import '@radix-ui/themes/styles.css'
 import './index.css'
 import App from './App.tsx'
 import { getEnv, getRequiredEnv } from './runtimeConfig'
+import { initAppConfig } from './config.ts'
 
 type OgaAsgardeoProviderProps = ComponentProps<typeof AsgardeoProvider> & {
   periodicTokenRefresh?: boolean
@@ -31,23 +32,25 @@ const IDP_SCOPES = rawScopes
   ? rawScopes.split(',').map((scope: string) => scope.trim())
   : ['openid', 'profile', 'email']
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <OgaAsgardeoProvider
-      clientId={CLIENT_ID}
-      baseUrl={IDP_BASE_URL}
-      platform={IDP_PLATFORM}
-      afterSignInUrl={APP_URL}
-      afterSignOutUrl={APP_URL}
-      scopes={IDP_SCOPES}
-      storage="sessionStorage"
-      periodicTokenRefresh
-    >
-      <Theme scaling="110%">
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
-      </Theme>
-    </OgaAsgardeoProvider>
-  </StrictMode>,
-)
+void initAppConfig().then(() => {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <OgaAsgardeoProvider
+        clientId={CLIENT_ID}
+        baseUrl={IDP_BASE_URL}
+        platform={IDP_PLATFORM}
+        afterSignInUrl={APP_URL}
+        afterSignOutUrl={APP_URL}
+        scopes={IDP_SCOPES}
+        storage="sessionStorage"
+        periodicTokenRefresh
+      >
+        <Theme scaling="110%">
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+        </Theme>
+      </OgaAsgardeoProvider>
+    </StrictMode>,
+  )
+})

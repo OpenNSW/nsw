@@ -113,10 +113,10 @@ OGA_NPQS_DB_PATH="${OGA_NPQS_DB_PATH:-./npqs.db}"
 OGA_FCAU_DB_PATH="${OGA_FCAU_DB_PATH:-./fcau.db}"
 OGA_IRD_DB_PATH="${OGA_IRD_DB_PATH:-./ird.db}"
 OGA_CDA_DB_PATH="${OGA_CDA_DB_PATH:-./cda.db}"
-OGA_APP_NPQS_BRANDING_PATH="${OGA_APP_NPQS_BRANDING_PATH:-./src/configs/npqs.yaml}"
-OGA_APP_FCAU_BRANDING_PATH="${OGA_APP_FCAU_BRANDING_PATH:-./src/configs/fcau.yaml}"
-OGA_APP_IRD_BRANDING_PATH="${OGA_APP_IRD_BRANDING_PATH:-./src/configs/ird.yaml}"
-OGA_APP_CDA_BRANDING_PATH="${OGA_APP_CDA_BRANDING_PATH:-./src/configs/cda.yaml}"
+OGA_APP_NPQS_BRANDING="${OGA_APP_NPQS_BRANDING:-npqs}"
+OGA_APP_FCAU_BRANDING="${OGA_APP_FCAU_BRANDING:-fcau}"
+OGA_APP_IRD_BRANDING="${OGA_APP_IRD_BRANDING:-ird}"
+OGA_APP_CDA_BRANDING="${OGA_APP_CDA_BRANDING:-cda}"
 
 OGA_NSW_NPQS_CLIENT_ID="${OGA_NSW_NPQS_CLIENT_ID:-NPQS_TO_NSW}"
 OGA_NSW_FCAU_CLIENT_ID="${OGA_NSW_FCAU_CLIENT_ID:-FCAU_TO_NSW}"
@@ -131,34 +131,40 @@ OGA_NSW_SCOPES="${OGA_NSW_SCOPES:-}"
 OGA_NSW_TOKEN_INSECURE_SKIP_VERIFY="${OGA_NSW_TOKEN_INSECURE_SKIP_VERIFY:-true}"
 
 # OGA instance registry
-# Each row: name | backend_port | db_path | nsw_client_id | nsw_client_secret | app_port | branding_path | idp_client_id | app_name
+# Each row: name | backend_port | db_path | nsw_client_id | nsw_client_secret | app_port | branding_name | idp_client_id | app_name
 OGA_INSTANCES=(
-  "npqs|$OGA_NPQS_PORT|$OGA_NPQS_DB_PATH|$OGA_NSW_NPQS_CLIENT_ID|$OGA_NSW_NPQS_CLIENT_SECRET|$OGA_APP_NPQS_PORT|$OGA_APP_NPQS_BRANDING_PATH|$NPQS_IDP_CLIENT_ID|National Plant Quarantine Service (NPQS)"
-  "fcau|$OGA_FCAU_PORT|$OGA_FCAU_DB_PATH|$OGA_NSW_FCAU_CLIENT_ID|$OGA_NSW_FCAU_CLIENT_SECRET|$OGA_APP_FCAU_PORT|$OGA_APP_FCAU_BRANDING_PATH|$FCAU_IDP_CLIENT_ID|Food Control Administration Unit (FCAU)"
-  "ird|$OGA_IRD_PORT|$OGA_IRD_DB_PATH|$OGA_NSW_IRD_CLIENT_ID|$OGA_NSW_IRD_CLIENT_SECRET|$OGA_APP_IRD_PORT|$OGA_APP_IRD_BRANDING_PATH|$IRD_IDP_CLIENT_ID|Inland Revenue Department (IRD)"
-  "cda|$OGA_CDA_PORT|$OGA_CDA_DB_PATH|$OGA_NSW_CDA_CLIENT_ID|$OGA_NSW_CDA_CLIENT_SECRET|$OGA_APP_CDA_PORT|$OGA_APP_CDA_BRANDING_PATH|$CDA_IDP_CLIENT_ID|Coconut Development Authority (CDA)"
+  "npqs|$OGA_NPQS_PORT|$OGA_NPQS_DB_PATH|$OGA_NSW_NPQS_CLIENT_ID|$OGA_NSW_NPQS_CLIENT_SECRET|$OGA_APP_NPQS_PORT|$OGA_APP_NPQS_BRANDING|$NPQS_IDP_CLIENT_ID|National Plant Quarantine Service (NPQS)"
+  "fcau|$OGA_FCAU_PORT|$OGA_FCAU_DB_PATH|$OGA_NSW_FCAU_CLIENT_ID|$OGA_NSW_FCAU_CLIENT_SECRET|$OGA_APP_FCAU_PORT|$OGA_APP_FCAU_BRANDING|$FCAU_IDP_CLIENT_ID|Food Control Administration Unit (FCAU)"
+  "ird|$OGA_IRD_PORT|$OGA_IRD_DB_PATH|$OGA_NSW_IRD_CLIENT_ID|$OGA_NSW_IRD_CLIENT_SECRET|$OGA_APP_IRD_PORT|$OGA_APP_IRD_BRANDING|$IRD_IDP_CLIENT_ID|Inland Revenue Department (IRD)"
+  "cda|$OGA_CDA_PORT|$OGA_CDA_DB_PATH|$OGA_NSW_CDA_CLIENT_ID|$OGA_NSW_CDA_CLIENT_SECRET|$OGA_APP_CDA_PORT|$OGA_APP_CDA_BRANDING|$CDA_IDP_CLIENT_ID|Coconut Development Authority (CDA)"
 )
 
 ensure_branding_file() {
-  local config_dir="$ROOT_DIR/portals/apps/oga-app/src/configs"
-  local file_name="$1"
+  local branding_name="$1"
   local app_name="$2"
-  local file_path="${config_dir}/${file_name}"
+  local config_dir="$ROOT_DIR/portals/apps/oga-app/public/configs"
+  local file_path="${config_dir}/${branding_name}.branding.json"
   if [[ ! -f "$file_path" ]]; then
     mkdir -p "$config_dir"
     cat >"$file_path" <<EOF
-branding:
-  systemName: "NSW"
-  appName: "${app_name}"
-  logoUrl: ""
-  systemLogoUrl: ""
-  favicon: ""
-  portalName: ""
-  description: ""
-  heroImageUrl: ""
-  partnerLogos:
-    - url: ""
-      alt: ""
+{
+  "branding": {
+    "systemName": "NSW",
+    "appName": "${app_name}",
+    "logoUrl": "",
+    "systemLogoUrl": "",
+    "favicon": "",
+    "portalName": "",
+    "description": "",
+    "heroImageUrl": "",
+    "partnerLogos": [
+      {
+        "url": "",
+        "alt": ""
+      }
+    ]
+  }
+}
 EOF
   fi
 }
@@ -333,7 +339,7 @@ echo "Starting local development services..."
 
 # OGA backends and frontends can start immediately — no Temporal dependency
 for entry in "${OGA_INSTANCES[@]}"; do
-  IFS='|' read -r name port db_path nsw_client_id nsw_client_secret app_port branding_path idp_client_id app_name<<< "$entry"
+  IFS='|' read -r name port db_path nsw_client_id nsw_client_secret app_port branding_name idp_client_id app_name<<< "$entry"
 
   start_service "oga-${name}" "$ROOT_DIR/oga" env \
     OGA_PORT="$port" \
@@ -356,11 +362,11 @@ for entry in "${OGA_INSTANCES[@]}"; do
     OGA_NSW_TOKEN_INSECURE_SKIP_VERIFY="$OGA_NSW_TOKEN_INSECURE_SKIP_VERIFY" \
     go run ./cmd/server
 
-  ensure_branding_file "$name.yaml" "${app_name}"
+  ensure_branding_file "${branding_name}" "${app_name}"
 
   start_service "oga-app-${name}" "$ROOT_DIR/portals/apps/oga-app" env \
     VITE_PORT="$app_port" \
-    VITE_BRANDING_PATH="$branding_path" \
+    VITE_BRANDING_NAME="$branding_name" \
     VITE_API_BASE_URL="http://localhost:${port}" \
     VITE_IDP_BASE_URL="$IDP_PUBLIC_URL" \
     VITE_IDP_CLIENT_ID="$idp_client_id" \

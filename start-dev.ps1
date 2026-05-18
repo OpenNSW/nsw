@@ -109,10 +109,10 @@ $OGA_NPQS_DB_PATH = if ($env:OGA_NPQS_DB_PATH) { $env:OGA_NPQS_DB_PATH } else { 
 $OGA_FCAU_DB_PATH = if ($env:OGA_FCAU_DB_PATH) { $env:OGA_FCAU_DB_PATH } else { "./fcau.db" }
 $OGA_IRD_DB_PATH = if ($env:OGA_IRD_DB_PATH) { $env:OGA_IRD_DB_PATH } else { "./ird.db" }
 $OGA_CDA_DB_PATH = if ($env:OGA_CDA_DB_PATH) { $env:OGA_CDA_DB_PATH } else { "./cda.db" }
-$OGA_APP_NPQS_BRANDING_PATH = if ($env:OGA_APP_NPQS_BRANDING_PATH) { $env:OGA_APP_NPQS_BRANDING_PATH } else { "./src/configs/npqs.yaml" }
-$OGA_APP_FCAU_BRANDING_PATH = if ($env:OGA_APP_FCAU_BRANDING_PATH) { $env:OGA_APP_FCAU_BRANDING_PATH } else { "./src/configs/fcau.yaml" }
-$OGA_APP_IRD_BRANDING_PATH = if ($env:OGA_APP_IRD_BRANDING_PATH) { $env:OGA_APP_IRD_BRANDING_PATH } else { "./src/configs/ird.yaml" }
-$OGA_APP_CDA_BRANDING_PATH = if ($env:OGA_APP_CDA_BRANDING_PATH) { $env:OGA_APP_CDA_BRANDING_PATH } else { "./src/configs/cda.yaml" }
+$OGA_APP_NPQS_BRANDING = if ($env:OGA_APP_NPQS_BRANDING) { $env:OGA_APP_NPQS_BRANDING } else { "npqs" }
+$OGA_APP_FCAU_BRANDING = if ($env:OGA_APP_FCAU_BRANDING) { $env:OGA_APP_FCAU_BRANDING } else { "fcau" }
+$OGA_APP_IRD_BRANDING = if ($env:OGA_APP_IRD_BRANDING) { $env:OGA_APP_IRD_BRANDING } else { "ird" }
+$OGA_APP_CDA_BRANDING = if ($env:OGA_APP_CDA_BRANDING) { $env:OGA_APP_CDA_BRANDING } else { "cda" }
 
 $OGA_NSW_NPQS_CLIENT_ID = if ($env:OGA_NSW_NPQS_CLIENT_ID) { $env:OGA_NSW_NPQS_CLIENT_ID } else { "NPQS_TO_NSW" }
 $OGA_NSW_FCAU_CLIENT_ID = if ($env:OGA_NSW_FCAU_CLIENT_ID) { $env:OGA_NSW_FCAU_CLIENT_ID } else { "FCAU_TO_NSW" }
@@ -128,32 +128,38 @@ $OGA_NSW_TOKEN_INSECURE_SKIP_VERIFY = if ($env:OGA_NSW_TOKEN_INSECURE_SKIP_VERIF
 
 # OGA Registry
 $OGA_INSTANCES = @(
-    @{ Name="npqs"; Port=$OGA_NPQS_PORT; DbPath=$OGA_NPQS_DB_PATH; NswClientId=$OGA_NSW_NPQS_CLIENT_ID; NswClientSecret=$OGA_NSW_NPQS_CLIENT_SECRET; AppPort=$OGA_APP_NPQS_PORT; BrandingPath=$OGA_APP_NPQS_BRANDING_PATH; IdpClientId=$NPQS_IDP_CLIENT_ID; AppName="National Plant Quarantine Service (NPQS)" },
-    @{ Name="fcau"; Port=$OGA_FCAU_PORT; DbPath=$OGA_FCAU_DB_PATH; NswClientId=$OGA_NSW_FCAU_CLIENT_ID; NswClientSecret=$OGA_NSW_FCAU_CLIENT_SECRET; AppPort=$OGA_APP_FCAU_PORT; BrandingPath=$OGA_APP_FCAU_BRANDING_PATH; IdpClientId=$FCAU_IDP_CLIENT_ID; AppName="Food Control Administration Unit (FCAU)" },
-    @{ Name="ird"; Port=$OGA_IRD_PORT; DbPath=$OGA_IRD_DB_PATH; NswClientId=$OGA_NSW_IRD_CLIENT_ID; NswClientSecret=$OGA_NSW_IRD_CLIENT_SECRET; AppPort=$OGA_APP_IRD_PORT; BrandingPath=$OGA_APP_IRD_BRANDING_PATH; IdpClientId=$IRD_IDP_CLIENT_ID; AppName="Inland Revenue Department (IRD)" },
-    @{ Name="cda"; Port=$OGA_CDA_PORT; DbPath=$OGA_CDA_DB_PATH; NswClientId=$OGA_NSW_CDA_CLIENT_ID; NswClientSecret=$OGA_NSW_CDA_CLIENT_SECRET; AppPort=$OGA_APP_CDA_PORT; BrandingPath=$OGA_APP_CDA_BRANDING_PATH; IdpClientId=$CDA_IDP_CLIENT_ID; AppName="Coconut Development Authority (CDA)" }
+    @{ Name="npqs"; Port=$OGA_NPQS_PORT; DbPath=$OGA_NPQS_DB_PATH; NswClientId=$OGA_NSW_NPQS_CLIENT_ID; NswClientSecret=$OGA_NSW_NPQS_CLIENT_SECRET; AppPort=$OGA_APP_NPQS_PORT; BrandingName=$OGA_APP_NPQS_BRANDING; IdpClientId=$NPQS_IDP_CLIENT_ID; AppName="National Plant Quarantine Service (NPQS)" },
+    @{ Name="fcau"; Port=$OGA_FCAU_PORT; DbPath=$OGA_FCAU_DB_PATH; NswClientId=$OGA_NSW_FCAU_CLIENT_ID; NswClientSecret=$OGA_NSW_FCAU_CLIENT_SECRET; AppPort=$OGA_APP_FCAU_PORT; BrandingName=$OGA_APP_FCAU_BRANDING; IdpClientId=$FCAU_IDP_CLIENT_ID; AppName="Food Control Administration Unit (FCAU)" },
+    @{ Name="ird"; Port=$OGA_IRD_PORT; DbPath=$OGA_IRD_DB_PATH; NswClientId=$OGA_NSW_IRD_CLIENT_ID; NswClientSecret=$OGA_NSW_IRD_CLIENT_SECRET; AppPort=$OGA_APP_IRD_PORT; BrandingName=$OGA_APP_IRD_BRANDING; IdpClientId=$IRD_IDP_CLIENT_ID; AppName="Inland Revenue Department (IRD)" },
+    @{ Name="cda"; Port=$OGA_CDA_PORT; DbPath=$OGA_CDA_DB_PATH; NswClientId=$OGA_NSW_CDA_CLIENT_ID; NswClientSecret=$OGA_NSW_CDA_CLIENT_SECRET; AppPort=$OGA_APP_CDA_PORT; BrandingName=$OGA_APP_CDA_BRANDING; IdpClientId=$CDA_IDP_CLIENT_ID; AppName="Coconut Development Authority (CDA)" }
 )
 
-function ensure_branding_file($FileName, $AppName) {
-    $ConfigDir = Join-Path $ROOT_DIR "portals/apps/oga-app/src/configs"
-    $FilePath = Join-Path $ConfigDir $FileName
+function ensure_branding_file($BrandingName, $AppName) {
+    $ConfigDir = Join-Path $ROOT_DIR "portals/apps/oga-app/public/configs"
+    $FilePath = Join-Path $ConfigDir "${BrandingName}.branding.json"
     if (-not (Test-Path $FilePath)) {
         New-Item -ItemType Directory -Path $ConfigDir -Force | Out-Null
         $Content = @"
-branding:
-  systemName: "NSW"
-  appName: "$AppName"
-  logoUrl: ""
-  systemLogoUrl: ""
-  favicon: ""
-  portalName: ""
-  description: ""
-  heroImageUrl: ""
-  partnerLogos:
-    - url: ""
-      alt: ""
+{
+  "branding": {
+    "systemName": "NSW",
+    "appName": "$AppName",
+    "logoUrl": "",
+    "systemLogoUrl": "",
+    "favicon": "",
+    "portalName": "",
+    "description": "",
+    "heroImageUrl": "",
+    "partnerLogos": [
+      {
+        "url": "",
+        "alt": ""
+      }
+    ]
+  }
+}
 "@
-        Set-Content -Path $FilePath -Value $Content
+        Set-Content -Path $FilePath -Value $Content -Encoding utf8
     }
 }
 
@@ -300,7 +306,7 @@ foreach ($Instance in $OGA_INSTANCES) {
     # Small delay to prevent resource contention during Go compilation
     Start-Sleep -Seconds 2
 
-    ensure_branding_file "$($Instance.Name).yaml" "$($Instance.AppName)"
+    ensure_branding_file "$($Instance.BrandingName)" "$($Instance.AppName)"
 
     # For the first OGA instance, wait longer to allow database migrations to finish
     # before starting other instances in parallel to avoid Postgres race conditions.
@@ -311,7 +317,7 @@ foreach ($Instance in $OGA_INSTANCES) {
 
     $OgaAppEnv = @{
         VITE_PORT = $Instance.AppPort
-        VITE_BRANDING_PATH = $Instance.BrandingPath
+        VITE_BRANDING_NAME = $Instance.BrandingName
         VITE_API_BASE_URL = "http://localhost:$($Instance.Port)"
         VITE_IDP_BASE_URL = $IDP_PUBLIC_URL
         VITE_IDP_CLIENT_ID = $Instance.IdpClientId

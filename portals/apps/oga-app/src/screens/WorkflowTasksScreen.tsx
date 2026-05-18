@@ -65,7 +65,9 @@ export function WorkflowTasksScreen() {
       <div className="mb-6">
         <Button
           variant="ghost"
-          onClick={() => navigate('/workflows')}
+          onClick={() => {
+            void navigate('/workflows')
+          }}
           className="mb-4 -ml-2 text-gray-600 hover:text-blue-600"
         >
           <ArrowLeftIcon /> Back to Consignments

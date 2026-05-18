@@ -3,7 +3,9 @@ import { SignedIn, SignedOut, SignInButton, UserDropdown, useAsgardeo } from '@a
 import { appConfig } from '../../config'
 
 export function TopBar() {
-  const { signOut } = useAsgardeo() as any
+  const { signOut } = useAsgardeo() as unknown as {
+    signOut: (options?: unknown, callback?: (url: string) => void) => Promise<unknown>
+  }
 
   const handleSignOut = async () => {
     try {
