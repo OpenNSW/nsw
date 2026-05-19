@@ -12,6 +12,7 @@ func TestGetAuthContext_FromRequest(t *testing.T) {
 		IDPUserID: testUserID,
 		Email:     testEmail,
 		OUID:      testOUID,
+		OUHandle:  testOUHandle,
 		Roles:     []string{"exporter"},
 	}
 	authCtx := &AuthContext{User: uc}
@@ -57,6 +58,7 @@ func TestUserContext_Structure(t *testing.T) {
 		Email:       testEmail,
 		PhoneNumber: testPhone,
 		OUID:        testOUID,
+		OUHandle:    testOUHandle,
 		Roles:       []string{"exporter"},
 	}
 

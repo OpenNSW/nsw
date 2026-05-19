@@ -61,8 +61,8 @@ func TestService_GetUser_Success(t *testing.T) {
 
 	userID := "user-123"
 	idpUserID := "idp-123"
-	rows := sqlmock.NewRows([]string{"id", "idp_user_id", "email", "phone_number", "ou_id", "data", "created_at", "updated_at"}).
-		AddRow(userID, idpUserID, "user@example.com", "+61400111222", "OU-001", []byte(`{}`), now, now)
+	rows := sqlmock.NewRows([]string{"id", "idp_user_id", "email", "phone_number", "ou_id", "ou_handle", "data", "created_at", "updated_at"}).
+		AddRow(userID, idpUserID, "user@example.com", "+61400111222", "OU-001", "ou-001", []byte(`{}`), now, now)
 
 	mock.ExpectQuery(`SELECT .* FROM "user_records" WHERE id = \$1`).
 		WithArgs(userID, 1).
@@ -84,7 +84,7 @@ func TestService_GetUser_Success(t *testing.T) {
 
 func TestService_GetOrCreateUser_InvalidID(t *testing.T) {
 	svc := NewService(nil)
-	if _, err := svc.GetOrCreateUser("", "user@example.com", "+61400111222", "OU-001"); !errors.Is(err, ErrInvalidUserID) {
+	if _, err := svc.GetOrCreateUser("", "user@example.com", "+61400111222", "OU-001", "ou-001"); !errors.Is(err, ErrInvalidUserID) {
 		t.Fatalf("expected ErrInvalidUserID, got %v", err)
 	}
 }
@@ -93,13 +93,13 @@ func TestService_GetOrCreateUser_AlreadyExists(t *testing.T) {
 	db, mock := setupTestDB(t)
 	svc := NewService(db)
 
-	rows := sqlmock.NewRows([]string{"id", "idp_user_id", "email", "phone_number", "ou_id", "data", "created_at", "updated_at"}).
-		AddRow("user-123", "idp-123", "user@example.com", "+61400111222", "OU-001", []byte(`{}`), now, now)
+	rows := sqlmock.NewRows([]string{"id", "idp_user_id", "email", "phone_number", "ou_id", "ou_handle", "data", "created_at", "updated_at"}).
+		AddRow("user-123", "idp-123", "user@example.com", "+61400111222", "OU-001", "ou-001", []byte(`{}`), now, now)
 	mock.ExpectQuery(`SELECT .* FROM "user_records" WHERE idp_user_id = \$1`).
 		WithArgs("idp-123", 1).
 		WillReturnRows(rows)
 
-	userID, err := svc.GetOrCreateUser("idp-123", "user@example.com", "+61400111222", "OU-001")
+	userID, err := svc.GetOrCreateUser("idp-123", "user@example.com", "+61400111222", "OU-001", "ou-001")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -119,7 +119,7 @@ func TestService_GetOrCreateUser_ExistsCheckDBError(t *testing.T) {
 		WithArgs("idp-123", 1).
 		WillReturnError(errors.New("query failed"))
 
-	_, err := svc.GetOrCreateUser("idp-123", "user@example.com", "+61400111222", "OU-001")
+	_, err := svc.GetOrCreateUser("idp-123", "user@example.com", "+61400111222", "OU-001", "ou-001")
 	if err == nil || !strings.Contains(err.Error(), "database query failed") {
 		t.Fatalf("expected wrapped DB error, got %v", err)
 	}
@@ -136,6 +136,7 @@ func TestService_GetOrCreateUser_Success(t *testing.T) {
 	email := "user@example.com"
 	phone := "+61400111222"
 	ouID := "OU-001"
+	ouHandle := "ou-001"
 
 	mock.ExpectQuery(`SELECT .* FROM "user_records" WHERE idp_user_id = \$1`).
 		WithArgs(idpUserID, 1).
@@ -143,11 +144,11 @@ func TestService_GetOrCreateUser_Success(t *testing.T) {
 
 	mock.ExpectBegin()
 	mock.ExpectExec(`INSERT INTO "user_records"`).
-		WithArgs(sqlmock.AnyArg(), idpUserID, email, phone, ouID, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), idpUserID, email, phone, ouID, ouHandle, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
-	userID, err := svc.GetOrCreateUser(idpUserID, email, phone, ouID)
+	userID, err := svc.GetOrCreateUser(idpUserID, email, phone, ouID, ouHandle)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -169,11 +170,11 @@ func TestService_GetOrCreateUser_DBError(t *testing.T) {
 
 	mock.ExpectBegin()
 	mock.ExpectExec(`INSERT INTO "user_records"`).
-		WithArgs(sqlmock.AnyArg(), "idp-123", "user@example.com", "+61400111222", "OU-001", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), "idp-123", "user@example.com", "+61400111222", "OU-001", "ou-001", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnError(errors.New("insert failed"))
 	mock.ExpectRollback()
 
-	if _, err := svc.GetOrCreateUser("idp-123", "user@example.com", "+61400111222", "OU-001"); err == nil {
+	if _, err := svc.GetOrCreateUser("idp-123", "user@example.com", "+61400111222", "OU-001", "ou-001"); err == nil {
 		t.Fatalf("expected error, got nil")
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -191,17 +192,17 @@ func TestService_GetOrCreateUser_DuplicateInsertReturnsExisting(t *testing.T) {
 
 	mock.ExpectBegin()
 	mock.ExpectExec(`INSERT INTO "user_records"`).
-		WithArgs(sqlmock.AnyArg(), "idp-123", "user@example.com", "+61400111222", "OU-001", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), "idp-123", "user@example.com", "+61400111222", "OU-001", "ou-001", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 0))
 	mock.ExpectCommit()
 
-	rows := sqlmock.NewRows([]string{"id", "idp_user_id", "email", "phone_number", "ou_id", "data", "created_at", "updated_at"}).
-		AddRow("user-123", "idp-123", "user@example.com", "+61400111222", "OU-001", []byte(`{}`), now, now)
+	rows := sqlmock.NewRows([]string{"id", "idp_user_id", "email", "phone_number", "ou_id", "ou_handle", "data", "created_at", "updated_at"}).
+		AddRow("user-123", "idp-123", "user@example.com", "+61400111222", "OU-001", "ou-001", []byte(`{}`), now, now)
 	mock.ExpectQuery(`SELECT .* FROM "user_records" WHERE idp_user_id = \$1`).
 		WithArgs("idp-123", 1).
 		WillReturnRows(rows)
 
-	userID, err := svc.GetOrCreateUser("idp-123", "user@example.com", "+61400111222", "OU-001")
+	userID, err := svc.GetOrCreateUser("idp-123", "user@example.com", "+61400111222", "OU-001", "ou-001")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

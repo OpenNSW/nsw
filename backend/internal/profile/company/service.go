@@ -20,10 +20,6 @@ type Service interface {
 	// Returns ErrCompanyNotFound if no record exists.
 	GetCompanyByOUHandle(ctx context.Context, ouHandle string) (*Record, error)
 
-	// GetCompanyByOUId retrieves a company record by its IdP organisational unit ID.
-	// Returns ErrCompanyNotFound if no record exists.
-	GetCompanyByOUId(ctx context.Context, ouId string) (*Record, error)
-
 	// UpdateCompany performs an append-only merge of data into the company's Data field.
 	// New keys are added and existing keys are replaced only when explicitly provided.
 	// Keys absent from data are never removed.
@@ -66,10 +62,6 @@ func (s *service) GetCompanyByID(ctx context.Context, id string) (*Record, error
 
 func (s *service) GetCompanyByOUHandle(ctx context.Context, ouHandle string) (*Record, error) {
 	return s.getByField(ctx, "ou_handle", ouHandle)
-}
-
-func (s *service) GetCompanyByOUId(ctx context.Context, ouId string) (*Record, error) {
-	return s.getByField(ctx, "ou_id", ouId)
 }
 
 func (s *service) UpdateCompany(ctx context.Context, id string, data map[string]any) error {

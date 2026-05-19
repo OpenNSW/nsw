@@ -13,6 +13,7 @@ type Record struct {
 	Email       string          `gorm:"type:varchar(255);column:email" json:"email"`
 	PhoneNumber string          `gorm:"type:varchar(20);column:phone_number" json:"phoneNumber"`
 	OUID        string          `gorm:"type:varchar(255);column:ou_id" json:"ouId"`
+	OUHandle    string          `gorm:"type:varchar(255);column:ou_handle;not null" json:"ouHandle"`
 	Data        json.RawMessage `gorm:"type:jsonb;column:data" json:"data"`
 	CreatedAt   time.Time       `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
 	UpdatedAt   time.Time       `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
