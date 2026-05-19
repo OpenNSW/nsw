@@ -1,4 +1,4 @@
-package uploads
+package storage
 
 import (
 	"bytes"
@@ -13,15 +13,15 @@ import (
 	"time"
 
 	"github.com/OpenNSW/nsw/internal/auth"
-	"github.com/OpenNSW/nsw/internal/uploads/drivers"
+	"github.com/OpenNSW/nsw/pkg/storage/drivers"
 )
 
 // ... existing code ...
 
 func TestDownloadContent_LocalDriver_Success(t *testing.T) {
 	tempDir := t.TempDir()
-	driver, _ := drivers.NewLocalFSDriver(tempDir, "/api/v1/uploads", "local-dev-secret", 15*time.Minute)
-	service := NewUploadService(driver)
+	driver, _ := drivers.NewLocalFSDriver(tempDir, "/api/v1/storage", "local-dev-secret", 15*time.Minute)
+	service := NewService(driver)
 	handler := NewHTTPHandler(service)
 
 	ctx := context.Background()
@@ -68,7 +68,7 @@ func withAuthContext(ctx context.Context, ac *auth.AuthContext) context.Context 
 }
 
 func TestDownload_MissingKey(t *testing.T) {
-	handler := NewHTTPHandler(NewUploadService(&MockDriver{}))
+	handler := NewHTTPHandler(NewService(&MockDriver{}))
 
 	req := httptest.NewRequest(http.MethodGet, "/files/", nil)
 	// Auth present, but no path value for "key".
@@ -87,7 +87,7 @@ func TestDownload_MissingKey(t *testing.T) {
 
 func TestDownload_Success(t *testing.T) {
 	mock := &MockDriver{}
-	handler := NewHTTPHandler(NewUploadService(mock))
+	handler := NewHTTPHandler(NewService(mock))
 
 	// Build request with auth context and path value.
 	mux := http.NewServeMux()
@@ -128,7 +128,7 @@ func TestDownload_GenerateURLError(t *testing.T) {
 	mock := &MockDriver{
 		GenerateURLErr: errors.New("presign failure"),
 	}
-	handler := NewHTTPHandler(NewUploadService(mock))
+	handler := NewHTTPHandler(NewService(mock))
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /files/{key}", handler.Download)
@@ -153,7 +153,7 @@ func TestDownload_GenerateURLError(t *testing.T) {
 }
 
 func TestDownload_InvalidKeyFormat(t *testing.T) {
-	handler := NewHTTPHandler(NewUploadService(&MockDriver{}))
+	handler := NewHTTPHandler(NewService(&MockDriver{}))
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /files/{key}", handler.Download)
@@ -174,7 +174,7 @@ func TestDownload_InvalidKeyFormat(t *testing.T) {
 }
 
 func TestUpload_Unauthorized(t *testing.T) {
-	handler := NewHTTPHandler(NewUploadService(&MockDriver{}))
+	handler := NewHTTPHandler(NewService(&MockDriver{}))
 
 	body := map[string]any{
 		"filename":  "test.pdf",
@@ -196,7 +196,7 @@ func TestUpload_Unauthorized(t *testing.T) {
 
 func TestUpload_Success(t *testing.T) {
 	mock := &MockDriver{}
-	handler := NewHTTPHandler(NewUploadService(mock))
+	handler := NewHTTPHandler(NewService(mock))
 
 	body := map[string]any{
 		"filename":  "test.pdf",
@@ -234,8 +234,8 @@ func TestUpload_Success(t *testing.T) {
 
 func TestUploadContentLocal_Success(t *testing.T) {
 	tempDir := t.TempDir()
-	driver, _ := drivers.NewLocalFSDriver(tempDir, "/api/v1/uploads", "local-dev-secret", 15*time.Minute)
-	service := NewUploadService(driver)
+	driver, _ := drivers.NewLocalFSDriver(tempDir, "/api/v1/storage", "local-dev-secret", 15*time.Minute)
+	service := NewService(driver)
 	handler := NewHTTPHandler(service)
 
 	key := "550e8400-e29b-41d4-a716-446655440000.pdf"
@@ -282,9 +282,9 @@ func TestUploadContentLocal_Success(t *testing.T) {
 }
 
 func TestDelete_Unauthorized(t *testing.T) {
-	handler := NewHTTPHandler(NewUploadService(&MockDriver{}))
+	handler := NewHTTPHandler(NewService(&MockDriver{}))
 
-	req := httptest.NewRequest(http.MethodDelete, "/uploads/550e8400-e29b-41d4-a716-446655440000.pdf", nil)
+	req := httptest.NewRequest(http.MethodDelete, "/storage/550e8400-e29b-41d4-a716-446655440000.pdf", nil)
 	req.SetPathValue("key", "550e8400-e29b-41d4-a716-446655440000.pdf")
 	rec := httptest.NewRecorder()
 
@@ -297,9 +297,9 @@ func TestDelete_Unauthorized(t *testing.T) {
 
 func TestDownloadContent_NonLocalDriver_NotFound(t *testing.T) {
 	// For non-local drivers, DownloadContent should be disabled and return 404
-	handler := NewHTTPHandler(NewUploadService(&MockDriver{}))
+	handler := NewHTTPHandler(NewService(&MockDriver{}))
 
-	req := httptest.NewRequest(http.MethodGet, "/uploads/550e8400-e29b-41d4-a716-446655440000.pdf/content", nil)
+	req := httptest.NewRequest(http.MethodGet, "/storage/550e8400-e29b-41d4-a716-446655440000.pdf/content", nil)
 	req.SetPathValue("key", "550e8400-e29b-41d4-a716-446655440000.pdf")
 	rec := httptest.NewRecorder()
 

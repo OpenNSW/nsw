@@ -11,7 +11,7 @@ import { LoginScreen } from './screens/LoginScreen'
 import { ApiProvider } from './services/ApiProvider'
 import { useApi } from './services/useApi'
 import { UploadProvider } from '@opennsw/jsonforms-renderers'
-import { uploadFile, getDownloadUrl } from './services/upload'
+import { uploadFile, getDownloadUrl } from './services/storage'
 
 function UploadWrapper({ children }: { children: ReactNode }) {
   const api = useApi()

@@ -1,0 +1,403 @@
+openapi: 3.0.3
+info:
+  title: OpenNSW File Storage API
+  version: 1.0.0
+  description: >
+    API specification for managing file storage in the OpenNSW system.
+    Supports uploading, downloading, and deleting files for temporary storage
+    before form submission or consignment creation.
+  contact:
+    name: OpenNSW Team
+  license:
+    name: MIT
+
+servers:
+  - url: "http://localhost:8080/api/v1"
+    description: Development server (local)
+
+paths:
+  /storage:
+    post:
+      summary: Upload File
+      description: >
+        Initiate a file upload to temporary storage. Returns metadata including a unique key
+        and a presigned URL to PUT the file contents directly to storage.
+        Files should be deleted if the associated form is not submitted or saved.
+      operationId: uploadFile
+      tags:
+        - Storage
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - filename
+                - mime_type
+                - size
+              properties:
+                filename:
+                  type: string
+                  description: The original filename
+                  example: "document.pdf"
+                mime_type:
+                  type: string
+                  description: The MIME type of the file
+                  example: "application/pdf"
+                size:
+                  type: integer
+                  format: int64
+                  description: The file size in bytes
+                  example: 1024000
+      responses:
+        "200":
+          description: Upload metadata returned successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileMetadata"
+              example:
+                id: "550e8400-e29b-41d4-a716-446655440000"
+                name: "document.pdf"
+                key: "550e8400-e29b-41d4-a716-446655440000.pdf"
+                upload_url: "/api/v1/storage/550e8400-e29b-41d4-a716-446655440000.pdf/content?token=...&expiresAt=..."
+                size: 1024000
+                mime_type: "application/pdf"
+        "400":
+          description: Bad request — missing or invalid fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "filename is required"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Unauthorized"
+        "415":
+          description: Unsupported Media Type — file type not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "invalid or prohibited file type"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "failed to prepare upload"
+
+  /storage/{key}:
+    get:
+      summary: Get File Download URL
+      description: >
+        Returns a presigned or time-limited URL to securely download the file content.
+        In S3 mode this is a presigned S3 URL. In local development mode this is a
+        signed URL pointing to the local content endpoint.
+      operationId: getDownloadUrl
+      tags:
+        - Storage
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: key
+          in: path
+          description: Unique file key returned from upload (UUID or UUID.ext)
+          required: true
+          schema:
+            type: string
+          example: "550e8400-e29b-41d4-a716-446655440000.pdf"
+      responses:
+        "200":
+          description: Download URL generated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - download_url
+                  - expires_at
+                properties:
+                  download_url:
+                    type: string
+                    description: Presigned or signed URL to download the file
+                    example: "/api/v1/storage/550e8400-e29b-41d4-a716-446655440000.pdf/content?token=12345&expiresAt=123"
+                  expires_at:
+                    type: integer
+                    description: Unix timestamp when the link expires
+                    example: 1713256000
+        "400":
+          description: Bad request — key is missing or has an invalid format
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "invalid key format"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "failed to generate access"
+
+    delete:
+      summary: Delete File
+      description: >
+        Delete a previously uploaded file by its unique key.
+        Call this when a form is abandoned or a draft is discarded to clean up
+        temporary storage. Returns 204 No Content on success.
+      operationId: deleteFile
+      tags:
+        - Storage
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: key
+          in: path
+          description: Unique file key returned from upload
+          required: true
+          schema:
+            type: string
+          example: "550e8400-e29b-41d4-a716-446655440000.pdf"
+      responses:
+        "204":
+          description: File deleted successfully
+        "400":
+          description: Bad request — key is missing or has an invalid format
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "invalid key format"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Unauthorized"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "failed to delete file"
+
+  /storage/{key}/content:
+    put:
+      summary: Upload File Content (Local Dev Only)
+      description: >
+        Accepts the raw file body for a previously initiated upload. This endpoint
+        acts as a local mock for S3 presigned PUT URLs and is only registered when
+        the backend is running with `STORAGE_TYPE=local`. In production, clients PUT
+        directly to the S3 presigned URL returned by `POST /storage`.
+      operationId: uploadFileContent
+      tags:
+        - Storage (Local Dev)
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "550e8400-e29b-41d4-a716-446655440000.pdf"
+        - name: token
+          in: query
+          required: true
+          description: HMAC security token
+          schema:
+            type: string
+        - name: expiresAt
+          in: query
+          required: true
+          description: Unix timestamp expiry of the token
+          schema:
+            type: integer
+        - name: contentType
+          in: query
+          required: true
+          description: Expected Content-Type of the uploaded file
+          schema:
+            type: string
+        - name: maxSizeBytes
+          in: query
+          required: true
+          description: Maximum allowed file size in bytes
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "204":
+          description: File content saved successfully
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid or missing security token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Upload link expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "413":
+          description: File size exceeds specified limit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "415":
+          description: Content-Type mismatch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    get:
+      summary: Download File Content (Local Dev Only)
+      description: >
+        Streams the raw file body for a given key. This endpoint acts as a local mock
+        for S3 presigned GET URLs and is only registered when `STORAGE_TYPE=local`.
+        In production, clients fetch directly from the S3 presigned URL returned by
+        `GET /storage/{key}`.
+      operationId: downloadFileContent
+      tags:
+        - Storage (Local Dev)
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "550e8400-e29b-41d4-a716-446655440000.pdf"
+        - name: token
+          in: query
+          required: true
+          description: HMAC download token
+          schema:
+            type: string
+        - name: expiresAt
+          in: query
+          required: true
+          description: Unix timestamp expiry of the token
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: File content streamed successfully
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid or missing security token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Download link expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    FileMetadata:
+      type: object
+      required:
+        - id
+        - name
+        - key
+        - size
+        - mime_type
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the file
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        name:
+          type: string
+          description: Original filename
+          example: "document.pdf"
+        key:
+          type: string
+          description: Unique storage key (UUID + extension)
+          example: "550e8400-e29b-41d4-a716-446655440000.pdf"
+        upload_url:
+          type: string
+          description: Presigned or signed URL for uploading the file content
+          example: "/api/v1/storage/550e8400-e29b-41d4-a716-446655440000.pdf/content?token=...&expiresAt=..."
+        size:
+          type: integer
+          format: int64
+          description: File size in bytes
+          example: 1024000
+        mime_type:
+          type: string
+          description: MIME type of the file
+          example: "application/pdf"
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "file not found"
+
+tags:
+  - name: Storage
+    description: File storage operations — upload, download, and deletion
+  - name: Storage (Local Dev)
+    description: Local-only mock endpoints that replace S3 presigned URLs during development

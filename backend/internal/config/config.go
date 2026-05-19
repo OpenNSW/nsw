@@ -11,8 +11,8 @@ import (
 	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/database"
 	"github.com/OpenNSW/nsw/internal/temporal"
-	"github.com/OpenNSW/nsw/internal/uploads"
 	"github.com/OpenNSW/nsw/internal/validation"
+	"github.com/OpenNSW/nsw/pkg/storage"
 )
 
 // Config holds all configuration for the application
@@ -20,7 +20,7 @@ type Config struct {
 	Database     database.Config
 	Server       ServerConfig
 	CORS         CORSConfig
-	Storage      uploads.Config
+	Storage      storage.Config
 	Auth         auth.Config
 	Notification NotificationConfig
 	Temporal     temporal.Config
@@ -83,7 +83,7 @@ func Load() (*Config, error) {
 			AllowCredentials: getBoolOrDefault("CORS_ALLOW_CREDENTIALS", true),
 			MaxAge:           getIntEnvOrDefault("CORS_MAX_AGE", 3600),
 		},
-		Storage: uploads.Config{
+		Storage: storage.Config{
 			Type:           getEnvOrDefault("STORAGE_TYPE", "local"),
 			LocalBaseDir:   getEnvOrDefault("STORAGE_LOCAL_BASE_DIR", "./bucket"),
 			LocalPublicURL: getEnvOrDefault("STORAGE_LOCAL_PUBLIC_URL", getEnvOrDefault("SERVICE_URL", fmt.Sprintf("http://localhost:%d", serverPort))),

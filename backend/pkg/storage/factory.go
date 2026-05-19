@@ -1,4 +1,4 @@
-package uploads
+package storage
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 
-	"github.com/OpenNSW/nsw/internal/uploads/drivers"
+	"github.com/OpenNSW/nsw/pkg/storage/drivers"
 )
 
 // NewStorageFromConfig creates a storage instance based on the provided configuration.

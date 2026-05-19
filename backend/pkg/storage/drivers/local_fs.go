@@ -32,7 +32,7 @@ type LocalFSDriver struct {
 
 // NewLocalFSDriver creates a new LocalFSDriver.
 // baseDir is where files will be stored.
-// publicURL is the base URL used to generate public links (e.g., /api/uploads).
+// publicURL is the base URL used to generate public links (e.g., /api/storage).
 // secretKey is the secret used for HMAC signing of local-put upload URLs.
 // presignTTL is the default time-to-live for presigned URLs.
 func NewLocalFSDriver(baseDir, publicURL, secretKey string, presignTTL time.Duration) (*LocalFSDriver, error) {
@@ -158,7 +158,7 @@ func (d *LocalFSDriver) GetDownloadURL(_ context.Context, key string) (string, e
 	v.Set("token", token)
 	v.Set("expiresAt", strconv.FormatInt(expiresAt, 10))
 
-	return fmt.Sprintf("%s/api/v1/uploads/%s/content?%s", d.PublicURL, key, v.Encode()), nil
+	return fmt.Sprintf("%s/api/v1/storage/%s/content?%s", d.PublicURL, key, v.Encode()), nil
 }
 
 // VerifyDownloadToken checks if a provided download token is valid and not expired.
@@ -186,7 +186,7 @@ func (d *LocalFSDriver) GetUploadURL(_ context.Context, key string, contentType 
 	v.Set("contentType", contentType)
 	v.Set("maxSizeBytes", strconv.FormatInt(maxSizeBytes, 10))
 
-	return fmt.Sprintf("%s/api/v1/uploads/%s/content?%s",
+	return fmt.Sprintf("%s/api/v1/storage/%s/content?%s",
 		d.PublicURL, key, v.Encode()), nil
 }
 

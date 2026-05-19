@@ -18,11 +18,11 @@ import (
 	taskmanager "github.com/OpenNSW/nsw/internal/task/manager"
 	"github.com/OpenNSW/nsw/internal/task/plugin"
 	"github.com/OpenNSW/nsw/internal/temporal"
-	"github.com/OpenNSW/nsw/internal/uploads"
-	"github.com/OpenNSW/nsw/internal/uploads/drivers"
 	"github.com/OpenNSW/nsw/internal/workflow/router"
 	workflowruntime "github.com/OpenNSW/nsw/internal/workflow/runtime"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
+	"github.com/OpenNSW/nsw/pkg/storage"
+	"github.com/OpenNSW/nsw/pkg/storage/drivers"
 
 	"github.com/OpenNSW/nsw/pkg/notification"
 	"github.com/OpenNSW/nsw/pkg/notification/channels"
@@ -115,15 +115,15 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	hsCodeRouter := hscode.NewRouter(hsCodeService)
 	chaHandler := cha.NewHandler(chaService)
 
-	storageDriver, err := uploads.NewStorageFromConfig(ctx, cfg.Storage)
+	storageDriver, err := storage.NewStorageFromConfig(ctx, cfg.Storage)
 	if err != nil {
 		_ = workflowRuntime.Close()
 		temporalClient.Close()
 		_ = database.Close(db)
 		return nil, fmt.Errorf("failed to initialize storage: %w", err)
 	}
-	uploadService := uploads.NewUploadService(storageDriver)
-	uploadHandler := uploads.NewHTTPHandler(uploadService)
+	storageService := storage.NewService(storageDriver)
+	storageHandler := storage.NewHTTPHandler(storageService)
 
 	paymentHandler := payments.NewHTTPHandler(paymentService)
 
@@ -211,9 +211,9 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	// mux.Handle("POST /api/v1/pre-consignments", withAuth(http.HandlerFunc(preConsignmentRouter.HandleCreatePreConsignment)))
 	// mux.Handle("GET /api/v1/pre-consignments/{preConsignmentId}", withAuth(http.HandlerFunc(preConsignmentRouter.HandleGetPreConsignmentByID)))
 	// mux.Handle("GET /api/v1/pre-consignments", withAuth(http.HandlerFunc(preConsignmentRouter.HandleGetTraderPreConsignments)))
-	mux.Handle("POST /api/v1/uploads", withAuth(http.HandlerFunc(uploadHandler.Upload)))
-	mux.Handle("GET /api/v1/uploads/{key}", withAuth(http.HandlerFunc(uploadHandler.Download)))
-	mux.Handle("DELETE /api/v1/uploads/{key}", withAuth(http.HandlerFunc(uploadHandler.Delete)))
+	mux.Handle("POST /api/v1/storage", withAuth(http.HandlerFunc(storageHandler.Upload)))
+	mux.Handle("GET /api/v1/storage/{key}", withAuth(http.HandlerFunc(storageHandler.Download)))
+	mux.Handle("DELETE /api/v1/storage/{key}", withAuth(http.HandlerFunc(storageHandler.Delete)))
 
 	// External Webhooks bypass standard JWT auth.
 	// They should use webhook signatures, implemented in the handler directly or via specialized middleware.
@@ -222,8 +222,8 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	// When using local storage, these endpoints serve as mocks for S3.
 	if _, ok := storageDriver.(*drivers.LocalFSDriver); ok {
-		mux.HandleFunc("PUT /api/v1/uploads/{key}/content", uploadHandler.UploadContentLocal)
-		mux.HandleFunc("GET /api/v1/uploads/{key}/content", uploadHandler.DownloadContent)
+		mux.HandleFunc("PUT /api/v1/storage/{key}/content", storageHandler.UploadContentLocal)
+		mux.HandleFunc("GET /api/v1/storage/{key}/content", storageHandler.DownloadContent)
 	}
 
 	handler := middleware.CORS(&cfg.CORS)(mux)

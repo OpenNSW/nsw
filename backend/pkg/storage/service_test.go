@@ -1,4 +1,4 @@
-package uploads
+package storage
 
 import (
 	"bytes"
@@ -53,7 +53,7 @@ func (m *MockDriver) GetUploadURL(ctx context.Context, key string, contentType s
 
 func TestUploadService(t *testing.T) {
 	mock := &MockDriver{}
-	service := NewUploadService(mock)
+	service := NewService(mock)
 
 	ctx := context.Background()
 	filename := "test.jpg"
@@ -81,7 +81,7 @@ func TestUploadService_Download(t *testing.T) {
 	mock := &MockDriver{
 		SavedBody: []byte("test content"),
 	}
-	service := NewUploadService(mock)
+	service := NewService(mock)
 
 	ctx := context.Background()
 	reader, contentType, err := service.Download(ctx, "test-key")
@@ -102,7 +102,7 @@ func TestUploadService_Download(t *testing.T) {
 
 func TestUploadService_GetDownloadURL_Success(t *testing.T) {
 	mock := &MockDriver{}
-	service := NewUploadService(mock)
+	service := NewService(mock)
 
 	ctx := context.Background()
 	const key = "test-key"
@@ -120,7 +120,7 @@ func TestUploadService_GetDownloadURL_Success(t *testing.T) {
 func TestUploadService_GetDownloadURL_Error(t *testing.T) {
 	expectedErr := io.ErrUnexpectedEOF
 	mock := &MockDriver{GenerateURLErr: expectedErr}
-	service := NewUploadService(mock)
+	service := NewService(mock)
 
 	_, err := service.GetDownloadURL(context.Background(), "test-key")
 	if err == nil {
