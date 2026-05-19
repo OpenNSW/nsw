@@ -202,35 +202,21 @@ func (s *Service) initializePreConsignmentInTx(
 		return nil, fmt.Errorf("failed to get workflow template %s: %w", pcTemplate.WorkflowTemplateID, err)
 	}
 
-	// Begin transaction
-	tx := s.db.WithContext(ctx).Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
-	// Create pre-consignment record
 	pc := &PreConsignment{
 		TraderID:                 traderId,
 		PreConsignmentTemplateID: createReq.PreConsignmentTemplateID,
 		State:                    StateInProgress,
 	}
-	if err := tx.Create(pc).Error; err != nil {
-		tx.Rollback()
-		return nil, fmt.Errorf("failed to create pre-consignment: %w", err)
-	}
-
-	// Register workflow with the manager (creates Workflow entity + nodes + registers with TM)
-	if err := s.workflowManager.StartWorkflowInstance(ctx, tx, pc.ID, []model.WorkflowTemplate{*workflowTemplate}, initialTraderContext, s); err != nil {
-		tx.Rollback()
-		return nil, fmt.Errorf("failed to register workflow: %w", err)
-	}
-
-	// Commit transaction
-	if err := tx.Commit().Error; err != nil {
-		tx.Rollback()
-		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(pc).Error; err != nil {
+			return fmt.Errorf("failed to create pre-consignment: %w", err)
+		}
+		if err := s.workflowManager.StartWorkflowInstance(ctx, tx, pc.ID, []model.WorkflowTemplate{*workflowTemplate}, initialTraderContext, s); err != nil {
+			return fmt.Errorf("failed to register workflow: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 
 	// Reload pre-consignment with template for response
@@ -255,6 +241,9 @@ func (s *Service) GetPreConsignmentsByTraderID(ctx context.Context, traderID str
 	var preConsignments []PreConsignment
 	result := s.db.WithContext(ctx).
 		Preload("PreConsignmentTemplate").
+		Preload("Workflow").
+		Preload("Workflow.WorkflowNodes").
+		Preload("Workflow.WorkflowNodes.WorkflowNodeTemplate").
 		Where("trader_id = ? AND state != ?", traderID, StateLocked).
 		Find(&preConsignments)
 	if result.Error != nil {
@@ -267,12 +256,7 @@ func (s *Service) GetPreConsignmentsByTraderID(ctx context.Context, traderID str
 
 	responseDTOs := make([]ResponseDTO, 0, len(preConsignments))
 	for i := range preConsignments {
-		// Get workflow details for each pre-consignment
-		wf, err := s.workflowManager.GetWorkflowInstance(ctx, preConsignments[i].ID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get workflow details for pre-consignment %s: %w", preConsignments[i].ID, err)
-		}
-		responseDTO := s.buildPreConsignmentResponseDTO(&preConsignments[i], wf)
+		responseDTO := s.buildPreConsignmentResponseDTO(&preConsignments[i], preConsignments[i].Workflow)
 		responseDTOs = append(responseDTOs, *responseDTO)
 	}
 
@@ -323,7 +307,7 @@ func (s *Service) buildPreConsignmentResponseDTO(pc *PreConsignment, workflow *m
 					Description: node.WorkflowNodeTemplate.Description,
 					Type:        string(node.WorkflowNodeTemplate.Type),
 				},
-				State:         model.WorkflowNodeState(node.State),
+				State:         node.State,
 				ExtendedState: node.ExtendedState,
 				Outcome:       node.Outcome,
 				DependsOn:     node.DependsOn,

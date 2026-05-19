@@ -228,8 +228,10 @@ func TestPreConsignmentService_GetPreConsignmentsByTraderID(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		pcID := uuid.NewString()
 		templateID := uuid.NewString()
+		nodeID := uuid.NewString()
 		nodeTemplateID := uuid.NewString()
 
+		sqlMock.MatchExpectationsInOrder(false)
 		sqlMock.ExpectQuery(`SELECT \* FROM "pre_consignments" WHERE trader_id = \$1 AND state != \$2`).
 			WithArgs(traderID, StateLocked).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "trader_id", "state", "pre_consignment_template_id"}).
@@ -239,28 +241,26 @@ func TestPreConsignmentService_GetPreConsignmentsByTraderID(t *testing.T) {
 			WithArgs(templateID).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "name"}).AddRow(templateID, "Test PC Template"))
 
-		mockWM.On("GetWorkflowInstance", ctx, pcID).Return(&model.Workflow{
-			BaseModel: model.BaseModel{ID: pcID},
-			Status:    model.WorkflowStatusInProgress,
-			WorkflowNodes: []model.WorkflowNode{
-				{
-					BaseModel:              model.BaseModel{ID: uuid.NewString()},
-					WorkflowNodeTemplateID: nodeTemplateID,
-					State:                  model.WorkflowNodeStateReady,
-					WorkflowNodeTemplate: model.WorkflowNodeTemplate{
-						BaseModel: model.BaseModel{ID: nodeTemplateID},
-						Name:      "Node",
-						Type:      "SIMPLE_FORM",
-					},
-				},
-			},
-		}, nil).Once()
+		sqlMock.ExpectQuery(`SELECT \* FROM "workflows" WHERE "workflows"."id" = \$1`).
+			WithArgs(pcID).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "status"}).AddRow(pcID, "IN_PROGRESS"))
+
+		sqlMock.ExpectQuery(`SELECT \* FROM "workflow_nodes" WHERE "workflow_nodes"."workflow_id" = \$1`).
+			WithArgs(pcID).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "workflow_id", "workflow_node_template_id", "state"}).
+				AddRow(nodeID, pcID, nodeTemplateID, "READY"))
+
+		sqlMock.ExpectQuery(`SELECT \* FROM "workflow_node_templates" WHERE "workflow_node_templates"."id" = \$1`).
+			WithArgs(nodeTemplateID).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "name", "type"}).AddRow(nodeTemplateID, "Node", "SIMPLE_FORM"))
 
 		results, err := svc.GetPreConsignmentsByTraderID(ctx, traderID)
 		assert.NoError(t, err)
 		assert.Len(t, results, 1)
 		assert.Equal(t, pcID, results[0].ID)
-		mockWM.AssertExpectations(t)
+		assert.Len(t, results[0].WorkflowNodes, 1)
+		assert.Equal(t, "Node", results[0].WorkflowNodes[0].WorkflowNodeTemplate.Name)
+		mockWM.AssertNotCalled(t, "GetWorkflowInstance")
 	})
 
 	t.Run("Empty", func(t *testing.T) {
@@ -468,30 +468,6 @@ func TestPreConsignmentService_InitializePreConsignment_StartWorkflowError(t *te
 	_, err := svc.InitializePreConsignment(ctx, &CreatePreConsignmentDTO{PreConsignmentTemplateID: templateID}, "trader1", nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to register workflow")
-}
-
-func TestPreConsignmentService_GetPreConsignmentsByTraderID_WorkflowError(t *testing.T) {
-	db, sqlMock := setupTestDB(t)
-	mockWM := new(MockWorkflowManager)
-	svc := NewService(db, nil, mockWM)
-	ctx := context.Background()
-	traderID := "trader1"
-	pcID := uuid.NewString()
-	templateID := uuid.NewString()
-
-	sqlMock.ExpectQuery(`SELECT \* FROM "pre_consignments" WHERE trader_id = \$1 AND state != \$2`).
-		WithArgs(traderID, StateLocked).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "trader_id", "state", "pre_consignment_template_id"}).
-			AddRow(pcID, traderID, "IN_PROGRESS", templateID))
-	sqlMock.ExpectQuery(`SELECT \* FROM "pre_consignment_templates" WHERE "pre_consignment_templates"."id" = \$1`).
-		WithArgs(templateID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name"}).AddRow(templateID, "T"))
-
-	mockWM.On("GetWorkflowInstance", ctx, pcID).Return(nil, errors.New("wm down"))
-
-	_, err := svc.GetPreConsignmentsByTraderID(ctx, traderID)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to get workflow details")
 }
 
 func TestPreConsignmentService_GetPreConsignmentsByTraderID_QueryError(t *testing.T) {

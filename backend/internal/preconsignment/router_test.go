@@ -319,8 +319,7 @@ func TestPreConsignmentRouter_HandleCreatePreConsignment_ServiceError(t *testing
 
 func TestPreConsignmentRouter_HandleGetPreConsignmentsByTraderID_Success(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
-	mockWM := new(MockWorkflowManager)
-	r := NewRouter(NewService(db, nil, mockWM))
+	r := NewRouter(NewService(db, nil, nil))
 
 	traderID := "trader1"
 	pcID := uuid.NewString()
@@ -332,7 +331,10 @@ func TestPreConsignmentRouter_HandleGetPreConsignmentsByTraderID_Success(t *test
 			AddRow(pcID, traderID, "IN_PROGRESS", templateID))
 	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"pre_consignment_templates\"").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "name"}).AddRow(templateID, "Template"))
-	mockWM.On("GetWorkflowInstance", mock.Anything, pcID).Return(&model.Workflow{BaseModel: model.BaseModel{ID: pcID}, Status: model.WorkflowStatusInProgress}, nil)
+	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"workflows\"").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "status"}).AddRow(pcID, "IN_PROGRESS"))
+	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"workflow_nodes\"").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "workflow_id"}))
 
 	req, _ := http.NewRequest("GET", "/api/v1/pre-consignments", nil)
 	req = req.WithContext(withAuthContext(req.Context(), traderID))
