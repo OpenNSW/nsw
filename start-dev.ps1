@@ -163,6 +163,7 @@ function ensure_branding_file($BrandingName, $AppName) {
     }
 }
 
+
 function ensure_node_modules() {
     $PortalsDir = Join-Path $ROOT_DIR "portals"
     $OgaAppModules = Join-Path $PortalsDir "apps/oga-app/node_modules"

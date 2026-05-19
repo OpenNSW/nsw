@@ -169,6 +169,8 @@ EOF
   fi
 }
 
+
+
 # ---------------------------------------------------------------------------
 # wait_for_temporal: wait until Temporal's gRPC endpoint is fully ready
 # ---------------------------------------------------------------------------
@@ -387,6 +389,7 @@ start_service "trader-app" "$ROOT_DIR/portals/apps/trader-app" env \
   VITE_IDP_CHA_GROUP_NAME="$TRADER_IDP_CHA_GROUP_NAME" \
   VITE_SHOW_AUTOFILL_BUTTON="$SHOW_AUTOFILL_BUTTON" \
   pnpm run dev -- --port "$TRADER_APP_PORT"
+
 
 # Backend must wait for Temporal before starting
 if [[ "$RUN_TEMPORAL" == "true" ]]; then

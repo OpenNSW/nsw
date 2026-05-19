@@ -1,0 +1,13 @@
+{
+  "branding": {
+    "systemName": "NSW",
+    "appName": "Trader Portal",
+    "logoUrl": "",
+    "systemLogoUrl": "",
+    "favicon": "",
+    "portalName": "Trader Portal",
+    "description": "A unified digital platform enabling seamless and secure trade facilitation services.",
+    "heroImageUrl": "",
+    "partnerLogos": [{ "url": "", "alt": "" }]
+  }
+}
