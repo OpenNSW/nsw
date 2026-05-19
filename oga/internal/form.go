@@ -1,56 +1,32 @@
 package internal
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
-	"log/slog"
-	"os"
 	"path/filepath"
-	"strings"
+
+	"github.com/OpenNSW/nsw/oga/pkg/templatesource"
 )
 
-// FormsSubdir is the subdirectory under the config root where form files live.
-const FormsSubdir = "forms"
-
-// FormStore holds loaded form definitions ({ schema, uiSchema }) keyed by form ID.
-// The form ID is the filename (without the .json extension).
-type FormStore struct {
-	forms map[string]json.RawMessage
-}
-
-// NewFormStore reads all .json files from <configDir>/forms into memory.
-func NewFormStore(configDir string) (*FormStore, error) {
-	dir := filepath.Join(configDir, FormsSubdir)
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read forms directory %q: %w", dir, err)
+// NewFormSource builds a templatesource.Source for OGA's form loader. It maps
+// OGA's env-driven Config onto templatesource's typed configs; the actual
+// source implementations live in github.com/OpenNSW/nsw/oga/pkg/templatesource
+// so other services / loaders (e.g. a future workflow loader) can reuse them.
+//
+// The package is consumer-agnostic — for forms, OGA points the local backend
+// at <OGA_CONFIG_DIR>/forms; a different consumer would compose a different
+// path.
+func NewFormSource(ctx context.Context, cfg Config) (templatesource.Source, error) {
+	switch cfg.FormSource {
+	case "local":
+		return templatesource.NewLocal(filepath.Join(cfg.ConfigDir, "forms"))
+	case "github":
+		return templatesource.NewGitHub(ctx, templatesource.GitHubConfig{
+			Repo:            cfg.FormGitHubRepo,
+			Ref:             cfg.FormGitHubRef,
+			RefreshInterval: cfg.FormManifestRefreshInterval,
+		})
+	default:
+		return nil, fmt.Errorf("unsupported OGA_FORM_SOURCE %q (expected \"local\" or \"github\")", cfg.FormSource)
 	}
-
-	forms := make(map[string]json.RawMessage)
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
-			continue
-		}
-
-		data, err := os.ReadFile(filepath.Join(dir, entry.Name()))
-		if err != nil {
-			return nil, fmt.Errorf("failed to read form file %q: %w", entry.Name(), err)
-		}
-		if !json.Valid(data) {
-			return nil, fmt.Errorf("form file %q contains invalid JSON", entry.Name())
-		}
-
-		id := strings.TrimSuffix(entry.Name(), ".json")
-		forms[id] = data
-		slog.Info("loaded form", "id", id)
-	}
-
-	slog.Info("form store initialized", "count", len(forms))
-	return &FormStore{forms: forms}, nil
-}
-
-// GetForm returns the raw JSON for the given form ID and whether it was found.
-func (fs *FormStore) GetForm(id string) (json.RawMessage, bool) {
-	form, ok := fs.forms[id]
-	return form, ok
 }

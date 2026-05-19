@@ -40,11 +40,16 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to create task config store: %v", err)
 	}
-	// Initialize form store
-	formStore, err := internal.NewFormStore(cfg.ConfigDir)
+	// Initialize form source (local folder or GitHub-backed, per OGA_FORM_SOURCE)
+	formSource, err := internal.NewFormSource(context.Background(), cfg)
 	if err != nil {
-		log.Fatalf("failed to create form store: %v", err)
+		log.Fatalf("failed to create form source: %v", err)
 	}
+	defer func() {
+		if err := formSource.Close(); err != nil {
+			slog.Error("failed to close form source", "error", err)
+		}
+	}()
 
 	// Create OAuth2 Authenticator for NSW API
 	nswOAuth2Client := httpclient.NewOAuth2Authenticator(
@@ -63,7 +68,7 @@ func main() {
 		Build()
 
 	// Initialize OGA service
-	service := internal.NewOGAService(store, configStore, formStore, nswHttpClient)
+	service := internal.NewOGAService(store, configStore, formSource, nswHttpClient)
 	defer func() {
 		if err := service.Close(); err != nil {
 			slog.Error("failed to close service", "error", err)

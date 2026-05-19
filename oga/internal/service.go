@@ -11,6 +11,7 @@ import (
 
 	"github.com/OpenNSW/nsw/oga/internal/feedback"
 	"github.com/OpenNSW/nsw/oga/pkg/httpclient"
+	"github.com/OpenNSW/nsw/oga/pkg/templatesource"
 	"gorm.io/gorm"
 )
 
@@ -94,16 +95,16 @@ type TaskResponse struct {
 type ogaService struct {
 	store       *ApplicationStore
 	configStore *TaskConfigStore
-	formStore   *FormStore
+	formSource  templatesource.Source
 	httpClient  *httpclient.Client
 }
 
 // NewOGAService creates a new OGA service instance with database storage
-func NewOGAService(store *ApplicationStore, configStore *TaskConfigStore, formStore *FormStore, httpClient *httpclient.Client) OGAService {
+func NewOGAService(store *ApplicationStore, configStore *TaskConfigStore, formSource templatesource.Source, httpClient *httpclient.Client) OGAService {
 	return &ogaService{
 		store:       store,
 		configStore: configStore,
-		formStore:   formStore,
+		formSource:  formSource,
 		httpClient:  httpClient,
 	}
 }
@@ -242,16 +243,24 @@ func (s *ogaService) GetApplication(ctx context.Context, taskID string) (*Applic
 		app.Category = config.Meta.Category
 
 		if config.Forms.View != "" {
-			if form, ok := s.formStore.GetForm(config.Forms.View); ok {
+			form, ok, err := s.formSource.GetTemplate(ctx, config.Forms.View)
+			switch {
+			case err != nil:
+				slog.WarnContext(ctx, "view form fetch failed", "taskCode", record.TaskCode, "formID", config.Forms.View, "error", err)
+			case ok:
 				app.DataForm = form
-			} else {
+			default:
 				slog.WarnContext(ctx, "view form not found", "taskCode", record.TaskCode, "formID", config.Forms.View)
 			}
 		}
 		if config.Forms.Review != "" {
-			if form, ok := s.formStore.GetForm(config.Forms.Review); ok {
+			form, ok, err := s.formSource.GetTemplate(ctx, config.Forms.Review)
+			switch {
+			case err != nil:
+				slog.WarnContext(ctx, "review form fetch failed", "taskCode", record.TaskCode, "formID", config.Forms.Review, "error", err)
+			case ok:
 				app.OgaForm = form
-			} else {
+			default:
 				slog.WarnContext(ctx, "review form not found", "taskCode", record.TaskCode, "formID", config.Forms.Review)
 			}
 		}

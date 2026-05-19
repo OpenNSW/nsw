@@ -67,7 +67,7 @@ When `GET /api/oga/applications/{taskId}` is called:
    - **Hit** → returns the config.
    - **Miss** → falls back to the config registered as the default (`OGA_DEFAULT_TASK_CONFIG_ID`, defaults to `default`).
    - **No default** → returns an error; the response omits all metadata and form fields, and the frontend renders a raw data view.
-3. Each non-empty form reference in the config is resolved against the `FormStore`:
+3. Each non-empty form reference in the config is resolved against the active `templatesource.Source` (local folder or GitHub manifest; see [forms.md](./forms.md)):
    - Hit → form JSON is attached to the response as `dataForm` (view) or `ogaForm` (review).
    - Miss → a warning is logged and the field is omitted.
 4. On review submission via `POST /api/oga/applications/{taskId}/review`, if `behavior.statusMap` is set and the request body contains a matching `review_outcome` value, the application's status is set accordingly. Otherwise it defaults to `DONE`.

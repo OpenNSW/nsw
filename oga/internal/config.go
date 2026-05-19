@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/OpenNSW/nsw/oga/internal/database"
 )
@@ -26,6 +27,12 @@ type Config struct {
 	AllowedOrigins      []string
 	NSW                 NSWConfig
 	MaxRequestBytes     int64
+
+	// Form-source selection. See docs/forms.md.
+	FormSource                  string        // "github" (default) | "local"
+	FormGitHubRepo              string        // owner/name, e.g. OpenNSW/one-trade-templates
+	FormGitHubRef               string        // branch name or commit SHA
+	FormManifestRefreshInterval time.Duration // 0 disables background refresh
 }
 
 // LoadConfig loads configuration from environment variables
@@ -89,11 +96,34 @@ func LoadConfig() (Config, error) {
 	}
 	cfg.NSW.TokenInsecureSkipVerify = tokenInsecureSkipVerify
 
+	cfg.FormSource = envOrDefault("OGA_FORM_SOURCE", "github")
+	cfg.FormGitHubRepo = envOrDefault("OGA_FORM_GITHUB_REPO", "OpenNSW/one-trade-templates")
+	cfg.FormGitHubRef = envOrDefault("OGA_FORM_GITHUB_REF", "main")
+
+	formManifestRefreshInterval, err := parseDurationEnv("OGA_FORM_MANIFEST_REFRESH_INTERVAL", 5*time.Minute)
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.FormManifestRefreshInterval = formManifestRefreshInterval
+
+	if err := cfg.validateFormSourceConfig(); err != nil {
+		return Config{}, err
+	}
+
 	if err := cfg.validateNSWOAuth2Config(); err != nil {
 		return Config{}, err
 	}
 
 	return cfg, nil
+}
+
+func (c Config) validateFormSourceConfig() error {
+	switch c.FormSource {
+	case "local", "github":
+		return nil
+	default:
+		return fmt.Errorf("invalid OGA_FORM_SOURCE %q (expected \"local\" or \"github\")", c.FormSource)
+	}
 }
 
 func (c Config) validateNSWOAuth2Config() error {
@@ -140,6 +170,20 @@ func parseBoolEnv(key string, defaultValue bool) (bool, error) {
 	value, err := strconv.ParseBool(raw)
 	if err != nil {
 		return false, fmt.Errorf("invalid value for %s: %q", key, raw)
+	}
+
+	return value, nil
+}
+
+func parseDurationEnv(key string, defaultValue time.Duration) (time.Duration, error) {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return defaultValue, nil
+	}
+
+	value, err := time.ParseDuration(raw)
+	if err != nil {
+		return 0, fmt.Errorf("invalid value for %s: %q", key, raw)
 	}
 
 	return value, nil

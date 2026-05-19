@@ -144,12 +144,13 @@ oga/
 │   ├── service.go              # Business logic, callback dispatch
 │   ├── store.go                # GORM-based application repository
 │   ├── task_config.go          # TaskConfigStore -- per-taskCode UI metadata and form refs
-│   ├── form.go                 # FormStore -- pure JSON Forms definitions
+│   ├── form.go                 # Thin factory: builds a templatesource.Source from Config
 │   ├── utils.go                # JSON response helpers
 │   ├── database/               # Driver setup and connection (SQLite + PostgreSQL)
 │   ├── feedback/               # Trader feedback endpoint
 │   └── storage/                # Upload/download URL handling for file attachments
 ├── pkg/
+│   ├── templatesource/         # Reusable template loader (local folder OR GitHub manifest)
 │   ├── httpclient/             # OAuth2-aware HTTP client used for outbound NSW calls
 │   └── httputil/               # Shared HTTP helpers
 ├── data/                       # Local config dir (gitignored; only defaults are tracked)

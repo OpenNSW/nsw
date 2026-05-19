@@ -77,10 +77,10 @@ Dependencies are injected top-down via constructors:
 ```go
 config, err := LoadConfig()
 // handle error...
-store     := NewApplicationStore(config)
-formStore := NewFormStore(config.FormsPath, config.DefaultFormID)
-service   := NewOGAService(config, store, formStore)
-handler   := NewOGAHandler(service, config.NSWAPIBaseURL)
+store      := NewApplicationStore(config)
+formSource, _ := NewFormSource(ctx, config) // dispatches to templatesource.NewLocal or templatesource.NewGitHub
+service    := NewOGAService(store, configStore, formSource, httpClient)
+handler    := NewOGAHandler(service, config.MaxRequestBytes)
 ```
 
 The `OGAService` interface allows the handler to depend on an abstraction rather than a concrete implementation, enabling mock-based testing.

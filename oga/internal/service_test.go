@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/OpenNSW/nsw/oga/pkg/httpclient"
+	"github.com/OpenNSW/nsw/oga/pkg/templatesource"
 )
 
 // ---------- service test harness ----------
@@ -59,7 +60,7 @@ type serviceHarness struct {
 	t           *testing.T
 	store       *ApplicationStore
 	configStore *TaskConfigStore
-	formStore   *FormStore
+	formSource  templatesource.Source
 	httpClient  *httpclient.Client
 	callbackURL string
 	capture     *callbackCapture
@@ -75,7 +76,7 @@ func newServiceHarness(t *testing.T, writeFn func(root string), defaultConfigID 
 	t.Helper()
 
 	root := t.TempDir()
-	for _, sub := range []string{TaskConfigsSubdir, FormsSubdir} {
+	for _, sub := range []string{TaskConfigsSubdir, "forms"} {
 		if err := os.MkdirAll(filepath.Join(root, sub), 0o755); err != nil {
 			t.Fatalf("failed to create %s dir: %v", sub, err)
 		}
@@ -91,26 +92,36 @@ func newServiceHarness(t *testing.T, writeFn func(root string), defaultConfigID 
 		t.Fatalf("NewTaskConfigStore failed: %v", err)
 	}
 
-	formStore, err := NewFormStore(root)
+	formSource, err := templatesource.NewLocal(filepath.Join(root, "forms"))
 	if err != nil {
-		t.Fatalf("NewFormStore failed: %v", err)
+		t.Fatalf("templatesource.NewLocal failed: %v", err)
 	}
 
 	srv, capture := newCallbackServer(t)
 	hc := httpclient.NewClientBuilder().Build()
 
-	svc := NewOGAService(store, configStore, formStore, hc)
+	svc := NewOGAService(store, configStore, formSource, hc)
 	t.Cleanup(func() { _ = svc.Close() })
 
 	return &serviceHarness{
 		t:           t,
 		store:       store,
 		configStore: configStore,
-		formStore:   formStore,
+		formSource:  formSource,
 		httpClient:  hc,
 		callbackURL: srv.URL,
 		capture:     capture,
 		service:     svc,
+	}
+}
+
+// writeFormFile writes content to <root>/forms/<name>. The OGA wrapper points
+// templatesource.NewLocal at <root>/forms via filepath.Join.
+func writeFormFile(t *testing.T, root, name, content string) {
+	t.Helper()
+	path := filepath.Join(root, "forms", name)
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write %s: %v", path, err)
 	}
 }
 
