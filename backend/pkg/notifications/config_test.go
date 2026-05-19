@@ -1,34 +1,28 @@
 package notifications
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestConfig_Validate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		config  Config
-		wantErr bool
+		wantErr error
 	}{
-		{
-			name:    "missing path",
-			config:  Config{},
-			wantErr: true,
-		},
-		{
-			name:    "valid path",
-			config:  Config{Path: "/tmp/notification.json"},
-			wantErr: false,
-		},
+		{name: "missing path", config: Config{}, wantErr: ErrConfigPathRequired},
+		{name: "valid path", config: Config{Path: "/tmp/notification.json"}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := tt.config.Validate()
-			if tt.wantErr {
-				if err == nil {
-					t.Fatal("expected error, got nil")
-				}
-				if err.Error() != "NOTIFICATION_CONFIG_PATH is required" {
-					t.Errorf("error = %q, want %q", err.Error(), "NOTIFICATION_CONFIG_PATH is required")
+			if tt.wantErr != nil {
+				if !errors.Is(err, tt.wantErr) {
+					t.Errorf("got %v, want %v", err, tt.wantErr)
 				}
 				return
 			}

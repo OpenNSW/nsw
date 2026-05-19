@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 )
 
+// Provider is implemented by each notification channel (email, SMS, etc.).
 type Provider interface {
 	Type() ChannelType
 	Configure(cfg json.RawMessage) error

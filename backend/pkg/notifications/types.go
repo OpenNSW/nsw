@@ -1,9 +1,10 @@
 package notifications
 
 import (
-	"fmt"
+	"errors"
 )
 
+// ChannelType identifies the delivery channel for a notification.
 type ChannelType string
 
 const (
@@ -11,26 +12,39 @@ const (
 	ChannelEmail ChannelType = "email"
 )
 
+var (
+	ErrInvalidChannel = errors.New("invalid or missing channel")
+	ErrToRequired     = errors.New("to address is required")
+	ErrBodyRequired   = errors.New("body or html_body is required")
+)
+
 type Request struct {
-	Channel  ChannelType
-	To       string
-	Subject  string
-	Body     string
-	HTMLBody string
+	Channel  ChannelType `json:"channel"`
+	To       string      `json:"to"`
+	Subject  string      `json:"subject,omitempty"`
+	Body     string      `json:"body,omitempty"`
+	HTMLBody string      `json:"html_body,omitempty"`
 }
 
-func (r Request) Validate() error {
-	switch r.Channel {
-	case ChannelSMS, ChannelEmail:
-		// valid
-	default:
-		return fmt.Errorf("invalid or missing channel: %q", r.Channel)
+func (r *Request) Validate() error {
+	if r.Channel != ChannelSMS && r.Channel != ChannelEmail {
+		return ErrInvalidChannel
 	}
+
 	if r.To == "" {
-		return fmt.Errorf("to is required")
+		return ErrToRequired
 	}
-	if r.Body == "" && r.HTMLBody == "" {
-		return fmt.Errorf("body or html_body is required")
+
+	switch r.Channel {
+	case ChannelEmail:
+		if r.Body == "" && r.HTMLBody == "" {
+			return ErrBodyRequired
+		}
+	case ChannelSMS:
+		if r.Body == "" {
+			return ErrBodyRequired
+		}
 	}
+
 	return nil
 }

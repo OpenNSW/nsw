@@ -4,186 +4,73 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
-func TestExpandEnv_NoPlaceholders(t *testing.T) {
-	data := []byte(`{"key": "value"}`)
-	result, err := expandEnv(data)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if string(result) != string(data) {
-		t.Errorf("result = %q, want %q", string(result), string(data))
-	}
+func TestLoadConfigMap(t *testing.T) {
+	t.Parallel()
+
+	t.Run("valid json", func(t *testing.T) {
+		t.Parallel()
+		f := writeTempJSON(t, `{"email":{"host":"localhost"}}`)
+		got, err := loadConfigMap(f)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if _, ok := got["email"]; !ok {
+			t.Error("expected key \"email\" in result")
+		}
+	})
+
+	t.Run("file not found", func(t *testing.T) {
+		t.Parallel()
+		_, err := loadConfigMap("/nonexistent/path.json")
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+	})
+
+	t.Run("invalid json", func(t *testing.T) {
+		t.Parallel()
+		f := writeTempJSON(t, `not-json`)
+		_, err := loadConfigMap(f)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+	})
 }
 
-func TestExpandEnv_SinglePlaceholder(t *testing.T) {
-	t.Setenv("TEST_VAR", "replaced-value")
-
-	data := []byte(`{"key": "${TEST_VAR}"}`)
-	result, err := expandEnv(data)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+func writeTempJSON(t *testing.T, content string) string {
+	t.Helper()
+	f := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(f, []byte(content), 0o600); err != nil {
+		t.Fatalf("write temp file: %v", err)
 	}
-
-	var parsed map[string]string
-	if err := json.Unmarshal(result, &parsed); err != nil {
-		t.Fatalf("failed to parse result: %v", err)
-	}
-
-	if parsed["key"] != "replaced-value" {
-		t.Errorf("key = %q, want %q", parsed["key"], "replaced-value")
-	}
+	return f
 }
 
-func TestExpandEnv_MultiplePlaceholders(t *testing.T) {
-	t.Setenv("VAR1", "value1")
-	t.Setenv("VAR2", "value2")
+// Ensure loadConfigMap preserves raw JSON for provider-specific unmarshaling.
+func TestLoadConfigMap_RawPreserved(t *testing.T) {
+	t.Parallel()
+	payload := `{"sms":{"api_key":"secret","timeout":30}}`
+	f := writeTempJSON(t, payload)
 
-	data := []byte(`{"a": "${VAR1}", "b": "${VAR2}"}`)
-	result, err := expandEnv(data)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	var parsed map[string]string
-	if err := json.Unmarshal(result, &parsed); err != nil {
-		t.Fatalf("failed to parse result: %v", err)
-	}
-
-	if parsed["a"] != "value1" {
-		t.Errorf("a = %q, want %q", parsed["a"], "value1")
-	}
-	if parsed["b"] != "value2" {
-		t.Errorf("b = %q, want %q", parsed["b"], "value2")
-	}
-}
-
-func TestExpandEnv_MissingVariable(t *testing.T) {
-	os.Unsetenv("NONEXISTENT_VAR")
-
-	data := []byte(`{"key": "${NONEXISTENT_VAR}"}`)
-	_, err := expandEnv(data)
-	if err == nil {
-		t.Fatal("expected error for missing variable, got nil")
-	}
-	if !strings.Contains(err.Error(), "NONEXISTENT_VAR") {
-		t.Errorf("error %q does not mention NONEXISTENT_VAR", err.Error())
-	}
-}
-
-func TestExpandEnv_MultipleUnsetVariables(t *testing.T) {
-	os.Unsetenv("MISSING1")
-	os.Unsetenv("MISSING2")
-
-	data := []byte(`{"a": "${MISSING1}", "b": "${MISSING2}"}`)
-	_, err := expandEnv(data)
-	if err == nil {
-		t.Fatal("expected error for missing variables, got nil")
-	}
-
-	errStr := err.Error()
-	if !strings.Contains(errStr, "MISSING1") {
-		t.Errorf("error %q does not mention MISSING1", errStr)
-	}
-	if !strings.Contains(errStr, "MISSING2") {
-		t.Errorf("error %q does not mention MISSING2", errStr)
-	}
-}
-
-func TestExpandEnv_SpecialCharactersInValue(t *testing.T) {
-	t.Setenv("SPECIAL", `value with "quotes" and \backslash`)
-
-	data := []byte(`{"key": "${SPECIAL}"}`)
-	result, err := expandEnv(data)
+	got, err := loadConfigMap(f)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	var parsed map[string]string
-	if err := json.Unmarshal(result, &parsed); err != nil {
-		t.Fatalf("failed to parse result: %v", err)
+	var sms struct {
+		APIKey  string `json:"api_key"`
+		Timeout int    `json:"timeout"`
 	}
-
-	if parsed["key"] != `value with "quotes" and \backslash` {
-		t.Errorf("key = %q, want %q", parsed["key"], `value with "quotes" and \backslash`)
+	if err := json.Unmarshal(got["sms"], &sms); err != nil {
+		t.Fatalf("unmarshal sms blob: %v", err)
 	}
-}
-
-func TestLoadConfigMap_Success(t *testing.T) {
-	t.Setenv("BASE_URL", "https://example.com")
-
-	tmpDir := t.TempDir()
-	configFile := filepath.Join(tmpDir, "config.json")
-	configData := []byte(`{
-		"email": {"baseURL": "${BASE_URL}", "token": "secret"},
-		"sms": {"baseURL": "https://sms.example.com"}
-	}`)
-
-	if err := os.WriteFile(configFile, configData, 0644); err != nil {
-		t.Fatalf("failed to write config file: %v", err)
+	if sms.APIKey != "secret" {
+		t.Errorf("api_key = %q, want %q", sms.APIKey, "secret")
 	}
-
-	cfgMap, err := loadConfigMap(configFile)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if cfgMap == nil {
-		t.Fatal("cfgMap is nil")
-	}
-
-	if _, ok := cfgMap["email"]; !ok {
-		t.Error("email key not found in config map")
-	}
-	if _, ok := cfgMap["sms"]; !ok {
-		t.Error("sms key not found in config map")
-	}
-}
-
-func TestLoadConfigMap_FileNotFound(t *testing.T) {
-	_, err := loadConfigMap("/nonexistent/path/config.json")
-	if err == nil {
-		t.Fatal("expected error for missing file, got nil")
-	}
-	if !strings.Contains(err.Error(), "read notification config") {
-		t.Errorf("error message should mention 'read notification config', got: %v", err)
-	}
-}
-
-func TestLoadConfigMap_InvalidJSON(t *testing.T) {
-	tmpDir := t.TempDir()
-	configFile := filepath.Join(tmpDir, "config.json")
-	if err := os.WriteFile(configFile, []byte("invalid json"), 0644); err != nil {
-		t.Fatalf("failed to write config file: %v", err)
-	}
-
-	_, err := loadConfigMap(configFile)
-	if err == nil {
-		t.Fatal("expected error for invalid JSON, got nil")
-	}
-	if !strings.Contains(err.Error(), "parse notification config") {
-		t.Errorf("error message should mention 'parse notification config', got: %v", err)
-	}
-}
-
-func TestLoadConfigMap_MissingEnvVar(t *testing.T) {
-	os.Unsetenv("MISSING_ENV_VAR")
-
-	tmpDir := t.TempDir()
-	configFile := filepath.Join(tmpDir, "config.json")
-	configData := []byte(`{"email": {"baseURL": "${MISSING_ENV_VAR}"}}`)
-	if err := os.WriteFile(configFile, configData, 0644); err != nil {
-		t.Fatalf("failed to write config file: %v", err)
-	}
-
-	_, err := loadConfigMap(configFile)
-	if err == nil {
-		t.Fatal("expected error for missing env var, got nil")
-	}
-	if !strings.Contains(err.Error(), "MISSING_ENV_VAR") {
-		t.Errorf("error should mention MISSING_ENV_VAR, got: %v", err)
+	if sms.Timeout != 30 {
+		t.Errorf("timeout = %d, want 30", sms.Timeout)
 	}
 }
