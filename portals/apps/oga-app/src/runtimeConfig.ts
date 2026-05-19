@@ -38,3 +38,12 @@ export function getRequiredEnv(name: string): string {
 
   return value
 }
+
+export function getBooleanEnv(name: string, fallback = false): boolean {
+  const value = getEnv(name)
+  if (!value) {
+    return fallback
+  }
+
+  return value.toLowerCase() === 'true'
+}
