@@ -134,16 +134,12 @@ $OGA_INSTANCES = @(
     @{ Name="cda"; Port=$OGA_CDA_PORT; DbPath=$OGA_CDA_DB_PATH; NswClientId=$OGA_NSW_CDA_CLIENT_ID; NswClientSecret=$OGA_NSW_CDA_CLIENT_SECRET; AppPort=$OGA_APP_CDA_PORT; BrandingName=$OGA_APP_CDA_BRANDING; IdpClientId=$CDA_IDP_CLIENT_ID; AppName="Coconut Development Authority (CDA)" }
 )
 
-function ensure_branding_file() {
-    if ($args.Count -eq 2) {
-        $BrandingName = $args[0]
-        $AppName = $args[1]
-        # OGA App logic (2 arguments)
-        $ConfigDir = Join-Path $ROOT_DIR "portals/apps/oga-app/public/configs"
-        $FilePath = Join-Path $ConfigDir "${BrandingName}.branding.json"
-        if (-not (Test-Path $FilePath)) {
-            New-Item -ItemType Directory -Path $ConfigDir -Force | Out-Null
-            $Content = @"
+function ensure_branding_file($BrandingName, $AppName) {
+    $ConfigDir = Join-Path $ROOT_DIR "portals/apps/oga-app/public/configs"
+    $FilePath = Join-Path $ConfigDir "${BrandingName}.branding.json"
+    if (-not (Test-Path $FilePath)) {
+        New-Item -ItemType Directory -Path $ConfigDir -Force | Out-Null
+        $Content = @"
 {
   "branding": {
     "systemName": "NSW",
@@ -163,53 +159,10 @@ function ensure_branding_file() {
   }
 }
 "@
-            Set-Content -Path $FilePath -Value $Content -Encoding utf8
-        }
-    } else {
-        $AppPath = $args[0]
-        $FileName = $args[1]
-        $AppName = $args[2]
-        # Trader App logic (3 arguments)
-        $ConfigDir = Join-Path $ROOT_DIR "$AppPath/src/configs"
-        $FilePath = Join-Path $ConfigDir $FileName
-        if (-not (Test-Path $FilePath)) {
-            New-Item -ItemType Directory -Path $ConfigDir -Force | Out-Null
-            if ($FileName -like "*.json") {
-                $Content = @"
-{
-  "branding": {
-    "systemName": "NSW",
-    "appName": "$AppName",
-    "logoUrl": "",
-    "systemLogoUrl": "",
-    "favicon": "",
-    "portalName": "",
-    "description": "",
-    "heroImageUrl": "",
-    "partnerLogos": [{ "url": "", "alt": "" }]
-  }
-}
-"@
-                Set-Content -Path $FilePath -Value $Content -Encoding utf8
-            } else {
-                $Content = @"
-branding:
-  systemName: "NSW"
-  appName: "$AppName"
-  logoUrl: ""
-  systemLogoUrl: ""
-  favicon: ""
-  portalName: ""
-  description: ""
-  heroImageUrl: ""
-  partnerLogos:
-    - url: ""
-      alt: ""
-"@
-            }
-        }
+        Set-Content -Path $FilePath -Value $Content -Encoding utf8
     }
 }
+
 
 function ensure_node_modules() {
     $PortalsDir = Join-Path $ROOT_DIR "portals"

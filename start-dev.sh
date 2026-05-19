@@ -140,15 +140,13 @@ OGA_INSTANCES=(
 )
 
 ensure_branding_file() {
-  if [[ $# -eq 2 ]]; then
-    # OGA App logic (2 arguments)
-    local branding_name="$1"
-    local app_name="$2"
-    local config_dir="$ROOT_DIR/portals/apps/oga-app/public/configs"
-    local file_path="${config_dir}/${branding_name}.branding.json"
-    if [[ ! -f "$file_path" ]]; then
-      mkdir -p "$config_dir"
-      cat >"$file_path" <<EOF
+  local branding_name="$1"
+  local app_name="$2"
+  local config_dir="$ROOT_DIR/portals/apps/oga-app/public/configs"
+  local file_path="${config_dir}/${branding_name}.branding.json"
+  if [[ ! -f "$file_path" ]]; then
+    mkdir -p "$config_dir"
+    cat >"$file_path" <<EOF
 {
   "branding": {
     "systemName": "NSW",
@@ -168,52 +166,9 @@ ensure_branding_file() {
   }
 }
 EOF
-    fi
-  else
-    # Trader App/Generic logic (3 arguments)
-    local app_path="$1"
-    local file_name="$2"
-    local app_name="$3"
-    local config_dir="$ROOT_DIR/${app_path}/src/configs"
-    local file_path="${config_dir}/${file_name}"
-
-    if [[ ! -f "$file_path" ]]; then
-      mkdir -p "$config_dir"
-      if [[ "$file_name" == *.json ]]; then
-        cat >"$file_path" <<EOF
-{
-  "branding": {
-    "systemName": "NSW",
-    "appName": "${app_name}",
-    "logoUrl": "",
-    "systemLogoUrl": "",
-    "favicon": "",
-    "portalName": "",
-    "description": "",
-    "heroImageUrl": "",
-    "partnerLogos": [{ "url": "", "alt": "" }]
-  }
-}
-EOF
-      else
-        cat >"$file_path" <<EOF
-branding:
-  systemName: "NSW"
-  appName: "${app_name}"
-  logoUrl: ""
-  systemLogoUrl: ""
-  favicon: ""
-  portalName: ""
-  description: ""
-  heroImageUrl: ""
-  partnerLogos:
-    - url: ""
-      alt: ""
-EOF
-      fi
-    fi
   fi
 }
+
 
 
 # ---------------------------------------------------------------------------
