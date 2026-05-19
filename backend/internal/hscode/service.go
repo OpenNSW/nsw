@@ -90,3 +90,16 @@ func (s *Service) GetByID(ctx context.Context, hsCodeID string) (*HSCode, error)
 	}
 	return &hsCode, nil
 }
+
+// GetByIDs retrieves multiple HS codes by their IDs from the database
+func (s *Service) GetByIDs(ctx context.Context, hsCodeIDs []string) ([]HSCode, error) {
+	if len(hsCodeIDs) == 0 {
+		return []HSCode{}, nil
+	}
+	var hsCodes []HSCode
+	result := s.db.WithContext(ctx).Where("id IN ?", hsCodeIDs).Find(&hsCodes)
+	if result.Error != nil {
+		return nil, fmt.Errorf("failed to retrieve HS codes: %w", result.Error)
+	}
+	return hsCodes, nil
+}

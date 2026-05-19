@@ -1,4 +1,4 @@
-package router
+package consignment
 
 import (
 	"encoding/json"
@@ -8,24 +8,22 @@ import (
 
 	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/profile/cha"
-	"github.com/OpenNSW/nsw/internal/workflow/model"
-	"github.com/OpenNSW/nsw/internal/workflow/service"
 	"github.com/OpenNSW/nsw/utils"
 )
 
-type ConsignmentRouter struct {
-	cs  *service.ConsignmentService
+type Router struct {
+	cs  *Service
 	cha cha.Service
 }
 
-func NewConsignmentRouter(cs *service.ConsignmentService, chaService cha.Service) *ConsignmentRouter {
-	return &ConsignmentRouter{cs: cs, cha: chaService}
+func NewRouter(cs *Service, chaService cha.Service) *Router {
+	return &Router{cs: cs, cha: chaService}
 }
 
 // HandleCreateConsignment handles POST /api/v1/consignments
 // Stage 1 (two-stage): body { flow, chaId } → creates shell (INITIALIZED)
 // Legacy: body { flow, items } → creates and initializes workflow
-func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *http.Request) {
+func (c *Router) HandleCreateConsignment(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	authCtx := auth.GetAuthContext(ctx)
 	if authCtx == nil || authCtx.User == nil {
@@ -34,7 +32,7 @@ func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *ht
 	}
 	defer func() { _ = r.Body.Close() }()
 
-	var req model.CreateConsignmentDTO
+	var req CreateConsignmentDTO
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body: "+err.Error(), http.StatusBadRequest)
 		return
@@ -70,7 +68,7 @@ func (c *ConsignmentRouter) HandleCreateConsignment(w http.ResponseWriter, r *ht
 // Query params: role=trader | role=cha (defaults to trader).
 // When role=cha the CHA is resolved from the authenticated user's email.
 // Pagination: offset, limit. Optional filters: state, flow.
-func (c *ConsignmentRouter) HandleGetConsignments(w http.ResponseWriter, r *http.Request) {
+func (c *Router) HandleGetConsignments(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	authCtx := auth.GetAuthContext(ctx)
 	if authCtx == nil || authCtx.User == nil {
@@ -88,18 +86,18 @@ func (c *ConsignmentRouter) HandleGetConsignments(w http.ResponseWriter, r *http
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	filter := model.ConsignmentFilter{
+	filter := Filter{
 		Offset: offset,
 		Limit:  limit,
 	}
 
 	// Optional Filters
 	if stateStr := r.URL.Query().Get("state"); stateStr != "" {
-		state := model.ConsignmentState(stateStr)
+		state := State(stateStr)
 		filter.State = &state
 	}
 	if flowStr := r.URL.Query().Get("flow"); flowStr != "" {
-		flow := model.ConsignmentFlow(flowStr)
+		flow := Flow(flowStr)
 		filter.Flow = &flow
 	}
 
@@ -138,8 +136,8 @@ func (c *ConsignmentRouter) HandleGetConsignments(w http.ResponseWriter, r *http
 }
 
 // HandleInitializeConsignment handles PUT /api/v1/consignments/{id} (Stage 2: CHA selects HS Codes).
-// Body: InitializeConsignmentDTO { hsCodeIds: []uuid }. Response: ConsignmentDetailDTO.
-func (c *ConsignmentRouter) HandleInitializeConsignment(w http.ResponseWriter, r *http.Request) {
+// Body: InitializeConsignmentDTO { hsCodeIds: []uuid }. Response: DetailDTO.
+func (c *Router) HandleInitializeConsignment(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	authCtx := auth.GetAuthContext(ctx)
 	if authCtx == nil || authCtx.User == nil {
@@ -156,7 +154,7 @@ func (c *ConsignmentRouter) HandleInitializeConsignment(w http.ResponseWriter, r
 	consignmentID := consignmentIDStr
 	// TODO: Need to Call GetConsignmentByID and check whether the Consignment.ChaID and authContext.UserID are equal
 	// Otherwise Forbidden
-	var req model.InitializeConsignmentDTO
+	var req InitializeConsignmentDTO
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body: "+err.Error(), http.StatusBadRequest)
 		return
@@ -187,8 +185,8 @@ func (c *ConsignmentRouter) HandleInitializeConsignment(w http.ResponseWriter, r
 
 // HandleGetConsignmentByID handles GET /api/v1/consignments/{id}
 // Path param: id (required)
-// Response: ConsignmentDetailDTO
-func (c *ConsignmentRouter) HandleGetConsignmentByID(w http.ResponseWriter, r *http.Request) {
+// Response: DetailDTO
+func (c *Router) HandleGetConsignmentByID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	authCtx := auth.GetAuthContext(ctx)
 	if authCtx == nil || authCtx.User == nil {

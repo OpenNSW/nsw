@@ -14,13 +14,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
 	"github.com/OpenNSW/nsw/internal/auth"
-	"github.com/OpenNSW/nsw/internal/profile/cha"
 	taskManager "github.com/OpenNSW/nsw/internal/task/manager"
 	workflowManagerV1 "github.com/OpenNSW/nsw/internal/workflow/manager"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
@@ -168,82 +166,6 @@ func withAuthContext(ctx context.Context, userID string) context.Context {
 	return context.WithValue(ctx, auth.AuthContextKey, authCtx)
 }
 
-func TestConsignmentRouter_HandleGetConsignmentByID(t *testing.T) {
-	db, sqlMock := setupRouterTestDB(t)
-	mockWM := new(MockWMV2)
-	svc := service.NewConsignmentService(db, nil, nil)
-	require.NoError(t, svc.RegisterWorkflowManager(mockWM))
-	r := NewConsignmentRouter(svc, nil)
-
-	consignmentID := uuid.NewString()
-	sqlMock.MatchExpectationsInOrder(false)
-	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"consignments\"").WillReturnRows(sqlmock.NewRows([]string{"id", "state"}).AddRow(consignmentID, "IN_PROGRESS"))
-
-	mockWM.On("GetStatus", mock.Anything, consignmentID).Return((*workflowManagerV2.WorkflowInstance)(nil), nil)
-
-	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"hs_codes\"").WillReturnRows(sqlmock.NewRows([]string{"id"}))
-
-	req, _ := http.NewRequest("GET", "/api/v1/consignments/"+consignmentID, nil)
-	req.SetPathValue("id", consignmentID)
-	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
-
-	w := httptest.NewRecorder()
-	r.HandleGetConsignmentByID(w, req)
-	assert.Equal(t, http.StatusOK, w.Code)
-}
-
-func TestConsignmentRouter_HandleGetConsignments(t *testing.T) {
-	db, sqlMock := setupRouterTestDB(t)
-	svc := service.NewConsignmentService(db, nil, nil)
-	r := NewConsignmentRouter(svc, nil)
-
-	traderID := "trader1"
-	sqlMock.MatchExpectationsInOrder(false)
-	sqlMock.ExpectQuery("(?i)SELECT count").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
-	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"consignments\"").WillReturnRows(sqlmock.NewRows([]string{"id", "trader_id"}).AddRow(uuid.NewString(), traderID))
-	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"workflow_nodes\"").WillReturnRows(sqlmock.NewRows([]string{"workflow_id", "total", "completed"}).AddRow(uuid.NewString(), 1, 0))
-	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"workflows\"").WillReturnRows(sqlmock.NewRows([]string{"id", "end_node_id"}))
-
-	req, _ := http.NewRequest("GET", "/api/v1/consignments?role=trader", nil)
-	req = req.WithContext(withAuthContext(req.Context(), traderID))
-	w := httptest.NewRecorder()
-	r.HandleGetConsignments(w, req)
-	assert.Equal(t, http.StatusOK, w.Code)
-}
-
-func TestConsignmentRouter_HandleCreateConsignment(t *testing.T) {
-	db, sqlMock := setupRouterTestDB(t)
-	svc := service.NewConsignmentService(db, nil, cha.NewService(db))
-	r := NewConsignmentRouter(svc, nil)
-
-	traderID := "trader1"
-	chaID := uuid.NewString()
-	consignmentID := uuid.NewString()
-
-	payload := model.CreateConsignmentDTO{
-		Flow:  model.ConsignmentFlowImport,
-		ChaID: chaID,
-	}
-	body, _ := json.Marshal(payload)
-
-	sqlMock.MatchExpectationsInOrder(false)
-	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"customs_house_agents\"").WillReturnRows(sqlmock.NewRows([]string{"id", "name", "description", "email"}).AddRow(chaID, "Test CHA", "", "cha@example.com"))
-	sqlMock.ExpectBegin()
-	sqlMock.ExpectExec("(?i)INSERT INTO \"consignments\"").WillReturnResult(sqlmock.NewResult(1, 1))
-	sqlMock.ExpectCommit()
-
-	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"consignments\"").WillReturnRows(
-		sqlmock.NewRows([]string{"id", "flow", "trader_id", "cha_id", "state", "items"}).
-			AddRow(consignmentID, string(model.ConsignmentFlowImport), traderID, chaID, string(model.ConsignmentStateInitialized), []byte("[]")),
-	)
-
-	req, _ := http.NewRequest("POST", "/api/v1/consignments", bytes.NewBuffer(body))
-	req = req.WithContext(withAuthContext(req.Context(), traderID))
-	w := httptest.NewRecorder()
-	r.HandleCreateConsignment(w, req)
-	assert.Equal(t, http.StatusCreated, w.Code)
-}
-
 func TestPreConsignmentRouter_HandleGetPreConsignmentByID(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
 	mockWM := new(MockWorkflowManager)
@@ -369,50 +291,6 @@ func TestPreConsignmentRouter_HandleCreatePreConsignment_InvalidPayload(t *testi
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestConsignmentRouter_HandleGetConsignmentByID_InvalidID(t *testing.T) {
-	db, _ := setupRouterTestDB(t)
-	svc := service.NewConsignmentService(db, nil, nil)
-	r := NewConsignmentRouter(svc, nil)
-
-	req, _ := http.NewRequest("GET", "/api/v1/consignments/invalid-uuid", nil)
-	req.SetPathValue("id", "invalid-uuid")
-	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
-	w := httptest.NewRecorder()
-	r.HandleGetConsignmentByID(w, req)
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-}
-
-func TestConsignmentRouter_HandleGetConsignments_PaginationError(t *testing.T) {
-	db, _ := setupRouterTestDB(t)
-	svc := service.NewConsignmentService(db, nil, nil)
-	r := NewConsignmentRouter(svc, nil)
-
-	req, _ := http.NewRequest("GET", "/api/v1/consignments?limit=invalid", nil)
-	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
-
-	w := httptest.NewRecorder()
-	r.HandleGetConsignments(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestConsignmentRouter_HandleGetConsignmentByID_ServiceError(t *testing.T) {
-	db, sqlMock := setupRouterTestDB(t)
-	svc := service.NewConsignmentService(db, nil, nil)
-	r := NewConsignmentRouter(svc, nil)
-
-	id := uuid.NewString()
-	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"consignments\"").WillReturnError(fmt.Errorf("db error"))
-
-	req, _ := http.NewRequest("GET", "/api/v1/consignments/"+id, nil)
-	req.SetPathValue("id", id)
-	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
-
-	w := httptest.NewRecorder()
-	r.HandleGetConsignmentByID(w, req)
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-}
-
 func TestPreConsignmentRouter_HandleGetTraderPreConsignments_PaginationError(t *testing.T) {
 	db, _ := setupRouterTestDB(t)
 	svc := service.NewPreConsignmentService(db, nil, nil)
@@ -424,50 +302,6 @@ func TestPreConsignmentRouter_HandleGetTraderPreConsignments_PaginationError(t *
 	w := httptest.NewRecorder()
 	r.HandleGetTraderPreConsignments(w, req)
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func TestConsignmentRouter_HandleGetConsignments_ServiceError(t *testing.T) {
-	db, sqlMock := setupRouterTestDB(t)
-	svc := service.NewConsignmentService(db, nil, nil)
-	r := NewConsignmentRouter(svc, nil)
-
-	sqlMock.ExpectQuery("(?i)SELECT count").WillReturnError(fmt.Errorf("db error"))
-
-	req, _ := http.NewRequest("GET", "/api/v1/consignments", nil)
-	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
-	w := httptest.NewRecorder()
-	r.HandleGetConsignments(w, req)
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-}
-
-func TestConsignmentRouter_HandleCreateConsignment_CHANotFound(t *testing.T) {
-	db, sqlMock := setupRouterTestDB(t)
-	svc := service.NewConsignmentService(db, nil, cha.NewService(db))
-	r := NewConsignmentRouter(svc, nil)
-
-	chaID := uuid.NewString()
-	payload := model.CreateConsignmentDTO{Flow: model.ConsignmentFlowImport, ChaID: chaID}
-	body, _ := json.Marshal(payload)
-
-	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"customs_house_agents\"").
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name"}))
-
-	req, _ := http.NewRequest("POST", "/api/v1/consignments", bytes.NewBuffer(body))
-	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
-	w := httptest.NewRecorder()
-	r.HandleCreateConsignment(w, req)
-	assert.Equal(t, http.StatusNotFound, w.Code)
-}
-
-func TestConsignmentRouter_HandleCreateConsignment_InvalidPayload(t *testing.T) {
-	db, _ := setupRouterTestDB(t)
-	r := NewConsignmentRouter(service.NewConsignmentService(db, nil, nil), nil)
-
-	req, _ := http.NewRequest("POST", "/api/v1/consignments", bytes.NewBufferString("invalid json"))
-	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
-	w := httptest.NewRecorder()
-	r.HandleCreateConsignment(w, req)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 

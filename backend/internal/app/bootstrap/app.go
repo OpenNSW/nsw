@@ -9,6 +9,7 @@ import (
 
 	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/config"
+	"github.com/OpenNSW/nsw/internal/consignment"
 	"github.com/OpenNSW/nsw/internal/database"
 	"github.com/OpenNSW/nsw/internal/hscode"
 	"github.com/OpenNSW/nsw/internal/middleware"
@@ -18,7 +19,6 @@ import (
 	taskmanager "github.com/OpenNSW/nsw/internal/task/manager"
 	"github.com/OpenNSW/nsw/internal/task/plugin"
 	"github.com/OpenNSW/nsw/internal/temporal"
-	"github.com/OpenNSW/nsw/internal/workflow/router"
 	workflowruntime "github.com/OpenNSW/nsw/internal/workflow/runtime"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
 	"github.com/OpenNSW/nsw/pkg/storage"
@@ -28,7 +28,7 @@ import (
 	"github.com/OpenNSW/nsw/pkg/notification/channels"
 )
 
-// App contains initialized HTTP server and cleanup hooks.
+// App contains an initialized HTTP server and cleanup hooks.
 type App struct {
 	Server              *http.Server
 	NotificationManager *notification.Manager
@@ -91,8 +91,8 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to create temporal client: %w", err)
 	}
 
-	consignmentService := service.NewConsignmentService(db, templateService, chaService)
-	consignmentRouter := router.NewConsignmentRouter(consignmentService, chaService)
+	consignmentService := consignment.NewService(db, templateService, chaService, hsCodeService)
+	consignmentRouter := consignment.NewRouter(consignmentService, chaService)
 
 	workflowRuntime, err := workflowruntime.NewRuntime(temporalClient, tm, templateService, consignmentService)
 	if err != nil {
