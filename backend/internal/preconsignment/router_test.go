@@ -1,4 +1,4 @@
-package router
+package preconsignment
 
 import (
 	"bytes"
@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	workflowManagerV2 "github.com/OpenNSW/go-temporal-workflow"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -22,7 +21,6 @@ import (
 	taskManager "github.com/OpenNSW/nsw/internal/task/manager"
 	workflowManagerV1 "github.com/OpenNSW/nsw/internal/workflow/manager"
 	"github.com/OpenNSW/nsw/internal/workflow/model"
-	"github.com/OpenNSW/nsw/internal/workflow/service"
 )
 
 type MockTemplateProvider struct {
@@ -92,34 +90,6 @@ func (m *MockWorkflowManager) HandleTaskUpdate(_ context.Context, _ taskManager.
 	return nil
 }
 
-// MockWMV2 implements workflowManagerV2.TemporalManager for testing.
-type MockWMV2 struct {
-	mock.Mock
-}
-
-func (m *MockWMV2) StartWorkflow(ctx context.Context, ID string, workflowDefinition workflowManagerV2.WorkflowDefinition, initialWorkflowVariables map[string]any) error {
-	args := m.Called(ctx, ID, workflowDefinition, initialWorkflowVariables)
-	return args.Error(0)
-}
-
-func (m *MockWMV2) TaskDone(ctx context.Context, workflowID, runID, nodeID string, output map[string]any) error {
-	args := m.Called(ctx, workflowID, runID, nodeID, output)
-	return args.Error(0)
-}
-
-func (m *MockWMV2) TaskUpdate(ctx context.Context, workflowID, runID string, update workflowManagerV2.UpdateEvent) error {
-	args := m.Called(ctx, workflowID, runID, update)
-	return args.Error(0)
-}
-
-func (m *MockWMV2) GetStatus(ctx context.Context, workflowID string) (*workflowManagerV2.WorkflowInstance, error) {
-	args := m.Called(ctx, workflowID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*workflowManagerV2.WorkflowInstance), args.Error(1)
-}
-
 func setupRouterTestDB(t *testing.T) (*gorm.DB, sqlmock.Sqlmock) {
 	mockDB, sqlMock, err := sqlmock.New()
 	if err != nil {
@@ -153,8 +123,8 @@ func withAuthContext(ctx context.Context, userID string) context.Context {
 func TestPreConsignmentRouter_HandleGetPreConsignmentByID(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
 	mockWM := new(MockWorkflowManager)
-	svc := service.NewPreConsignmentService(db, nil, mockWM)
-	r := NewPreConsignmentRouter(svc)
+	svc := NewService(db, nil, mockWM)
+	r := NewRouter(svc)
 
 	id := uuid.NewString()
 	templateID := uuid.NewString()
@@ -190,8 +160,8 @@ func TestPreConsignmentRouter_HandleGetPreConsignmentByID(t *testing.T) {
 
 func TestPreConsignmentRouter_HandleGetTraderPreConsignments(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
-	svc := service.NewPreConsignmentService(db, nil, nil)
-	r := NewPreConsignmentRouter(svc)
+	svc := NewService(db, nil, nil)
+	r := NewRouter(svc)
 
 	traderID := "trader1"
 	sqlMock.MatchExpectationsInOrder(false)
@@ -211,15 +181,15 @@ func TestPreConsignmentRouter_HandleCreatePreConsignment(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
 	tp := new(MockTemplateProvider)
 	mockWM := new(MockWorkflowManager)
-	svc := service.NewPreConsignmentService(db, tp, mockWM)
-	r := NewPreConsignmentRouter(svc)
+	svc := NewService(db, tp, mockWM)
+	r := NewRouter(svc)
 
 	traderID := "trader1"
 	templateID := uuid.NewString()
 	nodeTemplateID := "00000000-0000-0000-0000-000000000001"
 	preConsignmentID := uuid.NewString()
 
-	payload := model.CreatePreConsignmentDTO{
+	payload := CreatePreConsignmentDTO{
 		PreConsignmentTemplateID: templateID,
 	}
 	body, _ := json.Marshal(payload)
@@ -265,8 +235,8 @@ func TestPreConsignmentRouter_HandleCreatePreConsignment(t *testing.T) {
 
 func TestPreConsignmentRouter_HandleCreatePreConsignment_InvalidPayload(t *testing.T) {
 	db, _ := setupRouterTestDB(t)
-	svc := service.NewPreConsignmentService(db, nil, nil)
-	r := NewPreConsignmentRouter(svc)
+	svc := NewService(db, nil, nil)
+	r := NewRouter(svc)
 
 	req, _ := http.NewRequest("POST", "/api/v1/pre-consignments", bytes.NewBufferString("invalid json"))
 	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
@@ -277,8 +247,8 @@ func TestPreConsignmentRouter_HandleCreatePreConsignment_InvalidPayload(t *testi
 
 func TestPreConsignmentRouter_HandleGetTraderPreConsignments_PaginationError(t *testing.T) {
 	db, _ := setupRouterTestDB(t)
-	svc := service.NewPreConsignmentService(db, nil, nil)
-	r := NewPreConsignmentRouter(svc)
+	svc := NewService(db, nil, nil)
+	r := NewRouter(svc)
 
 	req, _ := http.NewRequest("GET", "/api/v1/pre-consignments/templates?limit=invalid", nil)
 	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
@@ -291,8 +261,8 @@ func TestPreConsignmentRouter_HandleGetTraderPreConsignments_PaginationError(t *
 
 func TestPreConsignmentRouter_HandleGetTraderPreConsignments_ServiceError(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
-	svc := service.NewPreConsignmentService(db, nil, nil)
-	r := NewPreConsignmentRouter(svc)
+	svc := NewService(db, nil, nil)
+	r := NewRouter(svc)
 
 	sqlMock.ExpectQuery("(?i)SELECT count").WillReturnError(fmt.Errorf("db error"))
 
@@ -305,7 +275,7 @@ func TestPreConsignmentRouter_HandleGetTraderPreConsignments_ServiceError(t *tes
 
 func TestPreConsignmentRouter_HandleGetPreConsignmentByID_InvalidID(t *testing.T) {
 	db, _ := setupRouterTestDB(t)
-	r := NewPreConsignmentRouter(service.NewPreConsignmentService(db, nil, nil))
+	r := NewRouter(NewService(db, nil, nil))
 
 	req, _ := http.NewRequest("GET", "/api/v1/pre-consignments/invalid-uuid", nil)
 	req.SetPathValue("preConsignmentId", "invalid-uuid")
@@ -317,7 +287,7 @@ func TestPreConsignmentRouter_HandleGetPreConsignmentByID_InvalidID(t *testing.T
 
 func TestPreConsignmentRouter_HandleGetPreConsignmentByID_ServiceError(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
-	r := NewPreConsignmentRouter(service.NewPreConsignmentService(db, nil, nil))
+	r := NewRouter(NewService(db, nil, nil))
 
 	id := uuid.NewString()
 	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"pre_consignments\"").WillReturnError(fmt.Errorf("db error"))
@@ -333,16 +303,94 @@ func TestPreConsignmentRouter_HandleGetPreConsignmentByID_ServiceError(t *testin
 func TestPreConsignmentRouter_HandleCreatePreConsignment_ServiceError(t *testing.T) {
 	db, sqlMock := setupRouterTestDB(t)
 	tp := new(MockTemplateProvider)
-	r := NewPreConsignmentRouter(service.NewPreConsignmentService(db, tp, nil))
+	r := NewRouter(NewService(db, tp, nil))
 
 	templateID := uuid.NewString()
 	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"pre_consignment_templates\"").WillReturnError(fmt.Errorf("db error"))
 
-	payload := model.CreatePreConsignmentDTO{PreConsignmentTemplateID: templateID}
+	payload := CreatePreConsignmentDTO{PreConsignmentTemplateID: templateID}
 	body, _ := json.Marshal(payload)
 	req, _ := http.NewRequest("POST", "/api/v1/pre-consignments", bytes.NewBuffer(body))
 	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
 	w := httptest.NewRecorder()
 	r.HandleCreatePreConsignment(w, req)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestPreConsignmentRouter_HandleGetPreConsignmentsByTraderID_Success(t *testing.T) {
+	db, sqlMock := setupRouterTestDB(t)
+	mockWM := new(MockWorkflowManager)
+	r := NewRouter(NewService(db, nil, mockWM))
+
+	traderID := "trader1"
+	pcID := uuid.NewString()
+	templateID := uuid.NewString()
+
+	sqlMock.MatchExpectationsInOrder(false)
+	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"pre_consignments\"").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "trader_id", "state", "pre_consignment_template_id"}).
+			AddRow(pcID, traderID, "IN_PROGRESS", templateID))
+	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"pre_consignment_templates\"").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name"}).AddRow(templateID, "Template"))
+	mockWM.On("GetWorkflowInstance", mock.Anything, pcID).Return(&model.Workflow{BaseModel: model.BaseModel{ID: pcID}, Status: model.WorkflowStatusInProgress}, nil)
+
+	req, _ := http.NewRequest("GET", "/api/v1/pre-consignments", nil)
+	req = req.WithContext(withAuthContext(req.Context(), traderID))
+	w := httptest.NewRecorder()
+	r.HandleGetPreConsignmentsByTraderID(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestPreConsignmentRouter_HandleGetPreConsignmentsByTraderID_Unauthorized(t *testing.T) {
+	r := NewRouter(nil)
+	req, _ := http.NewRequest("GET", "/api/v1/pre-consignments", nil)
+	w := httptest.NewRecorder()
+	r.HandleGetPreConsignmentsByTraderID(w, req)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestPreConsignmentRouter_HandleGetPreConsignmentsByTraderID_ServiceError(t *testing.T) {
+	db, sqlMock := setupRouterTestDB(t)
+	r := NewRouter(NewService(db, nil, nil))
+
+	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"pre_consignments\"").WillReturnError(fmt.Errorf("db error"))
+
+	req, _ := http.NewRequest("GET", "/api/v1/pre-consignments", nil)
+	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
+	w := httptest.NewRecorder()
+	r.HandleGetPreConsignmentsByTraderID(w, req)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestPreConsignmentRouter_HandleGetTraderPreConsignments_Unauthorized(t *testing.T) {
+	r := NewRouter(nil)
+	req, _ := http.NewRequest("GET", "/api/v1/pre-consignments/templates", nil)
+	w := httptest.NewRecorder()
+	r.HandleGetTraderPreConsignments(w, req)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestPreConsignmentRouter_HandleCreatePreConsignment_Unauthorized(t *testing.T) {
+	r := NewRouter(nil)
+	req, _ := http.NewRequest("POST", "/api/v1/pre-consignments", bytes.NewBufferString("{}"))
+	w := httptest.NewRecorder()
+	r.HandleCreatePreConsignment(w, req)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestPreConsignmentRouter_HandleGetPreConsignmentByID_Unauthorized(t *testing.T) {
+	r := NewRouter(nil)
+	req, _ := http.NewRequest("GET", "/api/v1/pre-consignments/id", nil)
+	w := httptest.NewRecorder()
+	r.HandleGetPreConsignmentByID(w, req)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestPreConsignmentRouter_HandleGetPreConsignmentByID_MissingID(t *testing.T) {
+	r := NewRouter(nil)
+	req, _ := http.NewRequest("GET", "/api/v1/pre-consignments/", nil)
+	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
+	w := httptest.NewRecorder()
+	r.HandleGetPreConsignmentByID(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
