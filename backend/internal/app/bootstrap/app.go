@@ -108,9 +108,6 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		_ = database.Close(db)
 		return nil, fmt.Errorf("failed to register workflow manager with consignment service: %w", registererr)
 	}
-	// TODO: Pre-consignment wiring is intentionally disabled until it is migrated to Temporal.
-	// preConsignmentService := service.NewPreConsignmentService(db, templateService, wm)
-	// preConsignmentRouter := router.NewPreConsignmentRouter(preConsignmentService)
 
 	hsCodeRouter := hscode.NewRouter(hsCodeService)
 	chaHandler := cha.NewHandler(chaService)

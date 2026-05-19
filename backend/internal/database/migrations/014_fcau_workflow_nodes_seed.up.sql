@@ -1,4 +1,4 @@
-INSERT INTO workflow_node_templates (id, name, description, type, config, depends_on)
+INSERT INTO workflow_node_templates (id, name, description, type, config)
 VALUES
     -- FCAU Application Submission Task
     (
@@ -33,8 +33,7 @@ VALUES
                     "taskCode": "fcau_general_application_v1"
                 }
             }
-        }')::jsonb,
-        '[]'
+        }')::jsonb
     ),
 
     -- FCAU Sample Drop Task
@@ -73,8 +72,7 @@ VALUES
                     }
                 }
             }
-        }')::jsonb,
-        '[]'
+        }')::jsonb
     ),
 
     -- FCAU Testing Requirement Task
@@ -114,8 +112,7 @@ VALUES
                     }
                 }
             }
-        }')::jsonb,
-        '[]'
+        }')::jsonb
     ),
 
     -- FCAU Lab Payment Upload Task
@@ -152,8 +149,7 @@ VALUES
                     "taskCode": "fcau_lab_payment_upload_v1"
                 }
             }
-        }')::jsonb,
-        '[]'
+        }')::jsonb
     ),
 
     -- FCAU Lab Results Review Task
@@ -193,8 +189,7 @@ VALUES
                     }
                 }
             }
-        }')::jsonb,
-        '[]'
+        }')::jsonb
     ),
 
     -- FCAU Payment Task
@@ -236,8 +231,7 @@ VALUES
                 "value": "{vat_rate:15}"
             }
             ]
-        }',
-        '[]'
+        }'
     ),
 
     -- FCAU Certificate Issue Task
@@ -276,7 +270,6 @@ VALUES
                     }
                 }
             }
-        }')::jsonb,
-        '[]'
+        }')::jsonb
     );
 

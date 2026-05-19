@@ -504,8 +504,7 @@ func (s *Service) buildConsignmentDetailDTO(
 					Description: taskDescription,
 					Type:        taskType,
 				},
-				State:     nodeState,
-				DependsOn: []string{}, // TODO: should be removed or should be populated based on the workflow definition (not currently stored in DB for v2 workflows)
+				State: nodeState,
 			})
 		}
 		for _, edge := range workflowV2.Edges {
