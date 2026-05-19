@@ -144,17 +144,36 @@ CREATE INDEX IF NOT EXISTS idx_workflow_node_templates_config
 	ON workflow_node_templates USING gin (config);
 
 -- ============================================================================
+-- Company profile records
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS company_records
+(
+	id         varchar(100)             NOT NULL PRIMARY KEY,
+	name       varchar(255)             NOT NULL,
+	ou_handle  varchar(255)             NOT NULL UNIQUE,
+	has_cha    boolean                  NOT NULL DEFAULT false,
+	data       jsonb                    NOT NULL DEFAULT '{}',
+	created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+	updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_company_records_ou_handle ON company_records (ou_handle);
+
+-- ============================================================================
 -- Customs House Agents (CHA)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS customs_house_agents
 (
-	id         text      NOT NULL PRIMARY KEY,
-	name       varchar(255)                        NOT NULL,
+	id         text         NOT NULL PRIMARY KEY,
+	name       varchar(255) NOT NULL,
 	description text,
 	email      varchar(255),
-	created_at timestamptz DEFAULT now()           NOT NULL,
-	updated_at timestamptz DEFAULT now()           NOT NULL
+	company_id varchar(100) NOT NULL REFERENCES company_records (id),
+	created_at timestamptz DEFAULT now() NOT NULL,
+	updated_at timestamptz DEFAULT now() NOT NULL
 );
+
+CREATE INDEX IF NOT EXISTS idx_customs_house_agents_company_id ON customs_house_agents (company_id);
 
 COMMENT ON TABLE customs_house_agents IS 'Clearing House Agents / Customs House Agents for consignment assignment';
 
@@ -254,6 +273,7 @@ CREATE TABLE IF NOT EXISTS user_records
 	email varchar(255) NOT NULL,
 	phone_number varchar(20),
 	ou_id varchar(255) NOT NULL,
+	ou_handle varchar(255) NOT NULL,
 	data jsonb NOT NULL,
 	created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
 	updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP

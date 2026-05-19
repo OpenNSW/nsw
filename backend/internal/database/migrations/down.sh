@@ -21,6 +21,7 @@ DOWNS=(
   "009_insert_cha_entity.down.sql"
   "008_insert_payment_transactions.down.sql"
   "007_insert_seed_pre_consignment_template.down.sql"
+  "006_insert_seed_company_records.down.sql"
   "004_insert_seed_workflow_node_templates.down.sql"
   "003_insert_seed_form_templates.down.sql"
   "002_insert_seed_hscodes.down.sql"

@@ -2,11 +2,13 @@
 -- Seed: Customs House Agents (CHA)
 -- ============================================================================
 
-INSERT INTO customs_house_agents (id, name, description, email)
+INSERT INTO customs_house_agents (id, name, description, email, company_id)
 VALUES
-	('a1b2c3d4-0001-4000-8000-000000000001', 'User123', 'user having trader and cha roles', 'user123@abcd-traders.private-sector.dev'),
-	('a1b2c3d4-0002-4000-8000-000000000002', 'User456', 'user having only cha role', 'user456@abcd-traders.private-sector.dev'),
-	('a1b2c3d4-0003-4000-8000-000000000003', 'Advantis', 'Advantis Projects - Offers experienced clearance services', NULL),
-	('a1b2c3d4-0004-4000-8000-000000000004', 'Yusen', 'Yusen - Global logistics and customs', NULL),
-	('a1b2c3d4-0005-4000-8000-000000000005', 'Malship', 'Malship - Shipping and customs house agency', NULL)
-ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email;
+	('a1b2c3d4-0001-4000-8000-000000000001', 'Suresh', 'User with Trader and CHA roles at ADAM PVT LTD',   'suresh@adam-pvt-ltd.private-sector.dev',  'adam-pvt-ltd'),
+	('a1b2c3d4-0002-4000-8000-000000000002', 'Ramesh', 'User with CHA role at ADAM PVT LTD',              'ramesh@adam-pvt-ltd.private-sector.dev',  'adam-pvt-ltd'),
+	('a1b2c3d4-0003-4000-8000-000000000003', 'Naresh', 'User with CHA role at EDWARD PVT LTD',            'naresh@edward-pvt-ltd.private-sector.dev','edward-pvt-ltd')
+ON CONFLICT (id) DO UPDATE SET
+	name = EXCLUDED.name,
+	description = EXCLUDED.description,
+	email = EXCLUDED.email,
+	company_id = EXCLUDED.company_id;
