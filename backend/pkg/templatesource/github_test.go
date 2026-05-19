@@ -231,6 +231,40 @@ func TestGitHub_ManifestRefreshInvalidatesCache(t *testing.T) {
 	}
 }
 
+// TestGitHub_ManifestRefreshClearsStaleContent verifies that updating a
+// template file in-place (same manifest path, new bytes) is reflected after
+// a manifest refresh. The old selective-eviction logic would have served
+// stale content in this scenario.
+func TestGitHub_ManifestRefreshClearsStaleContent(t *testing.T) {
+	stub, srv := newStubTemplateServer(t)
+	stub.setManifest(map[string]string{"alpha": "templates/a.json"})
+	stub.setFile("templates/a.json", `{"v":1}`)
+
+	src := newTestGitHubSource(t, srv.URL, 0)
+
+	if _, ok, err := src.GetTemplate(context.Background(), "alpha"); err != nil || !ok {
+		t.Fatalf("expected initial alpha (ok=%v, err=%v)", ok, err)
+	}
+
+	// Update file content in-place; manifest path is unchanged.
+	stub.setFile("templates/a.json", `{"v":2}`)
+	gs, ok := src.(*githubSource)
+	if !ok {
+		t.Fatalf("expected *githubSource, got %T", src)
+	}
+	if err := gs.loadManifest(context.Background()); err != nil {
+		t.Fatalf("manifest reload: %v", err)
+	}
+
+	body, ok, err := src.GetTemplate(context.Background(), "alpha")
+	if err != nil || !ok {
+		t.Fatalf("expected refreshed alpha (ok=%v, err=%v)", ok, err)
+	}
+	if got := string(body); got != `{"v":2}` {
+		t.Errorf("expected updated content after manifest refresh, got %s", got)
+	}
+}
+
 func TestGitHub_BackgroundRefreshTicks(t *testing.T) {
 	stub, srv := newStubTemplateServer(t)
 	stub.setManifest(map[string]string{"alpha": "templates/a.json"})

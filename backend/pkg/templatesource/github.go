@@ -141,18 +141,13 @@ func (s *githubSource) loadManifest(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Invalidate cache entries whose path is no longer referenced by the new
-	// manifest. Path equality across refreshes is enough — if the same path
-	// still appears in byId, its bytes are still correct.
-	newPaths := make(map[string]struct{}, len(m.ByID))
-	for _, p := range m.ByID {
-		newPaths[p] = struct{}{}
-	}
-	for path := range s.templateCache {
-		if _, ok := newPaths[path]; !ok {
-			delete(s.templateCache, path)
-		}
-	}
+	// Clear the entire template cache on every refresh. When Ref is a branch
+	// name a template file can be updated in-place (same manifest path, new
+	// bytes), so selective path-based eviction would keep serving stale
+	// content. A full clear ensures the next GetTemplate always fetches the
+	// latest bytes. The trade-off (one extra fetch per cached template after
+	// each refresh) is acceptable given typical refresh intervals.
+	s.templateCache = make(map[string]json.RawMessage)
 	s.byID = m.ByID
 	return nil
 }

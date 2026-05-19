@@ -33,7 +33,7 @@ if err != nil {
 }
 defer src.Close()
 
-raw, ok, err := src.GetTemplate(ctx, "build-licence")
+raw, ok, err := src.GetTemplate(context.Background(), "build-licence")
 ```
 
 - Returns an error and refuses to start if `dir` is missing or any file
@@ -48,7 +48,7 @@ raw, ok, err := src.GetTemplate(ctx, "build-licence")
 first access.
 
 ```go
-src, err := templatesource.NewGitHub(ctx, templatesource.GitHubConfig{
+src, err := templatesource.NewGitHub(context.Background(), templatesource.GitHubConfig{
     Repo:            "OpenNSW/one-trade-templates",
     Ref:             "abc1234",           // pin to a SHA in production
     RefreshInterval: 5 * time.Minute,    // 0 disables background refresh
@@ -57,6 +57,8 @@ if err != nil {
     log.Fatal(err)
 }
 defer src.Close()
+
+raw, ok, err := src.GetTemplate(context.Background(), "build-licence")
 ```
 
 #### `GitHubConfig` fields
