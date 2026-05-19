@@ -1,0 +1,12 @@
+{
+  "taskCode": "fcau_sample_assessment_v1",
+  "meta": {
+    "title": "Manual Sample Assessment",
+    "description": "Record the visual and physical inspection of the consignment sample.",
+    "icon": "search-check",
+    "category": "Food Control"
+  },
+  "forms": {
+    "review": "fcau-sample-assessment--reviewer-form"
+  }
+}
