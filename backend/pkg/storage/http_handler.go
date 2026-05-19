@@ -1,4 +1,4 @@
-package uploads
+package storage
 
 import (
 	"encoding/json"
@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/OpenNSW/nsw/internal/auth"
-	"github.com/OpenNSW/nsw/internal/uploads/drivers"
+	"github.com/OpenNSW/nsw/pkg/storage/drivers"
 )
 
 // validStorageKey returns true if key matches UUID or UUID plus extension (e.g. .pdf).
@@ -36,10 +36,10 @@ func isAllowedContentType(ct string) bool {
 }
 
 type HTTPHandler struct {
-	Service *UploadService
+	Service *Service
 }
 
-func NewHTTPHandler(service *UploadService) *HTTPHandler {
+func NewHTTPHandler(service *Service) *HTTPHandler {
 	return &HTTPHandler{Service: service}
 }
 

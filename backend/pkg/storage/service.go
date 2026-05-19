@@ -1,4 +1,4 @@
-package uploads
+package storage
 
 import (
 	"context"
@@ -7,22 +7,22 @@ import (
 	"log/slog"
 	"path/filepath"
 
-	"github.com/OpenNSW/nsw/internal/uploads/drivers"
+	"github.com/OpenNSW/nsw/pkg/storage/drivers"
 	"github.com/google/uuid"
 )
 
-// UploadService coordinates file uploads and manages metadata
-type UploadService struct {
+// Service coordinates file storage operations and manages metadata
+type Service struct {
 	Driver StorageDriver
 }
 
-func NewUploadService(driver StorageDriver) *UploadService {
-	return &UploadService{Driver: driver}
+func NewService(driver StorageDriver) *Service {
+	return &Service{Driver: driver}
 }
 
 // Upload handles the preparation of a file upload by generating a unique key
 // and a presigned/upload URL via the storage driver.
-func (s *UploadService) Upload(ctx context.Context, filename string, size int64, mime string) (*FileMetadata, error) {
+func (s *Service) Upload(ctx context.Context, filename string, size int64, mime string) (*FileMetadata, error) {
 	if mime == "" {
 		mime = drivers.DefaultMime
 	}
@@ -50,17 +50,17 @@ func (s *UploadService) Upload(ctx context.Context, filename string, size int64,
 }
 
 // Download retrieves the file content and its MIME type
-func (s *UploadService) Download(ctx context.Context, key string) (io.ReadCloser, string, error) {
+func (s *Service) Download(ctx context.Context, key string) (io.ReadCloser, string, error) {
 	return s.Driver.Get(ctx, key)
 }
 
 // GetDownloadURL generates a time-limited or presigned URL for the given key
-func (s *UploadService) GetDownloadURL(ctx context.Context, key string) (string, error) {
+func (s *Service) GetDownloadURL(ctx context.Context, key string) (string, error) {
 	return s.Driver.GetDownloadURL(ctx, key)
 }
 
 // Delete removes a file from storage
-func (s *UploadService) Delete(ctx context.Context, key string) error {
+func (s *Service) Delete(ctx context.Context, key string) error {
 	err := s.Driver.Delete(ctx, key)
 	if err != nil {
 		return fmt.Errorf("failed to delete file: %w", err)

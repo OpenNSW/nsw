@@ -11,7 +11,7 @@ import { LoginScreen } from './screens/LoginScreen.tsx'
 import { ApiProvider, useApi } from './services/ApiContext'
 import { RoleProvider } from './services/RoleContext'
 import { UploadProvider } from '@opennsw/jsonforms-renderers'
-import { uploadFile, getDownloadUrl } from './services/upload'
+import { uploadFile, getDownloadUrl } from './services/storage'
 import { useAuthContext } from './hooks/useAuthContext'
 import { UnauthorizedScreen } from './screens/UnauthorizedScreen.tsx'
 

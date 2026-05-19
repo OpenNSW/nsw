@@ -1,4 +1,4 @@
-package uploads
+package storage
 
 // FileMetadata represents the metadata of an uploaded file
 type FileMetadata struct {
