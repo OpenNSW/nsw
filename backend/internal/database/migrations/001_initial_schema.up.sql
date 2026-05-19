@@ -153,8 +153,8 @@ CREATE TABLE IF NOT EXISTS company_records
 	ou_handle  varchar(255)             NOT NULL UNIQUE,
 	has_cha    boolean                  NOT NULL DEFAULT false,
 	data       jsonb                    NOT NULL DEFAULT '{}',
-	created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-	updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+	created_at timestamp with time zone DEFAULT now(),
+	updated_at timestamp with time zone DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_company_records_ou_handle ON company_records (ou_handle);
@@ -164,7 +164,7 @@ CREATE INDEX IF NOT EXISTS idx_company_records_ou_handle ON company_records (ou_
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS customs_house_agents
 (
-	id         text         NOT NULL PRIMARY KEY,
+	id         varchar(100) NOT NULL PRIMARY KEY,
 	name       varchar(255) NOT NULL,
 	description text,
 	email      varchar(255),
@@ -196,7 +196,7 @@ CREATE TABLE IF NOT EXISTS consignments
 	created_at timestamp with time zone DEFAULT now() NOT NULL,
 	updated_at timestamp with time zone DEFAULT now() NOT NULL,
 	end_node_id text,
-	cha_id text NOT NULL REFERENCES customs_house_agents (id)
+	cha_id varchar(100) NOT NULL REFERENCES customs_house_agents (id)
 );
 
 COMMENT ON TABLE consignments IS 'Consignment records for import/export workflows';
@@ -278,6 +278,8 @@ CREATE TABLE IF NOT EXISTS user_records
 	created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
 	updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_user_records_ou_handle ON user_records (ou_handle);
 
 COMMENT ON TABLE user_records IS 'Stores user record information including metadata in JSON format. This table is used for user identification and authorization.';
 

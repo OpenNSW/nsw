@@ -86,7 +86,7 @@ func TestTokenExtractor_ExtractPrincipalFromHeader_MissingClaims(t *testing.T) {
 		claims["email"] = testEmail
 		claims["phone_number"] = testPhone
 		claims["ouId"] = testOUID
-	claims["ouHandle"] = testOUHandle
+		claims["ouHandle"] = testOUHandle
 		claims["roles"] = []string{"exporter"}
 		return claims
 	}

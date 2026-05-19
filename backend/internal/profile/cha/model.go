@@ -6,7 +6,7 @@ import (
 
 // Record represents a Customs House Agent's persisted profile in the database.
 type Record struct {
-	ID          string    `gorm:"type:text;column:id;primaryKey;not null" json:"id"`
+	ID          string    `gorm:"type:varchar(100);column:id;primaryKey;not null" json:"id"`
 	Name        string    `gorm:"type:varchar(255);column:name;not null" json:"name"`
 	Description string    `gorm:"type:text;column:description" json:"description"`
 	Email       string    `gorm:"type:varchar(255);column:email" json:"email,omitempty"`
