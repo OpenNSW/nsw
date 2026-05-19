@@ -51,7 +51,6 @@ MIGRATIONS=(
     "003_insert_seed_form_templates.up.sql"
     "004_insert_seed_workflow_node_templates.up.sql"
     "005_insert_seed_workflow_templates.up.sql"
-    "006_insert_seed_workflow_hscode_map.up.sql"
     "007_insert_seed_pre_consignment_template.up.sql"
     "008_insert_payment_transactions.up.sql"
     "009_insert_cha_entity.up.sql"

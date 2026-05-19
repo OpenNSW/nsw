@@ -143,3 +143,22 @@ type Filter struct {
 	Offset   *int    `json:"offset,omitempty"`
 	Limit    *int    `json:"limit,omitempty"`
 }
+
+// WorkflowTemplateMap represents the mapping between HSCode and Workflow.
+type WorkflowTemplateMap struct {
+	ID        string    `gorm:"type:text;column:id;primaryKey;not null" json:"id"`
+	CreatedAt time.Time `gorm:"type:timestamptz;column:created_at;not null;autoCreateTime" json:"createdAt"`
+	UpdatedAt time.Time `gorm:"type:timestamptz;column:updated_at;not null;autoUpdateTime" json:"updatedAt"`
+
+	HSCodeID           string `gorm:"type:text;column:hs_code_id;not null" json:"hsCodeId"`
+	ConsignmentFlow    Flow   `gorm:"type:varchar(50);column:consignment_flow;not null" json:"consignmentFlow"` // e.g., IMPORT, EXPORT
+	WorkflowTemplateID string `gorm:"type:text;column:workflow_template_id;not null" json:"workflowTemplateId"`
+
+	// Relationships
+	HSCode           hscode.HSCode            `gorm:"foreignKey:HSCodeID;references:ID" json:"hsCode"`
+	WorkflowTemplate model.WorkflowTemplateV2 `gorm:"foreignKey:WorkflowTemplateID;references:ID" json:"workflowTemplate"`
+}
+
+func (w *WorkflowTemplateMap) TableName() string {
+	return "workflow_template_map"
+}

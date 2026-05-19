@@ -29,22 +29,6 @@ type MockTemplateProvider struct {
 	mock.Mock
 }
 
-func (m *MockTemplateProvider) GetWorkflowTemplateByHSCodeIDAndFlow(ctx context.Context, id string, flow model.ConsignmentFlow) (*model.WorkflowTemplate, error) {
-	args := m.Called(ctx, id, flow)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*model.WorkflowTemplate), args.Error(1)
-}
-
-func (m *MockTemplateProvider) GetWorkflowTemplateByHSCodeIDAndFlowV2(ctx context.Context, id string, flow model.ConsignmentFlow) (*model.WorkflowTemplateV2, error) {
-	args := m.Called(ctx, id, flow)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*model.WorkflowTemplateV2), args.Error(1)
-}
-
 func (m *MockTemplateProvider) GetWorkflowTemplateByID(ctx context.Context, id string) (*model.WorkflowTemplate, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {

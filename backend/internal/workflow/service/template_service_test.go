@@ -7,30 +7,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/OpenNSW/nsw/internal/workflow/model"
 )
-
-func TestTemplateService_GetWorkflowTemplateByHSCodeIDAndFlow(t *testing.T) {
-	db, sqlMock := setupTestDB(t)
-	service := NewTemplateService(db)
-	ctx := context.Background()
-
-	hsCodeID := uuid.NewString()
-	flow := model.ConsignmentFlowImport
-	templateID := uuid.NewString()
-
-	// Expectation
-	sqlMock.ExpectQuery(`SELECT workflow_templates\.\* FROM "workflow_templates" JOIN workflow_template_maps ON workflow_templates\.id = workflow_template_maps\.workflow_template_id WHERE workflow_template_maps\.hs_code_id = \$1 AND workflow_template_maps\.consignment_flow = \$2 ORDER BY "workflow_templates"."id" LIMIT \$3`).
-		WithArgs(hsCodeID, flow, 1). // Checking matches exact args
-		WillReturnRows(sqlmock.NewRows([]string{"id", "flow", "name"}).
-			AddRow(templateID, flow, "Test Template"))
-
-	result, err := service.GetWorkflowTemplateByHSCodeIDAndFlow(ctx, hsCodeID, flow)
-	assert.NoError(t, err)
-	assert.NotNil(t, result)
-	assert.Equal(t, templateID, result.ID)
-}
 
 func TestTemplateService_GetWorkflowNodeTemplatesByIDs(t *testing.T) {
 	db, sqlMock := setupTestDB(t)

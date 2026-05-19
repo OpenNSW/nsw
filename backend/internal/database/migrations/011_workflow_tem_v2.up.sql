@@ -70,19 +70,19 @@ VALUES
 -- ============================================================================
 -- Workflow mapping rules by HS code and flow
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS workflow_template_maps_v2
+CREATE TABLE IF NOT EXISTS workflow_template_map
 (
 	id text NOT NULL
 		PRIMARY KEY,
 	hs_code_id text NOT NULL
-		CONSTRAINT fk_workflow_template_maps_hs_code
+		CONSTRAINT fk_workflow_template_map_hs_code
 			references hs_codes
 				ON UPDATE CASCADE ON DELETE RESTRICT,
 	consignment_flow varchar(50) NOT NULL
-		CONSTRAINT workflow_template_maps_consignment_flow_check
+		CONSTRAINT workflow_template_map_consignment_flow_check
 			CHECK ((consignment_flow)::text = ANY ((ARRAY['IMPORT'::character varying, 'EXPORT'::character varying])::text[])),
 	workflow_template_id text NOT NULL
-		CONSTRAINT fk_workflow_template_maps_workflow_template
+		CONSTRAINT fk_workflow_template_map_workflow_template
 			references workflow_template_v2
 				ON UPDATE CASCADE ON DELETE RESTRICT,
 	created_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS workflow_template_maps_v2
 );
 
 -- Seed data: workflow template mapping by HS code and consignment flow
-INSERT INTO workflow_template_maps_v2 (id, hs_code_id, consignment_flow, workflow_template_id)
+INSERT INTO workflow_template_map (id, hs_code_id, consignment_flow, workflow_template_id)
 VALUES
     -- Mapping for Fresh Coconut Export Workflow
     (

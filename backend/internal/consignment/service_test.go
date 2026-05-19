@@ -24,22 +24,6 @@ type MockTemplateProvider struct {
 	mock.Mock
 }
 
-func (m *MockTemplateProvider) GetWorkflowTemplateByHSCodeIDAndFlow(ctx context.Context, hsCodeID string, flow model.ConsignmentFlow) (*model.WorkflowTemplate, error) {
-	args := m.Called(ctx, hsCodeID, flow)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*model.WorkflowTemplate), args.Error(1)
-}
-
-func (m *MockTemplateProvider) GetWorkflowTemplateByHSCodeIDAndFlowV2(ctx context.Context, hsCodeID string, flow model.ConsignmentFlow) (*model.WorkflowTemplateV2, error) {
-	args := m.Called(ctx, hsCodeID, flow)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*model.WorkflowTemplateV2), args.Error(1)
-}
-
 func (m *MockTemplateProvider) GetWorkflowTemplateByID(ctx context.Context, id string) (*model.WorkflowTemplate, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
@@ -202,8 +186,7 @@ func TestConsignmentService_InitializeConsignmentByID_MultipleHSCodeError(t *tes
 
 func TestConsignmentService_InitializeConsignmentByID_NoTemplate(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
-	mockTP := new(MockTemplateProvider)
-	svc := NewService(db, mockTP, nil, nil)
+	svc := NewService(db, nil, nil, nil)
 	id := uuid.NewString()
 	hsID := "hs1"
 	sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE id = \$1`).
@@ -213,7 +196,10 @@ func TestConsignmentService_InitializeConsignmentByID_NoTemplate(t *testing.T) {
 	sqlMock.ExpectBegin()
 	sqlMock.ExpectExec(`UPDATE "consignments"`).WillReturnResult(sqlmock.NewResult(1, 1))
 
-	mockTP.On("GetWorkflowTemplateByHSCodeIDAndFlowV2", mock.Anything, hsID, model.ConsignmentFlow("IMPORT")).Return(nil, nil)
+	sqlMock.ExpectQuery(`SELECT \* FROM "workflow_template_map"`).
+		WithArgs(hsID, "IMPORT", 1).
+		WillReturnError(gorm.ErrRecordNotFound)
+	sqlMock.ExpectRollback()
 
 	_, err := svc.InitializeConsignmentByID(context.Background(), id, []string{hsID}, nil)
 	assert.Error(t, err)
@@ -240,11 +226,17 @@ func TestConsignmentService_InitializeConsignmentByID_Success(t *testing.T) {
 	sqlMock.ExpectBegin()
 	sqlMock.ExpectExec(`UPDATE "consignments"`).WillReturnResult(sqlmock.NewResult(1, 1))
 
-	wt := &model.WorkflowTemplateV2{
-		WorkflowDefinition: workflowManagerV2.WorkflowDefinition{ID: "template1"},
-	}
-	mockTP.On("GetWorkflowTemplateByHSCodeIDAndFlowV2", mock.Anything, hsID, model.ConsignmentFlow("IMPORT")).Return(wt, nil)
-	mockWM.On("StartWorkflow", mock.Anything, id, wt.WorkflowDefinition, mock.Anything).Return(nil)
+	wtID := uuid.NewString()
+	wfDef := workflowManagerV2.WorkflowDefinition{ID: "template1"}
+	sqlMock.ExpectQuery(`SELECT \* FROM "workflow_template_map"`).
+		WithArgs(hsID, "IMPORT", 1).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "hs_code_id", "consignment_flow", "workflow_template_id"}).
+			AddRow(uuid.NewString(), hsID, "IMPORT", wtID))
+	sqlMock.ExpectQuery(`SELECT \* FROM "workflow_template_v2"`).
+		WithArgs(wtID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "version", "workflow_definition"}).
+			AddRow(wtID, "tmpl", "v1", []byte(`{"id":"template1"}`)))
+	mockWM.On("StartWorkflow", mock.Anything, id, wfDef, mock.Anything).Return(nil)
 
 	sqlMock.ExpectCommit()
 
@@ -442,22 +434,28 @@ func TestConsignmentService_CreateConsignmentShell_InsertError(t *testing.T) {
 
 func TestConsignmentService_InitializeConsignmentByID_StartWorkflowError(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
-	mockTP := new(MockTemplateProvider)
 	mockWM := new(MockWMV2)
-	svc := NewService(db, mockTP, nil, nil)
+	svc := NewService(db, nil, nil, nil)
 	require.NoError(t, svc.RegisterWorkflowManager(mockWM))
 
 	id := uuid.NewString()
 	hsID := "hs1"
+	wtID := uuid.NewString()
 	sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE id = \$1`).
 		WithArgs(id, 1).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "state", "flow"}).AddRow(id, "INITIALIZED", "IMPORT"))
 	sqlMock.ExpectBegin()
 	sqlMock.ExpectExec(`UPDATE "consignments"`).WillReturnResult(sqlmock.NewResult(1, 1))
 
-	wt := &model.WorkflowTemplateV2{WorkflowDefinition: workflowManagerV2.WorkflowDefinition{ID: "tmpl"}}
-	mockTP.On("GetWorkflowTemplateByHSCodeIDAndFlowV2", mock.Anything, hsID, model.ConsignmentFlow("IMPORT")).Return(wt, nil)
-	mockWM.On("StartWorkflow", mock.Anything, id, wt.WorkflowDefinition, mock.Anything).Return(errors.New("start failed"))
+	sqlMock.ExpectQuery(`SELECT \* FROM "workflow_template_map"`).
+		WithArgs(hsID, "IMPORT", 1).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "hs_code_id", "consignment_flow", "workflow_template_id"}).
+			AddRow(uuid.NewString(), hsID, "IMPORT", wtID))
+	sqlMock.ExpectQuery(`SELECT \* FROM "workflow_template_v2"`).
+		WithArgs(wtID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "version", "workflow_definition"}).
+			AddRow(wtID, "tmpl", "v1", []byte(`{"id":"tmpl"}`)))
+	mockWM.On("StartWorkflow", mock.Anything, id, workflowManagerV2.WorkflowDefinition{ID: "tmpl"}, mock.Anything).Return(errors.New("start failed"))
 
 	_, err := svc.InitializeConsignmentByID(context.Background(), id, []string{hsID}, nil)
 	assert.Error(t, err)
@@ -466,8 +464,7 @@ func TestConsignmentService_InitializeConsignmentByID_StartWorkflowError(t *test
 
 func TestConsignmentService_InitializeConsignmentByID_TemplateProviderError(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
-	mockTP := new(MockTemplateProvider)
-	svc := NewService(db, mockTP, nil, nil)
+	svc := NewService(db, nil, nil, nil)
 
 	id := uuid.NewString()
 	hsID := "hs1"
@@ -477,8 +474,10 @@ func TestConsignmentService_InitializeConsignmentByID_TemplateProviderError(t *t
 	sqlMock.ExpectBegin()
 	sqlMock.ExpectExec(`UPDATE "consignments"`).WillReturnResult(sqlmock.NewResult(1, 1))
 
-	mockTP.On("GetWorkflowTemplateByHSCodeIDAndFlowV2", mock.Anything, hsID, model.ConsignmentFlow("IMPORT")).
-		Return(nil, errors.New("provider error"))
+	sqlMock.ExpectQuery(`SELECT \* FROM "workflow_template_map"`).
+		WithArgs(hsID, "IMPORT", 1).
+		WillReturnError(errors.New("provider error"))
+	sqlMock.ExpectRollback()
 
 	_, err := svc.InitializeConsignmentByID(context.Background(), id, []string{hsID}, nil)
 	assert.Error(t, err)

@@ -2,6 +2,7 @@ package consignment
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -151,15 +152,21 @@ func (s *Service) InitializeConsignmentByID(
 		return nil, fmt.Errorf("workflow manager currently supports only one HS code")
 	}
 
-	wt, err := s.templateProvider.GetWorkflowTemplateByHSCodeIDAndFlowV2(ctx, hsCodeIDs[0], model.ConsignmentFlow(consignment.Flow))
+	var mapping WorkflowTemplateMap
+	err := tx.Model(&WorkflowTemplateMap{}).
+		Preload("WorkflowTemplate").
+		Where("hs_code_id = ? AND consignment_flow = ?", hsCodeIDs[0], consignment.Flow).
+		First(&mapping).Error
+
 	if err != nil {
 		tx.Rollback()
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("no workflow template found for HS code %s and flow %s", hsCodeIDs[0], consignment.Flow)
+		}
 		return nil, fmt.Errorf("failed to get workflow template: %w", err)
 	}
-	if wt == nil {
-		tx.Rollback()
-		return nil, fmt.Errorf("no workflow template found for HS code %s and flow %s", hsCodeIDs[0], consignment.Flow)
-	}
+
+	wt := &mapping.WorkflowTemplate
 
 	if err := s.wm.StartWorkflow(ctx, consignment.ID, wt.WorkflowDefinition, globalContext); err != nil {
 		tx.Rollback()
