@@ -12,7 +12,6 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	workflowManagerV2 "github.com/OpenNSW/go-temporal-workflow"
-	"github.com/OpenNSW/nsw/internal/workflow/model"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -131,14 +130,14 @@ func TestConsignmentRouter_HandleCreateConsignment(t *testing.T) {
 
 func TestConsignmentRouter_HandleInitializeConsignment(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
-	mockTP := new(MockTemplateProvider)
 	mockWM := new(MockWMV2)
-	svc := NewService(db, mockTP, nil, nil)
+	svc := NewService(db, nil, nil, nil)
 	require.NoError(t, svc.RegisterWorkflowManager(mockWM))
 	r := NewRouter(svc, nil)
 
 	id := uuid.NewString()
 	hsID := uuid.NewString()
+	wtID := uuid.NewString()
 	payload := InitializeConsignmentDTO{HSCodeIDs: []string{hsID}}
 	body, _ := json.Marshal(payload)
 
@@ -146,9 +145,13 @@ func TestConsignmentRouter_HandleInitializeConsignment(t *testing.T) {
 	sqlMock.ExpectBegin()
 	sqlMock.ExpectExec("(?i)UPDATE \"consignments\"").WillReturnResult(sqlmock.NewResult(1, 1))
 
-	wt := &model.WorkflowTemplateV2{WorkflowDefinition: workflowManagerV2.WorkflowDefinition{ID: "template1"}}
-	mockTP.On("GetWorkflowTemplateByHSCodeIDAndFlowV2", mock.Anything, hsID, model.ConsignmentFlow("IMPORT")).Return(wt, nil)
-	mockWM.On("StartWorkflow", mock.Anything, id, wt.WorkflowDefinition, mock.Anything).Return(nil)
+	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"workflow_template_map\"").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "hs_code_id", "consignment_flow", "workflow_template_id"}).
+			AddRow(uuid.NewString(), hsID, "IMPORT", wtID))
+	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"workflow_template_v2\"").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "version", "workflow_definition"}).
+			AddRow(wtID, "tmpl", "v1", []byte(`{"id":"template1"}`)))
+	mockWM.On("StartWorkflow", mock.Anything, id, workflowManagerV2.WorkflowDefinition{ID: "template1"}, mock.Anything).Return(nil)
 	sqlMock.ExpectCommit()
 
 	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"consignments\"").WillReturnRows(sqlmock.NewRows([]string{"id", "state", "items", "created_at", "updated_at"}).AddRow(id, "IN_PROGRESS", []byte("[]"), time.Now(), time.Now()))

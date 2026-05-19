@@ -1,7 +1,7 @@
 -- Migration: 014_fcau_workflow_seed.down.sql
 -- Description: Roll back workflow seed data.
 
-DELETE FROM workflow_template_maps_v2
+DELETE FROM workflow_template_map
 WHERE id = 'fcau-wf-map-0001';
 
 DELETE FROM hs_codes

@@ -188,7 +188,7 @@ VALUES
         'FCAU'
     );
 
-INSERT INTO workflow_template_maps_v2 (id, hs_code_id, consignment_flow, workflow_template_id)
+INSERT INTO workflow_template_map (id, hs_code_id, consignment_flow, workflow_template_id)
 VALUES
     -- Mapping for FCAU process
     (

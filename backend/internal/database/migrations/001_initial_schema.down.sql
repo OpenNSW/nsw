@@ -20,7 +20,6 @@ DROP TABLE IF EXISTS task_infos;
 -- Drop template and mapping tables
 -- ============================================================================
 DROP TABLE IF EXISTS pre_consignment_templates;
-DROP TABLE IF EXISTS workflow_template_maps;
 DROP TABLE IF EXISTS workflow_templates;
 DROP TABLE IF EXISTS workflow_node_templates;
 

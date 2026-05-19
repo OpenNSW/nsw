@@ -93,7 +93,6 @@ func TestModel_TableNames(t *testing.T) {
 	assert.Equal(t, "workflow_templates", (&WorkflowTemplate{}).TableName())
 	assert.Equal(t, "workflow_node_templates", (&WorkflowNodeTemplate{}).TableName())
 	assert.Equal(t, "workflow_nodes", (&WorkflowNode{}).TableName())
-	assert.Equal(t, "workflow_template_maps", (&WorkflowTemplateMap{}).TableName())
 }
 
 func TestModel_WorkflowTemplate_GetNodeTemplateIDs(t *testing.T) {

@@ -64,14 +64,6 @@ type fakeTemplateProvider struct {
 	lastID   string
 }
 
-func (p *fakeTemplateProvider) GetWorkflowTemplateByHSCodeIDAndFlow(_ context.Context, _ string, _ model.ConsignmentFlow) (*model.WorkflowTemplate, error) {
-	return nil, nil
-}
-
-func (p *fakeTemplateProvider) GetWorkflowTemplateByHSCodeIDAndFlowV2(_ context.Context, _ string, _ model.ConsignmentFlow) (*model.WorkflowTemplateV2, error) {
-	return nil, nil
-}
-
 func (p *fakeTemplateProvider) GetWorkflowTemplateByID(_ context.Context, _ string) (*model.WorkflowTemplate, error) {
 	return nil, nil
 }
