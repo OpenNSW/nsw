@@ -85,7 +85,7 @@ export interface CreateConsignmentItemRequest {
 export interface CreateConsignmentRequest {
   flow: TradeFlow
   items?: CreateConsignmentItemRequest[]
-  chaId?: string
+  chaCompanyId?: string
 }
 
 export type CreateConsignmentResponse = ConsignmentDetail

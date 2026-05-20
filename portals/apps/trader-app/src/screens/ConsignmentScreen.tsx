@@ -2,8 +2,9 @@ import { useState, useEffect, useRef, type ChangeEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Badge, Box, Button, Dialog, Flex, IconButton, Select, Spinner, Text, TextField } from '@radix-ui/themes'
 import { MagnifyingGlassIcon, PlusIcon, Cross2Icon, InfoCircledIcon } from '@radix-ui/react-icons'
-import type { ConsignmentSummary, TradeFlow, ConsignmentState, CHA } from '../services/types/consignment.ts'
-import { createConsignment, getAllConsignments, getCHAs } from '../services/consignment.ts'
+import type { ConsignmentSummary, TradeFlow, ConsignmentState } from '../services/types/consignment.ts'
+import { createConsignment, getAllConsignments } from '../services/consignment.ts'
+import { getCompanies } from '../services/company.ts'
 import { useApi } from '../services/ApiContext'
 import { useRole } from '../services/RoleContext'
 import { getStateColor, formatState, formatDateTime } from '../utils/consignmentUtils'
@@ -16,26 +17,56 @@ const RadixText = Text
 
 type NewConsignmentData = {
   flow: TradeFlow | null
-  chaId: string
+  chaCompanyId: string
 }
 
 interface NewConsignmentDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  chaOptions: CHAOption[]
   creating: boolean
   onCreate: (data: NewConsignmentData) => Promise<void>
 }
 
-function NewConsignmentDialog({ open, onOpenChange, chaOptions, creating, onCreate }: NewConsignmentDialogProps) {
+function NewConsignmentDialog({ open, onOpenChange, creating, onCreate }: NewConsignmentDialogProps) {
+  const api = useApi()
   const [newConsignmentData, setNewConsignmentData] = useState<NewConsignmentData>({
     flow: null,
-    chaId: '',
+    chaCompanyId: '',
   })
   const [currentCHASearchQuery, setCurrentCHASearchQuery] = useState('')
+  const [chaOptions, setChaOptions] = useState<CHAOption[]>([])
+  const [chaLoading, setChaLoading] = useState(false)
+
+  // Debounced server-side search via /api/v1/companies?has_cha=true&name=<query>.
+  // Each keystroke schedules a fetch 300ms later; a fresh keystroke cancels the previous one.
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    const handle = setTimeout(() => {
+      setChaLoading(true)
+      void getCompanies({ hasCha: true, name: currentCHASearchQuery }, api)
+        .then((companies) => {
+          if (cancelled) return
+          setChaOptions(companies.map((c) => ({ id: c.id, name: c.name })))
+        })
+        .catch((err: unknown) => {
+          if (cancelled) return
+          console.error('Failed to fetch companies:', err)
+          setChaOptions([])
+        })
+        .finally(() => {
+          if (cancelled) return
+          setChaLoading(false)
+        })
+    }, 300)
+    return () => {
+      cancelled = true
+      clearTimeout(handle)
+    }
+  }, [open, currentCHASearchQuery, api])
 
   const handleCreate = () => {
-    if (newConsignmentData.flow && newConsignmentData.chaId) {
+    if (newConsignmentData.flow && newConsignmentData.chaCompanyId) {
       void onCreate(newConsignmentData)
     }
   }
@@ -151,18 +182,19 @@ function NewConsignmentDialog({ open, onOpenChange, chaOptions, creating, onCrea
               </RadixText>
               <CHASearch
                 options={chaOptions}
-                value={chaOptions.find((c) => c.id === newConsignmentData.chaId) ?? null}
+                value={chaOptions.find((c) => c.id === newConsignmentData.chaCompanyId) ?? null}
                 searchQuery={currentCHASearchQuery}
-                onChange={(cha) => {
-                  setNewConsignmentData((prev) => ({ ...prev, chaId: cha?.id ?? '' }))
+                onChange={(company) => {
+                  setNewConsignmentData((prev) => ({ ...prev, chaCompanyId: company?.id ?? '' }))
                 }}
                 onSearchQueryChange={setCurrentCHASearchQuery}
+                loading={chaLoading}
               />
-              {!newConsignmentData.chaId && currentCHASearchQuery.trim().length > 0 && (
+              {!newConsignmentData.chaCompanyId && currentCHASearchQuery.trim().length > 0 && (
                 <Flex align="center" gap="1" mt="2">
                   <InfoCircledIcon color="red" />
                   <Text size="1" color="red">
-                    Please select a CHA from the list.
+                    Please select a CHA company from the list.
                   </Text>
                 </Flex>
               )}
@@ -178,7 +210,7 @@ function NewConsignmentDialog({ open, onOpenChange, chaOptions, creating, onCrea
           </Dialog.Close>
           <Button
             onClick={handleCreate}
-            disabled={!newConsignmentData.flow || !newConsignmentData.chaId || creating}
+            disabled={!newConsignmentData.flow || !newConsignmentData.chaCompanyId || creating}
             loading={creating}
           >
             {creating ? 'Creating...' : 'Create'}
@@ -193,7 +225,6 @@ export function ConsignmentScreen() {
   const navigate = useNavigate()
   const api = useApi()
   const [consignments, setConsignments] = useState<ConsignmentSummary[]>([])
-  const [chaOptions, setChaOptions] = useState<CHAOption[]>([])
 
   const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -224,7 +255,7 @@ export function ConsignmentScreen() {
       const response = await createConsignment(
         {
           flow: data.flow,
-          chaId: data.chaId,
+          chaCompanyId: data.chaCompanyId,
         },
         api,
       )
@@ -237,19 +268,6 @@ export function ConsignmentScreen() {
       setCreating(false)
     }
   }
-
-  useEffect(() => {
-    async function fetchCHAs() {
-      try {
-        const data = await getCHAs(api)
-        const options: CHAOption[] = data.map((c: CHA) => ({ id: c.id, name: c.name }))
-        setChaOptions(options)
-      } catch (error) {
-        console.error('Failed to fetch CHAs:', error)
-      }
-    }
-    void fetchCHAs()
-  }, [api])
 
   useEffect(() => {
     async function fetchConsignments() {
@@ -329,7 +347,6 @@ export function ConsignmentScreen() {
       <NewConsignmentDialog
         open={pickerOpen}
         onOpenChange={handleNewOpenChange}
-        chaOptions={chaOptions}
         creating={creating}
         onCreate={handleCreateShell}
       />

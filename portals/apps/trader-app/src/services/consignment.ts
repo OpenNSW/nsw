@@ -5,7 +5,6 @@ import type {
   CreateConsignmentResponse,
   ConsignmentState,
   TradeFlow,
-  CHA,
 } from './types/consignment'
 import { defaultApiClient, type ApiClient } from './api'
 
@@ -36,10 +35,6 @@ export async function getConsignment(id: string, apiClient: ApiClient = defaultA
     }
     throw error
   }
-}
-
-export async function getCHAs(apiClient: ApiClient = defaultApiClient): Promise<CHA[]> {
-  return apiClient.get<CHA[]>('/chas')
 }
 
 export async function getAllConsignments(
