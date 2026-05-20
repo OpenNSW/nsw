@@ -8,10 +8,8 @@ interface with two implementations:
 | Local filesystem | `NewLocal(dir)` | Development / offline testing |
 | GitHub raw content | `NewGitHub(ctx, cfg)` | Staging and production |
 
-The package returns opaque `json.RawMessage` bytes and never inspects the JSON
-shape, so it can serve forms, workflow definitions, or any other
-manifest-keyed artifact. It is intentionally free of OGA-specific config or
-env coupling so it can be reused by other services.
+Each implementation validates that blobs are syntactically valid JSON but never
+inspects the document structure, leaving interpretation entirely to the caller.
 
 ## Import
 

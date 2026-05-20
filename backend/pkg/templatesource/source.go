@@ -1,9 +1,8 @@
-// Package templatesource resolves JSON template blobs by ID. It exposes a
-// Source interface with two implementations: a local-folder reader and a
-// GitHub-manifest-backed loader. The package returns opaque bytes and never
-// inspects the JSON shape, so it can serve forms, workflow definitions, or
-// any other manifest-keyed artifact. It is intentionally free of any
-// OGA-specific config or env coupling so it can be reused by other services.
+// Package templatesource resolves JSON blobs by ID. It exposes a Source
+// interface with two implementations: a local-folder reader and a
+// GitHub-manifest-backed loader. Each implementation validates that blobs are
+// syntactically valid JSON but never inspects the document structure, leaving
+// interpretation entirely to the caller.
 package templatesource
 
 import (

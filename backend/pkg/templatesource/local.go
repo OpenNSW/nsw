@@ -43,6 +43,10 @@ func NewLocal(dir string) (Source, error) {
 		slog.Info("loaded template", "id", id)
 	}
 
+	if len(templates) == 0 {
+		return nil, fmt.Errorf("templatesource: no .json files found in %q", dir)
+	}
+
 	slog.Info("local template source initialized", "dir", dir, "count", len(templates))
 	return &localSource{templates: templates}, nil
 }

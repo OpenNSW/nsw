@@ -60,12 +60,12 @@ type githubSource struct {
 	interval time.Duration
 	client   *http.Client
 
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	mu            sync.RWMutex
 	byID          map[string]string          // templateID -> repo-relative path
 	templateCache map[string]json.RawMessage // path -> template bytes
-
-	done      chan struct{}
-	closeOnce sync.Once
 }
 
 // NewGitHub builds a Source that loads its manifest from a GitHub repo at
@@ -91,15 +91,17 @@ func NewGitHub(ctx context.Context, cfg GitHubConfig) (Source, error) {
 		client = &http.Client{Timeout: 10 * time.Second}
 	}
 
+	srcCtx, cancel := context.WithCancel(context.Background())
 	src := &githubSource{
 		repo:          cfg.Repo,
 		ref:           cfg.Ref,
 		baseURL:       baseURL,
 		interval:      cfg.RefreshInterval,
 		client:        client,
+		ctx:           srcCtx,
+		cancel:        cancel,
 		byID:          map[string]string{},
 		templateCache: map[string]json.RawMessage{},
-		done:          make(chan struct{}),
 	}
 	if err := src.loadManifest(ctx); err != nil {
 		return nil, fmt.Errorf("templatesource: failed to load manifest from %s: %w", src.manifestURL(), err)
@@ -157,7 +159,7 @@ func (s *githubSource) refreshLoop() {
 	defer ticker.Stop()
 	for {
 		select {
-		case <-s.done:
+		case <-s.ctx.Done():
 			return
 		case <-ticker.C:
 			s.refresh()
@@ -166,7 +168,7 @@ func (s *githubSource) refreshLoop() {
 }
 
 func (s *githubSource) refresh() {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(s.ctx, 10*time.Second)
 	defer cancel()
 	if err := s.loadManifest(ctx); err != nil {
 		slog.Warn("templatesource: github manifest refresh failed", "error", err)
@@ -207,8 +209,10 @@ func (s *githubSource) GetTemplate(ctx context.Context, id string) (json.RawMess
 	return body, true, nil
 }
 
+// Close stops the background refresh goroutine and cancels any in-flight
+// manifest fetch. Safe to call multiple times.
 func (s *githubSource) Close() error {
-	s.closeOnce.Do(func() { close(s.done) })
+	s.cancel()
 	return nil
 }
 

@@ -119,6 +119,25 @@ func TestLocal_ErrorOnMissingDir(t *testing.T) {
 	}
 }
 
+func TestLocal_ErrorOnEmptyDir(t *testing.T) {
+	dir := t.TempDir()
+	_, err := NewLocal(dir)
+	if err == nil {
+		t.Fatalf("expected error for directory with no .json files, got nil")
+	}
+}
+
+func TestLocal_ErrorOnDirWithNoJSONFiles(t *testing.T) {
+	dir := t.TempDir()
+	writeTemplateFile(t, dir, "readme.txt", "not a template")
+	writeTemplateFile(t, dir, "config.yaml", "key: value")
+
+	_, err := NewLocal(dir)
+	if err == nil {
+		t.Fatalf("expected error when directory contains no .json files, got nil")
+	}
+}
+
 func TestLocal_Close(t *testing.T) {
 	dir := t.TempDir()
 	writeTemplateFile(t, dir, "alpha.json", `{"schema":{}}`)
