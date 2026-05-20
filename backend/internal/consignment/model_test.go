@@ -15,21 +15,21 @@ func TestCreateConsignmentDTO_Validate(t *testing.T) {
 		{
 			name: "valid import",
 			dto: CreateConsignmentDTO{
-				Flow:  FlowImport,
-				ChaID: "cha1",
+				Flow:         FlowImport,
+				ChaCompanyID: "cha1",
 			},
 			wantErr: false,
 		},
 		{
 			name: "valid export",
 			dto: CreateConsignmentDTO{
-				Flow:  FlowExport,
-				ChaID: "cha2",
+				Flow:         FlowExport,
+				ChaCompanyID: "cha2",
 			},
 			wantErr: false,
 		},
 		{
-			name: "missing chaId",
+			name: "missing chaCompanyId",
 			dto: CreateConsignmentDTO{
 				Flow: FlowImport,
 			},
@@ -38,8 +38,8 @@ func TestCreateConsignmentDTO_Validate(t *testing.T) {
 		{
 			name: "invalid flow",
 			dto: CreateConsignmentDTO{
-				Flow:  "INVALID",
-				ChaID: "cha1",
+				Flow:         "INVALID",
+				ChaCompanyID: "cha1",
 			},
 			wantErr: true,
 		},

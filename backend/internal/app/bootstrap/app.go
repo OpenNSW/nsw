@@ -85,6 +85,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	templateService := service.NewTemplateService(db)
 	chaService := cha.NewService(db)
 	companyService := company.NewService(db)
+	userProfileService := user.NewService(db)
 	hsCodeService := hscode.NewService(db)
 
 	temporalClient, err := temporal.NewClient(cfg.Temporal)
@@ -93,8 +94,8 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to create temporal client: %w", err)
 	}
 
-	consignmentService := consignment.NewService(db, templateService, chaService, hsCodeService)
-	consignmentRouter := consignment.NewRouter(consignmentService, chaService)
+	consignmentService := consignment.NewService(db, templateService, chaService, companyService, userProfileService, hsCodeService)
+	consignmentRouter := consignment.NewRouter(consignmentService, chaService, companyService)
 
 	workflowRuntime, err := workflowruntime.NewRuntime(temporalClient, tm, templateService, consignmentService)
 	if err != nil {
@@ -126,8 +127,6 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	storageHandler := storage.NewHTTPHandler(storageService)
 
 	paymentHandler := payments.NewHTTPHandler(paymentService)
-
-	userProfileService := user.NewService(db)
 
 	authManager, err := auth.NewManager(userProfileService, cfg.Auth)
 	if err != nil {
