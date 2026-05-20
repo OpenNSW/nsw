@@ -4,7 +4,7 @@
 -- ============================================================================
 
 -- Seed data: workflow node template catalog
-INSERT INTO workflow_node_templates (id, name, description, type, config, depends_on, unlock_configuration)
+INSERT INTO workflow_node_templates (id, name, description, type, config)
 VALUES
     -- General Information Node
     (
@@ -14,9 +14,7 @@ VALUES
         'SIMPLE_FORM',
         '{
             "formId": "44444444-4444-4444-4444-444444444444"
-        }',
-        '[]',
-        NULL
+        }'
     ),
 
     -- Customs Declaration Node
@@ -40,15 +38,6 @@ VALUES
                         "assesmentNo": "cusdec:assesmentNo"
                     }
                 }
-            }
-        }',
-        '[
-            "c0000003-0003-0003-0003-000000000001"
-        ]',
-        '{
-            "expression": {
-                "state": "COMPLETED",
-                "nodeTemplateId": "c0000003-0003-0003-0003-000000000001"
             }
         }'
     ),
@@ -92,16 +81,7 @@ VALUES
                       "value": "{vat_rate:15}"
                     }
                   ]
-                }',
-        '[
-            "c0000003-0003-0003-0003-000000000002"
-        ]',
-        '{
-            "expression": {
-                "state": "COMPLETED",
-                "nodeTemplateId": "c0000003-0003-0003-0003-000000000002"
-            }
-        }'
+                }'
     ),
 
     -- Phytosanitary Certificate Node
@@ -174,16 +154,7 @@ VALUES
                     "taskCode": "npqs_phytosanitary_v1"
                 }
             }
-        }')::jsonb,
-        '[
-            "c0000003-0003-0003-0003-000000000008"
-        ]',
-        '{
-            "expression": {
-                "state": "COMPLETED",
-                "nodeTemplateId": "c0000003-0003-0003-0003-000000000008"
-            }
-        }'
+        }')::jsonb
     ),
 
     -- Health Certificate Node
@@ -209,16 +180,7 @@ VALUES
                     "taskCode": "fcau_health_certificate_v1"
                 }
             }
-        }')::jsonb,
-        '[
-            "c0000003-0003-0003-0003-000000000008"
-        ]',
-        '{
-            "expression": {
-                "state": "COMPLETED",
-                "nodeTemplateId": "c0000003-0003-0003-0003-000000000008"
-            }
-        }'
+        }')::jsonb
     ),
 
     -- Manual Inspection Node (conditional based on phytosanitary certificate outcome)
@@ -251,24 +213,7 @@ VALUES
                     }
                 }
             }
-        }')::jsonb,
-        '[
-            "c0000003-0003-0003-0003-000000000003"
-        ]',
-        '{
-            "expression": {
-                "allOf": [
-                    {
-                        "state": "COMPLETED",
-                        "nodeTemplateId": "c0000003-0003-0003-0003-000000000003"
-                    },
-                    {
-                        "outcome": "npqs:phytosanitary:manual_review_required",
-                        "nodeTemplateId": "c0000003-0003-0003-0003-000000000003"
-                    }
-                ]
-            }
-        }'
+        }')::jsonb
     ),
 
     -- Final Processing Node (unlocks when both certificates are completed, or if customs was fast-tracked)
@@ -297,52 +242,6 @@ VALUES
                     }
                 }
             }
-        }',
-        '[
-            "c0000003-0003-0003-0003-000000000003",
-            "c0000003-0003-0003-0003-000000000004",
-            "e1a00001-0001-4000-b000-000000000007"
-        ]',
-        '{
-            "expression": {
-                "allOf": [
-                    {
-                        "anyOf": [
-                            {
-                                "allOf": [
-                                    {
-                                        "state": "COMPLETED",
-                                        "nodeTemplateId": "c0000003-0003-0003-0003-000000000003"
-                                    },
-                                    {
-                                        "outcome": "npqs:phytosanitary:approved",
-                                        "nodeTemplateId": "c0000003-0003-0003-0003-000000000003"
-                                    }
-                                ]
-                            },
-                            {
-                                "state": "COMPLETED",
-                                "nodeTemplateId": "e1a00001-0001-4000-b000-000000000007"
-                            }
-                        ]
-                    },
-                    {
-                        "state": "COMPLETED",
-                        "nodeTemplateId": "c0000003-0003-0003-0003-000000000004"
-                    }
-                ]
-            }
         }'
-    ),
-
-    -- Placeholder End Node (to satisfy end_node_template_id requirement)
-    (
-        'e1a00001-0001-4000-b000-000000000006',
-        'End Node',
-        'Placeholder end node template to satisfy end_node_template_id requirement',
-        'END_NODE',
-        '{}',
-        '[]',
-        NULL
     ) ON CONFLICT (id) DO NOTHING;
 

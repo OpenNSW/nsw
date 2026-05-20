@@ -108,9 +108,6 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		_ = database.Close(db)
 		return nil, fmt.Errorf("failed to register workflow manager with consignment service: %w", registererr)
 	}
-	// TODO: Pre-consignment wiring is intentionally disabled until it is migrated to Temporal.
-	// preConsignmentService := service.NewPreConsignmentService(db, templateService, wm)
-	// preConsignmentRouter := router.NewPreConsignmentRouter(preConsignmentService)
 
 	hsCodeRouter := hscode.NewRouter(hsCodeService)
 	chaHandler := cha.NewHandler(chaService)
@@ -207,10 +204,8 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	mux.Handle("GET /api/v1/consignments/{id}", withAuth(http.HandlerFunc(consignmentRouter.HandleGetConsignmentByID)))
 	mux.Handle("PUT /api/v1/consignments/{id}", withAuth(http.HandlerFunc(consignmentRouter.HandleInitializeConsignment)))
 	mux.Handle("GET /api/v1/consignments", withAuth(http.HandlerFunc(consignmentRouter.HandleGetConsignments)))
-	// TODO: Add pre-consignment routes once migrated to Temporal.
-	// mux.Handle("POST /api/v1/pre-consignments", withAuth(http.HandlerFunc(preConsignmentRouter.HandleCreatePreConsignment)))
-	// mux.Handle("GET /api/v1/pre-consignments/{preConsignmentId}", withAuth(http.HandlerFunc(preConsignmentRouter.HandleGetPreConsignmentByID)))
-	// mux.Handle("GET /api/v1/pre-consignments", withAuth(http.HandlerFunc(preConsignmentRouter.HandleGetTraderPreConsignments)))
+
+	// Storage
 	mux.Handle("POST /api/v1/storage", withAuth(http.HandlerFunc(storageHandler.Upload)))
 	mux.Handle("GET /api/v1/storage/{key}", withAuth(http.HandlerFunc(storageHandler.Download)))
 	mux.Handle("DELETE /api/v1/storage/{key}", withAuth(http.HandlerFunc(storageHandler.Delete)))

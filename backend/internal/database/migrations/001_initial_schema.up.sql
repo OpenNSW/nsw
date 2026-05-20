@@ -39,7 +39,7 @@ COMMENT ON COLUMN task_infos.local_state IS 'JSONB local state for task executio
 
 COMMENT ON COLUMN task_infos.global_context IS 'JSONB global context shared across task execution';
 
-COMMENT ON COLUMN task_infos.workflow_id IS 'Unified parent workflow ID - either a consignment_id or pre_consignment_id from the workflow_nodes';
+COMMENT ON COLUMN task_infos.workflow_id IS 'Parent consignment_id from the workflow_nodes';
 
 COMMENT ON COLUMN task_infos.workflow_node_template_id IS 'Reference to the workflow_node_template_id; identifies the type and configuration of this task';
 
@@ -120,13 +120,11 @@ CREATE TABLE IF NOT EXISTS workflow_node_templates
 	description text,
 	type varchar(50) NOT NULL,
 	config jsonb NOT NULL,
-	depends_on jsonb DEFAULT '[]'::jsonb NOT NULL,
 	created_at timestamp with time zone DEFAULT now() NOT NULL,
-	updated_at timestamp with time zone DEFAULT now() NOT NULL,
-	unlock_configuration jsonb
+	updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-COMMENT ON TABLE workflow_node_templates IS 'Templates for workflow nodes with type, configuration, and dependencies';
+COMMENT ON TABLE workflow_node_templates IS 'Templates for workflow nodes with type and configuration';
 
 COMMENT ON COLUMN workflow_node_templates.name IS 'Human-readable name of the workflow node template';
 
@@ -136,37 +134,6 @@ COMMENT ON COLUMN workflow_node_templates.type IS 'Type of the workflow node (e.
 
 COMMENT ON COLUMN workflow_node_templates.config IS 'JSONB configuration specific to the workflow node type';
 
-COMMENT ON COLUMN workflow_node_templates.depends_on IS 'JSONB array of workflow node template IDs this node depends on';
-
-CREATE TABLE IF NOT EXISTS workflow_templates
-(
-	id text NOT NULL
-		PRIMARY KEY,
-	name varchar(100) NOT NULL,
-	description text,
-	version varchar(50) NOT NULL,
-	nodes jsonb NOT NULL,
-	created_at timestamp with time zone DEFAULT now() NOT NULL,
-	updated_at timestamp with time zone DEFAULT now() NOT NULL,
-	end_node_template_id text
-		CONSTRAINT fk_workflow_templates_end_node_template
-			references workflow_node_templates
-				ON UPDATE CASCADE ON DELETE SET NULL
-);
-
-COMMENT ON TABLE workflow_templates IS 'Workflow templates defining the structure with name, description, version, and node references';
-
-COMMENT ON COLUMN workflow_templates.nodes IS 'JSONB array of workflow node template IDs';
-
-CREATE INDEX IF NOT EXISTS idx_workflow_templates_version
-	ON workflow_templates (version);
-
-CREATE INDEX IF NOT EXISTS idx_workflow_templates_name
-	ON workflow_templates (name);
-
-CREATE INDEX IF NOT EXISTS idx_workflow_templates_nodes
-	ON workflow_templates USING gin (nodes);
-
 CREATE INDEX IF NOT EXISTS idx_workflow_node_templates_name
 	ON workflow_node_templates (name);
 
@@ -175,9 +142,6 @@ CREATE INDEX IF NOT EXISTS idx_workflow_node_templates_type
 
 CREATE INDEX IF NOT EXISTS idx_workflow_node_templates_config
 	ON workflow_node_templates USING gin (config);
-
-CREATE INDEX IF NOT EXISTS idx_workflow_node_templates_depends_on
-	ON workflow_node_templates USING gin (depends_on);
 
 -- ============================================================================
 -- Customs House Agents (CHA)
@@ -242,70 +206,13 @@ CREATE INDEX IF NOT EXISTS idx_consignments_cha_id
 	ON consignments (cha_id);
 
 -- ============================================================================
--- Pre-consignment template definitions
--- ============================================================================
-CREATE TABLE IF NOT EXISTS pre_consignment_templates
-(
-	id text NOT NULL
-		PRIMARY KEY,
-	name varchar(255) NOT NULL,
-	description text,
-	workflow_template_id text NOT NULL
-		CONSTRAINT fk_pre_consignment_templates_workflow_template
-			references workflow_templates
-				ON UPDATE CASCADE ON DELETE RESTRICT,
-	depends_on jsonb DEFAULT '[]'::jsonb NOT NULL,
-	created_at timestamp with time zone DEFAULT now() NOT NULL,
-	updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-COMMENT ON TABLE pre_consignment_templates IS 'Templates defining pre-consignment workflows that traders complete before creating consignments';
-
-COMMENT ON COLUMN pre_consignment_templates.depends_on IS 'JSONB array of pre-consignment template IDs that must be completed before this template can be initiated';
-
-CREATE INDEX IF NOT EXISTS idx_pre_consignment_templates_name
-	ON pre_consignment_templates (name);
-
-CREATE INDEX IF NOT EXISTS idx_pre_consignment_templates_workflow_template_id
-	ON pre_consignment_templates (workflow_template_id);
-
-CREATE INDEX IF NOT EXISTS idx_pre_consignment_templates_depends_on
-	ON pre_consignment_templates USING gin (depends_on);
-
--- ============================================================================
--- Pre-consignment workflow instances
--- ============================================================================
-CREATE TABLE IF NOT EXISTS pre_consignments
-(
-	id text NOT NULL
-		PRIMARY KEY,
-	trader_id varchar(255) NOT NULL,
-	pre_consignment_template_id text NOT NULL
-		CONSTRAINT fk_pre_consignments_template
-			references pre_consignment_templates
-				ON UPDATE CASCADE ON DELETE RESTRICT,
-	state varchar(50) NOT NULL
-		CONSTRAINT pre_consignments_state_check
-			CHECK ((state)::text = ANY ((ARRAY['LOCKED'::character varying, 'READY'::character varying, 'IN_PROGRESS'::character varying, 'COMPLETED'::character varying])::text[])),
-	trader_context jsonb DEFAULT '{}'::jsonb NOT NULL,
-	created_at timestamp with time zone DEFAULT now() NOT NULL,
-	updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-COMMENT ON TABLE pre_consignments IS 'Pre-consignment workflow instances created by traders';
-
-COMMENT ON COLUMN pre_consignments.trader_id IS 'Identifier for the trader who owns this pre-consignment';
-
-COMMENT ON COLUMN pre_consignments.trader_context IS 'JSONB context specific to the trader, accumulated during workflow execution';
-
--- ============================================================================
 -- Workflow node instances
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS workflow_nodes
 (
 	id text NOT NULL
 		PRIMARY KEY,
-	consignment_id text
+	consignment_id text NOT NULL
 		CONSTRAINT fk_workflow_nodes_consignment
 			references consignments
 				ON UPDATE CASCADE ON DELETE CASCADE,
@@ -317,22 +224,12 @@ CREATE TABLE IF NOT EXISTS workflow_nodes
 		CONSTRAINT workflow_nodes_state_check
 			CHECK ((state)::text = ANY ((ARRAY['LOCKED'::character varying, 'READY'::character varying, 'IN_PROGRESS'::character varying, 'COMPLETED'::character varying, 'FAILED'::character varying])::text[])),
 	extended_state text,
-	depends_on jsonb DEFAULT '[]'::jsonb NOT NULL,
 	created_at timestamp with time zone DEFAULT now() NOT NULL,
 	updated_at timestamp with time zone DEFAULT now() NOT NULL,
-	pre_consignment_id text
-		CONSTRAINT fk_workflow_nodes_pre_consignment
-			references pre_consignments
-				ON UPDATE CASCADE ON DELETE CASCADE,
-	outcome varchar(100),
-	unlock_configuration jsonb,
-	CONSTRAINT chk_workflow_nodes_parent_exclusive
-		CHECK (((consignment_id IS NOT NULL) AND (pre_consignment_id IS NULL)) OR ((consignment_id IS NULL) AND (pre_consignment_id IS NOT NULL)))
+	outcome varchar(100)
 );
 
 COMMENT ON TABLE workflow_nodes IS 'Individual workflow node instances within consignments';
-
-COMMENT ON COLUMN workflow_nodes.pre_consignment_id IS 'Reference to the pre-consignment this node belongs to (mutually exclusive with consignment_id)';
 
 CREATE INDEX IF NOT EXISTS idx_workflow_nodes_consignment_id
 	ON workflow_nodes (consignment_id);
@@ -345,27 +242,6 @@ CREATE INDEX IF NOT EXISTS idx_workflow_nodes_state
 
 CREATE INDEX IF NOT EXISTS idx_workflow_nodes_consignment_state
 	ON workflow_nodes (consignment_id, state);
-
-CREATE INDEX IF NOT EXISTS idx_workflow_nodes_depends_on
-	ON workflow_nodes USING gin (depends_on);
-
-CREATE INDEX IF NOT EXISTS idx_workflow_nodes_pre_consignment_id
-	ON workflow_nodes (pre_consignment_id);
-
-CREATE INDEX IF NOT EXISTS idx_workflow_nodes_pre_consignment_state
-	ON workflow_nodes (pre_consignment_id, state);
-
-CREATE INDEX IF NOT EXISTS idx_pre_consignments_trader_id
-	ON pre_consignments (trader_id);
-
-CREATE INDEX IF NOT EXISTS idx_pre_consignments_template_id
-	ON pre_consignments (pre_consignment_template_id);
-
-CREATE INDEX IF NOT EXISTS idx_pre_consignments_state
-	ON pre_consignments (state);
-
-CREATE INDEX IF NOT EXISTS idx_pre_consignments_trader_id_state
-	ON pre_consignments (trader_id, state);
 
 -- ============================================================================
 -- User records registry

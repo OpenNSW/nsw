@@ -19,16 +19,6 @@ func NewTemplateService(db *gorm.DB) *TemplateService {
 	}
 }
 
-// GetWorkflowTemplateByID retrieves a workflow template by its ID.
-func (s *TemplateService) GetWorkflowTemplateByID(ctx context.Context, id string) (*model.WorkflowTemplate, error) {
-	var workflowTemplate model.WorkflowTemplate
-	result := s.db.WithContext(ctx).First(&workflowTemplate, "id = ?", id)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	return &workflowTemplate, nil
-}
-
 // GetWorkflowNodeTemplatesByIDs retrieves workflow node templates by their IDs.
 func (s *TemplateService) GetWorkflowNodeTemplatesByIDs(ctx context.Context, ids []string) ([]model.WorkflowNodeTemplate, error) {
 	var templates []model.WorkflowNodeTemplate
@@ -53,17 +43,6 @@ func (s *TemplateService) GetWorkflowNodeTemplateByID(ctx context.Context, id st
 func (s *TemplateService) GetWorkflowTemplateByIDV2(ctx context.Context, id string) (*model.WorkflowTemplateV2, error) {
 	var template model.WorkflowTemplateV2
 	result := s.db.WithContext(ctx).First(&template, "id = ?", id)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	return &template, nil
-}
-
-// GetEndNodeTemplate retrieves the special end node template.
-// Assumes there is only one end node template in the system, identified by its type.
-func (s *TemplateService) GetEndNodeTemplate(ctx context.Context) (*model.WorkflowNodeTemplate, error) {
-	var template model.WorkflowNodeTemplate
-	result := s.db.WithContext(ctx).Where("type = ?", model.WorkFlowNodeTypeEndNode).First(&template)
 	if result.Error != nil {
 		return nil, result.Error
 	}

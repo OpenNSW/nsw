@@ -88,8 +88,6 @@ func TestUUIDArray_UnmarshalJSON(t *testing.T) {
 }
 
 func TestModel_TableNames(t *testing.T) {
-	assert.Equal(t, "pre_consignment_templates", (&PreConsignmentTemplate{}).TableName())
-	assert.Equal(t, "pre_consignments", (&PreConsignment{}).TableName())
 	assert.Equal(t, "workflow_templates", (&WorkflowTemplate{}).TableName())
 	assert.Equal(t, "workflow_node_templates", (&WorkflowNodeTemplate{}).TableName())
 	assert.Equal(t, "workflow_nodes", (&WorkflowNode{}).TableName())

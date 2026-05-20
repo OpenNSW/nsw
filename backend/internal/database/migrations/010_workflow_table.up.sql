@@ -41,29 +41,11 @@ WHERE c.state IN ('IN_PROGRESS', 'FINISHED')
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================================
--- Populate workflows from existing pre-consignments (only those with workflow nodes)
--- ============================================================================
-INSERT INTO workflows (id, status, global_context, end_node_id, created_at, updated_at)
-SELECT
-    pc.id,
-    CASE
-        WHEN pc.state = 'COMPLETED' THEN 'COMPLETED'
-        ELSE 'IN_PROGRESS'
-    END,
-    COALESCE(pc.trader_context, '{}'::jsonb),
-    NULL,
-    pc.created_at,
-    pc.updated_at
-FROM pre_consignments pc
-WHERE pc.state IN ('IN_PROGRESS', 'COMPLETED')
-ON CONFLICT (id) DO NOTHING;
-
--- ============================================================================
 -- Add workflow_id to workflow_nodes and populate from existing data
 -- ============================================================================
 ALTER TABLE workflow_nodes ADD COLUMN workflow_id text;
 
-UPDATE workflow_nodes SET workflow_id = COALESCE(consignment_id, pre_consignment_id);
+UPDATE workflow_nodes SET workflow_id = consignment_id;
 
 ALTER TABLE workflow_nodes ALTER COLUMN workflow_id SET NOT NULL;
 
@@ -74,17 +56,12 @@ ALTER TABLE workflow_nodes ADD CONSTRAINT fk_workflow_nodes_workflow
 -- ============================================================================
 -- Drop old columns and constraints from workflow_nodes
 -- ============================================================================
-ALTER TABLE workflow_nodes DROP CONSTRAINT IF EXISTS chk_workflow_nodes_parent_exclusive;
 ALTER TABLE workflow_nodes DROP CONSTRAINT IF EXISTS fk_workflow_nodes_consignment;
-ALTER TABLE workflow_nodes DROP CONSTRAINT IF EXISTS fk_workflow_nodes_pre_consignment;
 
 DROP INDEX IF EXISTS idx_workflow_nodes_consignment_id;
-DROP INDEX IF EXISTS idx_workflow_nodes_pre_consignment_id;
 DROP INDEX IF EXISTS idx_workflow_nodes_consignment_state;
-DROP INDEX IF EXISTS idx_workflow_nodes_pre_consignment_state;
 
 ALTER TABLE workflow_nodes DROP COLUMN consignment_id;
-ALTER TABLE workflow_nodes DROP COLUMN pre_consignment_id;
 
 -- ============================================================================
 -- Drop moved columns from business tables
@@ -92,8 +69,6 @@ ALTER TABLE workflow_nodes DROP COLUMN pre_consignment_id;
 DROP INDEX IF EXISTS idx_consignments_global_context;
 ALTER TABLE consignments DROP COLUMN IF EXISTS global_context;
 ALTER TABLE consignments DROP COLUMN IF EXISTS end_node_id;
-
-ALTER TABLE pre_consignments DROP COLUMN IF EXISTS trader_context;
 
 -- ============================================================================
 -- New indexes for workflow_nodes

@@ -64,10 +64,6 @@ type fakeTemplateProvider struct {
 	lastID   string
 }
 
-func (p *fakeTemplateProvider) GetWorkflowTemplateByID(_ context.Context, _ string) (*model.WorkflowTemplate, error) {
-	return nil, nil
-}
-
 func (p *fakeTemplateProvider) GetWorkflowTemplateByIDV2(_ context.Context, _ string) (*model.WorkflowTemplateV2, error) {
 	return nil, nil
 }
@@ -83,10 +79,6 @@ func (p *fakeTemplateProvider) GetWorkflowNodeTemplateByID(ctx context.Context, 
 		return nil, p.err
 	}
 	return p.template, nil
-}
-
-func (p *fakeTemplateProvider) GetEndNodeTemplate(_ context.Context) (*model.WorkflowNodeTemplate, error) {
-	return nil, nil
 }
 
 type fakeTaskManager struct {
