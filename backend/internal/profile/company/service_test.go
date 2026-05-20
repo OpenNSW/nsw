@@ -170,6 +170,125 @@ func TestService_GetCompanyByOUHandle_Success(t *testing.T) {
 	}
 }
 
+// --- ListCompanies ---
+
+func boolPtr(b bool) *bool    { return &b }
+func strPtr(s string) *string { return &s }
+
+func TestService_ListCompanies_NoFilter(t *testing.T) {
+	db, mock := setupTestDB(t)
+	svc := NewService(db)
+
+	rows := sqlmock.NewRows(companyColumns).
+		AddRow("adam-pvt-ltd", "ADAM PVT LTD", "adam-pvt-ltd", true, []byte(`{}`), now, now).
+		AddRow("edward-pvt-ltd", "EDWARD PVT LTD", "edward-pvt-ltd", true, []byte(`{}`), now, now)
+	mock.ExpectQuery(`SELECT \* FROM "company_records" ORDER BY name ASC`).
+		WillReturnRows(rows)
+
+	records, err := svc.ListCompanies(context.Background(), ListFilter{})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(records) != 2 || records[0].ID != "adam-pvt-ltd" || records[1].ID != "edward-pvt-ltd" {
+		t.Fatalf("unexpected records: %+v", records)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestService_ListCompanies_HasCHA(t *testing.T) {
+	db, mock := setupTestDB(t)
+	svc := NewService(db)
+
+	mock.ExpectQuery(`SELECT \* FROM "company_records" WHERE has_cha = \$1 ORDER BY name ASC`).
+		WithArgs(true).
+		WillReturnRows(companyRow("adam-pvt-ltd", "ADAM PVT LTD", "adam-pvt-ltd", true, []byte(`{}`)))
+
+	records, err := svc.ListCompanies(context.Background(), ListFilter{HasCHA: boolPtr(true)})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(records) != 1 || !records[0].HasCHA {
+		t.Fatalf("unexpected records: %+v", records)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestService_ListCompanies_Name(t *testing.T) {
+	db, mock := setupTestDB(t)
+	svc := NewService(db)
+
+	mock.ExpectQuery(`SELECT \* FROM "company_records" WHERE name ILIKE \$1 ORDER BY name ASC`).
+		WithArgs("%adam%").
+		WillReturnRows(companyRow("adam-pvt-ltd", "ADAM PVT LTD", "adam-pvt-ltd", true, []byte(`{}`)))
+
+	records, err := svc.ListCompanies(context.Background(), ListFilter{Name: strPtr("adam")})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(records) != 1 || records[0].ID != "adam-pvt-ltd" {
+		t.Fatalf("unexpected records: %+v", records)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestService_ListCompanies_NameWhitespaceIgnored(t *testing.T) {
+	db, mock := setupTestDB(t)
+	svc := NewService(db)
+
+	// Whitespace-only name should NOT add a WHERE clause.
+	mock.ExpectQuery(`SELECT \* FROM "company_records" ORDER BY name ASC`).
+		WillReturnRows(sqlmock.NewRows(companyColumns))
+
+	_, err := svc.ListCompanies(context.Background(), ListFilter{Name: strPtr("   ")})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestService_ListCompanies_Combined(t *testing.T) {
+	db, mock := setupTestDB(t)
+	svc := NewService(db)
+
+	mock.ExpectQuery(`SELECT \* FROM "company_records" WHERE has_cha = \$1 AND name ILIKE \$2 ORDER BY name ASC`).
+		WithArgs(true, "%adam%").
+		WillReturnRows(companyRow("adam-pvt-ltd", "ADAM PVT LTD", "adam-pvt-ltd", true, []byte(`{}`)))
+
+	records, err := svc.ListCompanies(context.Background(), ListFilter{HasCHA: boolPtr(true), Name: strPtr("adam")})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(records) != 1 {
+		t.Fatalf("unexpected records: %+v", records)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
+func TestService_ListCompanies_DBError(t *testing.T) {
+	db, mock := setupTestDB(t)
+	svc := NewService(db)
+
+	mock.ExpectQuery(`SELECT \* FROM "company_records"`).
+		WillReturnError(errors.New("db down"))
+
+	if _, err := svc.ListCompanies(context.Background(), ListFilter{}); err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet expectations: %v", err)
+	}
+}
+
 // --- UpdateCompany ---
 
 func TestService_UpdateCompany_InvalidID(t *testing.T) {
