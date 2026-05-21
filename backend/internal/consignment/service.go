@@ -585,8 +585,12 @@ func (s *Service) buildConsignmentDetailDTO(
 	}, nil
 }
 
-// companyRecordToMap converts a company.Record to a map[string]any via the JSON tags.
-// The result is suitable for passing as initial workflow variables to the workflow manager.
+// companyRecordToMap converts a company.Record to a map[string]any via its JSON tags. The
+// marshal/unmarshal round-trip is deliberate: it ties the workflow-variable shape to the same
+// JSON contract used elsewhere (REST responses), so a new field on Record with a json tag flows
+// through automatically. The reflection cost is negligible here — this runs once per Stage 2
+// init, never in a hot path — and the alternative (explicit field map) silently drops new
+// fields until someone notices in a workflow step.
 func companyRecordToMap(record *company.Record) (map[string]any, error) {
 	raw, err := json.Marshal(record)
 	if err != nil {
