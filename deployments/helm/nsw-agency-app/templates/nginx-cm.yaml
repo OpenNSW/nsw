@@ -52,7 +52,7 @@ data:
             rewrite ^/api/api/v1/(.*)$ /api/v1/$1 last;
         }
 
-        location /api/nsw-agency/ {
+        location /api/v1/ {
             proxy_pass {{ .Values.config.backendUrl }};
             proxy_set_header Authorization $http_authorization;
             proxy_pass_header Authorization;
@@ -63,7 +63,7 @@ data:
         }
 
         location ^~ /nsw-agency/ {
-            rewrite ^/nsw-agency/(.*) /api/nsw-agency/$1 break;
+            rewrite ^/nsw-agency/(.*) /api/v1/$1 break;
             proxy_pass {{ .Values.config.backendUrl }};
             proxy_set_header Authorization $http_authorization;
             proxy_pass_header Authorization;

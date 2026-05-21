@@ -36,44 +36,44 @@ spec:
             {{- if .Values.env }}
             {{- toYaml .Values.env | nindent 12 }}
             {{- end }}
-            - name: NSW_AGENCY_DB_USER
+            - name: DB_USER
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.config.database.credentialsSecretName | default (printf "%s-db-credentials" (include "nsw-agency-backend.fullname" .)) }}
                   key: {{ .Values.config.database.userKey | default "user" }}
-            - name: NSW_AGENCY_DB_PASSWORD
+            - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.config.database.credentialsSecretName | default (printf "%s-db-credentials" (include "nsw-agency-backend.fullname" .)) }}
                   key: password
-            - name: NSW_AGENCY_PORT
+            - name: PORT
               value: {{ .Values.config.port | default "8081" | quote }}
-            - name: NSW_AGENCY_DB_DRIVER
+            - name: DB_DRIVER
               value: {{ .Values.config.database.driver | default "postgres" | quote }}
-            - name: NSW_AGENCY_DB_HOST
+            - name: DB_HOST
               value: {{ .Values.config.database.host | default "nsw-db" | quote }}
-            - name: NSW_AGENCY_DB_PORT
+            - name: DB_PORT
               value: {{ .Values.config.database.port | default "5432" | quote }}
-            - name: NSW_AGENCY_DB_NAME
+            - name: DB_NAME
               value: {{ .Values.config.database.name | quote }}
-            - name: NSW_AGENCY_DB_SSLMODE
+            - name: DB_SSLMODE
               value: {{ .Values.config.database.sslMode | default "disable" | quote }}
-            - name: NSW_AGENCY_DEFAULT_FORM_ID
+            - name: DEFAULT_TASK_CONFIG_ID
               value: {{ .Values.config.defaultFormId | default "default" | quote }}
-            - name: NSW_AGENCY_ALLOWED_ORIGINS
+            - name: ALLOWED_ORIGINS
               value: {{ .Values.config.allowedOrigins | quote }}
-            - name: NSW_AGENCY_API_BASE_URL
+            - name: NSW_API_BASE_URL
               value: {{ .Values.config.nswApiBaseUrl | quote }}
-            - name: NSW_AGENCY_CLIENT_ID
+            - name: NSW_CLIENT_ID
               value: {{ .Values.config.nswClientId | quote }}
-            - name: NSW_AGENCY_CLIENT_SECRET
+            - name: NSW_CLIENT_SECRET
               value: {{ .Values.config.nswClientSecret | quote }}
-            - name: NSW_AGENCY_TOKEN_URL
+            - name: NSW_TOKEN_URL
               value: {{ .Values.config.nswTokenUrl | quote }}
             - name: USE_WORKFLOW_MANAGER_V2
               value: {{ .Values.config.useWorkflowManagerV2 | default "true" | quote }}
-            - name: NSW_AGENCY_FORMS_PATH
-              value: "/opt/nsw-agency/data/forms"
+            - name: CONFIG_DIR
+              value: "/opt/nsw-agency/data"
           volumeMounts:
             - name: forms-volume
               mountPath: /opt/nsw-agency/data/forms
