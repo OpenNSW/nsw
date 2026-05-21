@@ -49,7 +49,7 @@ data:
         }
 
         location /api/api/nsw-agency/ {
-            rewrite ^/api/api/nsw-agency/(.*)$ /api/nsw-agency/$1 last;
+            rewrite ^/api/api/v1/(.*)$ /api/v1/$1 last;
         }
 
         location /api/nsw-agency/ {
