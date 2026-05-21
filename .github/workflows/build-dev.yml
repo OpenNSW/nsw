@@ -28,18 +28,10 @@ jobs:
             image_name: nsw-api-migrations
             context: .
             dockerfile: ./backend/migrations.Dockerfile
-          - service_name: OGA Backend
-            image_name: oga-backend
-            context: ./oga
-            dockerfile: ./oga/Dockerfile
           - service_name: Trader Portal
             image_name: trader-app
             context: ./portals
             dockerfile: ./portals/apps/trader-app/Dockerfile
-          - service_name: OGA Portal
-            image_name: oga-app
-            context: ./portals
-            dockerfile: ./portals/apps/oga-app/Dockerfile
 
     steps:
       - name: Checkout Application Repository
