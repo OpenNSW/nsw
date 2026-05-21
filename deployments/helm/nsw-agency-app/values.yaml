@@ -1,4 +1,4 @@
-# deployments/helm/oga-app/values.yaml
+# deployments/helm/nsw-agency-app/values.yaml
 
 global:
   clusterDomain: ""
@@ -17,7 +17,7 @@ securityContext:
       - ALL
 
 image:
-  repository: ghcr.io/opennsw/oga-app
+  repository: ghcr.io/opennsw/nsw-agency-app
   pullPolicy: IfNotPresent
   tag: 0.0.0-replace-me
 
@@ -34,7 +34,7 @@ config:
   instanceConfig: "" 
   idpClientId: ""
   appUrl: ""
-  ogaBackendUrl: ""
+  backendUrl: ""
 
   # Shared Platform Specifics: Left blank to FORCE environment overrides
   apiBaseUrl: ""
@@ -44,7 +44,7 @@ config:
   idpPlatform: "AsgardeoV2"
   ui:
     branding:
-      appName: "OGA Officer Portal"
+      appName: "NSW Agency Officer Portal"
       logoUrl: ""
       favicon: ""
 
@@ -80,5 +80,5 @@ affinity:
         podAffinityTerm:
           labelSelector:
             matchLabels:
-              app.kubernetes.io/name: oga-app
+              app.kubernetes.io/name: nsw-agency-app
           topologyKey: kubernetes.io/hostname

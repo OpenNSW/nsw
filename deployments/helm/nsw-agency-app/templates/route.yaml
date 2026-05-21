@@ -2,14 +2,14 @@
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: {{ include "oga-app.fullname" . }}
+  name: {{ include "nsw-agency-app.fullname" . }}
   labels:
-    {{- include "oga-app.labels" . | nindent 4 }}
+    {{- include "nsw-agency-app.labels" . | nindent 4 }}
 spec:
   host: {{ .Values.route.host | default (printf "%s-%s.%s" .Release.Name .Release.Namespace .Values.global.clusterDomain) }}
   to:
     kind: Service
-    name: {{ include "oga-app.fullname" . }}
+    name: {{ include "nsw-agency-app.fullname" . }}
     weight: 100
   port:
     targetPort: http

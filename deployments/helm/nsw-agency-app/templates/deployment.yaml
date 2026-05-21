@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "oga-app.fullname" . }}
+  name: {{ include "nsw-agency-app.fullname" . }}
   labels:
-    app.kubernetes.io/name: {{ include "oga-app.name" . }}
+    app.kubernetes.io/name: {{ include "nsw-agency-app.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ include "oga-app.name" . }}
+      app.kubernetes.io/name: {{ include "nsw-agency-app.name" . }}
       app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ include "oga-app.name" . }}
+        app.kubernetes.io/name: {{ include "nsw-agency-app.name" . }}
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
       {{- if .Values.imagePullSecrets }}
@@ -73,4 +73,4 @@ spec:
       volumes:
         - name: nginx-config
           configMap:
-            name: {{ include "oga-app.fullname" . }}-nginx-config
+            name: {{ include "nsw-agency-app.fullname" . }}-nginx-config

@@ -1,14 +1,14 @@
-# Default values for oga-backend.
+# Default values for nsw-agency-backend.
 global:
   clusterDomain: ""
   namespace: ""
 
 fullnameOverride: ""
 replicaCount: 1
-# This is a base file for the three OGA agency deployments.
+# This is a base file for NSW Agency deployments.
 
 image:
-  repository: ghcr.io/opennsw/oga-backend
+  repository: ghcr.io/opennsw/nsw-agency-backend
   pullPolicy: IfNotPresent
   tag: 0.0.0-replace-me
 
@@ -74,5 +74,5 @@ affinity:
         podAffinityTerm:
           labelSelector:
             matchLabels:
-              app.kubernetes.io/name: oga-backend
+              app.kubernetes.io/name: nsw-agency-backend
           topologyKey: kubernetes.io/hostname
