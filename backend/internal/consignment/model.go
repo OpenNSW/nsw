@@ -69,18 +69,13 @@ type InitializeConsignmentDTO struct {
 	HSCodeIDs []string `json:"hsCodeIds" binding:"required,min=1"`
 }
 
-// CreateConsignmentItemDTO represents the data required to create a consignment item.
-type CreateConsignmentItemDTO struct {
-	HSCodeID string `json:"hsCodeId" binding:"required"` // HS Code ID
-}
-
 // CreateConsignmentDTO represents the data required to create a consignment.
 // Stage 1 (two-stage flow): provide flow + chaCompanyId → creates shell with state INITIALIZED.
-// A specific CHA is assigned later, at Stage 2, when a CHA from chaCompanyId claims the consignment.
+// HS codes are not provided here; they are supplied at Stage 2 via InitializeConsignmentDTO
+// when a CHA from chaCompanyId claims the consignment.
 type CreateConsignmentDTO struct {
-	Flow         Flow                       `json:"flow"`
-	ChaCompanyID string                     `json:"chaCompanyId"`
-	Items        []CreateConsignmentItemDTO `json:"items,omitempty"`
+	Flow         Flow   `json:"flow"`
+	ChaCompanyID string `json:"chaCompanyId"`
 }
 
 func (d *CreateConsignmentDTO) Validate() error {
