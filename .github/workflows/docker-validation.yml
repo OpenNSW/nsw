@@ -10,47 +10,40 @@ on:
     # or when this workflow file itself changes.
     paths:
       - 'backend/**'
-      - 'oga/**'
       - 'portals/**'
       - '.github/workflows/docker-validation.yml'
 
 jobs:
   # STAGE 1: Detect which build contexts were actually changed in this PR.
-  # This prevents all four images from rebuilding when only one context changed.
+  # This prevents all images from rebuilding when only one context changed.
   # Outputs are boolean strings ('true'/'false') consumed by docker-validate.
   detect-changes:
     name: Detect Changed Build Contexts
     runs-on: ubuntu-latest
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
-      oga: ${{ steps.filter.outputs.oga }}
       portals: ${{ steps.filter.outputs.portals }}
       workflow: ${{ steps.filter.outputs.workflow }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Detect relevant changes
-        id: filter
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            backend:
-              - 'backend/**'
-            oga:
-              - 'oga/**'
-            portals:
-              - 'portals/**'
-            # Treat a change to this workflow file as touching all contexts
-            # so every image is validated when CI config itself changes.
-            workflow:
-              - '.github/workflows/docker-validation.yml'
+         id: filter
+         uses: dorny/paths-filter@v3
+         with:
+           filters: |
+             backend:
+               - 'backend/**'
+             portals:
+               - 'portals/**'
+             # Treat a change to this workflow file as touching all contexts
+             # so every image is validated when CI config itself changes.
+             workflow:
+               - '.github/workflows/docker-validation.yml'
 
   # STAGE 2: Build all relevant Docker images in parallel.
   # fail-fast: false ensures one failing build does not cancel the others,
   # so you get a full picture of what broke in a single run.
-  #
-  # Both oga-portal and trader-portal use './portals' as context because
-  # they share workspace-level pnpm dependencies (packages/, pnpm-lock.yaml).
   docker-validate:
     name: Validate ${{ matrix.name }} image
     needs: detect-changes
@@ -64,20 +57,10 @@ jobs:
             dockerfile: ./backend/Dockerfile
             tag: nsw-backend:validate
             trigger: backend  # matches a detect-changes output key
-          - name: oga-backend
-            context: ./oga
-            dockerfile: ./oga/Dockerfile
-            tag: oga-backend:validate
-            trigger: oga
           - name: trader-portal
             context: ./portals  # full portals/ workspace needed for shared packages
             dockerfile: ./portals/apps/trader-app/Dockerfile
             tag: trader-app:validate
-            trigger: portals
-          - name: oga-portal
-            context: ./portals  # full portals/ workspace needed for shared packages
-            dockerfile: ./portals/apps/oga-app/Dockerfile
-            tag: oga-app:validate
             trigger: portals
     steps:
       # Each step carries the same condition: skip this matrix entry entirely
@@ -87,7 +70,6 @@ jobs:
         if: |
           needs.detect-changes.outputs.workflow == 'true' ||
           (matrix.trigger == 'backend' && needs.detect-changes.outputs.backend == 'true') ||
-          (matrix.trigger == 'oga' && needs.detect-changes.outputs.oga == 'true') ||
           (matrix.trigger == 'portals' && needs.detect-changes.outputs.portals == 'true')
 
       # BuildKit is required for cache-from/cache-to and multi-stage build optimisations.
@@ -95,14 +77,12 @@ jobs:
         if: |
           needs.detect-changes.outputs.workflow == 'true' ||
           (matrix.trigger == 'backend' && needs.detect-changes.outputs.backend == 'true') ||
-          (matrix.trigger == 'oga' && needs.detect-changes.outputs.oga == 'true') ||
           (matrix.trigger == 'portals' && needs.detect-changes.outputs.portals == 'true')
 
       - name: Build ${{ matrix.name }} image
         if: |
           needs.detect-changes.outputs.workflow == 'true' ||
           (matrix.trigger == 'backend' && needs.detect-changes.outputs.backend == 'true') ||
-          (matrix.trigger == 'oga' && needs.detect-changes.outputs.oga == 'true') ||
           (matrix.trigger == 'portals' && needs.detect-changes.outputs.portals == 'true')
         uses: docker/build-push-action@v5
         with:

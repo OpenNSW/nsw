@@ -54,23 +54,11 @@ jobs:
             dockerfile: ./backend/migrations.Dockerfile
             description: NSW Database Migrations
 
-          - service_name: OGA Backend
-            image_name: oga-backend
-            context: ./oga
-            dockerfile: ./oga/Dockerfile
-            description: NSW OGA Backend Service
-
           - service_name: Trader Portal
             image_name: trader-app
             context: ./portals
             dockerfile: ./portals/apps/trader-app/Dockerfile
             description: NSW Trader Portal Frontend
-
-          - service_name: OGA Portal
-            image_name: oga-app
-            context: ./portals
-            dockerfile: ./portals/apps/oga-app/Dockerfile
-            description: NSW OGA Officer Portal Frontend
 
     env:
       GIT_COMMIT: ${{ github.sha }}
@@ -364,17 +352,13 @@ jobs:
             ### Published Image Targets
             - `${{ env.REGISTRY }}/${{ github.repository }}/nsw-backend:${{ needs.collate-digests.outputs.version }}`
             - `${{ env.REGISTRY }}/${{ github.repository }}/nsw-api-migrations:${{ needs.collate-digests.outputs.version }}`
-            - `${{ env.REGISTRY }}/${{ github.repository }}/oga-backend:${{ needs.collate-digests.outputs.version }}`
             - `${{ env.REGISTRY }}/${{ github.repository }}/trader-app:${{ needs.collate-digests.outputs.version }}`
-            - `${{ env.REGISTRY }}/${{ github.repository }}/oga-app:${{ needs.collate-digests.outputs.version }}`
 
             ### Pull Images
             ```bash
             docker pull ${{ env.REGISTRY }}/${{ github.repository }}/nsw-backend:${{ needs.collate-digests.outputs.version }}
             docker pull ${{ env.REGISTRY }}/${{ github.repository }}/nsw-api-migrations:${{ needs.collate-digests.outputs.version }}
-            docker pull ${{ env.REGISTRY }}/${{ github.repository }}/oga-backend:${{ needs.collate-digests.outputs.version }}
             docker pull ${{ env.REGISTRY }}/${{ github.repository }}/trader-app:${{ needs.collate-digests.outputs.version }}
-            docker pull ${{ env.REGISTRY }}/${{ github.repository }}/oga-app:${{ needs.collate-digests.outputs.version }}
 
             ```
 
