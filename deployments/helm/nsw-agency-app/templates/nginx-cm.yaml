@@ -48,7 +48,7 @@ data:
             try_files $uri =404;
         }
 
-        location /api/api/nsw-agency/ {
+        location /api/api/v1/ {
             rewrite ^/api/api/v1/(.*)$ /api/v1/$1 last;
         }
 
