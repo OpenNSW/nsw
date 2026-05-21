@@ -33,14 +33,27 @@ function NewConsignmentDialog({ open, onOpenChange, creating, onCreate }: NewCon
     flow: null,
     chaCompanyId: '',
   })
+  const [selectedCHA, setSelectedCHA] = useState<CHAOption | null>(null)
   const [currentCHASearchQuery, setCurrentCHASearchQuery] = useState('')
   const [chaOptions, setChaOptions] = useState<CHAOption[]>([])
   const [chaLoading, setChaLoading] = useState(false)
 
-  // Debounced server-side search via /api/v1/companies?has_cha=true&name=<query>.
-  // Each keystroke schedules a fetch 300ms later; a fresh keystroke cancels the previous one.
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      setNewConsignmentData({ flow: null, chaCompanyId: '' })
+      setSelectedCHA(null)
+      setCurrentCHASearchQuery('')
+      setChaOptions([])
+      setChaLoading(false)
+      return
+    }
+
+    if (!currentCHASearchQuery.trim()) {
+      setChaOptions([])
+      setChaLoading(false)
+      return
+    }
+
     let cancelled = false
     const handle = setTimeout(() => {
       setChaLoading(true)
@@ -182,9 +195,10 @@ function NewConsignmentDialog({ open, onOpenChange, creating, onCreate }: NewCon
               </RadixText>
               <CHASearch
                 options={chaOptions}
-                value={chaOptions.find((c) => c.id === newConsignmentData.chaCompanyId) ?? null}
+                value={selectedCHA}
                 searchQuery={currentCHASearchQuery}
                 onChange={(company) => {
+                  setSelectedCHA(company)
                   setNewConsignmentData((prev) => ({ ...prev, chaCompanyId: company?.id ?? '' }))
                 }}
                 onSearchQueryChange={setCurrentCHASearchQuery}
