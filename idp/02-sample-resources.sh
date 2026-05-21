@@ -15,9 +15,10 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 SAMPLE_USER_PASSWORD="${THUNDER_SAMPLE_USER_PASSWORD:-1234}"
-USER123_PASSWORD="${THUNDER_SAMPLE_USER123_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
-USER456_PASSWORD="${THUNDER_SAMPLE_USER456_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
-USER789_PASSWORD="${THUNDER_SAMPLE_USER789_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
+SURESH_PASSWORD="${THUNDER_SAMPLE_SURESH_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
+RAMESH_PASSWORD="${THUNDER_SAMPLE_RAMESH_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
+GOMESH_PASSWORD="${THUNDER_SAMPLE_GOMESH_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
+NARESH_PASSWORD="${THUNDER_SAMPLE_NARESH_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
 NPQS_USER_PASSWORD="${THUNDER_SAMPLE_NPQS_USER_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
 FCAU_USER_PASSWORD="${THUNDER_SAMPLE_FCAU_USER_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
 IRD_USER_PASSWORD="${THUNDER_SAMPLE_IRD_USER_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
@@ -560,55 +561,108 @@ log_info "Private Sector OU ID: $PRIVATE_SECTOR_OU_ID"
 echo ""
 
 # ============================================================================
-# Create ABCD Traders Child Organization Unit
+# Create ADAM PVT LTD Child Organization Unit
 # ============================================================================
 
-ABCD_TRADERS_OU_HANDLE="abcd-traders"
-ABCD_TRADERS_OU_PATH="${PRIVATE_SECTOR_OU_HANDLE}/${ABCD_TRADERS_OU_HANDLE}"
+ADAM_PVT_LTD_OU_HANDLE="adam-pvt-ltd"
+ADAM_PVT_LTD_OU_PATH="${PRIVATE_SECTOR_OU_HANDLE}/${ADAM_PVT_LTD_OU_HANDLE}"
 
-log_info "Creating ABCD Traders child organization unit..."
+log_info "Creating ADAM PVT LTD child organization unit..."
 
-read -r -d '' ABCD_TRADERS_OU_PAYLOAD <<JSON || true
+read -r -d '' ADAM_PVT_LTD_OU_PAYLOAD <<JSON || true
 {
-    "handle": "${ABCD_TRADERS_OU_HANDLE}",
-    "name": "ABCD Traders",
-    "description": "Child organization unit for ABCD Traders",
+    "handle": "${ADAM_PVT_LTD_OU_HANDLE}",
+    "name": "ADAM PVT LTD",
+    "description": "Child organization unit for ADAM PVT LTD",
     "parent": "${PRIVATE_SECTOR_OU_ID}"
 }
 JSON
 
-RESPONSE=$(thunder_api_call POST "/organization-units" "${ABCD_TRADERS_OU_PAYLOAD}")
+RESPONSE=$(thunder_api_call POST "/organization-units" "${ADAM_PVT_LTD_OU_PAYLOAD}")
 HTTP_CODE="${RESPONSE: -3}"
 BODY="${RESPONSE%???}"
 
 if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]]; then
-    log_success "ABCD Traders organization unit created successfully"
-    ABCD_TRADERS_OU_ID=$(extract_first_id "$BODY")
+    log_success "ADAM PVT LTD organization unit created successfully"
+    ADAM_PVT_LTD_OU_ID=$(extract_first_id "$BODY")
 elif [[ "$HTTP_CODE" == "409" ]]; then
-    log_warning "ABCD Traders organization unit already exists, retrieving ID..."
-    RESPONSE=$(thunder_api_call GET "/organization-units/tree/${ABCD_TRADERS_OU_PATH}")
+    log_warning "ADAM PVT LTD organization unit already exists, retrieving ID..."
+    RESPONSE=$(thunder_api_call GET "/organization-units/tree/${ADAM_PVT_LTD_OU_PATH}")
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
 
     if [[ "$HTTP_CODE" == "200" ]]; then
-        ABCD_TRADERS_OU_ID=$(extract_first_id "$BODY")
+        ADAM_PVT_LTD_OU_ID=$(extract_first_id "$BODY")
     else
-        log_error "Failed to fetch organization unit by path '${ABCD_TRADERS_OU_PATH}' (HTTP $HTTP_CODE)"
+        log_error "Failed to fetch organization unit by path '${ADAM_PVT_LTD_OU_PATH}' (HTTP $HTTP_CODE)"
         echo "Response: $BODY"
         exit 1
     fi
 else
-    log_error "Failed to create ABCD Traders organization unit (HTTP $HTTP_CODE)"
+    log_error "Failed to create ADAM PVT LTD organization unit (HTTP $HTTP_CODE)"
     echo "Response: $BODY"
     exit 1
 fi
 
-if [[ -z "$ABCD_TRADERS_OU_ID" ]]; then
-    log_error "Could not determine ABCD Traders organization unit ID"
+if [[ -z "$ADAM_PVT_LTD_OU_ID" ]]; then
+    log_error "Could not determine ADAM PVT LTD organization unit ID"
     exit 1
 fi
 
-log_info "ABCD Traders OU ID: $ABCD_TRADERS_OU_ID"
+log_info "ADAM PVT LTD OU ID: $ADAM_PVT_LTD_OU_ID"
+
+echo ""
+
+# ============================================================================
+# Create EDWARD PVT LTD Child Organization Unit
+# ============================================================================
+
+EDWARD_PVT_LTD_OU_HANDLE="edward-pvt-ltd"
+EDWARD_PVT_LTD_OU_PATH="${PRIVATE_SECTOR_OU_HANDLE}/${EDWARD_PVT_LTD_OU_HANDLE}"
+
+log_info "Creating EDWARD PVT LTD child organization unit..."
+
+read -r -d '' EDWARD_PVT_LTD_OU_PAYLOAD <<JSON || true
+{
+    "handle": "${EDWARD_PVT_LTD_OU_HANDLE}",
+    "name": "EDWARD PVT LTD",
+    "description": "Child organization unit for EDWARD PVT LTD",
+    "parent": "${PRIVATE_SECTOR_OU_ID}"
+}
+JSON
+
+RESPONSE=$(thunder_api_call POST "/organization-units" "${EDWARD_PVT_LTD_OU_PAYLOAD}")
+HTTP_CODE="${RESPONSE: -3}"
+BODY="${RESPONSE%???}"
+
+if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]]; then
+    log_success "EDWARD PVT LTD organization unit created successfully"
+    EDWARD_PVT_LTD_OU_ID=$(extract_first_id "$BODY")
+elif [[ "$HTTP_CODE" == "409" ]]; then
+    log_warning "EDWARD PVT LTD organization unit already exists, retrieving ID..."
+    RESPONSE=$(thunder_api_call GET "/organization-units/tree/${EDWARD_PVT_LTD_OU_PATH}")
+    HTTP_CODE="${RESPONSE: -3}"
+    BODY="${RESPONSE%???}"
+
+    if [[ "$HTTP_CODE" == "200" ]]; then
+        EDWARD_PVT_LTD_OU_ID=$(extract_first_id "$BODY")
+    else
+        log_error "Failed to fetch organization unit by path '${EDWARD_PVT_LTD_OU_PATH}' (HTTP $HTTP_CODE)"
+        echo "Response: $BODY"
+        exit 1
+    fi
+else
+    log_error "Failed to create EDWARD PVT LTD organization unit (HTTP $HTTP_CODE)"
+    echo "Response: $BODY"
+    exit 1
+fi
+
+if [[ -z "$EDWARD_PVT_LTD_OU_ID" ]]; then
+    log_error "Could not determine EDWARD PVT LTD organization unit ID"
+    exit 1
+fi
+
+log_info "EDWARD PVT LTD OU ID: $EDWARD_PVT_LTD_OU_ID"
 
 echo ""
 
@@ -980,7 +1034,7 @@ read -r -d '' TRADERS_GROUP_PAYLOAD <<JSON || true
 {
     "name": "Traders",
     "description": "Trader members group",
-    "ouId": "${ABCD_TRADERS_OU_ID}"
+    "ouId": "${PRIVATE_SECTOR_OU_ID}"
 }
 JSON
 
@@ -993,7 +1047,7 @@ if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]]; then
     TRADERS_GROUP_ID=$(extract_first_id "$BODY")
 elif [[ "$HTTP_CODE" == "409" ]]; then
     log_warning "Traders group already exists, retrieving ID..."
-    TRADERS_GROUP_ID=$(get_group_id_by_name "Traders" "$ABCD_TRADERS_OU_ID")
+    TRADERS_GROUP_ID=$(get_group_id_by_name "Traders" "$PRIVATE_SECTOR_OU_ID")
 else
     log_error "Failed to create Traders group (HTTP $HTTP_CODE)"
     echo "Response: $BODY"
@@ -1019,7 +1073,7 @@ read -r -d '' CHA_GROUP_PAYLOAD <<JSON || true
 {
     "name": "CHA",
     "description": "CHA members group",
-    "ouId": "${ABCD_TRADERS_OU_ID}"
+    "ouId": "${PRIVATE_SECTOR_OU_ID}"
 }
 JSON
 
@@ -1032,7 +1086,7 @@ if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]]; then
     CHA_GROUP_ID=$(extract_first_id "$BODY")
 elif [[ "$HTTP_CODE" == "409" ]]; then
     log_warning "CHA group already exists, retrieving ID..."
-    CHA_GROUP_ID=$(get_group_id_by_name "CHA" "$ABCD_TRADERS_OU_ID")
+    CHA_GROUP_ID=$(get_group_id_by_name "CHA" "$PRIVATE_SECTOR_OU_ID")
 else
     log_error "Failed to create CHA group (HTTP $HTTP_CODE)"
     echo "Response: $BODY"
@@ -1134,19 +1188,22 @@ assign_role_to_group "$CHA_ROLE_ID" "$CHA_GROUP_ID" "CHA" "CHA"
 echo ""
 
 # ============================================================================
-# Create Users in ABCD Traders OU
+# Create Users in ADAM PVT LTD OU
 # ============================================================================
 
 log_info "Creating sample users..."
 
-create_user_in_ou "Private_User" "$ABCD_TRADERS_OU_ID" "suresh" "suresh@abcd-traders.private-sector.dev" "Suresh" "Fernando" "$USER123_PASSWORD" "+94771234567"
-USER_123="$CREATED_USER_ID"
+create_user_in_ou "Private_User" "$ADAM_PVT_LTD_OU_ID" "suresh" "suresh@adam-pvt-ltd.private-sector.dev" "Suresh" "Fernando" "$SURESH_PASSWORD" "+94771234567"
+USER_SURESH="$CREATED_USER_ID"
 
-create_user_in_ou "Private_User" "$ABCD_TRADERS_OU_ID" "ramesh" "ramesh@abcd-traders.private-sector.dev" "Ramesh" "Fernando" "$USER456_PASSWORD" "+94771234568"
-USER_456="$CREATED_USER_ID"
+create_user_in_ou "Private_User" "$ADAM_PVT_LTD_OU_ID" "ramesh" "ramesh@adam-pvt-ltd.private-sector.dev" "Ramesh" "Fernando" "$RAMESH_PASSWORD" "+94771234568"
+USER_RAMESH="$CREATED_USER_ID"
 
-create_user_in_ou "Private_User" "$ABCD_TRADERS_OU_ID" "gomesh" "gomesh@abcd-traders.private-sector.dev" "Gomesh" "Fernando" "$USER789_PASSWORD" "+94771234569"
-USER_789="$CREATED_USER_ID"
+create_user_in_ou "Private_User" "$ADAM_PVT_LTD_OU_ID" "gomesh" "gomesh@adam-pvt-ltd.private-sector.dev" "Gomesh" "Fernando" "$GOMESH_PASSWORD" "+94771234569"
+USER_GOMESH="$CREATED_USER_ID"
+
+create_user_in_ou "Private_User" "$EDWARD_PVT_LTD_OU_ID" "naresh" "naresh@edward-pvt-ltd.private-sector.dev" "Naresh" "Fernando" "$NARESH_PASSWORD" "+94771234570"
+USER_NARESH="$CREATED_USER_ID"
 
 create_user_in_ou "Government_User" "$NPQS_OU_ID" "npqs_user" "npqs_user@government.dev" "NPQS" "User" "$NPQS_USER_PASSWORD" "+94771234560"
 USER_NPQS_ID="$CREATED_USER_ID"
@@ -1168,10 +1225,11 @@ echo ""
 
 log_info "Assigning users to groups..."
 
-ensure_user_in_group "$TRADERS_GROUP_ID" "$USER_123" "Traders" "both_roles_user"
-ensure_user_in_group "$CHA_GROUP_ID" "$USER_123" "CHA" "both_roles_user"
-ensure_user_in_group "$CHA_GROUP_ID" "$USER_456" "CHA" "cha_only_user"
-ensure_user_in_group "$TRADERS_GROUP_ID" "$USER_789" "Traders" "trader_only_user"
+ensure_user_in_group "$TRADERS_GROUP_ID" "$USER_SURESH" "Traders" "suresh"
+ensure_user_in_group "$CHA_GROUP_ID" "$USER_SURESH" "CHA" "suresh"
+ensure_user_in_group "$CHA_GROUP_ID" "$USER_RAMESH" "CHA" "ramesh"
+ensure_user_in_group "$TRADERS_GROUP_ID" "$USER_GOMESH" "Traders" "gomesh"
+ensure_user_in_group "$CHA_GROUP_ID" "$USER_NARESH" "CHA" "naresh"
 
 echo ""
 
@@ -1276,16 +1334,18 @@ echo ""
 
 log_success "Sample resources setup completed successfully!"
 log_info "Private Sector OU path: ${PRIVATE_SECTOR_OU_HANDLE}"
-log_info "ABCD Traders OU path: ${ABCD_TRADERS_OU_PATH}"
+log_info "ADAM PVT LTD OU path: ${ADAM_PVT_LTD_OU_PATH}"
+log_info "EDWARD PVT LTD OU path: ${EDWARD_PVT_LTD_OU_PATH}"
 log_info "Government Organization OU path: ${GOVERNMENT_ORG_OU_HANDLE}"
 log_info "Government child OUs: ${NPQS_OU_HANDLE}, ${FCAU_OU_HANDLE}, ${IRD_OU_HANDLE}, ${CDA_OU_HANDLE}"
 log_info "Private user type: Private_User"
 log_info "Government user type: Government_User"
 log_info "Traders group -> Trader role"
 log_info "CHA group -> CHA role"
-log_info "both_roles_user in groups: Traders, CHA"
-log_info "cha_only_user in groups: CHA"
-log_info "trader_only_user in groups: Traders"
+log_info "suresh in groups: Traders, CHA"
+log_info "ramesh in groups: CHA"
+log_info "gomesh in groups: Traders"
+log_info "naresh (EDWARD PVT LTD) in groups: CHA"
 log_info "Government users: npqs_user, fcau_user, ird_user, cda_user"
 log_info "App client IDs: TRADER_PORTAL_APP, OGA_PORTAL_APP_NPQS, OGA_PORTAL_APP_FCAU, OGA_PORTAL_APP_IRD, OGA_PORTAL_APP_CDA"
 log_info "M2M client IDs: NPQS_TO_NSW, FCAU_TO_NSW, IRD_TO_NSW, CDA_TO_NSW"

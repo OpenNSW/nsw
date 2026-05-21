@@ -13,6 +13,7 @@ DROP TABLE IF EXISTS user_contexts;
 DROP TABLE IF EXISTS workflow_nodes;
 DROP TABLE IF EXISTS consignments;
 DROP TABLE IF EXISTS customs_house_agents;
+DROP TABLE IF EXISTS company_records;
 DROP TABLE IF EXISTS task_infos;
 
 -- ============================================================================

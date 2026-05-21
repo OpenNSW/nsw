@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -20,9 +21,9 @@ type Service interface {
 	// Returns ErrCompanyNotFound if no record exists.
 	GetCompanyByOUHandle(ctx context.Context, ouHandle string) (*Record, error)
 
-	// GetCompanyByOUId retrieves a company record by its IdP organisational unit ID.
-	// Returns ErrCompanyNotFound if no record exists.
-	GetCompanyByOUId(ctx context.Context, ouId string) (*Record, error)
+	// ListCompanies returns company records ordered by name, optionally filtered by HasCHA and a
+	// case-insensitive substring match on Name.
+	ListCompanies(ctx context.Context, filter ListFilter) ([]Record, error)
 
 	// UpdateCompany performs an append-only merge of data into the company's Data field.
 	// New keys are added and existing keys are replaced only when explicitly provided.
@@ -68,8 +69,24 @@ func (s *service) GetCompanyByOUHandle(ctx context.Context, ouHandle string) (*R
 	return s.getByField(ctx, "ou_handle", ouHandle)
 }
 
-func (s *service) GetCompanyByOUId(ctx context.Context, ouId string) (*Record, error) {
-	return s.getByField(ctx, "ou_id", ouId)
+func (s *service) ListCompanies(ctx context.Context, filter ListFilter) ([]Record, error) {
+	q := s.db.WithContext(ctx).Model(&Record{})
+	if filter.HasCHA != nil {
+		q = q.Where("has_cha = ?", *filter.HasCHA)
+	}
+	if filter.Name != nil {
+		name := strings.TrimSpace(*filter.Name)
+		if name != "" {
+			q = q.Where("name ILIKE ?", "%"+name+"%")
+		}
+	}
+
+	var records []Record
+	if err := q.Order("name ASC").Find(&records).Error; err != nil {
+		slog.Error("failed to list company records", "error", err)
+		return nil, fmt.Errorf("database query failed: %w", err)
+	}
+	return records, nil
 }
 
 func (s *service) UpdateCompany(ctx context.Context, id string, data map[string]any) error {

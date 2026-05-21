@@ -9,8 +9,8 @@ import (
 type Record struct {
 	ID        string          `gorm:"type:varchar(100);column:id;primaryKey;not null" json:"id"`
 	Name      string          `gorm:"type:varchar(255);column:name;not null" json:"name"`
-	OUID      string          `gorm:"type:varchar(255);column:ou_id;unique;not null" json:"ouId"`
 	OUHandle  string          `gorm:"type:varchar(255);column:ou_handle;unique;not null" json:"ouHandle"`
+	HasCHA    bool            `gorm:"column:has_cha;not null;default:false" json:"hasCha"`
 	Data      json.RawMessage `gorm:"type:jsonb;column:data;not null;default:'{}'" json:"data"`
 	CreatedAt time.Time       `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
 	UpdatedAt time.Time       `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
@@ -18,4 +18,31 @@ type Record struct {
 
 func (r *Record) TableName() string {
 	return "company_records"
+}
+
+// ListFilter narrows the set returned by Service.ListCompanies. Nil fields mean "no filter".
+type ListFilter struct {
+	// HasCHA filters to companies whose has_cha column matches the pointed-to value when non-nil.
+	HasCHA *bool
+	// Name filters to companies whose name matches a case-insensitive substring when non-empty.
+	Name *string
+}
+
+// Summary is the trimmed projection of a company returned by the list endpoint. It carries only
+// the fields callers (e.g. the trader-app CHA-company picker) actually consume, so the response
+// stays small and the storage shape of Record can evolve independently.
+type Summary struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	HasCHA bool   `json:"hasCha"`
+}
+
+// ListResult is the envelope returned by GET /api/v1/companies. The pagination fields are
+// included now so the contract can grow (offset/limit, total) without a breaking change
+// when pagination lands.
+type ListResult struct {
+	Items  []Summary `json:"items"`
+	Total  int64     `json:"total"`
+	Offset int       `json:"offset"`
+	Limit  int       `json:"limit"`
 }

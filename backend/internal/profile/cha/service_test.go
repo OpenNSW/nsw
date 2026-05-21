@@ -28,11 +28,11 @@ func setupTestDB(t *testing.T) (*gorm.DB, sqlmock.Sqlmock) {
 	return gormDB, mock
 }
 
-var chaColumns = []string{"id", "name", "description", "email", "created_at", "updated_at"}
+var chaColumns = []string{"id", "name", "description", "email", "company_id", "created_at", "updated_at"}
 
 func chaRow(id, name, email string) *sqlmock.Rows {
 	return sqlmock.NewRows(chaColumns).
-		AddRow(id, name, "", email, time.Now(), time.Now())
+		AddRow(id, name, "", email, "test-company", time.Now(), time.Now())
 }
 
 // --- GetByID ---
@@ -142,8 +142,8 @@ func TestService_List_Success(t *testing.T) {
 	mock.ExpectQuery(`SELECT .* FROM "customs_house_agents"`).
 		WillReturnRows(
 			sqlmock.NewRows(chaColumns).
-				AddRow("cha-1", "Advantis", "", "a@example.com", time.Now(), time.Now()).
-				AddRow("cha-2", "Yusen", "", "y@example.com", time.Now(), time.Now()),
+				AddRow("cha-1", "Advantis", "", "a@example.com", "test-company", time.Now(), time.Now()).
+				AddRow("cha-2", "Yusen", "", "y@example.com", "test-company", time.Now(), time.Now()),
 		)
 
 	records, err := svc.List(context.TODO()) //nolint:staticcheck

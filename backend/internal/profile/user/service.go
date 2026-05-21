@@ -20,7 +20,7 @@ type Service interface {
 	// GetOrCreateUser creates or retrieves a user record by idpUserID.
 	// Returns the user ID of the created or existing record, or an error on failure.
 	// If err is non-nil, the returned user ID will be nil.
-	GetOrCreateUser(idpUserID, email, phone, ouID string) (*string, error)
+	GetOrCreateUser(idpUserID, email, phone, ouID, ouHandle string) (*string, error)
 
 	// UpdateUserData updates the Data field for an existing user record.
 	// The provided data should be valid JSON bytes.
@@ -64,7 +64,7 @@ func (s *service) GetUser(id string) (*Record, error) {
 // GetOrCreateUser creates a new user record in the database if one does not exist.
 // Returns the existing user ID when a record already exists.
 // The Data field is initialized to an empty JSON object for new records.
-func (s *service) GetOrCreateUser(idpUserID, email, phone, ouID string) (*string, error) {
+func (s *service) GetOrCreateUser(idpUserID, email, phone, ouID, ouHandle string) (*string, error) {
 	if idpUserID == "" {
 		return nil, ErrInvalidUserID
 	}
@@ -84,6 +84,7 @@ func (s *service) GetOrCreateUser(idpUserID, email, phone, ouID string) (*string
 		Email:       email,
 		PhoneNumber: phone,
 		OUID:        ouID,
+		OUHandle:    ouHandle,
 		Data:        []byte(`{}`),
 	}
 
