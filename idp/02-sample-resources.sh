@@ -278,7 +278,8 @@ create_spa_application() {
                     "profile",
                     "email",
                     "group",
-                    "role"
+                    "role",
+                    "ou"
                 ],
                 "userInfo": {
                     "userAttributes": [
@@ -303,7 +304,8 @@ create_spa_application() {
                         "groups"
                     ],
                     "ou": [
-                        "ouId"
+                        "ouId",
+                        "ouHandle"
                     ],
                     "role": [
                         "roles"
