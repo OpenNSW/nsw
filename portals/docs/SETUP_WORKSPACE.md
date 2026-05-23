@@ -74,10 +74,10 @@ node --version
 
 ### Step 4: Install pnpm
 
-pnpm will be automatically installed via **Corepack** (built into Node.js):
+You can use **Corepack** or an existing global `pnpm` install:
 
 ```bash
-# Enable Corepack (already included in Node 22+)
+# Enable Corepack (already included in Node 22+) if pnpm is not already installed
 corepack enable
 
 # Verify pnpm installation
