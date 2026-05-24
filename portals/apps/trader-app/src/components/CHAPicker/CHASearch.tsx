@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Text, Box, Flex, Spinner, TextField, ScrollArea, IconButton, Badge } from '@radix-ui/themes'
 import { MagnifyingGlassIcon, Cross2Icon } from '@radix-ui/react-icons'
 
@@ -10,19 +10,23 @@ export type CHAOption = {
 interface CHASearchProps {
   value: CHAOption | null
   onChange: (cha: CHAOption | null) => void
+  // Server-filtered results for the current searchQuery. The parent is responsible
+  // for refetching this list (debounced) whenever searchQuery changes.
   options: readonly CHAOption[]
   searchQuery: string
   onSearchQueryChange: (query: string) => void
+  loading?: boolean
 }
 
-export function CHASearch({ value, onChange, options, searchQuery, onSearchQueryChange }: CHASearchProps) {
+export function CHASearch({
+  value,
+  onChange,
+  options,
+  searchQuery,
+  onSearchQueryChange,
+  loading = false,
+}: CHASearchProps) {
   const [isFocused, setIsFocused] = useState(false)
-
-  const filtered = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase()
-    if (!q) return []
-    return options.filter((o) => o.name.toLowerCase().includes(q))
-  }, [options, searchQuery])
 
   const handleSelect = (cha: CHAOption) => {
     onSearchQueryChange(cha.name)
@@ -36,13 +40,12 @@ export function CHASearch({ value, onChange, options, searchQuery, onSearchQuery
   }
 
   const showDropdown = isFocused && searchQuery.length > 0
-  const loading = false
 
   return (
     <Box position="relative">
       <TextField.Root
         size="2"
-        placeholder="Search by CHA (e.g., Spectra, Advantis)..."
+        placeholder="Search company (e.g., ADAM, EDWARD)..."
         value={searchQuery}
         onChange={(e) => {
           const val = e.target.value
@@ -80,20 +83,20 @@ export function CHASearch({ value, onChange, options, searchQuery, onSearchQuery
           mt="1"
           className="bg-white border border-gray-200 rounded-md shadow-lg z-10 overflow-hidden"
         >
-          {filtered.length === 0 ? (
+          {options.length === 0 ? (
             <Flex align="center" justify="center" py="5" direction="column" gap="1">
               <Text size="2" color="gray">
-                No CHAs found for "{searchQuery}"
+                {loading ? 'Searching…' : `No companies found for "${searchQuery}"`}
               </Text>
             </Flex>
           ) : (
             <ScrollArea style={{ maxHeight: '280px' }}>
               <Box py="1">
-                {filtered.map((cha) => {
-                  const isSelected = value?.id === cha.id
+                {options.map((company) => {
+                  const isSelected = value?.id === company.id
                   return (
                     <Flex
-                      key={cha.id}
+                      key={company.id}
                       px="3"
                       py="2"
                       gap="3"
@@ -103,7 +106,7 @@ export function CHASearch({ value, onChange, options, searchQuery, onSearchQuery
                       }`}
                       onMouseDown={(e) => {
                         e.preventDefault()
-                        handleSelect(cha)
+                        handleSelect(company)
                       }}
                     >
                       <Box pt="1">
@@ -112,10 +115,10 @@ export function CHASearch({ value, onChange, options, searchQuery, onSearchQuery
                       <Box style={{ flex: 1, minWidth: 0 }}>
                         <Flex align="center" gap="2" mb="1">
                           <Text size="2" weight="medium">
-                            {cha.name}
+                            {company.name}
                           </Text>
                           <Badge size="1" color="blue" variant="soft">
-                            CHA
+                            CHA Company
                           </Badge>
                         </Flex>
                       </Box>
