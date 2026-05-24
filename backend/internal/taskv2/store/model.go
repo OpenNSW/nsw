@@ -2,6 +2,7 @@ package store
 
 import (
 	"encoding/json"
+	"log/slog"
 	"time"
 
 	"github.com/OpenNSW/nsw-task-flow/store"
@@ -32,7 +33,12 @@ func (TaskRecordModel) TableName() string {
 // ToDomain converts the GORM model to the domain TaskRecord.
 func (m TaskRecordModel) ToDomain() store.TaskRecord {
 	var data map[string]any
-	_ = json.Unmarshal(m.Data, &data)
+	if len(m.Data) > 0 {
+		if err := json.Unmarshal(m.Data, &data); err != nil {
+			slog.Error("taskv2 store: ToDomain unmarshal of Data failed",
+				"taskId", m.TaskID, "error", err)
+		}
+	}
 
 	return store.TaskRecord{
 		TaskID:               m.TaskID,

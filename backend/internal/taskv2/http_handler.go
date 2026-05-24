@@ -3,6 +3,7 @@ package taskv2
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 
@@ -45,7 +46,9 @@ func (h *HTTPHandler) HandleCompleteTaskStep(w http.ResponseWriter, r *http.Requ
 
 	var payload map[string]any
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		if !errors.Is(err, http.ErrBodyReadAfterClose) {
+		// An empty body is a valid acknowledge-style completion; only fail on
+		// genuinely malformed JSON.
+		if !errors.Is(err, io.EOF) && !errors.Is(err, http.ErrBodyReadAfterClose) {
 			writeJSONError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
 			return
 		}

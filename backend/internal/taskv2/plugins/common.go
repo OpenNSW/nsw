@@ -3,7 +3,7 @@ package plugins
 import (
 	"context"
 	"log/slog"
-	"strings"
+	"net/url"
 
 	tfplugins "github.com/OpenNSW/nsw-task-flow/plugins"
 	"github.com/OpenNSW/nsw/pkg/remote"
@@ -48,7 +48,7 @@ type dispatchHelper struct {
 func newDispatchHelper(manager *remote.Manager, backendBaseURL string, devMode bool) *dispatchHelper {
 	return &dispatchHelper{
 		manager:        manager,
-		backendBaseURL: strings.TrimRight(backendBaseURL, "/"),
+		backendBaseURL: backendBaseURL,
 		devMode:        devMode,
 	}
 }
@@ -56,7 +56,13 @@ func newDispatchHelper(manager *remote.Manager, backendBaseURL string, devMode b
 // callbackTasksURL is the URL the receiving OGA portal should call back into
 // to advance the workflow once the officer has acted.
 func (h *dispatchHelper) callbackTasksURL() string {
-	return h.backendBaseURL + "/api/v1/tasks"
+	joined, err := url.JoinPath(h.backendBaseURL, "/api/v1/tasks")
+	if err != nil {
+		slog.Error("taskv2 plugin: failed to build callback URL",
+			"backendBaseURL", h.backendBaseURL, "error", err)
+		return h.backendBaseURL + "/api/v1/tasks"
+	}
+	return joined
 }
 
 // post sends body as JSON to the resolved service+path and returns nil on any
@@ -72,23 +78,6 @@ func (h *dispatchHelper) post(ctx context.Context, serviceID, path string, body 
 		return h.dispatchOrSwallow(serviceID, path, err)
 	}
 	return nil
-}
-
-// postAsync fires the POST in a background goroutine and returns immediately.
-// Used for FIRE_AND_FORGET tasks where the workflow does not block on the
-// external service's response.
-func (h *dispatchHelper) postAsync(serviceID, path string, body any) {
-	go func() {
-		req := remote.Request{
-			Method: "POST",
-			Path:   path,
-			Body:   body,
-		}
-		if err := h.manager.Call(context.Background(), serviceID, req, nil); err != nil {
-			slog.Warn("taskv2 api_call: fire-and-forget dispatch failed",
-				"serviceId", serviceID, "path", path, "error", err)
-		}
-	}()
 }
 
 func (h *dispatchHelper) dispatchOrSwallow(serviceID, path string, err error) error {

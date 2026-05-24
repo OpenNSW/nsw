@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/OpenNSW/nsw-task-flow/store"
 	"gorm.io/gorm"
@@ -18,10 +19,15 @@ func NewGormTaskStore(db *gorm.DB) *GormTaskStore {
 
 func (s *GormTaskStore) SaveTask(ctx context.Context, record store.TaskRecord) {
 	model := FromDomain(record)
-	// Use Upsert (On Conflict) to handle updates
-	s.db.WithContext(ctx).Clauses(clause.OnConflict{
+	// Upstream store.Store.SaveTask returns no error (nsw-task-flow treats
+	// persistence as best-effort), so the only observability we have for a
+	// failed upsert is a log line.
+	if err := s.db.WithContext(ctx).Clauses(clause.OnConflict{
 		UpdateAll: true,
-	}).Create(&model)
+	}).Create(&model).Error; err != nil {
+		slog.Error("taskv2 store: SaveTask upsert failed",
+			"taskId", record.TaskID, "error", err)
+	}
 }
 
 func (s *GormTaskStore) GetTask(ctx context.Context, taskID string) (store.TaskRecord, bool) {
