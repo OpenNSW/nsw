@@ -8,16 +8,18 @@ import (
 
 	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/profile/cha"
+	"github.com/OpenNSW/nsw/internal/profile/company"
 	"github.com/OpenNSW/nsw/utils"
 )
 
 type Router struct {
-	cs  *Service
-	cha cha.Service
+	cs      *Service
+	cha     cha.Service
+	company company.Service
 }
 
-func NewRouter(cs *Service, chaService cha.Service) *Router {
-	return &Router{cs: cs, cha: chaService}
+func NewRouter(cs *Service, chaService cha.Service, companyService company.Service) *Router {
+	return &Router{cs: cs, cha: chaService, company: companyService}
 }
 
 // HandleCreateConsignment handles POST /api/v1/consignments
@@ -45,10 +47,14 @@ func (c *Router) HandleCreateConsignment(w http.ResponseWriter, r *http.Request)
 
 	traderID := authCtx.User.ID
 	// Stage 1: create shell only
-	consignment, err := c.cs.CreateConsignmentShell(r.Context(), req.Flow, req.ChaID, traderID)
+	consignment, err := c.cs.CreateConsignmentShell(r.Context(), req.Flow, req.ChaCompanyID, traderID)
 	if err != nil {
-		if errors.Is(err, cha.ErrCHANotFound) {
-			http.Error(w, "CHA not found", http.StatusNotFound)
+		if errors.Is(err, company.ErrCompanyNotFound) {
+			http.Error(w, "CHA company not found", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, ErrCompanyNotCHA) {
+			http.Error(w, "selected company is not a CHA company", http.StatusBadRequest)
 			return
 		}
 		slog.Error("failed to create consignment shell", "error", err)
@@ -101,25 +107,29 @@ func (c *Router) HandleGetConsignments(w http.ResponseWriter, r *http.Request) {
 		filter.Flow = &flow
 	}
 
-	// Role-Based Identity Resolution
-	switch role {
-	case "cha":
-		chaRecord, err := c.cha.GetByEmail(ctx, authCtx.User.Email)
-		if err != nil {
-			if errors.Is(err, cha.ErrCHANotFound) {
-				http.Error(w, "CHA profile not found", http.StatusForbidden)
-				return
-			}
-			slog.Error("failed to retrieve CHA profile", "email", authCtx.User.Email, "error", err)
-			http.Error(w, "failed to resolve default CHA profile", http.StatusInternalServerError)
-			return
-		}
-		filter.ChaID = &chaRecord.ID
-	case "trader":
-		filter.TraderID = &authCtx.User.ID
-	default:
+	// Role-based identity resolution. Both roles scope to the requesting user's company,
+	// resolved from the OU handle that the auth middleware copied off the JWT.
+	if role != "trader" && role != "cha" {
 		http.Error(w, "query param role must be trader or cha", http.StatusBadRequest)
 		return
+	}
+
+	userCompany, err := c.company.GetCompanyByOUHandle(ctx, authCtx.User.OUHandle)
+	if err != nil {
+		if errors.Is(err, company.ErrCompanyNotFound) {
+			http.Error(w, "company profile not found for user", http.StatusForbidden)
+			return
+		}
+		slog.Error("failed to resolve user company", "ouHandle", authCtx.User.OUHandle, "error", err)
+		http.Error(w, "failed to resolve user company", http.StatusInternalServerError)
+		return
+	}
+
+	switch role {
+	case "cha":
+		filter.CHACompanyID = &userCompany.ID
+	case "trader":
+		filter.TraderCompanyID = &userCompany.ID
 	}
 	consignments, err := c.cs.ListConsignments(ctx, filter)
 	if err != nil {
@@ -152,8 +162,6 @@ func (c *Router) HandleInitializeConsignment(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	consignmentID := consignmentIDStr
-	// TODO: Need to Call GetConsignmentByID and check whether the Consignment.ChaID and authContext.UserID are equal
-	// Otherwise Forbidden
 	var req InitializeConsignmentDTO
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body: "+err.Error(), http.StatusBadRequest)
@@ -165,10 +173,24 @@ func (c *Router) HandleInitializeConsignment(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// TODO: Global context is nil; services requiring user metadata should fetch it on-demand
-	// from the user profile service rather than relying on preloaded request context.
-	consignment, err := c.cs.InitializeConsignmentByID(r.Context(), consignmentID, req.HSCodeIDs, nil)
+	// Resolve the CHA picking up the consignment from the authenticated user's email.
+	chaRecord, err := c.cha.GetByEmail(ctx, authCtx.User.Email)
 	if err != nil {
+		if errors.Is(err, cha.ErrCHANotFound) {
+			http.Error(w, "CHA profile not found for user", http.StatusForbidden)
+			return
+		}
+		slog.Error("failed to resolve CHA profile", "email", authCtx.User.Email, "error", err)
+		http.Error(w, "failed to resolve CHA profile", http.StatusInternalServerError)
+		return
+	}
+
+	consignment, err := c.cs.InitializeConsignmentByID(r.Context(), consignmentID, req.HSCodeIDs, chaRecord.ID)
+	if err != nil {
+		if errors.Is(err, ErrCHACompanyMismatch) {
+			http.Error(w, "CHA does not belong to the consignment's CHA company", http.StatusForbidden)
+			return
+		}
 		slog.Error("failed to initialize consignment", "error", err)
 		http.Error(w, "failed to initialize consignment: "+err.Error(), http.StatusInternalServerError)
 		return

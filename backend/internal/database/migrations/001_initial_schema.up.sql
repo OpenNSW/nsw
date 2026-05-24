@@ -196,15 +196,25 @@ CREATE TABLE IF NOT EXISTS consignments
 	created_at timestamp with time zone DEFAULT now() NOT NULL,
 	updated_at timestamp with time zone DEFAULT now() NOT NULL,
 	end_node_id text,
-	cha_id varchar(100) NOT NULL REFERENCES customs_house_agents (id)
+	trader_company_id varchar(100) NOT NULL REFERENCES company_records (id),
+	cha_company_id varchar(100) NOT NULL REFERENCES company_records (id),
+	cha_id varchar(100) REFERENCES customs_house_agents (id)
 );
 
 COMMENT ON TABLE consignments IS 'Consignment records for import/export workflows';
 
-COMMENT ON COLUMN consignments.cha_id IS 'Assigned Customs House Agent (CHA); set at Stage 1 by Trader';
+COMMENT ON COLUMN consignments.trader_company_id IS 'Company that owns the trader; resolved from the trader user''s OU at Stage 1';
+COMMENT ON COLUMN consignments.cha_company_id IS 'CHA company selected by the trader at Stage 1; constrains which CHAs may pick the consignment up';
+COMMENT ON COLUMN consignments.cha_id IS 'Assigned Customs House Agent (CHA); set at Stage 2 when a CHA from cha_company_id claims the consignment';
 
 CREATE INDEX IF NOT EXISTS idx_consignments_trader_id
 	ON consignments (trader_id);
+
+CREATE INDEX IF NOT EXISTS idx_consignments_trader_company_id
+	ON consignments (trader_company_id);
+
+CREATE INDEX IF NOT EXISTS idx_consignments_cha_company_id
+	ON consignments (cha_company_id);
 
 CREATE INDEX IF NOT EXISTS idx_consignments_state
 	ON consignments (state);
