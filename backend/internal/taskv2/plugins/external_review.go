@@ -23,10 +23,9 @@ func NewExternalReviewPlugin(manager *remote.Manager, backendBaseURL string, dev
 }
 
 type externalReviewConfig struct {
-	ServiceID           string `json:"service_id"`
-	Path                string `json:"path"`
-	ReviewerJsonFormsID string `json:"reviewer_jsonforms_id,omitempty"`
-	TaskCode            string `json:"task_code,omitempty"`
+	ServiceID string `json:"service_id"`
+	Path      string `json:"path"`
+	TaskCode  string `json:"task_code,omitempty"`
 }
 
 // Execute persists the reviewer form ID + QUEUED_EXTERNALLY status, then
@@ -47,7 +46,14 @@ func (p *ExternalReviewPlugin) Execute(ctx pluginContext, configRaw json.RawMess
 
 	ctx.Record.State = "QUEUED_EXTERNALLY"
 
-	body := buildSubmissionBody(ctx.Record, &cfg.TaskCode, p.client.callbackTasksURL())
+	// Convention: if input_mapping placed a value under the reserved key
+	// "submission", that value is the wire shape OGA sees. Otherwise the
+	// whole inputs bag is sent (default fallback for simple cases).
+	var data any = ctx.Inputs
+	if submission, ok := ctx.Inputs["submission"]; ok {
+		data = submission
+	}
+	body := buildSubmissionBody(ctx.Record, data, &cfg.TaskCode, p.client.callbackTasksURL())
 
 	slog.Info("taskv2 external_review: dispatching to OGA portal",
 		"taskId", ctx.Record.TaskID, "serviceId", cfg.ServiceID, "path", cfg.Path, "taskCode", cfg.TaskCode)
@@ -59,7 +65,10 @@ func (p *ExternalReviewPlugin) Execute(ctx pluginContext, configRaw json.RawMess
 }
 
 // buildSubmissionBody constructs the full envelope the OGA portal expects.
-func buildSubmissionBody(record *store.TaskRecord, taskCode *string, callbackURL string) map[string]any {
+// data carries only the values declared by the workflow node's input_mapping
+// — not the full record state — so the external reviewer sees the explicit
+// contract surface and nothing more.
+func buildSubmissionBody(record *store.TaskRecord, data any, taskCode *string, callbackURL string) map[string]any {
 	if taskCode == nil || *taskCode == "" {
 		taskCode = &record.ActiveTaskTemplateID
 	}
@@ -68,6 +77,6 @@ func buildSubmissionBody(record *store.TaskRecord, taskCode *string, callbackURL
 		"taskId":     record.TaskID,
 		"workflowId": record.ParentWorkflowID,
 		"serviceUrl": callbackURL,
-		"data":       record.Data,
+		"data":       data,
 	}
 }

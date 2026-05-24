@@ -9,6 +9,7 @@ import (
 
 	engine "github.com/OpenNSW/go-temporal-workflow"
 	flowplugins "github.com/OpenNSW/nsw-task-flow/plugins"
+	"github.com/OpenNSW/nsw/internal/workflow"
 
 	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/config"
@@ -23,7 +24,6 @@ import (
 	"github.com/OpenNSW/nsw/internal/taskv2"
 	taskv2plugins "github.com/OpenNSW/nsw/internal/taskv2/plugins"
 	"github.com/OpenNSW/nsw/internal/temporal"
-	"github.com/OpenNSW/nsw/internal/workflow"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
 	"github.com/OpenNSW/nsw/pkg/remote"
 	"github.com/OpenNSW/nsw/pkg/storage"

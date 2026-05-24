@@ -60,7 +60,10 @@ func WireTaskV2(db *gorm.DB, c *client.Client, pluginsRegistry *plugins.Registry
 
 	microCompletionHandler := func(workflowID string, finalVariables map[string]any) error {
 		log.Printf("\n[Micro Workflow] Completed. Final state: %v\n", finalVariables)
-		return nil
+		if tm == nil {
+			return fmt.Errorf("task manager is not initialized (misconfiguration)")
+		}
+		return tm.HandleTaskCompletion(context.Background(), workflowID, finalVariables)
 	}
 
 	workflowRunner := engine.NewTemporalManager(*c, "MICRO_WORKFLOW_QUEUE", microActivationHandler, microCompletionHandler)
