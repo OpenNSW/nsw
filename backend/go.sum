@@ -1,7 +1,13 @@
 github.com/DATA-DOG/go-sqlmock v1.5.2 h1:OcvFkGmslmlZibjAjaHm3L//6LiuBgolP7OputlJIzU=
 github.com/DATA-DOG/go-sqlmock v1.5.2/go.mod h1:88MAG/4G7SMwSE3CeA0ZKzrT5CiOU3OJ+JlNzwDqpNU=
-github.com/OpenNSW/go-temporal-workflow v0.3.2 h1:a5+PYt09618/MnC+5FjP9luqNJOCUZ71QZCWV4jdI7Q=
-github.com/OpenNSW/go-temporal-workflow v0.3.2/go.mod h1:YryMiRQ9MBkQUpAz8CwYnW56uFEYqb/cmmOd/YaYmao=
+github.com/OpenNSW/go-temporal-workflow v0.3.3 h1:Zed6UOxZdDCMR2xPcr2fRzAbZOqSHDYHyp7tvYRW9yI=
+github.com/OpenNSW/go-temporal-workflow v0.3.3/go.mod h1:YryMiRQ9MBkQUpAz8CwYnW56uFEYqb/cmmOd/YaYmao=
+github.com/OpenNSW/nsw-task-flow v0.0.0-20260522063607-aeb45b32bea6 h1:8FgnmEVP5w4zt3V2dBmACds9bLfhUAGZdYNBmGHHev4=
+github.com/OpenNSW/nsw-task-flow v0.0.0-20260522063607-aeb45b32bea6/go.mod h1:xrgLSS3AILQiE2QO1MAoKkW5Hwy8u0NqE/9pIiOAr8s=
+github.com/OpenNSW/nsw-task-flow v0.0.0-20260523162723-33c80603128a h1:b3GZ2XTTruW7YAcOi0VtsdvROInJ8VPULhRtR1ie7KQ=
+github.com/OpenNSW/nsw-task-flow v0.0.0-20260523162723-33c80603128a/go.mod h1:xrgLSS3AILQiE2QO1MAoKkW5Hwy8u0NqE/9pIiOAr8s=
+github.com/OpenNSW/nsw-task-flow v0.0.0-20260524045717-da1f86019aae h1:bO4f1KItIlO8S/y+aqJmdHcH+1dKT5nxmZVBqNmGIpg=
+github.com/OpenNSW/nsw-task-flow v0.0.0-20260524045717-da1f86019aae/go.mod h1:xrgLSS3AILQiE2QO1MAoKkW5Hwy8u0NqE/9pIiOAr8s=
 github.com/aws/aws-sdk-go-v2 v1.41.7 h1:DWpAJt66FmnnaRIOT/8ASTucrvuDPZASqhhLey6tLY8=
 github.com/aws/aws-sdk-go-v2 v1.41.7/go.mod h1:4LAfZOPHNVNQEckOACQx60Y8pSRjIkNZQz1w92xpMJc=
 github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.10 h1:gx1AwW1Iyk9Z9dD9F4akX5gnN3QZwUB20GGKH/I+Rho=

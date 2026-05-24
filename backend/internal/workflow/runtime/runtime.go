@@ -19,6 +19,13 @@ const (
 	activationTimeout    = 30 * time.Second
 )
 
+// TaskManager is the narrow surface the runtime needs from a task manager.
+// Only activation and upstream-done wiring are consumed here.
+type TaskManager interface {
+	InitTask(ctx context.Context, request taskmanager.InitTaskRequest) (*taskmanager.InitTaskResponse, error)
+	RegisterUpstreamDoneCallback(callback taskmanager.WorkflowDoneHandler)
+}
+
 type temporalManagerFactory func(
 	activationHandler workflowmanager.TaskActivationHandler,
 	completionHandler workflowmanager.WorkflowCompletionHandler,
@@ -31,7 +38,7 @@ type Runtime struct {
 }
 
 // NewRuntime creates, wires, and starts the workflow runtime.
-func NewRuntime(temporalClient client.Client, tm taskmanager.TaskManager, templateProvider service.TemplateProvider, upstreamService UpstreamService) (*Runtime, error) {
+func NewRuntime(temporalClient client.Client, tm TaskManager, templateProvider service.TemplateProvider, upstreamService UpstreamService) (*Runtime, error) {
 	if temporalClient == nil {
 		return nil, fmt.Errorf("temporal client is required")
 	}
@@ -51,21 +58,18 @@ func NewRuntime(temporalClient client.Client, tm taskmanager.TaskManager, templa
 	return newRuntimeWithFactory(tm, templateProvider, createManager, upstreamService)
 }
 
-func newRuntimeWithFactory(tm taskmanager.TaskManager, templateProvider service.TemplateProvider, createManager temporalManagerFactory, upstreamService UpstreamService) (*Runtime, error) {
+func newRuntimeWithFactory(tm TaskManager, templateProvider service.TemplateProvider, createManager temporalManagerFactory, upstreamService UpstreamService) (*Runtime, error) {
 	runtimeCtx, runtimeCancel := context.WithCancel(context.Background())
 
-	activationHandler := func(payload workflowmanager.TaskPayload) error {
+	activationHandler := func(payload workflowmanager.TaskPayload) (map[string]any, error) {
 		activationCtx, cancel := context.WithTimeout(runtimeCtx, activationTimeout)
 		defer cancel()
 
 		template, err := templateProvider.GetWorkflowNodeTemplateByID(activationCtx, payload.TaskTemplateID)
 		if err != nil {
-			return fmt.Errorf("error getting workflow node template: %w", err)
+			return nil, fmt.Errorf("error getting workflow node template: %w", err)
 		}
 
-		// TODO: We need to pass the TaskPayload.RunID in the future to avoid issues with
-		// task retries. For example, when retrying a task instance, a stale version might
-		// send a completion that will trigger the new version.
 		tmRequest := taskmanager.InitTaskRequest{
 			TaskID:                 payload.NodeID,
 			WorkflowID:             payload.WorkflowID,
@@ -76,10 +80,10 @@ func newRuntimeWithFactory(tm taskmanager.TaskManager, templateProvider service.
 		}
 
 		if _, err := tm.InitTask(activationCtx, tmRequest); err != nil {
-			return fmt.Errorf("error initializing task manager: %w", err)
+			return nil, fmt.Errorf("error initializing task manager: %w", err)
 		}
 
-		return nil
+		return nil, nil
 	}
 
 	completionHandler := func(workflowID string, finalContext map[string]any) error {

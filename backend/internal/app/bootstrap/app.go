@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"net/http"
 
+	engine "github.com/OpenNSW/go-temporal-workflow"
+	flowplugins "github.com/OpenNSW/nsw-task-flow/plugins"
+
 	"github.com/OpenNSW/nsw/internal/auth"
 	"github.com/OpenNSW/nsw/internal/config"
 	"github.com/OpenNSW/nsw/internal/consignment"
@@ -17,11 +20,12 @@ import (
 	"github.com/OpenNSW/nsw/internal/profile/cha"
 	"github.com/OpenNSW/nsw/internal/profile/company"
 	"github.com/OpenNSW/nsw/internal/profile/user"
-	taskmanager "github.com/OpenNSW/nsw/internal/task/manager"
-	"github.com/OpenNSW/nsw/internal/task/plugin"
+	"github.com/OpenNSW/nsw/internal/taskv2"
+	taskv2plugins "github.com/OpenNSW/nsw/internal/taskv2/plugins"
 	"github.com/OpenNSW/nsw/internal/temporal"
-	workflowruntime "github.com/OpenNSW/nsw/internal/workflow/runtime"
+	"github.com/OpenNSW/nsw/internal/workflow"
 	"github.com/OpenNSW/nsw/internal/workflow/service"
+	"github.com/OpenNSW/nsw/pkg/remote"
 	"github.com/OpenNSW/nsw/pkg/storage"
 	"github.com/OpenNSW/nsw/pkg/storage/drivers"
 
@@ -75,13 +79,6 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	paymentRepo := payments.NewPaymentRepository(db)
 	paymentService := payments.NewPaymentService(paymentRepo)
 
-	factory := plugin.NewTaskFactory(cfg, db, paymentService)
-	tm, err := taskmanager.NewTaskManager(db, factory)
-	if err != nil {
-		_ = database.Close(db)
-		return nil, fmt.Errorf("failed to create task manager: %w", err)
-	}
-
 	templateService := service.NewTemplateService(db)
 	chaService := cha.NewService(db)
 	companyService := company.NewService(db)
@@ -94,22 +91,54 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to create temporal client: %w", err)
 	}
 
-	consignmentService := consignment.NewService(db, templateService, chaService, companyService, userProfileService, hsCodeService)
-	consignmentRouter := consignment.NewRouter(consignmentService, chaService, companyService)
+	// parentRunner is forward-declared so the taskv2 completion callback can
+	// close over it. It is assigned below after WireParentRunner returns; the
+	// closure is only invoked when a task workflow finishes, by which point
+	// the assignment has already happened.
+	var parentRunner engine.TemporalManager
+	onTaskCompleted := func(parentWorkflowID, parentRunID, parentNodeID string, finalVariables map[string]any) error {
+		return parentRunner.TaskDone(context.Background(), parentWorkflowID, parentRunID, parentNodeID, finalVariables)
+	}
 
-	workflowRuntime, err := workflowruntime.NewRuntime(temporalClient, tm, templateService, consignmentService)
+	remoteManager := remote.NewManager()
+	if err := remoteManager.LoadServices(cfg.Server.ServicesConfigPath); err != nil {
+		temporalClient.Close()
+		_ = database.Close(db)
+		return nil, fmt.Errorf("failed to load remote services from %s: %w", cfg.Server.ServicesConfigPath, err)
+	}
+
+	pluginsRegistry := flowplugins.NewRegistry()
+	if err := taskv2plugins.Register(pluginsRegistry, remoteManager, cfg.Server.ServiceURL, cfg.Server.Debug); err != nil {
+		temporalClient.Close()
+		_ = database.Close(db)
+		return nil, fmt.Errorf("failed to register taskv2 plugins: %w", err)
+	}
+
+	tm, _, stopTaskV2, err := taskv2.WireTaskV2(db, &temporalClient, pluginsRegistry, onTaskCompleted)
 	if err != nil {
 		temporalClient.Close()
 		_ = database.Close(db)
-		return nil, fmt.Errorf("failed to create workflow runtime: %w", err)
+		return nil, fmt.Errorf("failed to wire taskv2: %w", err)
 	}
 
-	registererr := consignmentService.RegisterWorkflowManager(workflowRuntime.Manager())
-	if registererr != nil {
-		_ = workflowRuntime.Close()
+	consignmentService := consignment.NewService(db, templateService, chaService, companyService, userProfileService, hsCodeService)
+	consignmentRouter := consignment.NewRouter(consignmentService, chaService, companyService)
+
+	pr, stopParentRunner, err := workflow.WireParentRunner(temporalClient, tm, consignmentService)
+	if err != nil {
+		_ = stopTaskV2()
 		temporalClient.Close()
 		_ = database.Close(db)
-		return nil, fmt.Errorf("failed to register workflow manager with consignment service: %w", registererr)
+		return nil, fmt.Errorf("failed to wire parent runner: %w", err)
+	}
+	parentRunner = pr
+
+	if err := consignmentService.RegisterWorkflowManager(parentRunner); err != nil {
+		_ = stopParentRunner()
+		_ = stopTaskV2()
+		temporalClient.Close()
+		_ = database.Close(db)
+		return nil, fmt.Errorf("failed to register workflow manager with consignment service: %w", err)
 	}
 
 	hsCodeRouter := hscode.NewRouter(hsCodeService)
@@ -118,7 +147,8 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	storageDriver, err := storage.NewStorageFromConfig(ctx, cfg.Storage)
 	if err != nil {
-		_ = workflowRuntime.Close()
+		_ = stopParentRunner()
+		_ = stopTaskV2()
 		temporalClient.Close()
 		_ = database.Close(db)
 		return nil, fmt.Errorf("failed to initialize storage: %w", err)
@@ -130,14 +160,16 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	authManager, err := auth.NewManager(userProfileService, cfg.Auth)
 	if err != nil {
-		_ = workflowRuntime.Close()
+		_ = stopParentRunner()
+		_ = stopTaskV2()
 		temporalClient.Close()
 		_ = database.Close(db)
 		return nil, fmt.Errorf("failed to create auth manager: %w", err)
 	}
 
 	if err := authManager.Health(); err != nil {
-		_ = workflowRuntime.Close()
+		_ = stopParentRunner()
+		_ = stopTaskV2()
 		temporalClient.Close()
 		_ = authManager.Close()
 		_ = database.Close(db)
@@ -160,7 +192,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	// smsChannel := channels.NewSMSChannel(...)
 	// notificationManager.RegisterSMSChannel(smsChannel)
 
-	tmHandler := taskmanager.NewHTTPHandler(tm)
+	taskV2Handler := taskv2.NewHTTPHandler(tm)
 
 	// withAuth wraps an individual handler with the authentication middleware.
 	withAuth := authManager.Middleware()
@@ -195,11 +227,16 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		})
 	})
 
-	// API v1 routes. Each handler is individually wrapped with auth,
+	// API routes. Each handler is individually wrapped with auth,
 	// so public or differently-authenticated routes can be added
 	// alongside these without restructuring the mux.
-	mux.Handle("POST /api/v1/tasks", withAuth(http.HandlerFunc(tmHandler.HandleExecuteTask)))
-	mux.Handle("GET /api/v1/tasks/{id}", withAuth(http.HandlerFunc(tmHandler.HandleGetTask)))
+	mux.Handle("GET /api/v1/tasks/{id}", withAuth(http.HandlerFunc(taskV2Handler.HandleGetTask)))
+	mux.Handle("POST /api/v1/tasks/{id}", withAuth(http.HandlerFunc(taskV2Handler.HandleCompleteTaskStep)))
+	// TODO(oga-callback): remove once OGA POSTs directly to /api/v1/tasks/{id}
+	// with the bare reviewer payload. This legacy route accepts OGA's
+	// {task_id, workflow_id, payload:{action, content}} envelope and the
+	// handler unwraps payload.content + falls back to body-level task_id.
+	mux.Handle("POST /api/v1/tasks", withAuth(http.HandlerFunc(taskV2Handler.HandleCompleteTaskStep)))
 	mux.Handle("GET /api/v1/hscodes", withAuth(http.HandlerFunc(hsCodeRouter.HandleGetAll)))
 	mux.Handle("GET /api/v1/chas", withAuth(http.HandlerFunc(chaHandler.HandleGetCHAs)))
 	mux.Handle("GET /api/v1/companies", withAuth(http.HandlerFunc(companyHandler.HandleGetCompanies)))
@@ -234,8 +271,11 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	closeFn := func() error {
 		var closeErrs []error
 
-		if err := workflowRuntime.Close(); err != nil {
-			closeErrs = append(closeErrs, fmt.Errorf("failed to close workflow runtime: %w", err))
+		if err := stopParentRunner(); err != nil {
+			closeErrs = append(closeErrs, fmt.Errorf("failed to stop parent runner: %w", err))
+		}
+		if err := stopTaskV2(); err != nil {
+			closeErrs = append(closeErrs, fmt.Errorf("failed to stop taskv2: %w", err))
 		}
 		temporalClient.Close()
 		if err := authManager.Close(); err != nil {
