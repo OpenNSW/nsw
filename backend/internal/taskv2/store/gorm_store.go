@@ -37,6 +37,7 @@ func (s *GormTaskStore) SaveTask(ctx context.Context, record store.TaskRecord) {
 			"task_run_id",
 			"subtask_node_id",
 			"active_task_template_id",
+			"active_output_namespace",
 			"data",
 			"updated_at",
 		}),
