@@ -60,7 +60,10 @@ func (m TaskRecordModel) ToDomain() store.TaskRecord {
 
 // FromDomain creates a GORM model from the domain TaskRecord.
 func FromDomain(r store.TaskRecord) TaskRecordModel {
-	dataBytes, _ := json.Marshal(r.Data)
+	dataBytes, err := json.Marshal(r.Data)
+	if err != nil {
+		slog.Error("taskv2 store: FromDomain failed to marshal Data", "taskId", r.TaskID, "error", err)
+	}
 	return TaskRecordModel{
 		TaskID:               r.TaskID,
 		TaskType:             r.TaskType,
