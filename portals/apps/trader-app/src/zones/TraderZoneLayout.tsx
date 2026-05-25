@@ -1,73 +1,39 @@
-import { Button } from '@radix-ui/themes'
-import type { Action, ActionVariant, Alert, AlertVariant, AuditEntry, ZoneComponent, ZoneView } from './types'
-import { renderZoneComponent } from './renderers'
+import type { Alert, AlertVariant, AuditEntry, ZoneComponent, ZoneView } from './types'
+import { WorkspaceZone } from './WorkspaceZone'
+import { PresentationalZone } from './PresentationalZone'
 
 type Props = {
   task: ZoneView
+  onSubmitForm?: (command: string, data: Record<string, unknown>) => Promise<void>
 }
 
 // Zones render in this order when present; any unknown keys render after, in
 // insertion order.
 const ZONE_ORDER = ['instructions', 'workspace', 'reference']
 
-export function TraderZoneLayout({ task }: Props) {
+export function TraderZoneLayout({ task, onSubmitForm }: Props) {
   const zones = orderedZones(task.view)
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       <Header task={task} />
       {task.alert !== undefined && <AlertBanner alert={task.alert} />}
-      {zones.map(([name, component]) => (
-        <ZoneSection
-          key={name}
-          name={name}
-          component={component}
-          actions={name === 'workspace' ? task.actions : undefined}
-        />
-      ))}
+      {zones.map(([name, component]) =>
+        name === 'workspace' ? (
+          <WorkspaceZone
+            key={`${name}:${task.task_id}:${task.state}`}
+            name={name}
+            component={component}
+            actions={task.actions ?? []}
+            onSubmitForm={onSubmitForm}
+          />
+        ) : (
+          <PresentationalZone key={name} name={name} component={component} />
+        ),
+      )}
       {task.audit && task.audit.length > 0 && <AuditLog entries={task.audit} />}
     </div>
   )
-}
-
-function WorkspaceActionBar({ actions }: { actions: Action[] }) {
-  return (
-    <div className="sticky bottom-0 border-t border-gray-100 bg-white/95 backdrop-blur rounded-b-lg shadow-[0_-4px_12px_-8px_rgba(0,0,0,0.08)]">
-      <div className="px-6 py-4 flex justify-end gap-3">
-        {actions.map((action) => (
-          <ActionButton key={actionKey(action)} action={action} />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function ActionButton({ action }: { action: Action }) {
-  const variant = action.variant ?? 'primary'
-  const handler = () => {
-    if (action.kind === 'submit_form') {
-      console.log('[zones] submit_form', { command: action.command })
-    } else {
-      console.log('[zones] task_action', { action: action.action })
-    }
-  }
-  return (
-    <Button onClick={handler} size="3" variant={buttonVariant(variant)} color={buttonColor(variant)}>
-      {action.label}
-    </Button>
-  )
-}
-
-function buttonVariant(v: ActionVariant): 'solid' | 'outline' {
-  return v === 'outline' ? 'outline' : 'solid'
-}
-
-function buttonColor(v: ActionVariant): 'red' | undefined {
-  return v === 'danger' ? 'red' : undefined
-}
-
-function actionKey(action: Action): string {
-  return action.kind === 'submit_form' ? `submit:${action.command}` : `action:${action.action}`
 }
 
 function orderedZones(view: Record<string, ZoneComponent>): Array<[string, ZoneComponent]> {
@@ -231,7 +197,7 @@ function formatRelative(iso: string): string {
   if (mins < 60) return `${mins}m ago`
   const hours = Math.floor(mins / 60)
   if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
+  const days = Math.floor(mins / 60 / 24)
   if (days < 7) return `${days}d ago`
   return new Date(iso).toLocaleDateString()
 }
@@ -249,20 +215,5 @@ function Header({ task }: { task: ZoneView }) {
         </span>
       </div>
     </div>
-  )
-}
-
-function ZoneSection({ name, component, actions }: { name: string; component: ZoneComponent; actions?: Action[] }) {
-  return (
-    <section className="space-y-2">
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">{name}</span>
-        <span className="text-[10px] font-medium uppercase tracking-wider text-gray-300">{component.type}</span>
-      </div>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100">
-        <div className="p-6">{renderZoneComponent(component)}</div>
-        {actions && actions.length > 0 && <WorkspaceActionBar actions={actions} />}
-      </div>
-    </section>
   )
 }

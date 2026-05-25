@@ -2,14 +2,15 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Button, Spinner, Text } from '@radix-ui/themes'
 import { ArrowLeftIcon } from '@radix-ui/react-icons'
-import { getTaskInfo } from '../services/task'
+import { getTaskInfo, getZoneView, submitTaskStep } from '../services/task'
 import { useApi } from '../services/ApiContext'
 import PluginRenderer, { type RenderInfo } from '../plugins'
 import { getBooleanEnv } from '../runtimeConfig'
 import { TraderZoneLayout } from '../zones/TraderZoneLayout'
-import { SAMPLE_TASK } from '../zones/fixtures'
+import type { ZoneView } from '../zones/types'
 
 const POLL_INTERVAL_MS = 3000
+const POST_SUBMIT_REFETCH_DELAY_MS = 1500
 const PAYMENT_TERMINAL_STATES = ['COMPLETED', 'FAILED']
 const WAIT_FOR_EVENT_TERMINAL_STATES = ['COMPLETED', 'RECEIVED_CALLBACK', 'NOTIFY_FAILED', 'SUBMISSION_FAILED']
 
@@ -19,6 +20,7 @@ export function TaskDetailScreen() {
   const goBack = () => navigate(-1)
   const api = useApi()
   const [renderInfo, setRenderInfo] = useState<RenderInfo | null>(null)
+  const [zoneView, setZoneView] = useState<ZoneView | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -43,6 +45,14 @@ export function TaskDetailScreen() {
       try {
         if (!silent) setLoading(true)
         if (!silent) setError(null)
+
+        if (useZoneRenderer) {
+          const zv = await getZoneView(taskId, api)
+          setZoneView(zv)
+          stopPolling()
+          return
+        }
+
         const taskRenderInfo = await getTaskInfo(taskId, api)
         setRenderInfo(taskRenderInfo)
 
@@ -68,39 +78,13 @@ export function TaskDetailScreen() {
         if (!silent) setLoading(false)
       }
     },
-    [api, taskId, stopPolling],
+    [api, taskId, stopPolling, useZoneRenderer],
   )
 
   useEffect(() => {
-    if (useZoneRenderer) return
     void fetchTask()
     return () => stopPolling()
-  }, [fetchTask, stopPolling, useZoneRenderer])
-
-  if (useZoneRenderer) {
-    // Flag-gated preview: backend doesn't emit the ZoneView shape yet, so we
-    // render a fixture inside the real task route. The taskId from the URL is
-    // intentionally ignored.
-    // TODO(zones): swap fixture for fetch once /api/v1/tasks/{id} returns ZoneView,
-    // then delete this branch.
-    return (
-      <div className="bg-gray-50 min-h-full">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-          <Button
-            variant="ghost"
-            color="gray"
-            onClick={() => {
-              void goBack()
-            }}
-          >
-            <ArrowLeftIcon />
-            Back to Tasks
-          </Button>
-        </div>
-        <TraderZoneLayout task={SAMPLE_TASK} />
-      </div>
-    )
-  }
+  }, [fetchTask, stopPolling])
 
   if (loading) {
     return (
@@ -127,6 +111,47 @@ export function TaskDetailScreen() {
             </Button>
           </div>
         </div>
+      </div>
+    )
+  }
+
+  if (useZoneRenderer) {
+    if (!zoneView) {
+      return (
+        <div className="p-6">
+          <div className="bg-white rounded-lg shadow p-6 text-center">
+            <Text size="4" color="gray" weight="medium">
+              Task not found.
+            </Text>
+            <div className="mt-4">
+              <Button variant="soft" onClick={goBack}>
+                <ArrowLeftIcon />
+                Go Back
+              </Button>
+            </div>
+          </div>
+        </div>
+      )
+    }
+    return (
+      <div className="bg-gray-50 min-h-full">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+          <Button variant="ghost" color="gray" onClick={goBack}>
+            <ArrowLeftIcon />
+            Back to Tasks
+          </Button>
+        </div>
+        <TraderZoneLayout
+          task={zoneView}
+          onSubmitForm={async (_command, data) => {
+            if (!taskId) return
+            await submitTaskStep(taskId, data, api)
+            // Give Temporal a moment to advance the workflow before refetching.
+            await new Promise((resolve) => setTimeout(resolve, POST_SUBMIT_REFETCH_DELAY_MS))
+            console.log('Submitted task step, refetching...')
+            await fetchTask()
+          }}
+        />
       </div>
     )
   }

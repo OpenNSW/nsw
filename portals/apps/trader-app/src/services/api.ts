@@ -103,7 +103,8 @@ export async function apiPost<T, R>(endpoint: string, body: T, token?: string | 
 
   const text = await response.text()
   if (!text) {
-    throw new Error('API returned empty response')
+    // 204 No Content (or any empty 2xx) is a valid success response.
+    return undefined as R
   }
 
   try {
@@ -131,7 +132,7 @@ export async function apiPut<T, R>(endpoint: string, body: T, token?: string | n
 
   const text = await response.text()
   if (!text) {
-    throw new Error('API returned empty response')
+    return undefined as R
   }
 
   try {
