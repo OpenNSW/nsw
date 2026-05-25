@@ -145,11 +145,15 @@ export function TaskDetailScreen() {
           task={zoneView}
           onSubmitForm={async (_command, data) => {
             if (!taskId) return
-            await submitTaskStep(taskId, data, api)
-            // Give Temporal a moment to advance the workflow before refetching.
-            await new Promise((resolve) => setTimeout(resolve, POST_SUBMIT_REFETCH_DELAY_MS))
-            console.log('Submitted task step, refetching...')
-            await fetchTask()
+            try {
+              await submitTaskStep(taskId, data, api)
+              // Give Temporal a moment to advance the workflow before refetching.
+              await new Promise((resolve) => setTimeout(resolve, POST_SUBMIT_REFETCH_DELAY_MS))
+              await fetchTask()
+            } catch (err) {
+              setError('Failed to submit task. Please try again.')
+              console.error(err)
+            }
           }}
         />
       </div>

@@ -68,7 +68,7 @@ function allRequiredFilled(schema: JsonSchema | undefined, data: unknown): boole
   const required = (schema as { required?: string[] }).required
   const properties = (schema as { properties?: Record<string, JsonSchema> }).properties
 
-  if (Array.isArray(required) && properties && data && typeof data === 'object') {
+  if (Array.isArray(required) && data && typeof data === 'object') {
     const obj = data as Record<string, unknown>
     for (const key of required) {
       if (isEmpty(obj[key])) return false
