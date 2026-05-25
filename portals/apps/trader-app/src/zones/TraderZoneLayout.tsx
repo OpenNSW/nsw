@@ -14,7 +14,7 @@ export function TraderZoneLayout({ task }: Props) {
   const zones = orderedZones(task.view)
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       <Header task={task} />
       {task.alert !== undefined && <AlertBanner alert={task.alert} />}
       {zones.map(([name, component]) => (
@@ -34,8 +34,8 @@ function WorkspaceActionBar({ actions }: { actions: Action[] }) {
   return (
     <div className="sticky bottom-0 border-t border-gray-100 bg-white/95 backdrop-blur rounded-b-lg shadow-[0_-4px_12px_-8px_rgba(0,0,0,0.08)]">
       <div className="px-6 py-4 flex justify-end gap-3">
-        {actions.map((action, i) => (
-          <ActionButton key={i} action={action} />
+        {actions.map((action) => (
+          <ActionButton key={actionKey(action)} action={action} />
         ))}
       </div>
     </div>
@@ -64,6 +64,10 @@ function buttonVariant(v: ActionVariant): 'solid' | 'outline' {
 
 function buttonColor(v: ActionVariant): 'red' | undefined {
   return v === 'danger' ? 'red' : undefined
+}
+
+function actionKey(action: Action): string {
+  return action.kind === 'submit_form' ? `submit:${action.command}` : `action:${action.action}`
 }
 
 function orderedZones(view: Record<string, ZoneComponent>): Array<[string, ZoneComponent]> {
@@ -169,12 +173,14 @@ function AuditLog({ entries }: { entries: AuditEntry[] }) {
           <span className="text-xs text-gray-400">· {entries.length} entries</span>
         </span>
       </summary>
-      <ol className="relative border-t border-gray-100 px-4 py-4 space-y-4">
+      <div className="relative border-t border-gray-100 px-4 py-4">
         <div className="absolute left-[26px] top-6 bottom-6 w-px bg-gray-200" aria-hidden />
-        {sorted.map((entry, i) => (
-          <AuditEntryRow key={i} entry={entry} />
-        ))}
-      </ol>
+        <ol className="space-y-4">
+          {sorted.map((entry) => (
+            <AuditEntryRow key={`${entry.timestamp}:${entry.event}`} entry={entry} />
+          ))}
+        </ol>
+      </div>
     </details>
   )
 }
