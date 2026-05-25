@@ -38,7 +38,7 @@ func (p *FormProjector) Project(ctx context.Context, templateContent []byte, dat
 	return FormContent{
 		Schema:   schema["schema"],
 		UISchema: schema["uiSchema"],
-		FormData: data,
+		Data:     data,
 	}, nil
 }
 

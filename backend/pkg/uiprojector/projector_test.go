@@ -24,7 +24,7 @@ func TestFormProjector_Project(t *testing.T) {
 		require.True(t, ok, "expected FormContent, got %T", out)
 		assert.Equal(t, map[string]any{"type": "object"}, fc.Schema)
 		assert.Equal(t, map[string]any{"ui:order": []any{"name"}}, fc.UISchema)
-		assert.Equal(t, data, fc.FormData)
+		assert.Equal(t, data, fc.Data)
 	})
 
 	t.Run("uiSchema is nil when absent from template", func(t *testing.T) {
@@ -35,7 +35,7 @@ func TestFormProjector_Project(t *testing.T) {
 		fc := out.(uiprojector.FormContent)
 		assert.NotNil(t, fc.Schema)
 		assert.Nil(t, fc.UISchema)
-		assert.Nil(t, fc.FormData)
+		assert.Nil(t, fc.Data)
 	})
 
 	t.Run("empty JSON object yields nil schema and uiSchema but preserves data", func(t *testing.T) {
@@ -45,7 +45,7 @@ func TestFormProjector_Project(t *testing.T) {
 		fc := out.(uiprojector.FormContent)
 		assert.Nil(t, fc.Schema)
 		assert.Nil(t, fc.UISchema)
-		assert.Equal(t, "data", fc.FormData)
+		assert.Equal(t, "data", fc.Data)
 	})
 
 	t.Run("returns error on invalid JSON", func(t *testing.T) {

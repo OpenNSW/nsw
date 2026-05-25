@@ -104,7 +104,7 @@ func TestUIProjectorIntegration(t *testing.T) {
 		// Verify Form content
 		formContent := sections["declaration_form"].Content.(uiprojector.FormContent)
 		assert.NotNil(t, formContent.Schema)
-		assert.Equal(t, "John Doe", formContent.FormData.(map[string]any)["name"])
+		assert.Equal(t, "John Doe", formContent.Data.(map[string]any)["name"])
 	})
 
 	t.Run("Assemble Approved State (Visibility Logic)", func(t *testing.T) {
