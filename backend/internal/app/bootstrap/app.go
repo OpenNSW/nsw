@@ -9,6 +9,7 @@ import (
 
 	engine "github.com/OpenNSW/go-temporal-workflow"
 	flowplugins "github.com/OpenNSW/nsw-task-flow/plugins"
+	"github.com/OpenNSW/nsw/backend/internal/profile"
 	"github.com/OpenNSW/nsw/backend/internal/workflow"
 
 	"github.com/OpenNSW/nsw/backend/internal/auth"
@@ -156,6 +157,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	hsCodeRouter := hscode.NewRouter(hsCodeService)
 	chaHandler := cha.NewHandler(chaService)
 	companyHandler := company.NewHandler(companyService)
+	profileHandler := profile.NewHandler(userProfileService, companyService)
 
 	storageDriver, err := storage.NewStorageFromConfig(ctx, cfg.Storage)
 	if err != nil {
@@ -252,6 +254,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	mux.Handle("GET /api/v1/hscodes", withAuth(http.HandlerFunc(hsCodeRouter.HandleGetAll)))
 	mux.Handle("GET /api/v1/chas", withAuth(http.HandlerFunc(chaHandler.HandleGetCHAs)))
 	mux.Handle("GET /api/v1/companies", withAuth(http.HandlerFunc(companyHandler.HandleGetCompanies)))
+	mux.Handle("GET /api/v1/profile", withAuth(http.HandlerFunc(profileHandler.HandleGetProfile)))
 	mux.Handle("POST /api/v1/consignments", withAuth(http.HandlerFunc(consignmentRouter.HandleCreateConsignment)))
 	mux.Handle("GET /api/v1/consignments/{id}", withAuth(http.HandlerFunc(consignmentRouter.HandleGetConsignmentByID)))
 	mux.Handle("PUT /api/v1/consignments/{id}", withAuth(http.HandlerFunc(consignmentRouter.HandleInitializeConsignment)))
