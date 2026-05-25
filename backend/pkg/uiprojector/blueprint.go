@@ -43,5 +43,5 @@ type Section struct {
 type FormContent struct {
 	Schema   any `json:"schema"`
 	UISchema any `json:"uiSchema,omitempty"`
-	FormData any `json:"formData,omitempty"`
+	Data     any `json:"data,omitempty"`
 }
