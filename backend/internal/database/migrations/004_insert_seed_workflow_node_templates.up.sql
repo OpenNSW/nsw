@@ -222,7 +222,7 @@ VALUES
         'Final Processing',
         'Final processing step — unlocks when both certificates are completed, or customs was fast-tracked',
         'WAIT_FOR_EVENT',
-        '{
+        ('{
             "display": {
                 "title": "Waiting for ship to leave from port",
                 "description": "The task will be completed when the ship leaves the port. This is an external event that we are waiting for."
@@ -242,6 +242,6 @@ VALUES
                     }
                 }
             }
-        }'
+        }')::jsonb
     ) ON CONFLICT (id) DO NOTHING;
 
