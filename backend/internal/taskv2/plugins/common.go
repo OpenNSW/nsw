@@ -9,36 +9,16 @@ import (
 	"github.com/OpenNSW/nsw/pkg/remote"
 )
 
-// Package plugins provide drop-in replacements for the nsw-task-flow
-// dispatching plugins (generic_external_review, register_task_and_wait,
-// generic_payment, generic_http_post).
+// Package plugins hosts taskv2's dispatching plugins. Outbound calls are
+// routed through remote.Manager so service base URLs, auth, and timeouts
+// live in services.json rather than in template configs — template configs
+// specify only service_id + path.
 //
-// They keep the same plugin Name()s — so registration and registry routing
-// are unchanged — but they:
-//
-//  1. Read the in-memory TaskRecord pointer directly. nsw-task-flow's stock
-//     plugins delegate to a callback dispatcher that has no access to the
-//     record, which means a Store.GetTask() lookup from inside the dispatcher
-//     returns stale data (TaskManager.StartSubTask saves the record AFTER the
-//     plugin runs, not before).
-//
-//  2. POST a richer body shape that matches the OpenNSW OGA SimpleForm
-//     contract (taskCode, taskId, workflowId, serviceUrl, data, …) so the
-//     external NPQS / FCAU portals at /api/oga/inject can consume it
-//     unchanged.
-//
-//  3. Honour devMode — if dispatch fails (e.g. the OGA portal isn't running
-//     yet) the plugin still transitions the task to its waiting state and
-//     logs a warning, so local development doesn't block the workflow.
-//
-//  4. Resolve target URLs via remote.Manager so service base URLs,
-//     authentication, and timeouts are configured centrally in services.json.
-//     Template configs specify only service_id + path, never full URLs.
+// In devMode, dispatch errors are logged and swallowed so local workflows
+// can still progress when the receiving OGA portal isn't running.
 
-// dispatchHelper bundles outbound HTTP behaviour shared by every dispatching
-// plugin in this package. It delegates to remote.Manager so service base URLs,
-// authentication, and timeouts are configured centrally in services.json
-// rather than being hard-coded in the template configs.
+// dispatchHelper bundles outbound HTTP behaviour shared by plugins in this
+// package.
 type dispatchHelper struct {
 	manager        *remote.Manager
 	backendBaseURL string
@@ -65,9 +45,8 @@ func (h *dispatchHelper) callbackTasksURL() string {
 	return joined
 }
 
-// post sends body as JSON to the resolved service+path and returns nil on any
-// 2xx. In devMode, dispatch errors are logged-and-swallowed so the workflow
-// can still be driven via the in-process OGA-app.
+// post sends body as JSON to the resolved service+path. In devMode, dispatch
+// errors are logged and swallowed.
 func (h *dispatchHelper) post(ctx context.Context, serviceID, path string, body any) error {
 	req := remote.Request{
 		Method: "POST",
@@ -89,7 +68,6 @@ func (h *dispatchHelper) dispatchOrSwallow(serviceID, path string, err error) er
 	return err
 }
 
-// pluginContext is just an alias so plugin signatures stay tidy.
 type pluginContext = tfplugins.PluginContext
 
 // ErrSuspended signals to the orchestrator that this plugin step is parked and
