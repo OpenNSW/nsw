@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { useApi } from './ApiContext'
 import { getProfile, type UserProfile } from './profile'
 
@@ -17,7 +17,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       setIsLoading(true)
       const data = await getProfile(api)
@@ -28,11 +28,11 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [api])
 
   useEffect(() => {
     void fetchProfile()
-  }, [api])
+  }, [fetchProfile])
 
   return (
     <ProfileContext.Provider value={{ profile, isLoading, error, refetch: fetchProfile }}>
