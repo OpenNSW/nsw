@@ -50,14 +50,7 @@ foreach ($cmd in $Dependencies) {
 $IDP_PORT = if ($env:IDP_PORT) { $env:IDP_PORT } else { "8090" }
 $BACKEND_PORT = if ($env:BACKEND_PORT) { $env:BACKEND_PORT } else { "8080" }
 $TRADER_APP_PORT = if ($env:TRADER_APP_PORT) { $env:TRADER_APP_PORT } else { "5173" }
-$OGA_APP_NPQS_PORT = if ($env:OGA_APP_NPQS_PORT) { $env:OGA_APP_NPQS_PORT } else { "5174" }
-$OGA_APP_FCAU_PORT = if ($env:OGA_APP_FCAU_PORT) { $env:OGA_APP_FCAU_PORT } else { "5175" }
-$OGA_APP_IRD_PORT = if ($env:OGA_APP_IRD_PORT) { $env:OGA_APP_IRD_PORT } else { "5176" }
-$OGA_APP_CDA_PORT = if ($env:OGA_APP_CDA_PORT) { $env:OGA_APP_CDA_PORT } else { "5177" }
-$OGA_NPQS_PORT = if ($env:OGA_NPQS_PORT) { $env:OGA_NPQS_PORT } else { "8081" }
-$OGA_FCAU_PORT = if ($env:OGA_FCAU_PORT) { $env:OGA_FCAU_PORT } else { "8082" }
-$OGA_IRD_PORT = if ($env:OGA_IRD_PORT) { $env:OGA_IRD_PORT } else { "8083" }
-$OGA_CDA_PORT = if ($env:OGA_CDA_PORT) { $env:OGA_CDA_PORT } else { "8084" }
+
 
 # Temporal settings
 $TEMPORAL_HOST = if ($env:TEMPORAL_HOST) { $env:TEMPORAL_HOST } else { "localhost" }
@@ -73,103 +66,33 @@ $DB_PASSWORD = if ($env:DB_PASSWORD) { $env:DB_PASSWORD } else { "changeme" }
 $DB_SSLMODE = if ($env:DB_SSLMODE) { $env:DB_SSLMODE } else { "disable" }
 $SERVER_DEBUG = if ($env:SERVER_DEBUG) { $env:SERVER_DEBUG } else { "true" }
 $SERVER_LOG_LEVEL = if ($env:SERVER_LOG_LEVEL) { $env:SERVER_LOG_LEVEL } else { "info" }
-$CORS_ALLOWED_ORIGINS = if ($env:CORS_ALLOWED_ORIGINS) { $env:CORS_ALLOWED_ORIGINS } else { "http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176,http://localhost:5177" }
+$CORS_ALLOWED_ORIGINS = if ($env:CORS_ALLOWED_ORIGINS) { $env:CORS_ALLOWED_ORIGINS } else { "http://localhost:3000,http://localhost:5173" }
 
 $AUTH_ISSUER = if ($env:AUTH_ISSUER) { $env:AUTH_ISSUER } else { "https://localhost:$IDP_PORT" }
 $AUTH_JWKS_URL = if ($env:AUTH_JWKS_URL) { $env:AUTH_JWKS_URL } else { "https://localhost:$IDP_PORT/oauth2/jwks" }
-$AUTH_CLIENT_IDS = if ($env:AUTH_CLIENT_IDS) { $env:AUTH_CLIENT_IDS } else { "TRADER_PORTAL_APP,FCAU_TO_NSW,NPQS_TO_NSW,IRD_TO_NSW,CDA_TO_NSW" }
+$AUTH_CLIENT_IDS = if ($env:AUTH_CLIENT_IDS) { $env:AUTH_CLIENT_IDS } else { "TRADER_PORTAL_APP" }
 $AUTH_AUDIENCE = if ($env:AUTH_AUDIENCE) { $env:AUTH_AUDIENCE } else { "NSW_API" }
 $AUTH_JWKS_INSECURE_SKIP_VERIFY = if ($env:AUTH_JWKS_INSECURE_SKIP_VERIFY) { $env:AUTH_JWKS_INSECURE_SKIP_VERIFY } else { "true" }
 
 $IDP_PUBLIC_URL = if ($env:IDP_PUBLIC_URL) { $env:IDP_PUBLIC_URL } else { "https://localhost:$IDP_PORT" }
 $TRADER_IDP_CLIENT_ID = if ($env:TRADER_IDP_CLIENT_ID) { $env:TRADER_IDP_CLIENT_ID } else { "TRADER_PORTAL_APP" }
-$NPQS_IDP_CLIENT_ID = if ($env:NPQS_IDP_CLIENT_ID) { $env:NPQS_IDP_CLIENT_ID } else { "OGA_PORTAL_APP_NPQS" }
-$FCAU_IDP_CLIENT_ID = if ($env:FCAU_IDP_CLIENT_ID) { $env:FCAU_IDP_CLIENT_ID } else { "OGA_PORTAL_APP_FCAU" }
-$IRD_IDP_CLIENT_ID = if ($env:IRD_IDP_CLIENT_ID) { $env:IRD_IDP_CLIENT_ID } else { "OGA_PORTAL_APP_IRD" }
-$CDA_IDP_CLIENT_ID = if ($env:CDA_IDP_CLIENT_ID) { $env:CDA_IDP_CLIENT_ID } else { "OGA_PORTAL_APP_CDA" }
+
 $IDP_SCOPES = if ($env:IDP_SCOPES) { $env:IDP_SCOPES } else { "openid,profile,email,group,role" }
 $IDP_PLATFORM = if ($env:IDP_PLATFORM) { $env:IDP_PLATFORM } else { "AsgardeoV2" }
 $SHOW_AUTOFILL_BUTTON = if ($env:SHOW_AUTOFILL_BUTTON) { $env:SHOW_AUTOFILL_BUTTON } else { "true" }
 $TRADER_IDP_TRADER_GROUP_NAME = if ($env:TRADER_IDP_TRADER_GROUP_NAME) { $env:TRADER_IDP_TRADER_GROUP_NAME } else { "Traders" }
 $TRADER_IDP_CHA_GROUP_NAME = if ($env:TRADER_IDP_CHA_GROUP_NAME) { $env:TRADER_IDP_CHA_GROUP_NAME } else { "CHA" }
 
-$OGA_FORMS_PATH = if ($env:OGA_FORMS_PATH) { $env:OGA_FORMS_PATH } else { "./data/forms" }
-$OGA_DEFAULT_FORM_ID = if ($env:OGA_DEFAULT_FORM_ID) { $env:OGA_DEFAULT_FORM_ID } else { "default" }
-$OGA_ALLOWED_ORIGINS = if ($env:OGA_ALLOWED_ORIGINS) { $env:OGA_ALLOWED_ORIGINS } else { "*" }
 
-$OGA_DB_DRIVER = if ($env:OGA_DB_DRIVER) { $env:OGA_DB_DRIVER } else { "sqlite" }
-$OGA_DB_HOST = if ($env:OGA_DB_HOST) { $env:OGA_DB_HOST } else { "localhost" }
-$OGA_DB_PORT = if ($env:OGA_DB_PORT) { $env:OGA_DB_PORT } else { "5432" }
-$OGA_DB_USER = if ($env:OGA_DB_USER) { $env:OGA_DB_USER } else { "postgres" }
-$OGA_DB_PASSWORD = if ($env:OGA_DB_PASSWORD) { $env:OGA_DB_PASSWORD } else { "changeme" }
-$OGA_DB_NAME = if ($env:OGA_DB_NAME) { $env:OGA_DB_NAME } else { "oga_db" }
-$OGA_DB_SSLMODE = if ($env:OGA_DB_SSLMODE) { $env:OGA_DB_SSLMODE } else { "disable" }
 
-$OGA_NPQS_DB_PATH = if ($env:OGA_NPQS_DB_PATH) { $env:OGA_NPQS_DB_PATH } else { "./npqs.db" }
-$OGA_FCAU_DB_PATH = if ($env:OGA_FCAU_DB_PATH) { $env:OGA_FCAU_DB_PATH } else { "./fcau.db" }
-$OGA_IRD_DB_PATH = if ($env:OGA_IRD_DB_PATH) { $env:OGA_IRD_DB_PATH } else { "./ird.db" }
-$OGA_CDA_DB_PATH = if ($env:OGA_CDA_DB_PATH) { $env:OGA_CDA_DB_PATH } else { "./cda.db" }
-$OGA_APP_NPQS_BRANDING = if ($env:OGA_APP_NPQS_BRANDING) { $env:OGA_APP_NPQS_BRANDING } else { "npqs" }
-$OGA_APP_FCAU_BRANDING = if ($env:OGA_APP_FCAU_BRANDING) { $env:OGA_APP_FCAU_BRANDING } else { "fcau" }
-$OGA_APP_IRD_BRANDING = if ($env:OGA_APP_IRD_BRANDING) { $env:OGA_APP_IRD_BRANDING } else { "ird" }
-$OGA_APP_CDA_BRANDING = if ($env:OGA_APP_CDA_BRANDING) { $env:OGA_APP_CDA_BRANDING } else { "cda" }
 
-$OGA_NSW_NPQS_CLIENT_ID = if ($env:OGA_NSW_NPQS_CLIENT_ID) { $env:OGA_NSW_NPQS_CLIENT_ID } else { "NPQS_TO_NSW" }
-$OGA_NSW_FCAU_CLIENT_ID = if ($env:OGA_NSW_FCAU_CLIENT_ID) { $env:OGA_NSW_FCAU_CLIENT_ID } else { "FCAU_TO_NSW" }
-$OGA_NSW_IRD_CLIENT_ID = if ($env:OGA_NSW_IRD_CLIENT_ID) { $env:OGA_NSW_IRD_CLIENT_ID } else { "IRD_TO_NSW" }
-$OGA_NSW_CDA_CLIENT_ID = if ($env:OGA_NSW_CDA_CLIENT_ID) { $env:OGA_NSW_CDA_CLIENT_ID } else { "CDA_TO_NSW" }
-$OGA_NSW_NPQS_CLIENT_SECRET = if ($env:OGA_NSW_NPQS_CLIENT_SECRET) { $env:OGA_NSW_NPQS_CLIENT_SECRET } else { "1234" }
-$OGA_NSW_FCAU_CLIENT_SECRET = if ($env:OGA_NSW_FCAU_CLIENT_SECRET) { $env:OGA_NSW_FCAU_CLIENT_SECRET } else { "1234" }
-$OGA_NSW_IRD_CLIENT_SECRET = if ($env:OGA_NSW_IRD_CLIENT_SECRET) { $env:OGA_NSW_IRD_CLIENT_SECRET } else { "1234" }
-$OGA_NSW_CDA_CLIENT_SECRET = if ($env:OGA_NSW_CDA_CLIENT_SECRET) { $env:OGA_NSW_CDA_CLIENT_SECRET } else { "1234" }
-$OGA_NSW_TOKEN_URL = if ($env:OGA_NSW_TOKEN_URL) { $env:OGA_NSW_TOKEN_URL } else { "https://localhost:$IDP_PORT/oauth2/token" }
-$OGA_NSW_SCOPES = if ($env:OGA_NSW_SCOPES) { $env:OGA_NSW_SCOPES } else { "" }
-$OGA_NSW_TOKEN_INSECURE_SKIP_VERIFY = if ($env:OGA_NSW_TOKEN_INSECURE_SKIP_VERIFY) { $env:OGA_NSW_TOKEN_INSECURE_SKIP_VERIFY } else { "true" }
-
-# OGA Registry
-$OGA_INSTANCES = @(
-    @{ Name="npqs"; Port=$OGA_NPQS_PORT; DbPath=$OGA_NPQS_DB_PATH; NswClientId=$OGA_NSW_NPQS_CLIENT_ID; NswClientSecret=$OGA_NSW_NPQS_CLIENT_SECRET; AppPort=$OGA_APP_NPQS_PORT; BrandingName=$OGA_APP_NPQS_BRANDING; IdpClientId=$NPQS_IDP_CLIENT_ID; AppName="National Plant Quarantine Service (NPQS)" },
-    @{ Name="fcau"; Port=$OGA_FCAU_PORT; DbPath=$OGA_FCAU_DB_PATH; NswClientId=$OGA_NSW_FCAU_CLIENT_ID; NswClientSecret=$OGA_NSW_FCAU_CLIENT_SECRET; AppPort=$OGA_APP_FCAU_PORT; BrandingName=$OGA_APP_FCAU_BRANDING; IdpClientId=$FCAU_IDP_CLIENT_ID; AppName="Food Control Administration Unit (FCAU)" },
-    @{ Name="ird"; Port=$OGA_IRD_PORT; DbPath=$OGA_IRD_DB_PATH; NswClientId=$OGA_NSW_IRD_CLIENT_ID; NswClientSecret=$OGA_NSW_IRD_CLIENT_SECRET; AppPort=$OGA_APP_IRD_PORT; BrandingName=$OGA_APP_IRD_BRANDING; IdpClientId=$IRD_IDP_CLIENT_ID; AppName="Inland Revenue Department (IRD)" },
-    @{ Name="cda"; Port=$OGA_CDA_PORT; DbPath=$OGA_CDA_DB_PATH; NswClientId=$OGA_NSW_CDA_CLIENT_ID; NswClientSecret=$OGA_NSW_CDA_CLIENT_SECRET; AppPort=$OGA_APP_CDA_PORT; BrandingName=$OGA_APP_CDA_BRANDING; IdpClientId=$CDA_IDP_CLIENT_ID; AppName="Coconut Development Authority (CDA)" }
-)
-
-function ensure_branding_file($BrandingName, $AppName) {
-    $ConfigDir = Join-Path $ROOT_DIR "portals/apps/oga-app/public/configs"
-    $FilePath = Join-Path $ConfigDir "${BrandingName}.branding.json"
-    if (-not (Test-Path $FilePath)) {
-        New-Item -ItemType Directory -Path $ConfigDir -Force | Out-Null
-        $Content = @"
-{
-  "branding": {
-    "systemName": "NSW",
-    "appName": "$AppName",
-    "logoUrl": "",
-    "systemLogoUrl": "",
-    "favicon": "",
-    "portalName": "",
-    "description": "",
-    "heroImageUrl": "",
-    "partnerLogos": [
-      {
-        "url": "",
-        "alt": ""
-      }
-    ]
-  }
-}
-"@
-        Set-Content -Path $FilePath -Value $Content -Encoding utf8
-    }
-}
 
 
 function ensure_node_modules() {
     $PortalsDir = Join-Path $ROOT_DIR "portals"
-    $OgaAppModules = Join-Path $PortalsDir "apps/oga-app/node_modules"
     $TraderAppModules = Join-Path $PortalsDir "apps/trader-app/node_modules"
 
-    if ((-not (Test-Path $OgaAppModules)) -or (-not (Test-Path $TraderAppModules))) {
+    if (-not (Test-Path $TraderAppModules)) {
         Write-Host "Missing node_modules in frontend apps. Running pnpm install in $PortalsDir..."
         Push-Location $PortalsDir
         pnpm install
@@ -195,39 +118,7 @@ function wait_for_temporal() {
     exit 1
 }
 
-function clean_oga_databases() {
-    Write-Host "Cleaning OGA databases (driver: $OGA_DB_DRIVER)..."
-    if ($OGA_DB_DRIVER -eq "sqlite") {
-        foreach ($Instance in $OGA_INSTANCES) {
-            $DbPath = $Instance.DbPath
-            $ResolvedPath = ""
-            if ([System.IO.Path]::IsPathRooted($DbPath)) {
-                $ResolvedPath = $DbPath
-            } else {
-                $RelativePath = $DbPath -replace '^\./', ''
-                $ResolvedPath = Join-Path $ROOT_DIR "oga/$RelativePath"
-            }
 
-            if (Test-Path $ResolvedPath) {
-                Write-Host "  Deleting SQLite DB for $($Instance.Name): $ResolvedPath"
-                Remove-Item -Path $ResolvedPath -Force
-            } else {
-                Write-Host "  SQLite DB for $($Instance.Name) not found (nothing to delete): $ResolvedPath"
-            }
-        }
-    } elseif ($OGA_DB_DRIVER -eq "postgres") {
-        if (-not (Get-Command psql -ErrorAction SilentlyContinue)) {
-            Write-Error "psql is required for Postgres DB cleaning but was not found in PATH"
-            exit 1
-        }
-        $env:PGPASSWORD = $OGA_DB_PASSWORD
-        Write-Host "  Dropping and recreating Postgres database: $OGA_DB_NAME"
-        $TermQuery = "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$OGA_DB_NAME' AND pid <> pg_backend_pid();"
-        & psql -h $OGA_DB_HOST -p $OGA_DB_PORT -U $OGA_DB_USER -d postgres -c $TermQuery | Out-Null
-        & psql -h $OGA_DB_HOST -p $OGA_DB_PORT -U $OGA_DB_USER -d postgres -c "DROP DATABASE IF EXISTS `"$OGA_DB_NAME`";"
-        & psql -h $OGA_DB_HOST -p $OGA_DB_PORT -U $OGA_DB_USER -d postgres -c "CREATE DATABASE `"$OGA_DB_NAME`";"
-    }
-}
 
 $script:Jobs = @()
 
@@ -239,18 +130,17 @@ function Start-ServiceJob {
 }
 
 # Clean Run Logic
-if ($CLEAN_RUN -eq "true") {
-    Write-Host "Clean run: wiping Docker volumes and databases..."
-    if ($RUN_IDP) {
-        Write-Host "Removing IDP containers and volumes..."
-        docker compose -f (Join-Path $ROOT_DIR "idp/docker-compose.yml") down --volumes
+    if ($CLEAN_RUN -eq "true") {
+        Write-Host "Clean run: wiping Docker volumes and databases..."
+        if ($RUN_IDP) {
+            Write-Host "Removing IDP containers and volumes..."
+            docker compose -f (Join-Path $ROOT_DIR "idp/docker-compose.yml") down --volumes
+        }
+        if ($RUN_TEMPORAL) {
+            Write-Host "Removing Temporal containers and volumes..."
+            docker compose -f (Join-Path $ROOT_DIR "temporal/docker-compose.yml") down --volumes
+        }
     }
-    if ($RUN_TEMPORAL) {
-        Write-Host "Removing Temporal containers and volumes..."
-        docker compose -f (Join-Path $ROOT_DIR "temporal/docker-compose.yml") down --volumes
-    }
-    clean_oga_databases
-}
 
 if (${clean-run} -or ${migrations}) {
     Write-Host "Running backend migrations..."
@@ -275,66 +165,7 @@ if ($RUN_TEMPORAL) {
 
 Write-Host "Starting local development services..."
 
-# Start OGA Services
 ensure_node_modules
-foreach ($Instance in $OGA_INSTANCES) {
-    $OgaEnv = @{
-        OGA_PORT = $Instance.Port
-        OGA_DB_DRIVER = $OGA_DB_DRIVER
-        OGA_DB_PATH = $Instance.DbPath
-        OGA_DB_HOST = $OGA_DB_HOST
-        OGA_DB_PORT = $OGA_DB_PORT
-        OGA_DB_USER = $OGA_DB_USER
-        OGA_DB_PASSWORD = $OGA_DB_PASSWORD
-        OGA_DB_NAME = $OGA_DB_NAME
-        OGA_DB_SSLMODE = $OGA_DB_SSLMODE
-        OGA_FORMS_PATH = $OGA_FORMS_PATH
-        OGA_DEFAULT_FORM_ID = $OGA_DEFAULT_FORM_ID
-        OGA_ALLOWED_ORIGINS = $OGA_ALLOWED_ORIGINS
-        OGA_NSW_API_BASE_URL = "http://localhost:${BACKEND_PORT}/api/v1"
-        OGA_NSW_CLIENT_ID = $Instance.NswClientId
-        OGA_NSW_CLIENT_SECRET = $Instance.NswClientSecret
-        OGA_NSW_TOKEN_URL = $OGA_NSW_TOKEN_URL
-        OGA_NSW_SCOPES = $OGA_NSW_SCOPES
-        OGA_NSW_TOKEN_INSECURE_SKIP_VERIFY = $OGA_NSW_TOKEN_INSECURE_SKIP_VERIFY
-    }
-    Start-ServiceJob -Name "oga-$($Instance.Name)" -Dir (Join-Path $ROOT_DIR "oga") -EnvVars $OgaEnv -ScriptBlock {
-        param($Name, $Dir, $EnvVars)
-        foreach ($Key in $EnvVars.Keys) { Set-Item "env:$Key" $EnvVars[$Key] }
-        Set-Location $Dir
-        go run ./cmd/server 2>&1 | ForEach-Object { Write-Host "[$Name] $_" }
-    }
-    # Small delay to prevent resource contention during Go compilation
-    Start-Sleep -Seconds 2
-
-    ensure_branding_file "$($Instance.BrandingName)" "$($Instance.AppName)"
-
-    # For the first OGA instance, wait longer to allow database migrations to finish
-    # before starting other instances in parallel to avoid Postgres race conditions.
-    if ($Instance.Name -eq $OGA_INSTANCES[0].Name -and $OGA_DB_DRIVER -eq "postgres") {
-        Write-Host "Waiting for OGA database migrations to complete..."
-        Start-Sleep -Seconds 10
-    }
-
-    $OgaAppEnv = @{
-        VITE_PORT = $Instance.AppPort
-        VITE_BRANDING_NAME = $Instance.BrandingName
-        VITE_API_BASE_URL = "http://localhost:$($Instance.Port)"
-        VITE_IDP_BASE_URL = $IDP_PUBLIC_URL
-        VITE_IDP_CLIENT_ID = $Instance.IdpClientId
-        VITE_APP_URL = "http://localhost:$($Instance.AppPort)"
-        VITE_IDP_SCOPES = $IDP_SCOPES
-        VITE_IDP_PLATFORM = $IDP_PLATFORM
-    }
-    Start-ServiceJob -Name "oga-app-$($Instance.Name)" -Dir (Join-Path $ROOT_DIR "portals/apps/oga-app") -EnvVars $OgaAppEnv -ScriptBlock {
-        param($Name, $Dir, $EnvVars)
-        foreach ($Key in $EnvVars.Keys) { Set-Item "env:$Key" $EnvVars[$Key] }
-        Set-Location $Dir
-        pnpm run dev 2>&1 | ForEach-Object { Write-Host "[$Name] $_" }
-    }
-    # Small delay to prevent Vite filesystem conflicts in the shared oga-app directory
-    Start-Sleep -Seconds 2
-}
 
 # Trader App
 $TraderEnv = @{
@@ -393,10 +224,7 @@ Write-Host ""
 Write-Host "Started local services:"
 Write-Host "  - backend       -> http://localhost:$BACKEND_PORT"
 Write-Host "  - trader-app    -> http://localhost:$TRADER_APP_PORT"
-foreach ($Instance in $OGA_INSTANCES) {
-    Write-Host ("  - oga-{0,-9} -> http://localhost:{1}" -f $Instance.Name, $Instance.Port)
-    Write-Host ("  - oga-app-{0,-5} -> http://localhost:{1}" -f $Instance.Name, $Instance.AppPort)
-}
+
 Write-Host ""
 Write-Host "IDP running:      $RUN_IDP"
 Write-Host "Temporal running: $RUN_TEMPORAL"
