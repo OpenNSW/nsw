@@ -1,6 +1,7 @@
 package taskv2
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -8,19 +9,29 @@ import (
 	"net/http"
 
 	"github.com/OpenNSW/nsw-task-flow/orchestrator"
+	tfstore "github.com/OpenNSW/nsw-task-flow/store"
+
+	"github.com/OpenNSW/nsw/internal/taskv2/renderer"
 )
 
+// TaskFetcher is the narrow surface HandleGetTask needs from the task store.
+type TaskFetcher interface {
+	GetTask(ctx context.Context, taskID string) (tfstore.TaskRecord, bool)
+}
+
 type HTTPHandler struct {
-	Manager *orchestrator.TaskManager
+	Manager   *orchestrator.TaskManager
+	Store     TaskFetcher
+	Assembler *renderer.ZoneViewAssembler
 }
 
-func NewHTTPHandler(manager *orchestrator.TaskManager) *HTTPHandler {
-	return &HTTPHandler{Manager: manager}
+func NewHTTPHandler(manager *orchestrator.TaskManager, store TaskFetcher, assembler *renderer.ZoneViewAssembler) *HTTPHandler {
+	return &HTTPHandler{Manager: manager, Store: store, Assembler: assembler}
 }
 
-// HandleGetTask returns the rendered UI payload for a single task.
+// HandleGetTask returns the ZoneView payload for a single task.
 //
-//	GET /api/v2/tasks/{id}
+//	GET /api/v1/tasks/{id}
 func (h *HTTPHandler) HandleGetTask(w http.ResponseWriter, r *http.Request) {
 	taskID := r.PathValue("id")
 	if taskID == "" {
@@ -28,18 +39,24 @@ func (h *HTTPHandler) HandleGetTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	info, err := h.Manager.GetTaskRenderInfo(r.Context(), taskID)
+	record, ok := h.Store.GetTask(r.Context(), taskID)
+	if !ok {
+		writeJSONError(w, http.StatusNotFound, "task not found")
+		return
+	}
+
+	zv, err := h.Assembler.Assemble(r.Context(), record)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	writeJSONResponse(w, http.StatusOK, info)
+	writeJSONResponse(w, http.StatusOK, zv)
 }
 
 // HandleCompleteTaskStep advances a task by submitting a step payload.
 //
-//	POST /api/v2/tasks/{id}/step
+//	POST /api/v1/tasks/{id}
 //	body: arbitrary JSON object — passed through to the task plugin
 func (h *HTTPHandler) HandleCompleteTaskStep(w http.ResponseWriter, r *http.Request) {
 	taskID := r.PathValue("id")

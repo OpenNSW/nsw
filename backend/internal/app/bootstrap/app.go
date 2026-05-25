@@ -114,12 +114,13 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to register taskv2 plugins: %w", err)
 	}
 
-	tm, _, stopTaskV2, err := taskv2.WireTaskV2(db, &temporalClient, pluginsRegistry, onTaskCompleted)
+	taskV2, stopTaskV2, err := taskv2.WireTaskV2(db, &temporalClient, pluginsRegistry, onTaskCompleted)
 	if err != nil {
 		temporalClient.Close()
 		_ = database.Close(db)
 		return nil, fmt.Errorf("failed to wire taskv2: %w", err)
 	}
+	tm := taskV2.Manager
 
 	consignmentService := consignment.NewService(db, templateService, chaService, companyService, userProfileService, hsCodeService)
 	consignmentRouter := consignment.NewRouter(consignmentService, chaService, companyService)
@@ -192,7 +193,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	// smsChannel := channels.NewSMSChannel(...)
 	// notificationManager.RegisterSMSChannel(smsChannel)
 
-	taskV2Handler := taskv2.NewHTTPHandler(tm)
+	taskV2Handler := taskv2.NewHTTPHandler(tm, taskV2.Store, taskV2.Assembler)
 
 	// withAuth wraps an individual handler with the authentication middleware.
 	withAuth := authManager.Middleware()
