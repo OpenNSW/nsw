@@ -98,7 +98,7 @@ type SubmissionConfig struct {
 type SimpleFormExternalServiceRequest struct {
 	TaskCode           string             `json:"taskCode"` // Code to identify task config on external service side
 	TaskID             string             `json:"taskId"`
-	WorkflowID         string             `json:"workflowId"`
+	ConsignmentID      string             `json:"consignmentId"`
 	ServiceURL         string             `json:"serviceUrl"`
 	Data               map[string]any     `json:"data"` // Submitted trader form data
 	OGAFeedbackHistory []OGAFeedbackEntry `json:"ogaFeedbackHistory,omitempty"`
@@ -442,10 +442,10 @@ func (s *SimpleForm) submitHandler(ctx context.Context, content any) (*Execution
 	}
 
 	requestPayload := SimpleFormExternalServiceRequest{
-		TaskID:     s.api.GetTaskID(),
-		WorkflowID: s.api.GetWorkflowID(),
-		ServiceURL: strings.TrimRight(s.cfg.Server.ServiceURL, "/") + TasksAPIPath,
-		Data:       formData,
+		TaskID:        s.api.GetTaskID(),
+		ConsignmentID: s.api.GetWorkflowID(),
+		ServiceURL:    strings.TrimRight(s.cfg.Server.ServiceURL, "/") + TasksAPIPath,
+		Data:          formData,
 	}
 	if s.config.Submission != nil && s.config.Submission.Request != nil {
 		requestPayload.TaskCode = s.config.Submission.Request.TaskCode

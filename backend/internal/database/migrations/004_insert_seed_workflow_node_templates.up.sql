@@ -228,7 +228,7 @@ VALUES
                 "description": "The task will be completed when the ship leaves the port. This is an external event that we are waiting for."
             },
             "submission": {
-                "url": "http://localhost:8081/api/oga/inject",
+                "url": ' || to_jsonb((:'NPQS_OGA_SUBMISSION_URL')::text)::text || ',
                 "request": {
                     "taskCode": "ship_departure_v1",
                     "template": {

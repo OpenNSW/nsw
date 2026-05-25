@@ -27,10 +27,10 @@ done
 MIGRATION_DB_HOST="${MIGRATION_DB_HOST:-$DB_HOST}"
 MIGRATION_DB_HOST="${MIGRATION_DB_HOST//host.docker.internal/localhost}"
 
-NPQS_OGA_SUBMISSION_URL="${NPQS_OGA_SUBMISSION_URL:-http://localhost:8081/api/oga/inject}"
-FCAU_OGA_SUBMISSION_URL="${FCAU_OGA_SUBMISSION_URL:-http://localhost:8082/api/oga/inject}"
-PRECONSIGNMENT_OGA_SUBMISSION_URL="${PRECONSIGNMENT_OGA_SUBMISSION_URL:-http://localhost:8083/api/oga/inject}"
-CDA_OGA_SUBMISSION_URL="${CDA_OGA_SUBMISSION_URL:-http://localhost:8084/api/oga/inject}"
+NPQS_OGA_SUBMISSION_URL="${NPQS_OGA_SUBMISSION_URL:-http://localhost:8081/api/v1/inject}"
+FCAU_OGA_SUBMISSION_URL="${FCAU_OGA_SUBMISSION_URL:-http://localhost:8082/api/v1/inject}"
+PRECONSIGNMENT_OGA_SUBMISSION_URL="${PRECONSIGNMENT_OGA_SUBMISSION_URL:-http://localhost:8083/api/v1/inject}"
+CDA_OGA_SUBMISSION_URL="${CDA_OGA_SUBMISSION_URL:-http://localhost:8084/api/v1/inject}"
 
 if [[ "$CLEAN_RUN" == "true" ]]; then
     echo "Dropping database $DB_NAME..."

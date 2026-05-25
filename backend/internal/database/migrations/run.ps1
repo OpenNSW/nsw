@@ -33,10 +33,10 @@ foreach ($Var in $RequiredVars) {
 $MigrationDbHost = if ($env:MIGRATION_DB_HOST) { $env:MIGRATION_DB_HOST } else { $env:DB_HOST }
 $MigrationDbHost = $MigrationDbHost -replace "host.docker.internal", "localhost"
 
-$NpqsOgaSubmissionUrl = if ($env:NPQS_OGA_SUBMISSION_URL) { $env:NPQS_OGA_SUBMISSION_URL } else { "http://localhost:8081/api/oga/inject" }
-$FcauOgaSubmissionUrl = if ($env:FCAU_OGA_SUBMISSION_URL) { $env:FCAU_OGA_SUBMISSION_URL } else { "http://localhost:8082/api/oga/inject" }
-$PreconsignmentOgaSubmissionUrl = if ($env:PRECONSIGNMENT_OGA_SUBMISSION_URL) { $env:PRECONSIGNMENT_OGA_SUBMISSION_URL } else { "http://localhost:8083/api/oga/inject" }
-$CdaOgaSubmissionUrl = if ($env:CDA_OGA_SUBMISSION_URL) { $env:CDA_OGA_SUBMISSION_URL } else { "http://localhost:8084/api/oga/inject" }
+$NpqsOgaSubmissionUrl = if ($env:NPQS_OGA_SUBMISSION_URL) { $env:NPQS_OGA_SUBMISSION_URL } else { "http://localhost:8081/api/v1/inject" }
+$FcauOgaSubmissionUrl = if ($env:FCAU_OGA_SUBMISSION_URL) { $env:FCAU_OGA_SUBMISSION_URL } else { "http://localhost:8082/api/v1/inject" }
+$PreconsignmentOgaSubmissionUrl = if ($env:PRECONSIGNMENT_OGA_SUBMISSION_URL) { $env:PRECONSIGNMENT_OGA_SUBMISSION_URL } else { "http://localhost:8083/api/v1/inject" }
+$CdaOgaSubmissionUrl = if ($env:CDA_OGA_SUBMISSION_URL) { $env:CDA_OGA_SUBMISSION_URL } else { "http://localhost:8084/api/v1/inject" }
 
 # Handle Clean Run
 if (${clean-run}) {
