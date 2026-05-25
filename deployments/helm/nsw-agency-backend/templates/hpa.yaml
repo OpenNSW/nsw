@@ -2,14 +2,14 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "oga-backend.fullname" . }}
+  name: {{ include "nsw-agency-backend.fullname" . }}
   labels:
-    {{- include "oga-backend.labels" . | nindent 4 }}
+    {{- include "nsw-agency-backend.labels" . | nindent 4 }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "oga-backend.fullname" . }}
+    name: {{ include "nsw-agency-backend.fullname" . }}
   minReplicas: {{ .Values.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.autoscaling.maxReplicas }}
   metrics:

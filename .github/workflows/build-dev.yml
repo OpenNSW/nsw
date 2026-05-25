@@ -28,18 +28,10 @@ jobs:
             image_name: nsw-api-migrations
             context: .
             dockerfile: ./backend/migrations.Dockerfile
-          - service_name: OGA Backend
-            image_name: oga-backend
-            context: ./oga
-            dockerfile: ./oga/Dockerfile
           - service_name: Trader Portal
             image_name: trader-app
             context: ./portals
             dockerfile: ./portals/apps/trader-app/Dockerfile
-          - service_name: OGA Portal
-            image_name: oga-app
-            context: ./portals
-            dockerfile: ./portals/apps/oga-app/Dockerfile
 
     steps:
       - name: Checkout Application Repository
@@ -65,23 +57,8 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           push: true
-          # Renovate requires sequential run numbers to accurately sort and detect newest dev builds
+          # Sequential run numbers are required to accurately sort and detect the newest dev builds in Argo CD Image Updater
           tags: |
             ${{ env.REGISTRY }}/${{ steps.repo_owner.outputs.owner }}/${{ matrix.image_name }}:dev-${{ github.run_number }}-${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-  trigger-renovate:
-    name: Trigger Renovate Bot
-    needs: build-and-push-dev
-    runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request'
-    steps:
-      - name: Trigger Renovate Bot Webhook
-        # NOTE: If we need to support N deployment repositories in the future, delete this Renovate webhook step.
-        # Hardcoding N webhooks creates tight coupling. The best decoupled solution is to use ArgoCD Image Updater
-        # running in the cluster to poll GHCR and automatically update target GitOps repos.
-        run: |
-          curl -X POST -H "Content-Type: application/json" \
-          -d '{"repository": "${{ github.repository_owner }}/nsw-gitops"}' \
-          https://app.renovatebot.com/webhook/github

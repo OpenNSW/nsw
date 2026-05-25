@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "oga-backend.fullname" . }}
+  name: {{ include "nsw-agency-backend.fullname" . }}
   labels:
-    {{- include "oga-backend.labels" . | nindent 4 }}
+    {{- include "nsw-agency-backend.labels" . | nindent 4 }}
 spec:
 {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount | default 1 }}
 {{- end }}
   selector:
     matchLabels:
-      {{- include "oga-backend.selectorLabels" . | nindent 6 }}
+      {{- include "nsw-agency-backend.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "oga-backend.selectorLabels" . | nindent 8 }}
+        {{- include "nsw-agency-backend.selectorLabels" . | nindent 8 }}
     spec:
       {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -26,7 +26,7 @@ spec:
       {{- end }}
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ if .Values.image }}{{ .Values.image.repository | default "ghcr.io/opennsw/oga-backend" }}{{ else }}ghcr.io/opennsw/oga-backend{{ end }}:{{ if .Values.image }}{{ .Values.image.tag | default .Chart.AppVersion }}{{ else }}{{ .Chart.AppVersion }}{{ end }}"
+          image: "{{ if .Values.image }}{{ .Values.image.repository | default "ghcr.io/opennsw/nsw-agency-backend" }}{{ else }}ghcr.io/opennsw/nsw-agency-backend{{ end }}:{{ if .Values.image }}{{ .Values.image.tag | default .Chart.AppVersion }}{{ else }}{{ .Chart.AppVersion }}{{ end }}"
           imagePullPolicy: {{ if .Values.image }}{{ .Values.image.pullPolicy | default "IfNotPresent" }}{{ else }}IfNotPresent{{ end }}
           ports:
             - name: http
@@ -36,47 +36,47 @@ spec:
             {{- if .Values.env }}
             {{- toYaml .Values.env | nindent 12 }}
             {{- end }}
-            - name: OGA_DB_USER
+            - name: DB_USER
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.config.database.credentialsSecretName | default (printf "%s-db-credentials" (include "oga-backend.fullname" .)) }}
+                  name: {{ .Values.config.database.credentialsSecretName | default (printf "%s-db-credentials" (include "nsw-agency-backend.fullname" .)) }}
                   key: {{ .Values.config.database.userKey | default "user" }}
-            - name: OGA_DB_PASSWORD
+            - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.config.database.credentialsSecretName | default (printf "%s-db-credentials" (include "oga-backend.fullname" .)) }}
+                  name: {{ .Values.config.database.credentialsSecretName | default (printf "%s-db-credentials" (include "nsw-agency-backend.fullname" .)) }}
                   key: password
-            - name: OGA_PORT
+            - name: PORT
               value: {{ .Values.config.port | default "8081" | quote }}
-            - name: OGA_DB_DRIVER
+            - name: DB_DRIVER
               value: {{ .Values.config.database.driver | default "postgres" | quote }}
-            - name: OGA_DB_HOST
+            - name: DB_HOST
               value: {{ .Values.config.database.host | default "nsw-db" | quote }}
-            - name: OGA_DB_PORT
+            - name: DB_PORT
               value: {{ .Values.config.database.port | default "5432" | quote }}
-            - name: OGA_DB_NAME
+            - name: DB_NAME
               value: {{ .Values.config.database.name | quote }}
-            - name: OGA_DB_SSLMODE
+            - name: DB_SSLMODE
               value: {{ .Values.config.database.sslMode | default "disable" | quote }}
-            - name: OGA_DEFAULT_FORM_ID
+            - name: DEFAULT_TASK_CONFIG_ID
               value: {{ .Values.config.defaultFormId | default "default" | quote }}
-            - name: OGA_ALLOWED_ORIGINS
+            - name: ALLOWED_ORIGINS
               value: {{ .Values.config.allowedOrigins | quote }}
-            - name: OGA_NSW_API_BASE_URL
+            - name: NSW_API_BASE_URL
               value: {{ .Values.config.nswApiBaseUrl | quote }}
-            - name: OGA_NSW_CLIENT_ID
+            - name: NSW_CLIENT_ID
               value: {{ .Values.config.nswClientId | quote }}
-            - name: OGA_NSW_CLIENT_SECRET
+            - name: NSW_CLIENT_SECRET
               value: {{ .Values.config.nswClientSecret | quote }}
-            - name: OGA_NSW_TOKEN_URL
+            - name: NSW_TOKEN_URL
               value: {{ .Values.config.nswTokenUrl | quote }}
             - name: USE_WORKFLOW_MANAGER_V2
               value: {{ .Values.config.useWorkflowManagerV2 | default "true" | quote }}
-            - name: OGA_FORMS_PATH
-              value: "/opt/oga/data/forms"
+            - name: CONFIG_DIR
+              value: "/opt/nsw-agency/data"
           volumeMounts:
             - name: forms-volume
-              mountPath: /opt/oga/data/forms
+              mountPath: /opt/nsw-agency/data/forms
           livenessProbe:
             httpGet:
               path: /health
@@ -99,4 +99,4 @@ spec:
       volumes:
         - name: forms-volume
           configMap:
-            name: {{ include "oga-backend.fullname" . }}-forms
+            name: {{ include "nsw-agency-backend.fullname" . }}-forms
