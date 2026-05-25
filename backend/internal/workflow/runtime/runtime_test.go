@@ -113,19 +113,9 @@ func (m *fakeTaskManager) InitTask(ctx context.Context, request taskManager.Init
 	return &taskManager.InitTaskResponse{Success: true}, nil
 }
 
-func (m *fakeTaskManager) ExecuteTask(_ context.Context, _ taskManager.ExecuteTaskRequest) (*plugin.ExecutionResponse, error) {
-	return nil, nil
-}
-
-func (m *fakeTaskManager) GetTaskRenderInfo(_ context.Context, _ string) (*plugin.ApiResponse, error) {
-	return nil, nil
-}
-
 func (m *fakeTaskManager) RegisterUpstreamDoneCallback(callback taskManager.WorkflowDoneHandler) {
 	m.doneCallback = callback
 }
-
-func (m *fakeTaskManager) RegisterUpstreamUpdateCallback(_ taskManager.WorkflowUpdateHandler) {}
 
 func TestNewRuntime_StartWorkerFailureReturnsError(t *testing.T) {
 	fakeManager := &fakeTemporalManager{startErr: errors.New("start failed")}
@@ -167,7 +157,7 @@ func TestNewRuntime_ActivationHandlerInitializesTask(t *testing.T) {
 		Config:    json.RawMessage(`{"x":1}`),
 	}}
 
-	var activationHandler func(payload workflowmanager.TaskPayload) error
+	var activationHandler workflowmanager.TaskActivationHandler
 	runtime, err := newRuntimeWithFactory(taskMgr, templateProvider, func(
 		activation workflowmanager.TaskActivationHandler,
 		_ workflowmanager.WorkflowCompletionHandler,
@@ -186,7 +176,7 @@ func TestNewRuntime_ActivationHandlerInitializesTask(t *testing.T) {
 		Inputs:         map[string]any{"a": "b"},
 	}
 
-	err = activationHandler(payload)
+	_, err = activationHandler(payload)
 	require.NoError(t, err)
 	assert.Equal(t, "template-1", templateProvider.lastID)
 	require.NotNil(t, taskMgr.lastInitCtx)
