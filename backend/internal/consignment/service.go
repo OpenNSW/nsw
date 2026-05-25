@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -520,14 +519,18 @@ func (s *Service) buildConsignmentDetailDTO(
 			var taskName, taskDescription, taskType string
 			var nodeState model.WorkflowNodeState
 			if node.Type == workflowmanager.NodeTypeTask {
-				taskTemplate, ok := taskTemplateMap[node.TaskTemplateID]
-				if !ok {
-					slog.Error("failed to retrieve workflow node template for", "consignment_id", consignment.ID, "node_id", node.ID, "task_template_id", node.TaskTemplateID)
-					return nil, fmt.Errorf("failed to retrieve workflow node template %s for node %s", node.TaskTemplateID, node.ID)
+				if taskTemplate, ok := taskTemplateMap[node.TaskTemplateID]; ok {
+					taskName = taskTemplate.Name
+					taskDescription = taskTemplate.Description
+					taskType = string(taskTemplate.Type)
+				} else {
+					// Subflow IDs (e.g. FCAU's fcau-pay-app-fee-flow) live in the
+					// file-backed taskv2 registry, not workflow_node_templates.
+					// Fall back to the template ID until a unified template
+					// provider exists.
+					taskName = node.TaskTemplateID
+					taskType = string(workflowmanager.NodeTypeTask)
 				}
-				taskName = taskTemplate.Name
-				taskDescription = taskTemplate.Description
-				taskType = string(taskTemplate.Type)
 			} else {
 				taskType = string(node.Type)
 			}
