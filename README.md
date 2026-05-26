@@ -39,8 +39,8 @@ NSW offers powerful capabilities that streamline international trade processes:
 |---------|--------|
 | **Core Workflow Engine (CWE)** – BPMN 2.0 based process orchestration managing process states without awareness of OGA-specific data schemas | In Progress |
 | **NSW Core Portal** – Single entry point for Traders to initiate consignments and track global status | In Progress |
-| **Tea Board Service Module** – Independent, pluggable unit with OGA-specific logic, database, and officer portal for Tea exports | In Progress |
-| **Coconut Board Service Module** – Independent, pluggable unit with OGA-specific logic, database, and officer portal for Coconut products | In Progress |
+| **Tea Board Agency Module** – Independent, pluggable unit with agency-specific logic, database, and officer portal for Tea exports | In Progress |
+| **Coconut Board Agency Module** – Independent, pluggable unit with agency-specific logic, database, and officer portal for Coconut products | In Progress |
 | **One-Time Verification** – Pre-consignment document injection (Business Registration, TIN, Environmental Protection License) | In Progress |
 | **Automated Notifications** – Email and SMS alerts via Postal service background worker | Planned |
 | **ASYCUDA Interface** – Automated handoff to Customs system upon completion of all OGA approvals | Planned |
@@ -141,6 +141,38 @@ Pull requests to `main` run Docker image validation through `.github/workflows/d
 - It runs only when relevant Docker build contexts change (`backend/**`, `oga/**`, `portals/**`) or when the workflow file changes.
 - It validates builds only and does **not** push/publish images.
 - Image publishing belongs to release CD workflows and is intentionally out of scope for this CI workflow.
+
+## Getting Started
+
+The full local dev setup runs two repos side-by-side: **nsw** (this repo) starts the core platform, and **nsw-agency** starts the agency portals.
+
+**Prerequisites:** Go, pnpm, Docker, Temporal CLI
+
+```bash
+# 1. Copy env file and adjust values
+cp .env.example .env
+
+# Terminal 1 – NSW core (IDP, Temporal, backend, trader-app)
+./start-dev.sh              # normal start
+./start-dev.sh --clean-run  # wipe DB + Docker volumes, re-migrate, then start
+
+# Terminal 2 – Agency portals (NPQS, FCAU, IRD, CDA)
+cd ../nsw-agency
+./start-dev.sh all              # normal start
+./start-dev.sh all --clean-run  # wipe agency DBs, then start
+```
+
+| Service | URL |
+|---------|-----|
+| Trader portal | http://localhost:5173 |
+| NSW backend API | http://localhost:8080 |
+| IDP | https://localhost:8090 |
+| NPQS agency portal | http://localhost:5174 |
+| FCAU agency portal | http://localhost:5175 |
+| IRD agency portal  | http://localhost:5176 |
+| CDA agency portal  | http://localhost:5177 |
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for Docker and Kubernetes deployment options.
 
 ## Contributing
 
