@@ -19,9 +19,10 @@ func TestFormProjector_Project(t *testing.T) {
 
 		out, err := p.Project(ctx, template, data)
 		require.NoError(t, err)
+		assert.Equal(t, uiprojector.SectionTypeForm, out.Type)
 
-		fc, ok := out.(uiprojector.FormContent)
-		require.True(t, ok, "expected FormContent, got %T", out)
+		fc, ok := out.Content.(uiprojector.FormContent)
+		require.True(t, ok, "expected FormContent, got %T", out.Content)
 		assert.Equal(t, map[string]any{"type": "object"}, fc.Schema)
 		assert.Equal(t, map[string]any{"ui:order": []any{"name"}}, fc.UISchema)
 		assert.Equal(t, data, fc.Data)
@@ -32,7 +33,7 @@ func TestFormProjector_Project(t *testing.T) {
 		out, err := p.Project(ctx, template, nil)
 		require.NoError(t, err)
 
-		fc := out.(uiprojector.FormContent)
+		fc := out.Content.(uiprojector.FormContent)
 		assert.NotNil(t, fc.Schema)
 		assert.Nil(t, fc.UISchema)
 		assert.Nil(t, fc.Data)
@@ -42,7 +43,7 @@ func TestFormProjector_Project(t *testing.T) {
 		out, err := p.Project(ctx, []byte("{}"), "data")
 		require.NoError(t, err)
 
-		fc := out.(uiprojector.FormContent)
+		fc := out.Content.(uiprojector.FormContent)
 		assert.Nil(t, fc.Schema)
 		assert.Nil(t, fc.UISchema)
 		assert.Equal(t, "data", fc.Data)
@@ -63,25 +64,26 @@ func TestMarkdownProjector_Project(t *testing.T) {
 	t.Run("substitutes data fields into template", func(t *testing.T) {
 		out, err := p.Project(ctx, []byte("Hello {{.Name}}!"), map[string]any{"Name": "World"})
 		require.NoError(t, err)
-		assert.Equal(t, "Hello World!", out)
+		assert.Equal(t, uiprojector.SectionTypeMarkdown, out.Type)
+		assert.Equal(t, "Hello World!", out.Content)
 	})
 
 	t.Run("returns template verbatim when there are no placeholders", func(t *testing.T) {
 		out, err := p.Project(ctx, []byte("static text"), nil)
 		require.NoError(t, err)
-		assert.Equal(t, "static text", out)
+		assert.Equal(t, "static text", out.Content)
 	})
 
 	t.Run("returns empty string for empty template", func(t *testing.T) {
 		out, err := p.Project(ctx, []byte(""), nil)
 		require.NoError(t, err)
-		assert.Equal(t, "", out)
+		assert.Equal(t, "", out.Content)
 	})
 
 	t.Run("renders <no value> for missing fields under default text/template options", func(t *testing.T) {
 		out, err := p.Project(ctx, []byte("Hello {{.Missing}}"), map[string]any{})
 		require.NoError(t, err)
-		assert.Contains(t, out.(string), "<no value>")
+		assert.Contains(t, out.Content.(string), "<no value>")
 	})
 
 	t.Run("returns parse error for malformed template syntax", func(t *testing.T) {
@@ -100,18 +102,19 @@ func TestRawProjector_Project(t *testing.T) {
 		data := map[string]any{"foo": "bar"}
 		out, err := p.Project(ctx, []byte("ignored"), data)
 		require.NoError(t, err)
-		assert.Equal(t, data, out)
+		assert.Equal(t, uiprojector.SectionTypeRaw, out.Type)
+		assert.Equal(t, data, out.Content)
 	})
 
 	t.Run("returns nil when data is nil", func(t *testing.T) {
 		out, err := p.Project(ctx, nil, nil)
 		require.NoError(t, err)
-		assert.Nil(t, out)
+		assert.Nil(t, out.Content)
 	})
 
 	t.Run("ignores template content entirely", func(t *testing.T) {
 		out, err := p.Project(ctx, []byte("garbage that would break other projectors"), 42)
 		require.NoError(t, err)
-		assert.Equal(t, 42, out)
+		assert.Equal(t, 42, out.Content)
 	})
 }

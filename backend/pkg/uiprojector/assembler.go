@@ -81,16 +81,19 @@ func (a *Assembler) Assemble(ctx context.Context, blueprint *Blueprint, facts Fa
 		}
 
 		// 5. Project
-		content, err := proj.Project(ctx, templateContent, sectionData)
+		projection, err := proj.Project(ctx, templateContent, sectionData)
 		if err != nil {
 			return nil, fmt.Errorf("assembler: projection failed for section %s: %w", sb.ID, err)
+		}
+		if projection.Type == "" {
+			return nil, fmt.Errorf("assembler: projector %s returned empty Projection.Type for section %s", sb.Projector, sb.ID)
 		}
 
 		sections[zone] = Section{
 			ID:      sb.ID,
-			Type:    SectionType(proj.Type()),
+			Type:    projection.Type,
 			Title:   sb.Title,
-			Content: content,
+			Content: projection.Content,
 		}
 	}
 
