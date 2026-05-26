@@ -33,6 +33,8 @@ func NewHTTPHandler(manager *orchestrator.TaskManager, store TaskFetcher, assemb
 //
 //	GET /api/v1/tasks/{id}
 func (h *HTTPHandler) HandleGetTask(w http.ResponseWriter, r *http.Request) {
+	// TODO: retrieve the authenticated context and validate it against the
+	// task's ownership bounds before returning ZoneView.
 	taskID := r.PathValue("id")
 	if taskID == "" {
 		writeJSONError(w, http.StatusBadRequest, "task id is required")
@@ -47,7 +49,8 @@ func (h *HTTPHandler) HandleGetTask(w http.ResponseWriter, r *http.Request) {
 
 	zv, err := h.Assembler.Assemble(r.Context(), record)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		slog.Error("taskv2: failed to assemble zone view", "taskId", taskID, "error", err)
+		writeJSONError(w, http.StatusInternalServerError, "An internal error occurred while loading the task")
 		return
 	}
 
@@ -59,6 +62,8 @@ func (h *HTTPHandler) HandleGetTask(w http.ResponseWriter, r *http.Request) {
 //	POST /api/v1/tasks/{id}
 //	body: arbitrary JSON object — passed through to the task plugin
 func (h *HTTPHandler) HandleCompleteTaskStep(w http.ResponseWriter, r *http.Request) {
+	// TODO: retrieve the authenticated context and validate it against the
+	// task's ownership bounds before completing the step.
 	taskID := r.PathValue("id")
 
 	var payload map[string]any
@@ -87,7 +92,8 @@ func (h *HTTPHandler) HandleCompleteTaskStep(w http.ResponseWriter, r *http.Requ
 	payload = unwrapOGACallback(payload)
 
 	if err := h.Manager.CompleteTaskStep(r.Context(), taskID, payload); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		slog.Error("taskv2: failed to complete task step", "taskId", taskID, "error", err)
+		writeJSONError(w, http.StatusInternalServerError, "An internal error occurred while processing the task")
 		return
 	}
 
