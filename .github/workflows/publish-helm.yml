@@ -33,23 +33,106 @@ jobs:
       - name: Log in to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
 
-      - name: Package and Publish Charts
+      # (#3) Lint all charts before touching the registry.
+      # A malformed chart is caught here and the job fails cleanly.
+      - name: Lint all charts
         run: |
-          # Iterate through each directory in deployments/helm
-          for chart_dir in deployments/helm/*; do
-            if [ -d "$chart_dir" ]; then
-              chart_name=$(basename "$chart_dir")
-              echo "Packaging chart: $chart_name"
-              
-              # Package the chart, which outputs a .tgz file
-              helm package "$chart_dir" -d ./packaged-charts
+          lint_failed=0
+          for chart_dir in deployments/helm/*/; do
+            chart_name=$(basename "$chart_dir")
+            echo "::group::Linting $chart_name"
+            if ! helm lint "$chart_dir"; then
+              echo "::error::helm lint failed for $chart_name"
+              lint_failed=1
+            fi
+            echo "::endgroup::"
+          done
+          if [ "$lint_failed" -ne 0 ]; then
+            echo "One or more charts failed linting. Aborting publish."
+            exit 1
+          fi
+
+      # (#6) Explicitly create a clean output directory each run so no
+      # stale .tgz artifacts from a previous (partial) run can be pushed.
+      - name: Prepare clean output directory
+        run: |
+          rm -rf ./packaged-charts
+          mkdir -p ./packaged-charts
+
+      # (#2) Only publish a chart if its version does not already exist in
+      # GHCR. This prevents silent overwrites and makes published versions
+      # immutable — a given chart version is write-once.
+      # (#4) The loop runs with set -e so any helm package / push failure
+      # immediately aborts the job rather than silently continuing.
+      - name: Package and publish charts
+        id: publish
+        env:
+          OCI_REPO: oci://${{ env.REGISTRY }}/${{ steps.repo_owner.outputs.owner }}/charts
+        run: |
+          set -euo pipefail
+          published_charts=""
+
+          for chart_dir in deployments/helm/*/; do
+            [ -d "$chart_dir" ] || continue
+            chart_name=$(basename "$chart_dir")
+            chart_version=$(helm show chart "$chart_dir" | grep '^version:' | awk '{print $2}')
+
+            echo "::group::Processing $chart_name @ $chart_version"
+
+            # (#2) Check whether this exact version is already in the registry.
+            if helm show chart "${OCI_REPO}/${chart_name}" --version "$chart_version" &>/dev/null; then
+              echo "⚠️  $chart_name@$chart_version already exists in GHCR — skipping to avoid overwrite."
+              echo "::endgroup::"
+              continue
+            fi
+
+            echo "📦 Packaging $chart_name..."
+            helm package "$chart_dir" -d ./packaged-charts
+
+            pkg="./packaged-charts/${chart_name}-${chart_version}.tgz"
+            echo "🚀 Pushing $pkg to ${OCI_REPO}..."
+            helm push "$pkg" "${OCI_REPO}"
+
+            published_charts="${published_charts} ${chart_name}@${chart_version}"
+            echo "::endgroup::"
+          done
+
+          if [ -z "$published_charts" ]; then
+            echo "No new chart versions to publish."
+          else
+            echo "Published:$published_charts"
+          fi
+
+          # Expose for the verification step
+          echo "published=${published_charts}" >> "$GITHUB_OUTPUT"
+
+      # (#5) Verify each newly pushed chart is pullable from GHCR.
+      # Runs as continue-on-error so a transient registry delay does not
+      # fail the overall workflow, but surfaces as a visible warning.
+      - name: Verify published charts are pullable
+        if: steps.publish.outputs.published != ''
+        continue-on-error: true
+        env:
+          OCI_REPO: oci://${{ env.REGISTRY }}/${{ steps.repo_owner.outputs.owner }}/charts
+        run: |
+          set -euo pipefail
+          failed=0
+
+          for chart_dir in deployments/helm/*/; do
+            [ -d "$chart_dir" ] || continue
+            chart_name=$(basename "$chart_dir")
+            chart_version=$(helm show chart "$chart_dir" | grep '^version:' | awk '{print $2}')
+
+            # Only verify charts we actually just published
+            if echo "${{ steps.publish.outputs.published }}" | grep -q "${chart_name}@${chart_version}"; then
+              echo "Verifying ${chart_name}@${chart_version}..."
+              if helm show chart "${OCI_REPO}/${chart_name}" --version "$chart_version" > /dev/null; then
+                echo "✅ ${chart_name}@${chart_version} is pullable from GHCR."
+              else
+                echo "::warning::❌ ${chart_name}@${chart_version} could not be pulled after push."
+                failed=1
+              fi
             fi
           done
 
-          echo "Publishing charts to GHCR..."
-          for pkg in ./packaged-charts/*.tgz; do
-            if [ -f "$pkg" ]; then
-              echo "Pushing $pkg to oci://${{ env.REGISTRY }}/${{ steps.repo_owner.outputs.owner }}/charts"
-              helm push "$pkg" "oci://${{ env.REGISTRY }}/${{ steps.repo_owner.outputs.owner }}/charts"
-            fi
-          done
+          exit "$failed"
