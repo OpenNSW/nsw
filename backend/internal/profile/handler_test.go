@@ -7,9 +7,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/OpenNSW/nsw/internal/auth"
-	"github.com/OpenNSW/nsw/internal/profile/company"
-	"github.com/OpenNSW/nsw/internal/profile/user"
+	"github.com/OpenNSW/nsw/backend/internal/auth"
+	"github.com/OpenNSW/nsw/backend/internal/profile/company"
+	"github.com/OpenNSW/nsw/backend/internal/profile/user"
 )
 
 type mockUserService struct {

@@ -1,15 +1,16 @@
 package profile
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
 	"time"
 
-	"github.com/OpenNSW/nsw/internal/auth"
-	"github.com/OpenNSW/nsw/internal/profile/company"
-	"github.com/OpenNSW/nsw/internal/profile/user"
+	"github.com/OpenNSW/nsw/backend/internal/auth"
+	"github.com/OpenNSW/nsw/backend/internal/profile/company"
+	"github.com/OpenNSW/nsw/backend/internal/profile/user"
 )
 
 // Handler handles profile HTTP requests.
@@ -66,13 +67,15 @@ func (h *Handler) HandleGetProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var compSummary *CompanySummary
-	if authCtx.User.OUHandle != "" {
-		comp, err := h.companySvc.GetCompanyByOUHandle(ctx, authCtx.User.OUHandle)
+	if uRecord.OUHandle != "" {
+		companyCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		comp, err := h.companySvc.GetCompanyByOUHandle(companyCtx, uRecord.OUHandle)
 		if err != nil {
 			if errors.Is(err, company.ErrCompanyNotFound) {
-				slog.Debug("company record not found for user", "ouHandle", authCtx.User.OUHandle)
+				slog.Debug("company record not found for user", "ouHandle", uRecord.OUHandle)
 			} else {
-				slog.Error("failed to retrieve company profile", "ouHandle", authCtx.User.OUHandle, "error", err)
+				slog.Error("failed to retrieve company profile", "ouHandle", uRecord.OUHandle, "error", err)
 				http.Error(w, "failed to retrieve company profile", http.StatusInternalServerError)
 				return
 			}
@@ -85,7 +88,6 @@ func (h *Handler) HandleGetProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(UserProfile{
 		ID:          uRecord.ID,
 		Email:       uRecord.Email,
