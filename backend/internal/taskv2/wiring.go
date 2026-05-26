@@ -16,6 +16,15 @@ import (
 	"gorm.io/gorm"
 )
 
+// WireResult bundles the taskv2 objects bootstrap needs to expose handlers
+// and to wire the parent workflow runner.
+type WireResult struct {
+	Manager   *orchestrator.TaskManager
+	Runner    engine.TemporalManager
+	Store     *store.GormTaskStore
+	Assembler *taskrenderer.ZoneViewAssembler
+}
+
 // WireTaskV2 builds and starts the taskv2 stack on MICRO_WORKFLOW_QUEUE.
 // The returned TemporalManager runs the per-task (micro) sub-workflows; the
 // parent/macro workflow runner is owned by the workflow package and must be
@@ -24,26 +33,27 @@ import (
 // macro workflow can advance past its Task node. The plugin registry must be
 // pre-populated by the caller; an empty registry means every sub-task
 // activation will fail to find a handler.
-func WireTaskV2(db *gorm.DB, c *client.Client, pluginsRegistry *plugins.Registry, onTaskCompleted orchestrator.TaskCompletedCallback) (*orchestrator.TaskManager, engine.TemporalManager, func() error, error) {
+func WireTaskV2(db *gorm.DB, c *client.Client, pluginsRegistry *plugins.Registry, onTaskCompleted orchestrator.TaskCompletedCallback) (*WireResult, func() error, error) {
 	if pluginsRegistry == nil {
-		return nil, nil, nil, fmt.Errorf("taskv2: plugins registry is nil")
+		return nil, nil, fmt.Errorf("taskv2: plugins registry is nil")
 	}
 
 	taskStore := store.NewGormTaskStore(db)
 
 	templateRegistry := registry.NewInMemRegistry()
 	if err := registry.LoadConfigsInto(templateRegistry, "configs/fcau"); err != nil {
-		return nil, nil, nil, fmt.Errorf("taskv2: load configs: %w", err)
+		return nil, nil, fmt.Errorf("taskv2: load configs: %w", err)
 	}
 
-	assembler, err := uiprojector.NewAssembler(
+	uiAssembler, err := uiprojector.NewAssembler(
 		registryTemplateProvider{reg: templateRegistry},
 		uiprojector.DefaultProjectors(),
 	)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("taskv2: build assembler: %w", err)
+		return nil, nil, fmt.Errorf("taskv2: build assembler: %w", err)
 	}
-	taskRenderer := taskrenderer.NewTaskRenderer(assembler)
+	taskRenderer := taskrenderer.NewTaskRenderer(uiAssembler)
+	zoneAssembler := taskrenderer.NewZoneViewAssembler(taskRenderer)
 
 	var tm *orchestrator.TaskManager
 
@@ -71,7 +81,7 @@ func WireTaskV2(db *gorm.DB, c *client.Client, pluginsRegistry *plugins.Registry
 	tm = orchestrator.NewTaskManager(taskStore, templateRegistry, pluginsRegistry, workflowRunner, onTaskCompleted, taskRenderer)
 
 	if err := workflowRunner.StartWorker(); err != nil {
-		return nil, nil, nil, fmt.Errorf("taskv2: start worker: %w", err)
+		return nil, nil, fmt.Errorf("taskv2: start worker: %w", err)
 	}
 
 	stop := func() error {
@@ -79,7 +89,12 @@ func WireTaskV2(db *gorm.DB, c *client.Client, pluginsRegistry *plugins.Registry
 		return nil
 	}
 
-	return tm, workflowRunner, stop, nil
+	return &WireResult{
+		Manager:   tm,
+		Runner:    workflowRunner,
+		Store:     taskStore,
+		Assembler: zoneAssembler,
+	}, stop, nil
 }
 
 // registryTemplateProvider adapts the orchestrator's TaskTemplateRegistry to

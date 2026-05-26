@@ -1,5 +1,6 @@
 import { defaultApiClient, type ApiClient, type ApiResponse, apiPost } from './api'
 import type { RenderInfo } from '../plugins'
+import type { ZoneView } from '../zones/types'
 
 export type TaskCommand = 'SUBMISSION' | 'SAVE_AS_DRAFT'
 
@@ -36,6 +37,18 @@ export async function getTaskInfo(taskId: string, apiClient: ApiClient = default
     throw new Error('Failed to fetch task information')
   }
   return response.data
+}
+
+export async function getZoneView(taskId: string, apiClient: ApiClient = defaultApiClient): Promise<ZoneView> {
+  return apiClient.get<ZoneView>(`${TASKS_API_URL}/${taskId}`)
+}
+
+export async function submitTaskStep(
+  taskId: string,
+  payload: Record<string, unknown>,
+  apiClient: ApiClient = defaultApiClient,
+): Promise<void> {
+  await apiClient.post<Record<string, unknown>, unknown>(`${TASKS_API_URL}/${taskId}`, payload)
 }
 
 export async function sendTaskAction(taskId: string, workflowId: string, action: string): Promise<TaskCommandResponse> {
