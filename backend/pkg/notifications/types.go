@@ -27,10 +27,6 @@ type Request struct {
 }
 
 func (r *Request) Validate() error {
-	if r.Channel != ChannelSMS && r.Channel != ChannelEmail {
-		return ErrInvalidChannel
-	}
-
 	if r.To == "" {
 		return ErrToRequired
 	}
@@ -44,6 +40,8 @@ func (r *Request) Validate() error {
 		if r.Body == "" {
 			return ErrBodyRequired
 		}
+	default:
+		return ErrInvalidChannel
 	}
 
 	return nil
