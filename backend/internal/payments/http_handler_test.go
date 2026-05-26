@@ -30,6 +30,12 @@ func (m *mockPaymentService) ProcessWebhook(ctx context.Context, payload Webhook
 	return m.processWebhookFunc(ctx, payload)
 }
 
+func (m *mockPaymentService) SetTaskCompleter(completer TaskCompleter) {}
+
+func (m *mockPaymentService) GetPaymentMethod(id string) (*PaymentMethod, error) {
+	return &PaymentMethod{ID: id, Type: "REDIRECT", GatewayURL: "https://mock.lk"}, nil
+}
+
 func TestHandleValidateReference(t *testing.T) {
 	service := &mockPaymentService{}
 	handler := NewHTTPHandler(service)

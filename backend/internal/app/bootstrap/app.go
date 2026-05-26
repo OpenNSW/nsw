@@ -108,19 +108,21 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	}
 
 	pluginsRegistry := flowplugins.NewRegistry()
-	if err := taskv2plugins.Register(pluginsRegistry, remoteManager, cfg.Server.ServiceURL, cfg.Server.Debug); err != nil {
+	if err := taskv2plugins.Register(pluginsRegistry, remoteManager, paymentService, cfg.Server.ServiceURL, cfg.Server.Debug); err != nil {
 		temporalClient.Close()
 		_ = database.Close(db)
 		return nil, fmt.Errorf("failed to register taskv2 plugins: %w", err)
 	}
 
-	taskV2, stopTaskV2, err := taskv2.WireTaskV2(db, &temporalClient, pluginsRegistry, onTaskCompleted)
+	taskV2, stopTaskV2, err := taskv2.WireTaskV2(db, &temporalClient, pluginsRegistry, paymentService, onTaskCompleted)
 	if err != nil {
 		temporalClient.Close()
 		_ = database.Close(db)
 		return nil, fmt.Errorf("failed to wire taskv2: %w", err)
 	}
 	tm := taskV2.Manager
+
+	paymentService.SetTaskCompleter(tm)
 
 	consignmentService := consignment.NewService(db, templateService, chaService, companyService, userProfileService, hsCodeService)
 	consignmentRouter := consignment.NewRouter(consignmentService, chaService, companyService)

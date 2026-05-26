@@ -86,6 +86,13 @@ func TestMarkdownProjector_Project(t *testing.T) {
 		assert.Contains(t, out.Content.(string), "<no value>")
 	})
 
+	t.Run("extracts template string from json wrapper and projects it", func(t *testing.T) {
+		templateJSON := []byte(`{"id": "test-id", "template": "Hello {{.Name}}!"}`)
+		out, err := p.Project(ctx, templateJSON, map[string]any{"Name": "JSON"})
+		require.NoError(t, err)
+		assert.Equal(t, "Hello JSON!", out)
+	})
+
 	t.Run("returns parse error for malformed template syntax", func(t *testing.T) {
 		_, err := p.Project(ctx, []byte("{{.Name"), nil)
 		require.Error(t, err)

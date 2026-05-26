@@ -8,6 +8,7 @@ import (
 	engine "github.com/OpenNSW/go-temporal-workflow"
 	"github.com/OpenNSW/nsw-task-flow/orchestrator"
 	"github.com/OpenNSW/nsw-task-flow/plugins"
+	"github.com/OpenNSW/nsw/internal/payments"
 	"github.com/OpenNSW/nsw/internal/taskv2/registry"
 	taskrenderer "github.com/OpenNSW/nsw/internal/taskv2/renderer"
 	"github.com/OpenNSW/nsw/internal/taskv2/store"
@@ -33,7 +34,7 @@ type WireResult struct {
 // macro workflow can advance past its Task node. The plugin registry must be
 // pre-populated by the caller; an empty registry means every sub-task
 // activation will fail to find a handler.
-func WireTaskV2(db *gorm.DB, c *client.Client, pluginsRegistry *plugins.Registry, onTaskCompleted orchestrator.TaskCompletedCallback) (*WireResult, func() error, error) {
+func WireTaskV2(db *gorm.DB, c *client.Client, pluginsRegistry *plugins.Registry, paymentService payments.PaymentService, onTaskCompleted orchestrator.TaskCompletedCallback) (*WireResult, func() error, error) {
 	if pluginsRegistry == nil {
 		return nil, nil, fmt.Errorf("taskv2: plugins registry is nil")
 	}
@@ -45,9 +46,10 @@ func WireTaskV2(db *gorm.DB, c *client.Client, pluginsRegistry *plugins.Registry
 		return nil, nil, fmt.Errorf("taskv2: load configs: %w", err)
 	}
 
+	projectors := append(uiprojector.DefaultProjectors(), taskrenderer.NewPaymentProjector(paymentService))
 	uiAssembler, err := uiprojector.NewAssembler(
 		registryTemplateProvider{reg: templateRegistry},
-		uiprojector.DefaultProjectors(),
+		projectors,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("taskv2: build assembler: %w", err)
