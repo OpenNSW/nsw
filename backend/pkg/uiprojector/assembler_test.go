@@ -244,6 +244,29 @@ func TestAssembler_Assemble_ProjectorError(t *testing.T) {
 	assert.Contains(t, err.Error(), "section-7", "error should mention the failing section ID")
 }
 
+type emptyTypeProjector struct{ typeName uiprojector.ProjectorType }
+
+func (p *emptyTypeProjector) Type() uiprojector.ProjectorType { return p.typeName }
+func (p *emptyTypeProjector) Project(_ context.Context, _ []byte, _ any) (uiprojector.Projection, error) {
+	return uiprojector.Projection{Type: "", Content: "ok"}, nil
+}
+
+func TestAssembler_Assemble_EmptyProjectionType(t *testing.T) {
+	ctx := context.Background()
+	tp := &stubTemplateProvider{templates: map[string][]byte{"t": []byte("x")}}
+	asm, err := uiprojector.NewAssembler(tp, []uiprojector.Projector{&emptyTypeProjector{typeName: "P"}})
+	require.NoError(t, err)
+
+	bp := &uiprojector.Blueprint{Sections: map[string]uiprojector.SectionBlueprint{
+		"main": {ID: "section-7", TemplateID: "t", Projector: "P"},
+	}}
+
+	_, err = asm.Assemble(ctx, bp, uiprojector.Facts{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "empty Projection.Type")
+	assert.Contains(t, err.Error(), "section-7")
+}
+
 func TestAssembler_Assemble_DataKeyMissingPassesNil(t *testing.T) {
 	ctx := context.Background()
 	tp := &stubTemplateProvider{templates: map[string][]byte{"t": []byte("x")}}
