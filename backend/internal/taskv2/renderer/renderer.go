@@ -41,11 +41,8 @@ func (r *TaskRenderer) Render(ctx context.Context, configRaw json.RawMessage, fa
 
 	result := make(renderer.RenderResult, len(sections))
 	for slot, sec := range sections {
-		var content any = sec.Content
+		var content = sec.Content
 		secType := string(sec.Type)
-		if sec.Type == "PAYMENT" {
-			secType = "MARKDOWN"
-		}
 		if secType == "MARKDOWN" {
 			if str, ok := sec.Content.(string); ok {
 				content = map[string]any{"content": str}

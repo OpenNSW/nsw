@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/OpenNSW/nsw/internal/payments"
+	"github.com/OpenNSW/nsw/pkg/uiprojector"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -56,7 +57,11 @@ func TestPaymentProjector_Project(t *testing.T) {
 
 		out, err := proj.Project(context.Background(), nil, data)
 		assert.NoError(t, err)
-		assert.Equal(t, "LankaPay App Fee (https://checkout.lk/123)", out)
+		assert.Equal(t, uiprojector.SectionType("REDIRECT"), out.Type)
+		content, ok := out.Content.(map[string]any)
+		assert.True(t, ok)
+		assert.Equal(t, "https://checkout.lk/123", content["checkout_url"])
+		assert.Equal(t, "LankaPay App Fee (https://checkout.lk/123)", content["content"])
 	})
 
 	t.Run("renders govpay offline template", func(t *testing.T) {
@@ -77,6 +82,7 @@ func TestPaymentProjector_Project(t *testing.T) {
 
 		out, err := proj.Project(context.Background(), nil, data)
 		assert.NoError(t, err)
-		assert.Equal(t, "GovPay REF-999 amount 1500.00", out)
+		assert.Equal(t, uiprojector.SectionTypeMarkdown, out.Type)
+		assert.Equal(t, "GovPay REF-999 amount 1500.00", out.Content)
 	})
 }

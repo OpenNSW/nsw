@@ -31,10 +31,10 @@ func (p *PaymentProjector) Type() uiprojector.ProjectorType {
 }
 
 // Project resolves the selected payment method's instructions template and renders it.
-func (p *PaymentProjector) Project(ctx context.Context, templateContent []byte, data any) (any, error) {
+func (p *PaymentProjector) Project(ctx context.Context, templateContent []byte, data any) (uiprojector.Projection, error) {
 	dataMap, ok := data.(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("payment_projector: expected map data, got %T", data)
+		return uiprojector.Projection{}, fmt.Errorf("payment_projector: expected map data, got %T", data)
 	}
 
 	selectedMethod, _ := dataMap["selected_method"].(string)
@@ -44,12 +44,12 @@ func (p *PaymentProjector) Project(ctx context.Context, templateContent []byte, 
 
 	method, err := p.paymentService.GetPaymentMethod(selectedMethod)
 	if err != nil {
-		return nil, fmt.Errorf("payment_projector: get payment method %q: %w", selectedMethod, err)
+		return uiprojector.Projection{}, fmt.Errorf("payment_projector: get payment method %q: %w", selectedMethod, err)
 	}
 
 	tmpl, err := template.New("instructions").Parse(method.Template)
 	if err != nil {
-		return nil, fmt.Errorf("payment_projector: parse template: %w", err)
+		return uiprojector.Projection{}, fmt.Errorf("payment_projector: parse template: %w", err)
 	}
 
 	tmplData := map[string]any{
@@ -64,8 +64,22 @@ func (p *PaymentProjector) Project(ctx context.Context, templateContent []byte, 
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, tmplData); err != nil {
-		return nil, fmt.Errorf("payment_projector: execute template: %w", err)
+		return uiprojector.Projection{}, fmt.Errorf("payment_projector: execute template: %w", err)
 	}
 
-	return buf.String(), nil
+	if method.Type == "REDIRECT" {
+		checkoutURL, _ := dataMap["checkout_url"].(string)
+		return uiprojector.Projection{
+			Type: uiprojector.SectionType("REDIRECT"),
+			Content: map[string]any{
+				"checkout_url": checkoutURL,
+				"content":      buf.String(),
+			},
+		}, nil
+	}
+
+	return uiprojector.Projection{
+		Type:    uiprojector.SectionTypeMarkdown,
+		Content: buf.String(),
+	}, nil
 }
