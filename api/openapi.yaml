@@ -561,6 +561,7 @@ components:
       properties:
         id:
           type: string
+          format: uuid
           description: Unique identifier for the HS code
         hsCode:
           type: string
@@ -615,6 +616,7 @@ components:
       properties:
         id:
           type: string
+          format: uuid
           description: CHA identifier
         name:
           type: string
@@ -628,6 +630,7 @@ components:
           description: Email address of the CHA
         companyId:
           type: string
+          format: uuid
           description: ID of the company this CHA belongs to
         createdAt:
           type: string
@@ -648,6 +651,7 @@ components:
       properties:
         id:
           type: string
+          format: uuid
           description: Company identifier
         name:
           type: string
@@ -691,6 +695,7 @@ components:
           $ref: "#/components/schemas/ConsignmentFlow"
         chaCompanyId:
           type: string
+          format: uuid
           description: ID of the CHA company that will handle this consignment
 
     InitializeConsignmentDTO:
@@ -702,8 +707,10 @@ components:
           type: array
           description: HS code IDs selected by the CHA for this consignment
           minItems: 1
+          maxItems: 1
           items:
             type: string
+            format: uuid
 
     HSCodeResponseDTO:
       type: object
@@ -715,6 +722,7 @@ components:
       properties:
         hsCodeId:
           type: string
+          format: uuid
           description: HS Code ID
         hsCode:
           type: string
@@ -761,6 +769,7 @@ components:
       properties:
         id:
           type: string
+          format: uuid
           description: Workflow node ID
         createdAt:
           type: string
@@ -792,12 +801,15 @@ components:
       properties:
         id:
           type: string
+          format: uuid
           description: Edge identifier
         source_id:
           type: string
+          format: uuid
           description: ID of the source workflow node
         target_id:
           type: string
+          format: uuid
           description: ID of the target workflow node
         condition:
           type: string
@@ -820,6 +832,7 @@ components:
       properties:
         id:
           type: string
+          format: uuid
           description: Consignment ID
         flow:
           $ref: "#/components/schemas/ConsignmentFlow"
@@ -830,12 +843,15 @@ components:
           description: ID of the trader user who created the consignment
         traderCompanyId:
           type: string
+          format: uuid
           description: ID of the company the trader belongs to
         chaCompanyId:
           type: string
+          format: uuid
           description: ID of the CHA company selected at Stage 1
         chaId:
           type: string
+          format: uuid
           description: ID of the CHA assigned at Stage 2 (absent until claimed)
         items:
           type: array
@@ -878,6 +894,7 @@ components:
       properties:
         id:
           type: string
+          format: uuid
           description: Consignment ID
         flow:
           $ref: "#/components/schemas/ConsignmentFlow"
@@ -888,12 +905,15 @@ components:
           description: ID of the trader user who created the consignment
         traderCompanyId:
           type: string
+          format: uuid
           description: ID of the company the trader belongs to
         chaCompanyId:
           type: string
+          format: uuid
           description: ID of the CHA company selected at Stage 1
         chaId:
           type: string
+          format: uuid
           description: ID of the CHA assigned at Stage 2 (absent until claimed)
         items:
           type: array
@@ -1061,34 +1081,29 @@ components:
     ValidateReferenceResponse:
       type: object
       required:
-        - amount
-        - currency
-        - traderName
-        - ogaName
-        - expiryDate
         - isPayable
       properties:
         amount:
           type: number
-          description: Amount due for the payment
+          description: Amount due for the payment (absent when the reference is invalid)
         currency:
           type: string
-          description: Currency code (e.g., LKR)
+          description: Currency code, e.g. LKR (absent when the reference is invalid)
         traderName:
           type: string
-          description: Name of the trader associated with the payment
+          description: Name of the trader associated with the payment (absent when the reference is invalid)
         ogaName:
           type: string
-          description: Name of the Other Government Agency
+          description: Name of the Other Government Agency (absent when the reference is invalid)
         expiryDate:
           type: string
-          description: Payment expiry date in ISO 8601 format
+          description: Payment expiry date in ISO 8601 format (absent when the reference is invalid)
         isPayable:
           type: boolean
-          description: Whether the reference is still payable (false if already paid or expired)
+          description: Whether the reference is still payable (false if invalid, already paid, or expired)
         remarks:
           type: string
-          description: Optional remarks
+          description: Human-readable status or error message
 
     # Error Response
     ErrorResponse:
