@@ -29,14 +29,14 @@ func (m *Manager) RequireScope(scope string) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			p, ok := m.Principal(r.Context())
 			if !ok {
-				slog.Debug("authz: no principal on request", "scope", scope, "path", r.URL.Path)
+				slog.DebugContext(r.Context(), "authz: no principal on request", "scope", scope, "path", r.URL.Path)
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnauthorized)
 				_, _ = w.Write([]byte(`{"error":"unauthorized","message":"authentication required"}`))
 				return
 			}
 			if !p.HasScope(scope) {
-				slog.Warn("authz: principal lacks required scope",
+				slog.WarnContext(r.Context(), "authz: principal lacks required scope",
 					"scope", scope,
 					"kind", p.Kind(),
 					"subject", p.Subject(),

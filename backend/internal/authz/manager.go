@@ -3,6 +3,7 @@ package authz
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/OpenNSW/nsw/internal/auth"
 )
@@ -56,9 +57,7 @@ func cloneScopeMap(src map[string][]string) map[string][]string {
 	}
 	dst := make(map[string][]string, len(src))
 	for k, v := range src {
-		copied := make([]string, len(v))
-		copy(copied, v)
-		dst[k] = copied
+		dst[k] = slices.Clone(v)
 	}
 	return dst
 }
