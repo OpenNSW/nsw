@@ -97,7 +97,7 @@ export async function getTraderPreConsignments(
     }))
 
     return {
-      totalCount: items.length,
+      total: items.length,
       items,
       offset: 0,
       limit: items.length,

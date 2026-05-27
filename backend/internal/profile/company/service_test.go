@@ -182,15 +182,16 @@ func TestService_ListCompanies_NoFilter(t *testing.T) {
 	rows := sqlmock.NewRows(companyColumns).
 		AddRow("adam-pvt-ltd", "ADAM PVT LTD", "adam-pvt-ltd", true, []byte(`{}`), now, now).
 		AddRow("edward-pvt-ltd", "EDWARD PVT LTD", "edward-pvt-ltd", true, []byte(`{}`), now, now)
-	mock.ExpectQuery(`SELECT \* FROM "company_records" ORDER BY name ASC`).
+	mock.ExpectQuery(`SELECT .* FROM "company_records" ORDER BY name ASC LIMIT \$1`).
+		WithArgs(50).
 		WillReturnRows(rows)
 
-	records, err := svc.ListCompanies(context.Background(), ListFilter{})
+	result, err := svc.ListCompanies(context.Background(), ListFilter{})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if len(records) != 2 || records[0].ID != "adam-pvt-ltd" || records[1].ID != "edward-pvt-ltd" {
-		t.Fatalf("unexpected records: %+v", records)
+	if result.Total != 2 || len(result.Items) != 2 || result.Items[0].ID != "adam-pvt-ltd" || result.Items[1].ID != "edward-pvt-ltd" {
+		t.Fatalf("unexpected result: %+v", result)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
@@ -201,16 +202,16 @@ func TestService_ListCompanies_HasCHA(t *testing.T) {
 	db, mock := setupTestDB(t)
 	svc := NewService(db)
 
-	mock.ExpectQuery(`SELECT \* FROM "company_records" WHERE has_cha = \$1 ORDER BY name ASC`).
-		WithArgs(true).
+	mock.ExpectQuery(`SELECT .* FROM "company_records" WHERE has_cha = \$1 ORDER BY name ASC LIMIT \$2`).
+		WithArgs(true, 50).
 		WillReturnRows(companyRow("adam-pvt-ltd", "ADAM PVT LTD", "adam-pvt-ltd", true, []byte(`{}`)))
 
-	records, err := svc.ListCompanies(context.Background(), ListFilter{HasCHA: boolPtr(true)})
+	result, err := svc.ListCompanies(context.Background(), ListFilter{HasCHA: boolPtr(true)})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if len(records) != 1 || !records[0].HasCHA {
-		t.Fatalf("unexpected records: %+v", records)
+	if result.Total != 1 || len(result.Items) != 1 || !result.Items[0].HasCHA {
+		t.Fatalf("unexpected result: %+v", result)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
@@ -221,16 +222,16 @@ func TestService_ListCompanies_Name(t *testing.T) {
 	db, mock := setupTestDB(t)
 	svc := NewService(db)
 
-	mock.ExpectQuery(`SELECT \* FROM "company_records" WHERE name ILIKE \$1 ORDER BY name ASC`).
-		WithArgs("%adam%").
+	mock.ExpectQuery(`SELECT .* FROM "company_records" WHERE name ILIKE \$1 ORDER BY name ASC LIMIT \$2`).
+		WithArgs("%adam%", 50).
 		WillReturnRows(companyRow("adam-pvt-ltd", "ADAM PVT LTD", "adam-pvt-ltd", true, []byte(`{}`)))
 
-	records, err := svc.ListCompanies(context.Background(), ListFilter{Name: strPtr("adam")})
+	result, err := svc.ListCompanies(context.Background(), ListFilter{Name: strPtr("adam")})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if len(records) != 1 || records[0].ID != "adam-pvt-ltd" {
-		t.Fatalf("unexpected records: %+v", records)
+	if result.Total != 1 || len(result.Items) != 1 || result.Items[0].ID != "adam-pvt-ltd" {
+		t.Fatalf("unexpected result: %+v", result)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
@@ -242,7 +243,8 @@ func TestService_ListCompanies_NameWhitespaceIgnored(t *testing.T) {
 	svc := NewService(db)
 
 	// Whitespace-only name should NOT add a WHERE clause.
-	mock.ExpectQuery(`SELECT \* FROM "company_records" ORDER BY name ASC`).
+	mock.ExpectQuery(`SELECT .* FROM "company_records" ORDER BY name ASC LIMIT \$1`).
+		WithArgs(50).
 		WillReturnRows(sqlmock.NewRows(companyColumns))
 
 	_, err := svc.ListCompanies(context.Background(), ListFilter{Name: strPtr("   ")})
@@ -258,16 +260,16 @@ func TestService_ListCompanies_Combined(t *testing.T) {
 	db, mock := setupTestDB(t)
 	svc := NewService(db)
 
-	mock.ExpectQuery(`SELECT \* FROM "company_records" WHERE has_cha = \$1 AND name ILIKE \$2 ORDER BY name ASC`).
-		WithArgs(true, "%adam%").
+	mock.ExpectQuery(`SELECT .* FROM "company_records" WHERE has_cha = \$1 AND name ILIKE \$2 ORDER BY name ASC LIMIT \$3`).
+		WithArgs(true, "%adam%", 50).
 		WillReturnRows(companyRow("adam-pvt-ltd", "ADAM PVT LTD", "adam-pvt-ltd", true, []byte(`{}`)))
 
-	records, err := svc.ListCompanies(context.Background(), ListFilter{HasCHA: boolPtr(true), Name: strPtr("adam")})
+	result, err := svc.ListCompanies(context.Background(), ListFilter{HasCHA: boolPtr(true), Name: strPtr("adam")})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if len(records) != 1 {
-		t.Fatalf("unexpected records: %+v", records)
+	if result.Total != 1 || len(result.Items) != 1 {
+		t.Fatalf("unexpected result: %+v", result)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet expectations: %v", err)
@@ -278,7 +280,8 @@ func TestService_ListCompanies_DBError(t *testing.T) {
 	db, mock := setupTestDB(t)
 	svc := NewService(db)
 
-	mock.ExpectQuery(`SELECT \* FROM "company_records"`).
+	mock.ExpectQuery(`SELECT .* FROM "company_records" ORDER BY name ASC LIMIT \$1`).
+		WithArgs(50).
 		WillReturnError(errors.New("db down"))
 
 	if _, err := svc.ListCompanies(context.Background(), ListFilter{}); err == nil {

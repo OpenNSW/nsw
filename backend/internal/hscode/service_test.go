@@ -42,20 +42,16 @@ func TestHSCodeService_GetAllHSCodes(t *testing.T) {
 	t.Run("Success - Default Pagination", func(t *testing.T) {
 		filter := Filter{}
 
-		// Count query
-		sqlMock.ExpectQuery(`SELECT count\(\*\) FROM "hs_codes"`).
-			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(2))
-
-		// Find query
+		// Find query first; 2 results < limit=50, so no separate count query needed
 		sqlMock.ExpectQuery(`SELECT \* FROM "hs_codes" ORDER BY hs_code ASC LIMIT \$1`).
-			WithArgs(50). // Default limit
+			WithArgs(50).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "hs_code"}).
 				AddRow(uuid.NewString(), "1234.56").
 				AddRow(uuid.NewString(), "7890.12"))
 
 		result, err := service.GetAll(ctx, filter)
 		assert.NoError(t, err)
-		assert.Equal(t, int64(2), result.TotalCount)
+		assert.Equal(t, int64(2), result.Total)
 		assert.Len(t, result.Items, 2)
 	})
 
@@ -65,12 +61,7 @@ func TestHSCodeService_GetAllHSCodes(t *testing.T) {
 			HSCodeStartsWith: &startsWith,
 		}
 
-		// Count query with filter
-		sqlMock.ExpectQuery(`SELECT count\(\*\) FROM "hs_codes" WHERE hs_code LIKE \$1`).
-			WithArgs("12%").
-			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
-
-		// Find query with filter
+		// Find query first; 1 result < limit=50, so no separate count query needed
 		sqlMock.ExpectQuery(`SELECT \* FROM "hs_codes" WHERE hs_code LIKE \$1 ORDER BY hs_code ASC LIMIT \$2`).
 			WithArgs("12%", 50).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "hs_code"}).
@@ -78,22 +69,21 @@ func TestHSCodeService_GetAllHSCodes(t *testing.T) {
 
 		result, err := service.GetAll(ctx, filter)
 		assert.NoError(t, err)
-		assert.Equal(t, int64(1), result.TotalCount)
+		assert.Equal(t, int64(1), result.Total)
 		assert.Len(t, result.Items, 1)
 	})
 
 	t.Run("Success - Empty Result", func(t *testing.T) {
 		filter := Filter{}
 
-		// Count query returns 0
-		sqlMock.ExpectQuery(`SELECT count\(\*\) FROM "hs_codes"`).
-			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
-
-		// Find query should NOT be executed
+		// Find query returns empty; 0 < limit=50, so no separate count query needed
+		sqlMock.ExpectQuery(`SELECT \* FROM "hs_codes" ORDER BY hs_code ASC LIMIT \$1`).
+			WithArgs(50).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "hs_code"}))
 
 		result, err := service.GetAll(ctx, filter)
 		assert.NoError(t, err)
-		assert.Equal(t, int64(0), result.TotalCount)
+		assert.Equal(t, int64(0), result.Total)
 		assert.Empty(t, result.Items)
 	})
 }
@@ -142,8 +132,6 @@ func TestHSCodeService_GetAllHSCodes_FindError(t *testing.T) {
 	service := NewService(db)
 	ctx := context.Background()
 
-	sqlMock.ExpectQuery(`SELECT count\(\*\) FROM "hs_codes"`).
-		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 	sqlMock.ExpectQuery(`SELECT \* FROM "hs_codes" ORDER BY hs_code ASC LIMIT \$1`).
 		WithArgs(50).
 		WillReturnError(fmt.Errorf("connection lost"))

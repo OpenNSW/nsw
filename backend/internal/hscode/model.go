@@ -2,6 +2,8 @@ package hscode
 
 import (
 	"time"
+
+	"github.com/OpenNSW/nsw/backend/pkg/pagination"
 )
 
 // HSCode represents the Harmonized System Code used for classifying traded products.
@@ -25,13 +27,8 @@ type Filter struct {
 	Limit            *int    `json:"limit,omitempty"`
 }
 
-// ListResult represents the result of querying HS codes with pagination
-type ListResult struct {
-	TotalCount int64    `json:"totalCount"`
-	Items      []HSCode `json:"items"`
-	Offset     int      `json:"offset"`
-	Limit      int      `json:"limit"`
-}
+// ListResult is the pagination envelope returned by the list HS codes endpoint.
+type ListResult = pagination.Page[HSCode]
 
 // ResponseDTO represents HS Code details in the response.
 type ResponseDTO struct {

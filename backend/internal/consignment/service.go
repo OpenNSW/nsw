@@ -19,7 +19,7 @@ import (
 	"github.com/OpenNSW/nsw/backend/internal/profile/user"
 	"github.com/OpenNSW/nsw/backend/internal/workflow/model"
 	"github.com/OpenNSW/nsw/backend/internal/workflow/service"
-	"github.com/OpenNSW/nsw/backend/utils"
+	"github.com/OpenNSW/nsw/backend/pkg/pagination"
 )
 
 // Service handles consignment-related operations.
@@ -298,42 +298,44 @@ func (s *Service) ListConsignments(ctx context.Context, filter Filter) (*ListRes
 // listConsignmentsWithBaseQuery runs the shared list logic (filters, count, pagination, DTOs).
 func (s *Service) listConsignmentsWithBaseQuery(ctx context.Context, baseQuery *gorm.DB, filter Filter) (*ListResult, error) {
 	// Apply pagination with defaults and limits
-	finalOffset, finalLimit := utils.GetPaginationParams(filter.Offset, filter.Limit)
+	finalOffset, finalLimit := pagination.ResolvePaginationParams(filter.Offset, filter.Limit)
 
-	// Apply optional filters
-	query := baseQuery
-	if filter.State != nil {
-		query = query.Where("state = ?", *filter.State)
-	}
-	if filter.Flow != nil {
-		query = query.Where("flow = ?", *filter.Flow)
-	}
-
-	// Get total count of FILTERED records
-	var totalCount int64
-	if err := query.Count(&totalCount).Error; err != nil {
-		return nil, fmt.Errorf("failed to count filtered consignments: %w", err)
-	}
-
-	if totalCount == 0 {
-		return &ListResult{
-			TotalCount: 0,
-			Items:      []SummaryDTO{},
-			Offset:     finalOffset,
-			Limit:      finalLimit,
-		}, nil
+	// Each call returns a fresh GORM chain so LIMIT/OFFSET/ORDER on the list
+	// query cannot leak into the count query — consistent with hscode and
+	// profile/company services.
+	filteredQuery := func() *gorm.DB {
+		q := baseQuery
+		if filter.State != nil {
+			q = q.Where("state = ?", *filter.State)
+		}
+		if filter.Flow != nil {
+			q = q.Where("flow = ?", *filter.Flow)
+		}
+		return q
 	}
 
 	var consignments []Consignment
-	// Apply Pagination and Ordering to the filtered query
 	// NOTE: We do NOT preload WorkflowNodes here to improve performance
-	query = query.
+	if err := filteredQuery().
 		Offset(finalOffset).
 		Limit(finalLimit).
-		Order("created_at DESC")
-
-	if err := query.Find(&consignments).Error; err != nil {
+		Order("created_at DESC").
+		Find(&consignments).Error; err != nil {
 		return nil, fmt.Errorf("failed to retrieve consignments: %w", err)
+	}
+
+	var totalCount int64
+	if len(consignments) < finalLimit && finalOffset == 0 {
+		totalCount = int64(len(consignments))
+	} else {
+		if err := filteredQuery().Count(&totalCount).Error; err != nil {
+			return nil, fmt.Errorf("failed to count filtered consignments: %w", err)
+		}
+	}
+
+	if len(consignments) == 0 {
+		result := pagination.NewPageResult([]SummaryDTO{}, totalCount, finalOffset, finalLimit)
+		return &result, nil
 	}
 
 	// Collect Consignment IDs to fetch workflow node counts
@@ -437,12 +439,8 @@ func (s *Service) listConsignmentsWithBaseQuery(ctx context.Context, baseQuery *
 		})
 	}
 
-	return &ListResult{
-		TotalCount: totalCount,
-		Items:      consignmentDTOs,
-		Offset:     finalOffset,
-		Limit:      finalLimit,
-	}, nil
+	result := pagination.NewPageResult(consignmentDTOs, totalCount, finalOffset, finalLimit)
+	return &result, nil
 }
 
 // markConsignmentAsFinished updates the consignment state to FINISHED.

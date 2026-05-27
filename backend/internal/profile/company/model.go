@@ -3,6 +3,8 @@ package company
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/OpenNSW/nsw/backend/pkg/pagination"
 )
 
 // Record represents a company's persisted profile in the database.
@@ -25,7 +27,9 @@ type ListFilter struct {
 	// HasCHA filters to companies whose has_cha column matches the pointed-to value when non-nil.
 	HasCHA *bool
 	// Name filters to companies whose name matches a case-insensitive substring when non-empty.
-	Name *string
+	Name   *string
+	Offset *int
+	Limit  *int
 }
 
 // Summary is the trimmed projection of a company returned by the list endpoint. It carries only
@@ -37,12 +41,5 @@ type Summary struct {
 	HasCHA bool   `json:"hasCha"`
 }
 
-// ListResult is the envelope returned by GET /api/v1/companies. The pagination fields are
-// included now so the contract can grow (offset/limit, total) without a breaking change
-// when pagination lands.
-type ListResult struct {
-	Items  []Summary `json:"items"`
-	Total  int64     `json:"total"`
-	Offset int       `json:"offset"`
-	Limit  int       `json:"limit"`
-}
+// ListResult is the pagination envelope returned by GET /api/v1/companies.
+type ListResult = pagination.Page[Summary]
