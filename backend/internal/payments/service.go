@@ -91,11 +91,13 @@ const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 func generatePaymentReference() string {
 	b := make([]byte, 8)
-	_, _ = rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		panic(fmt.Sprintf("failed to generate random bytes: %v", err))
+	}
 	for i := range b {
 		b[i] = charset[int(b[i])%len(charset)]
 	}
-	return "TNSW" + string(b)
+	return "TNSW-" + string(b)
 }
 
 // CreateCheckoutSession saves the initial intent and returns mocked LankaPay session details.

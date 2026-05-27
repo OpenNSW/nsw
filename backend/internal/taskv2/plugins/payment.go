@@ -25,13 +25,23 @@ func NewPaymentPlugin(paymentService payments.PaymentService) *PaymentPlugin {
 }
 
 type paymentConfig struct {
-	TaskCode string `json:"task_code"`
+	TaskCode    string          `json:"task_code"`
+	ServiceName string          `json:"service_name"`
+	Amount      decimal.Decimal `json:"amount"`
+	Currency    string          `json:"currency"`
 }
 
 func (p *PaymentPlugin) Execute(ctx pluginContext, configRaw json.RawMessage) error {
 	var cfg paymentConfig
 	if err := json.Unmarshal(configRaw, &cfg); err != nil {
 		return fmt.Errorf("payment: failed to parse generic_payment config: %w", err)
+	}
+
+	if cfg.Amount.IsZero() {
+		return fmt.Errorf("payment: plugin_properties.amount is required and must be non-zero")
+	}
+	if cfg.Currency == "" {
+		return fmt.Errorf("payment: plugin_properties.currency is required")
 	}
 
 	// 1. Determine selected payment gateway
@@ -48,16 +58,8 @@ func (p *PaymentPlugin) Execute(ctx pluginContext, configRaw json.RawMessage) er
 	// 2. Transition task state to PENDING_PAYMENT
 	ctx.Record.State = "PENDING_PAYMENT"
 
-	// 4. Determine amount and currency based on task_code
-	amount := decimal.NewFromFloat(1000.00) // Default LKR 1000.00
-	currency := "LKR"
-
-	switch cfg.TaskCode {
-	case "fcau_app_fee_payment_v1":
-		amount = decimal.NewFromFloat(1500.00)
-	case "fcau_lab_fee_payment_v1":
-		amount = decimal.NewFromFloat(5000.00)
-	}
+	amount := cfg.Amount
+	currency := cfg.Currency
 
 	slog.Info("taskv2 payment: initiating checkout session",
 		"taskId", ctx.Record.TaskID, "taskCode", cfg.TaskCode, "amount", amount, "method", selectedMethod)
@@ -87,13 +89,8 @@ func (p *PaymentPlugin) Execute(ctx pluginContext, configRaw json.RawMessage) er
 			ctx.Record.Data = make(map[string]any)
 		}
 
-		var serviceName string
-		switch cfg.TaskCode {
-		case "fcau_app_fee_payment_v1":
-			serviceName = "Application Fee"
-		case "fcau_lab_fee_payment_v1":
-			serviceName = "Laboratory Test Fee"
-		default:
+		serviceName := cfg.ServiceName
+		if serviceName == "" {
 			serviceName = "Payment"
 		}
 

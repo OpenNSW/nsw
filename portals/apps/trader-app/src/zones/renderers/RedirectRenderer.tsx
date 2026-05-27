@@ -17,12 +17,20 @@ export function RedirectRenderer({ payload }: ZoneRendererProps<'REDIRECT'>) {
 
   useEffect(() => {
     if (checkout_url && !hasRedirected) {
+      let success = false
       try {
         sessionStorage.setItem(sessionKey, 'true')
+        success = true
       } catch (err) {
         console.error('Failed to set sessionStorage:', err)
       }
-      window.location.href = checkout_url
+      if (success) {
+        window.location.href = checkout_url
+      } else {
+        // Fallback: if sessionStorage is unavailable, do not auto-redirect
+        // to prevent infinite loops. Force manual redirection instead.
+        setHasRedirected(true)
+      }
     }
   }, [checkout_url, hasRedirected, sessionKey])
 

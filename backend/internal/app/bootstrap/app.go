@@ -114,7 +114,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to register taskv2 plugins: %w", err)
 	}
 
-	taskV2, stopTaskV2, err := taskv2.WireTaskV2(db, &temporalClient, pluginsRegistry, paymentService, onTaskCompleted)
+	taskV2, stopTaskV2, err := taskv2.WireTaskV2(db, temporalClient, pluginsRegistry, paymentService, onTaskCompleted)
 	if err != nil {
 		temporalClient.Close()
 		_ = database.Close(db)

@@ -53,7 +53,7 @@ func TestPaymentPlugin_Execute(t *testing.T) {
 	plugin := NewPaymentPlugin(mockSvc)
 
 	// Check config
-	configRaw := json.RawMessage(`{"task_code": "fcau_app_fee_payment_v1"}`)
+	configRaw := json.RawMessage(`{"task_code": "fcau_app_fee_payment_v1", "service_name": "Application Fee", "amount": "1500.00", "currency": "LKR"}`)
 
 	t.Run("successful execution", func(t *testing.T) {
 		record := store.TaskRecord{
