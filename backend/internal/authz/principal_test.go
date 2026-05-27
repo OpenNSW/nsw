@@ -67,10 +67,36 @@ func TestNewManager_InvalidConfig(t *testing.T) {
 	}
 }
 
+func TestKind_String(t *testing.T) {
+	tests := []struct {
+		kind Kind
+		want string
+	}{
+		{KindUser, "user"},
+		{KindClient, "client"},
+		{Kind(0), "unknown"},
+		{Kind(99), "unknown"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.want, func(t *testing.T) {
+			if got := tt.kind.String(); got != tt.want {
+				t.Fatalf("Kind(%d).String() = %q, want %q", tt.kind, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestManagerPrincipal_NoAuthContext(t *testing.T) {
 	mgr := newTestManager(t)
 	if _, ok := mgr.Principal(context.Background()); ok {
 		t.Fatal("expected ok=false when no auth context attached")
+	}
+}
+
+func TestManagerPrincipal_NilReceiver(t *testing.T) {
+	var mgr *Manager
+	if _, ok := mgr.Principal(contextWithUser(t, &auth.UserContext{IDPUserID: "u", Roles: []string{"trader"}})); ok {
+		t.Fatal("expected ok=false when Manager receiver is nil")
 	}
 }
 

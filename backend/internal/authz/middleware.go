@@ -17,7 +17,14 @@ import (
 // The JSON response shape matches the existing auth middleware so clients
 // see a consistent error format across authentication and authorization
 // failures.
+//
+// Panics at construction time if the receiver is nil. Failing fast at
+// route-wiring time produces a clear bootstrap error instead of a
+// closure that panics on the first request.
 func (m *Manager) RequireScope(scope string) func(http.Handler) http.Handler {
+	if m == nil {
+		panic("authz: RequireScope called on a nil Manager")
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			p, ok := m.Principal(r.Context())

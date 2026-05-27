@@ -32,6 +32,19 @@ const (
 	KindClient
 )
 
+// String renders Kind as a stable, human-readable token. Mostly used by
+// slog so log lines say kind=user instead of kind=1.
+func (k Kind) String() string {
+	switch k {
+	case KindUser:
+		return "user"
+	case KindClient:
+		return "client"
+	default:
+		return "unknown"
+	}
+}
+
 // Principal is the unified view of an authenticated caller. It wraps the
 // existing *auth.AuthContext and exposes authorization-friendly helpers
 // without coupling callers to the underlying user/client structs.

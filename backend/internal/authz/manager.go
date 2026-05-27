@@ -31,9 +31,15 @@ func NewManager(cfg Config) (*Manager, error) {
 
 // Principal returns the authenticated principal for the given request
 // context, resolved from the auth context injected by auth.Middleware.
-// ok=false when no auth context is attached (anonymous request) or when
-// the attached context is empty (neither user nor client present).
+// ok=false when no auth context is attached (anonymous request), when
+// the attached context is empty (neither user nor client present), or
+// when the receiver itself is nil (defensive — a nil Manager indicates
+// a wiring bug, but treating it as "no principal" avoids a delayed
+// panic on the first HasScope call).
 func (m *Manager) Principal(ctx context.Context) (Principal, bool) {
+	if m == nil {
+		return nil, false
+	}
 	authCtx := auth.GetAuthContext(ctx)
 	if authCtx == nil {
 		return nil, false

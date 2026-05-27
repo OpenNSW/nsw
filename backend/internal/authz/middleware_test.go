@@ -17,6 +17,21 @@ func newNextHandler(called *bool) http.Handler {
 	})
 }
 
+func TestRequireScope_NilManagerPanicsAtConstruction(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("expected panic when RequireScope is called on a nil Manager")
+		}
+		msg, ok := r.(string)
+		if !ok || !strings.Contains(msg, "nil Manager") {
+			t.Fatalf("expected panic message mentioning nil Manager, got %v (%T)", r, r)
+		}
+	}()
+	var mgr *Manager
+	_ = mgr.RequireScope("anything")
+}
+
 func TestRequireScope_AnonymousReturns401(t *testing.T) {
 	mgr := newTestManager(t)
 
