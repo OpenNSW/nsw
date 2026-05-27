@@ -4,7 +4,7 @@ info:
   version: 1.0.0
   description: >
     Complete API specification for the OpenNSW backend workflow management system.
-    Provides endpoints for managing consignments, pre-consignments, HS codes, and workflow tasks.
+    Provides endpoints for managing consignments, HS codes, workflow tasks, CHAs, companies, and payments.
   contact:
     name: OpenNSW Team
   license:
@@ -18,6 +18,42 @@ security:
   - traderAuth: []
 
 paths:
+  # Health Check (base path — not under /api/v1)
+  /health:
+    servers:
+      - url: "http://localhost:8080"
+        description: Development server (local) — base path for health endpoint
+    get:
+      summary: Health Check
+      description: >
+        Returns the health status of the service and its subsystems.
+        Public endpoint — no authentication required.
+        On failure, unhealthy_components lists the names of the failing subsystems.
+      operationId: healthCheck
+      tags:
+        - Health
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: "ok"
+                service: "nsw-backend"
+        "503":
+          description: One or more subsystems are unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: "error"
+                service: "nsw-backend"
+                unhealthy_components: ["database"]
+
   # HS Code Endpoints
   /hscodes:
     get:
@@ -25,10 +61,12 @@ paths:
       description: >
         Retrieve a paginated list of Harmonized System codes with optional filtering.
         HS Codes are used to classify products for customs purposes.
+        Requires Authorization header with Bearer JWT access token.
       operationId: getAllHSCodes
       tags:
         - HS Codes
-      security: []
+      security:
+        - traderAuth: []
       parameters:
         - name: hsCodeStartsWith
           in: query
@@ -62,6 +100,73 @@ paths:
                 $ref: "#/components/schemas/HSCodeListResult"
         "400":
           description: Invalid query parameters
+        "401":
+          description: Missing or invalid authentication token
+        "500":
+          description: Internal server error
+
+  # CHA Endpoints
+  /chas:
+    get:
+      summary: List Customs House Agents
+      description: >
+        Retrieve all Customs House Agent profiles.
+        Requires Authorization header with Bearer JWT access token.
+      operationId: listCHAs
+      tags:
+        - CHAs
+      security:
+        - traderAuth: []
+      responses:
+        "200":
+          description: List of CHAs retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CHARecord"
+        "401":
+          description: Missing or invalid authentication token
+        "500":
+          description: Internal server error
+
+  # Company Endpoints
+  /companies:
+    get:
+      summary: List Companies
+      description: >
+        Retrieve a list of company profiles with optional filters.
+        Requires Authorization header with Bearer JWT access token.
+      operationId: listCompanies
+      tags:
+        - Companies
+      security:
+        - traderAuth: []
+      parameters:
+        - name: has_cha
+          in: query
+          description: Filter companies by whether they have a CHA association
+          required: false
+          schema:
+            type: boolean
+        - name: name
+          in: query
+          description: Case-insensitive substring filter on company name
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of companies retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanyListResult"
+        "400":
+          description: Invalid query parameters
+        "401":
+          description: Missing or invalid authentication token
         "500":
           description: Internal server error
 
@@ -70,8 +175,9 @@ paths:
     get:
       summary: List Consignments
       description: >
-        Retrieve all consignments for the authenticated trader.
-        Returns a paginated list of consignment summaries (excluding full workflow node details).
+        Retrieve consignments for the authenticated user.
+        Use the role query parameter to scope to the trader or CHA perspective.
+        Both roles are scoped to the requesting user's company, resolved from the OU handle in the JWT.
         Requires Authorization header with Bearer JWT access token.
       operationId: listConsignments
       tags:
@@ -79,6 +185,14 @@ paths:
       security:
         - traderAuth: []
       parameters:
+        - name: role
+          in: query
+          description: Perspective to list consignments from. Defaults to trader.
+          required: false
+          schema:
+            type: string
+            enum: [trader, cha]
+            default: trader
         - name: offset
           in: query
           description: Pagination offset (default 0)
@@ -100,15 +214,13 @@ paths:
           description: Filter by consignment state
           required: false
           schema:
-            type: string
-            enum: [IN_PROGRESS, REQUIRES_REWORK, FINISHED, COMPLETED]
+            $ref: "#/components/schemas/ConsignmentState"
         - name: flow
           in: query
           description: Filter by trade flow
           required: false
           schema:
-            type: string
-            enum: [IMPORT, EXPORT]
+            $ref: "#/components/schemas/ConsignmentFlow"
       responses:
         "200":
           description: List of consignments retrieved successfully
@@ -117,18 +229,21 @@ paths:
               schema:
                 $ref: "#/components/schemas/ConsignmentListResult"
         "400":
-          description: Invalid query parameters
+          description: Invalid query parameters or invalid role value
         "401":
           description: Missing or invalid authentication token
+        "403":
+          description: Company profile not found for the authenticated user
         "500":
           description: Internal server error
 
     post:
-      summary: Create Consignment
+      summary: Create Consignment (Stage 1)
       description: >
-        Create a new consignment with specified flow type and items.
-        The system automatically initializes workflow tasks based on HS code mappings.
-        Returns the created consignment with full details including all associated workflow nodes.
+        Stage 1 of the two-stage consignment creation flow.
+        Creates a new consignment shell with the specified flow type and CHA company.
+        The consignment starts in INITIALIZED state; a CHA selects HS codes in Stage 2
+        via PUT /consignments/{id}.
         Requires Authorization header with Bearer JWT access token.
       operationId: createConsignment
       tags:
@@ -144,12 +259,10 @@ paths:
               $ref: "#/components/schemas/CreateConsignmentDTO"
             example:
               flow: "IMPORT"
-              items:
-                - hsCodeId: "550e8400-e29b-41d4-a716-446655440000"
-                - hsCodeId: "550e8400-e29b-41d4-a716-446655440001"
+              chaCompanyId: "550e8400-e29b-41d4-a716-446655440000"
       responses:
         "201":
-          description: Consignment created successfully
+          description: Consignment shell created successfully
           content:
             application/json:
               schema:
@@ -158,8 +271,8 @@ paths:
           description: Invalid request body or validation error
         "401":
           description: Missing or invalid authentication token
-        "422":
-          description: Unprocessable entity - HS code not found or other validation error
+        "404":
+          description: CHA company not found
         "500":
           description: Internal server error
 
@@ -167,8 +280,8 @@ paths:
     get:
       summary: Get Consignment Details
       description: >
-        Retrieve detailed information about a specific consignment.
-        Includes all items with HS code details and associated workflow nodes.
+        Retrieve detailed information about a specific consignment including all items,
+        HS code details, associated workflow nodes, and edges.
         Requires Authorization header with Bearer JWT access token.
       operationId: getConsignmentById
       tags:
@@ -178,11 +291,10 @@ paths:
       parameters:
         - name: id
           in: path
-          description: Consignment ID (UUID)
+          description: Consignment ID
           required: true
           schema:
             type: string
-            format: uuid
       responses:
         "200":
           description: Consignment details retrieved successfully
@@ -191,11 +303,54 @@ paths:
               schema:
                 $ref: "#/components/schemas/ConsignmentDetailDTO"
         "400":
-          description: Invalid consignment ID or format
+          description: Invalid consignment ID
         "401":
           description: Missing or invalid authentication token
-        "404":
-          description: Consignment not found
+        "500":
+          description: Internal server error
+
+    put:
+      summary: Initialize Consignment (Stage 2)
+      description: >
+        Stage 2 of the two-stage consignment creation flow. Called by a CHA to select
+        HS codes and initialize the workflow for the consignment.
+        The authenticated user must be a CHA belonging to the CHA company on the consignment.
+        Requires Authorization header with Bearer JWT access token.
+      operationId: initializeConsignment
+      tags:
+        - Consignments
+      security:
+        - traderAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: Consignment ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        description: HS code selection for consignment initialization
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InitializeConsignmentDTO"
+            example:
+              hsCodeIds:
+                - "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        "200":
+          description: Consignment initialized and workflow started successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsignmentDetailDTO"
+        "400":
+          description: Invalid request body or hsCodeIds is empty
+        "401":
+          description: Missing or invalid authentication token
+        "403":
+          description: Authenticated user is not a CHA or does not belong to the consignment's CHA company
         "500":
           description: Internal server error
 
@@ -204,12 +359,14 @@ paths:
     post:
       summary: Execute Task
       description: >
-        Execute a task in the workflow. Submit task execution payload to a specific workflow task and retrieve execution results.
-        The response includes the task execution result or error information.
+        Execute a task in the workflow. Submits a task execution payload to a specific
+        workflow task and returns the execution result.
+        Requires Authorization header with Bearer JWT access token.
       operationId: executeTask
       tags:
         - Tasks
-      security: []
+      security:
+        - traderAuth: []
       requestBody:
         required: true
         description: Task execution request with workflow and task IDs
@@ -233,6 +390,8 @@ paths:
                 $ref: "#/components/schemas/ApiResponse"
         "400":
           description: Invalid request body or missing required fields
+        "401":
+          description: Missing or invalid authentication token
         "404":
           description: Task not found
         "500":
@@ -244,10 +403,12 @@ paths:
       description: >
         Retrieve task information including form schema and current state.
         Used by portals to render the appropriate UI for a task.
+        Requires Authorization header with Bearer JWT access token.
       operationId: getTask
       tags:
         - Tasks
-      security: []
+      security:
+        - traderAuth: []
       parameters:
         - name: id
           in: path
@@ -266,128 +427,101 @@ paths:
                 $ref: "#/components/schemas/ApiResponse"
         "400":
           description: Invalid task ID format
+        "401":
+          description: Missing or invalid authentication token
         "404":
           description: Task not found
         "500":
           description: Internal server error
 
-  # Pre-Consignment Endpoints
-  /pre-consignments:
-    get:
-      summary: List Pre-Consignments
-      description: >
-        Retrieve all pre-consignments for the authenticated trader. Pre-consignments are templates and instances
-        for initial workflow steps before full consignment creation.
-        Requires Authorization header with Bearer JWT access token.
-      operationId: listPreConsignments
-      tags:
-        - Pre-Consignments
-      security:
-        - traderAuth: []
-      parameters:
-        - name: offset
-          in: query
-          description: Pagination offset (default 0)
-          required: false
-          schema:
-            type: integer
-            default: 0
-            minimum: 0
-        - name: limit
-          in: query
-          description: Pagination limit (default 50)
-          required: false
-          schema:
-            type: integer
-            default: 50
-            minimum: 1
-      responses:
-        "200":
-          description: List of pre-consignments retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TraderPreConsignmentsResponseDTO"
-        "400":
-          description: Invalid query parameters
-        "401":
-          description: Missing or invalid authentication token
-        "500":
-          description: Internal server error
-
+  # Payment Endpoints
+  /payments/webhook:
     post:
-      summary: Create Pre-Consignment
+      summary: Payment Webhook
       description: >
-        Create a new pre-consignment instance from a pre-consignment template.
-        Pre-consignments facilitate initial workflow steps before actual consignment creation.
-        Requires Authorization header with Bearer JWT access token.
-      operationId: createPreConsignment
+        Receives payment status notifications from LankaPay.
+        Public endpoint — no authentication required.
+        Webhook signature validation is handled internally by the service.
+      operationId: handlePaymentWebhook
       tags:
-        - Pre-Consignments
-      security:
-        - traderAuth: []
+        - Payments
+      security: []
       requestBody:
         required: true
-        description: Pre-consignment creation request
+        description: LankaPay webhook notification payload
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreatePreConsignmentDTO"
-            example:
-              preConsignmentTemplateId: "550e8400-e29b-41d4-a716-446655440000"
+              $ref: "#/components/schemas/WebhookPayload"
       responses:
-        "201":
-          description: Pre-consignment created successfully
+        "200":
+          description: Webhook received and accepted
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PreConsignmentResponseDTO"
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "accepted"
         "400":
-          description: Invalid request body or missing required fields
-        "401":
-          description: Missing or invalid authentication token
-        "422":
-          description: Unprocessable entity - template not found or dependency error
+          description: Invalid webhook payload
         "500":
           description: Internal server error
 
-  /pre-consignments/{preConsignmentId}:
-    get:
-      summary: Get Pre-Consignment Details
+  /payments/validate:
+    post:
+      summary: Validate Payment Reference
       description: >
-        Retrieve detailed information about a specific pre-consignment instance.
-        Requires Authorization header with Bearer JWT access token.
-      operationId: getPreConsignmentById
+        Called by LankaPay when a user enters a payment reference number in their bank app.
+        Returns payment metadata to auto-populate the user's payment screen.
+        Public endpoint — no authentication required.
+      operationId: validatePaymentReference
       tags:
-        - Pre-Consignments
-      security:
-        - traderAuth: []
-      parameters:
-        - name: preConsignmentId
-          in: path
-          description: Pre-Consignment ID (UUID)
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - Payments
+      security: []
+      requestBody:
+        required: true
+        description: Reference validation request from LankaPay
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidateReferenceRequest"
       responses:
         "200":
-          description: Pre-consignment details retrieved successfully
+          description: Reference validated successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PreConsignmentResponseDTO"
+                $ref: "#/components/schemas/ValidateReferenceResponse"
         "400":
-          description: Invalid pre-consignment ID or format
-        "401":
-          description: Missing or invalid authentication token
-        "404":
-          description: Pre-consignment not found
+          description: Invalid request payload
         "500":
           description: Internal server error
 
 components:
   schemas:
+    # Health Check
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - service
+      properties:
+        status:
+          type: string
+          description: '"ok" on success, "error" on failure'
+          enum: [ok, error]
+        service:
+          type: string
+          description: Service name
+          example: "nsw-backend"
+        unhealthy_components:
+          type: array
+          description: Names of failing subsystems (omitted on success)
+          items:
+            type: string
+
     # Enums and Constants
     ConsignmentFlow:
       type: string
@@ -396,7 +530,7 @@ components:
 
     ConsignmentState:
       type: string
-      enum: [IN_PROGRESS, FINISHED]
+      enum: [INITIALIZED, IN_PROGRESS, FINISHED]
       description: Current state of the consignment in the workflow
 
     WorkflowNodeState:
@@ -409,10 +543,10 @@ components:
       enum: [SIMPLE_FORM, WAIT_FOR_EVENT]
       description: Type of workflow node
 
-    PreConsignmentState:
+    PaymentStatus:
       type: string
-      enum: [LOCKED, READY, IN_PROGRESS, COMPLETED]
-      description: Current state of the pre-consignment
+      enum: [PENDING, SUCCESS, FAILED]
+      description: Status of a payment transaction
 
     # HS Code Schemas
     HSCode:
@@ -422,10 +556,11 @@ components:
         - hsCode
         - description
         - category
+        - createdAt
+        - updatedAt
       properties:
         id:
           type: string
-          format: uuid
           description: Unique identifier for the HS code
         hsCode:
           type: string
@@ -436,6 +571,14 @@ components:
         category:
           type: string
           description: Category classification of the HS code
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp of creation
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp of last update
 
     HSCodeListResult:
       type: object
@@ -460,31 +603,107 @@ components:
           type: integer
           description: Pagination limit used in the query
 
-    # Consignment Schemas
-    CreateConsignmentItemDTO:
+    # CHA Schemas
+    CHARecord:
       type: object
       required:
-        - hsCodeId
+        - id
+        - name
+        - companyId
+        - createdAt
+        - updatedAt
       properties:
-        hsCodeId:
+        id:
           type: string
-          format: uuid
-          description: ID of the HS code for this item
+          description: CHA identifier
+        name:
+          type: string
+          description: Name of the Customs House Agent
+        description:
+          type: string
+          description: Optional description of the CHA
+        email:
+          type: string
+          format: email
+          description: Email address of the CHA
+        companyId:
+          type: string
+          description: ID of the company this CHA belongs to
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp of creation
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp of last update
 
+    # Company Schemas
+    CompanySummary:
+      type: object
+      required:
+        - id
+        - name
+        - hasCha
+      properties:
+        id:
+          type: string
+          description: Company identifier
+        name:
+          type: string
+          description: Company name
+        hasCha:
+          type: boolean
+          description: Whether the company has an associated CHA
+
+    CompanyListResult:
+      type: object
+      required:
+        - items
+        - total
+        - offset
+        - limit
+      properties:
+        items:
+          type: array
+          description: List of companies
+          items:
+            $ref: "#/components/schemas/CompanySummary"
+        total:
+          type: integer
+          format: int64
+          description: Total number of companies matching the filter
+        offset:
+          type: integer
+          description: Pagination offset
+        limit:
+          type: integer
+          description: Pagination limit
+
+    # Consignment Schemas
     CreateConsignmentDTO:
       type: object
       required:
         - flow
-        - items
+        - chaCompanyId
       properties:
         flow:
           $ref: "#/components/schemas/ConsignmentFlow"
-        items:
+        chaCompanyId:
+          type: string
+          description: ID of the CHA company that will handle this consignment
+
+    InitializeConsignmentDTO:
+      type: object
+      required:
+        - hsCodeIds
+      properties:
+        hsCodeIds:
           type: array
-          description: Items included in the consignment
+          description: HS code IDs selected by the CHA for this consignment
           minItems: 1
           items:
-            $ref: "#/components/schemas/CreateConsignmentItemDTO"
+            type: string
 
     HSCodeResponseDTO:
       type: object
@@ -496,7 +715,6 @@ components:
       properties:
         hsCodeId:
           type: string
-          format: uuid
           description: HS Code ID
         hsCode:
           type: string
@@ -540,11 +758,9 @@ components:
         - updatedAt
         - workflowNodeTemplate
         - state
-        - depends_on
       properties:
         id:
           type: string
-          format: uuid
           description: Workflow node ID
         createdAt:
           type: string
@@ -562,45 +778,80 @@ components:
           type: string
           nullable: true
           description: Optional extended state information (e.g., error details)
-        depends_on:
-          type: array
-          description: Array of workflow node IDs this node depends on
-          items:
-            type: string
-            format: uuid
+        outcome:
+          type: string
+          nullable: true
+          description: Outcome sub-state when COMPLETED (e.g., APPROVED, REJECTED)
+
+    WorkflowEdgeResponseDTO:
+      type: object
+      required:
+        - id
+        - source_id
+        - target_id
+      properties:
+        id:
+          type: string
+          description: Edge identifier
+        source_id:
+          type: string
+          description: ID of the source workflow node
+        target_id:
+          type: string
+          description: ID of the target workflow node
+        condition:
+          type: string
+          description: Optional condition expression for conditional unlocks
 
     ConsignmentDetailDTO:
       type: object
       required:
         - id
         - flow
-        - traderId
         - state
+        - traderId
+        - traderCompanyId
+        - chaCompanyId
         - items
+        - workflowNodes
+        - edges
         - createdAt
         - updatedAt
       properties:
         id:
           type: string
-          format: uuid
           description: Consignment ID
         flow:
           $ref: "#/components/schemas/ConsignmentFlow"
-        traderId:
-          type: string
-          description: ID of the trader associated with the consignment
         state:
           $ref: "#/components/schemas/ConsignmentState"
+        traderId:
+          type: string
+          description: ID of the trader user who created the consignment
+        traderCompanyId:
+          type: string
+          description: ID of the company the trader belongs to
+        chaCompanyId:
+          type: string
+          description: ID of the CHA company selected at Stage 1
+        chaId:
+          type: string
+          description: ID of the CHA assigned at Stage 2 (absent until claimed)
         items:
           type: array
-          description: Items in the consignment with HS code details
+          description: Items in the consignment with full HS code details
           items:
             $ref: "#/components/schemas/ConsignmentItemResponseDTO"
         workflowNodes:
           type: array
-          description: Associated workflow nodes (included only in detailed view)
+          description: Associated workflow nodes
           items:
             $ref: "#/components/schemas/WorkflowNodeResponseDTO"
+        edges:
+          type: array
+          description: Directed edges between workflow nodes
+          items:
+            $ref: "#/components/schemas/WorkflowEdgeResponseDTO"
         createdAt:
           type: string
           format: date-time
@@ -615,25 +866,35 @@ components:
       required:
         - id
         - flow
-        - traderId
         - state
+        - traderId
+        - traderCompanyId
+        - chaCompanyId
         - items
-        - createdAt
-        - updatedAt
         - workflowNodeCount
         - completedWorkflowNodeCount
+        - createdAt
+        - updatedAt
       properties:
         id:
           type: string
-          format: uuid
           description: Consignment ID
         flow:
           $ref: "#/components/schemas/ConsignmentFlow"
-        traderId:
-          type: string
-          description: ID of the trader associated with the consignment
         state:
           $ref: "#/components/schemas/ConsignmentState"
+        traderId:
+          type: string
+          description: ID of the trader user who created the consignment
+        traderCompanyId:
+          type: string
+          description: ID of the company the trader belongs to
+        chaCompanyId:
+          type: string
+          description: ID of the CHA company selected at Stage 1
+        chaId:
+          type: string
+          description: ID of the CHA assigned at Stage 2 (absent until claimed)
         items:
           type: array
           description: Items in the consignment with HS code details
@@ -661,14 +922,13 @@ components:
         - items
         - offset
         - limit
-
       properties:
         totalCount:
           type: integer
           description: Total number of consignments
         items:
           type: array
-          description: List of consignments
+          description: List of consignment summaries
           items:
             $ref: "#/components/schemas/ConsignmentSummaryDTO"
         offset:
@@ -677,6 +937,7 @@ components:
         limit:
           type: integer
           description: Pagination limit used in the query
+
     # Task Schemas
     ExecutionRequest:
       type: object
@@ -684,7 +945,7 @@ components:
       properties:
         action:
           type: string
-          description: The action to perform (e.g., FETCH_FORM, SUBMIT_FORM, OGA_VERIFICATION)
+          description: The action to perform (e.g., FETCH_FORM, SUBMIT_FORM)
         content:
           type: object
           description: Task-specific execution data
@@ -741,141 +1002,93 @@ components:
           $ref: "#/components/schemas/ApiError"
           description: Error details if operation failed
 
-    # Pre-Consignment Schemas
-    CreatePreConsignmentDTO:
+    # Payment Schemas
+    WebhookPayload:
       type: object
       required:
-        - preConsignmentTemplateId
+        - reference_number
+        - session_id
+        - gateway_transaction_id
+        - status
+        - amount
+        - currency
+        - payment_method
+        - timestamp
       properties:
-        preConsignmentTemplateId:
+        reference_number:
           type: string
-          format: uuid
-          description: ID of the pre-consignment template to use
-
-    PreConsignmentTemplateResponseDTO:
-      type: object
-      required:
-        - id
-        - name
-        - description
-        - dependsOn
-      properties:
-        id:
+          description: The NSW payment reference number (e.g., NSW-PR-2026-X892J)
+        session_id:
           type: string
-          format: uuid
-          description: Template ID
-        name:
+          description: LankaPay session identifier
+        gateway_transaction_id:
           type: string
-          description: Human-readable name of the template
-        description:
+          description: LankaPay transaction identifier
+        status:
+          $ref: "#/components/schemas/PaymentStatus"
+        amount:
+          type: number
+          description: Payment amount
+        currency:
           type: string
-          description: Description of the template
-        dependsOn:
-          type: array
-          description: List of dependency template IDs
-          items:
-            type: string
-            format: uuid
-
-    TraderPreConsignmentResponseDTO:
-      type: object
-      required:
-        - id
-        - name
-        - description
-        - dependsOn
-        - state
-      properties:
-        id:
+          description: Currency code (e.g., LKR)
+        payment_method:
           type: string
-          format: uuid
-          description: Template ID
-        preConsignmentId:
+          description: Payment method used (e.g., CC, BANK_TRANSFER)
+        timestamp:
           type: string
-          format: uuid
-          nullable: true
-          description: Pre-consignment instance ID (if exists)
-        name:
-          type: string
-          description: Human-readable name
-        description:
-          type: string
-          description: Description of the template
-        dependsOn:
-          type: array
-          description: List of dependency template IDs
-          items:
-            type: string
-            format: uuid
-        state:
-          $ref: "#/components/schemas/PreConsignmentState"
-        preConsignment:
+          description: ISO 8601 timestamp of the payment event
+        metadata:
           type: object
-          nullable: true
-          description: Associated PreConsignment instance (if it exists)
+          additionalProperties:
+            type: string
+          description: Pass-through metadata from the checkout session
 
-    TraderPreConsignmentsResponseDTO:
+    ValidateReferenceRequest:
       type: object
       required:
-        - totalCount
-        - items
-        - offset
-        - limit
+        - paymentReference
+        - serviceType
       properties:
-        totalCount:
-          type: integer
-          description: Total number of pre-consignment templates
-        items:
-          type: array
-          description: List of pre-consignment templates for the trader
-          items:
-            $ref: "#/components/schemas/TraderPreConsignmentResponseDTO"
-        offset:
-          type: integer
-          description: Pagination offset
-        limit:
-          type: integer
-          description: Pagination limit
+        paymentReference:
+          type: string
+          description: The NSW payment reference number entered by the user
+          example: "NSW-PR-2026-X892J"
+        serviceType:
+          type: string
+          description: Service type identifier sent by LankaPay (e.g., NSW_IMPORT_PERMIT_CD)
 
-    PreConsignmentResponseDTO:
+    ValidateReferenceResponse:
       type: object
       required:
-        - id
-        - traderId
-        - state
-        - traderContext
-        - createdAt
-        - updatedAt
-        - preConsignmentTemplate
+        - amount
+        - currency
+        - traderName
+        - ogaName
+        - expiryDate
+        - isPayable
       properties:
-        id:
+        amount:
+          type: number
+          description: Amount due for the payment
+        currency:
           type: string
-          format: uuid
-          description: Pre-consignment ID
-        traderId:
+          description: Currency code (e.g., LKR)
+        traderName:
           type: string
-          description: Trader ID associated with the pre-consignment
-        state:
-          $ref: "#/components/schemas/PreConsignmentState"
-        traderContext:
-          type: object
-          description: Trader-specific context data
-          additionalProperties: true
-        createdAt:
+          description: Name of the trader associated with the payment
+        ogaName:
           type: string
-          format: date-time
-          description: Timestamp of creation
-        updatedAt:
+          description: Name of the Other Government Agency
+        expiryDate:
           type: string
-          format: date-time
-          description: Timestamp of last update
-        preConsignmentTemplate:
-          $ref: "#/components/schemas/PreConsignmentTemplateResponseDTO"
-        workflowNodes:
-          type: array
-          description: Associated workflow nodes
-          items:
-            $ref: "#/components/schemas/WorkflowNodeResponseDTO"
+          description: Payment expiry date in ISO 8601 format
+        isPayable:
+          type: boolean
+          description: Whether the reference is still payable (false if already paid or expired)
+        remarks:
+          type: string
+          description: Optional remarks
 
     # Error Response
     ErrorResponse:
