@@ -11,7 +11,7 @@ export function renderZoneComponent(component: ZoneComponent) {
     case 'MARKDOWN':
       return <MarkdownRenderer payload={component.payload} />
     case 'REDIRECT':
-      return <RedirectRenderer payload={component.payload} />
+      return <RedirectRenderer key={component.payload.checkout_url} payload={component.payload} />
     default:
       return <UnknownRenderer type={(component as { type: string }).type} />
   }

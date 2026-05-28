@@ -77,7 +77,11 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	}
 
 	paymentRepo := payments.NewPaymentRepository(db)
-	paymentService := payments.NewPaymentService(paymentRepo)
+	paymentService, err := payments.NewPaymentService(paymentRepo, cfg.Server.PaymentMethodsConfigPath)
+	if err != nil {
+		_ = database.Close(db)
+		return nil, fmt.Errorf("failed to initialize payment service: %w", err)
+	}
 
 	templateService := service.NewTemplateService(db)
 	chaService := cha.NewService(db)

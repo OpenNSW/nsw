@@ -24,7 +24,7 @@ export function RedirectRenderer({ payload }: ZoneRendererProps<'REDIRECT'>) {
       } catch (err) {
         console.error('Failed to set sessionStorage:', err)
       }
-      if (success) {
+      if (success && (checkout_url.startsWith('https://') || checkout_url.startsWith('http://'))) {
         window.location.href = checkout_url
       } else {
         // Fallback: if sessionStorage is unavailable, do not auto-redirect
@@ -35,7 +35,7 @@ export function RedirectRenderer({ payload }: ZoneRendererProps<'REDIRECT'>) {
   }, [checkout_url, hasRedirected, sessionKey])
 
   const handleGoToSession = () => {
-    if (checkout_url) {
+    if (checkout_url && (checkout_url.startsWith('https://') || checkout_url.startsWith('http://'))) {
       window.location.href = checkout_url
     }
   }

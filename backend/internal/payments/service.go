@@ -43,11 +43,25 @@ type PaymentService interface {
 type paymentService struct {
 	repo          PaymentRepository
 	taskCompleter TaskCompleter
+	methods       []PaymentMethod
+	methodIdx     map[string]int
 }
 
-// NewPaymentService initializes a new payment service.
-func NewPaymentService(repo PaymentRepository) PaymentService {
-	return &paymentService{repo: repo}
+// NewPaymentService loads payment methods from configPath and initializes a new payment service.
+func NewPaymentService(repo PaymentRepository, configPath string) (PaymentService, error) {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("payments: read config %q: %w", configPath, err)
+	}
+	var cfg paymentMethodsConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("payments: parse config %q: %w", configPath, err)
+	}
+	idx := make(map[string]int, len(cfg.Methods))
+	for i, m := range cfg.Methods {
+		idx[m.ID] = i
+	}
+	return &paymentService{repo: repo, methods: cfg.Methods, methodIdx: idx}, nil
 }
 
 func (s *paymentService) SetTaskCompleter(completer TaskCompleter) {
@@ -55,36 +69,11 @@ func (s *paymentService) SetTaskCompleter(completer TaskCompleter) {
 }
 
 func (s *paymentService) GetPaymentMethod(id string) (*PaymentMethod, error) {
-	var data []byte
-	var err error
-	paths := []string{
-		"configs/payment_methods.json",
-		"../configs/payment_methods.json",
-		"../../configs/payment_methods.json",
-		"../../../configs/payment_methods.json",
+	i, ok := s.methodIdx[id]
+	if !ok {
+		return nil, fmt.Errorf("payment method %q not found", id)
 	}
-	for _, p := range paths {
-		data, err = os.ReadFile(p)
-		if err == nil {
-			break
-		}
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to read payment methods config: %w", err)
-	}
-
-	var cfg paymentMethodsConfig
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("failed to parse payment methods config: %w", err)
-	}
-
-	for _, m := range cfg.Methods {
-		if m.ID == id {
-			return &m, nil
-		}
-	}
-
-	return nil, fmt.Errorf("payment method %q not found", id)
+	return &s.methods[i], nil
 }
 
 const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -102,7 +91,7 @@ func generatePaymentReference() string {
 
 // CreateCheckoutSession saves the initial intent and returns mocked LankaPay session details.
 func (s *paymentService) CreateCheckoutSession(ctx context.Context, req CreateCheckoutRequest) (*CreateCheckoutResponse, error) {
-	sessionID := "sess_" + fmt.Sprintf("%d", time.Now().UnixNano())
+	sessionID := "sess_" + uuid.NewString()
 	taskID, ok := req.Metadata["task_id"]
 	if !ok {
 		return nil, fmt.Errorf("task_id is required in metadata")
@@ -113,7 +102,10 @@ func (s *paymentService) CreateCheckoutSession(ctx context.Context, req CreateCh
 		for {
 			candidate := generatePaymentReference()
 			existing, err := s.repo.GetByReferenceNumber(ctx, candidate)
-			if err == nil && existing == nil {
+			if err != nil {
+				return nil, fmt.Errorf("failed to check existing reference number: %w", err)
+			}
+			if existing == nil {
 				refNum = candidate
 				break
 			}

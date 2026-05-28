@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"sync"
 	"text/template"
 
 	"github.com/OpenNSW/nsw/internal/payments"
@@ -16,6 +17,7 @@ const ProjectorPayment uiprojector.ProjectorType = "PAYMENT"
 // PaymentProjector dynamically templates payment instructions from the payment service.
 type PaymentProjector struct {
 	paymentService payments.PaymentService
+	tmplCache      sync.Map // map[methodID string]*template.Template
 }
 
 // NewPaymentProjector creates a new PaymentProjector.
@@ -47,11 +49,19 @@ func (p *PaymentProjector) Project(ctx context.Context, templateContent []byte, 
 		return uiprojector.Projection{}, fmt.Errorf("payment_projector: get payment method %q: %w", selectedMethod, err)
 	}
 
-	tmpl, err := template.New("instructions").Parse(method.Template)
-	if err != nil {
-		return uiprojector.Projection{}, fmt.Errorf("payment_projector: parse template: %w", err)
+	var tmpl *template.Template
+	if cached, ok := p.tmplCache.Load(selectedMethod); ok {
+		tmpl = cached.(*template.Template)
+	} else {
+		parsed, err := template.New("instructions").Parse(method.Template)
+		if err != nil {
+			return uiprojector.Projection{}, fmt.Errorf("payment_projector: parse template: %w", err)
+		}
+		p.tmplCache.Store(selectedMethod, parsed)
+		tmpl = parsed
 	}
 
+	orgName, _ := dataMap["org_name"].(string)
 	tmplData := map[string]any{
 		"ReferenceNumber":  dataMap["reference_number"],
 		"Amount":           dataMap["amount"],
@@ -59,7 +69,7 @@ func (p *PaymentProjector) Project(ctx context.Context, templateContent []byte, 
 		"CheckoutURL":      dataMap["checkout_url"],
 		"ServiceName":      dataMap["service_name"],
 		"ServiceType":      dataMap["service_type"],
-		"OrganizationName": "FCAU",
+		"OrganizationName": orgName,
 	}
 
 	var buf bytes.Buffer

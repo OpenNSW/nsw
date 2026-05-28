@@ -30,11 +30,12 @@ type Config struct {
 
 // ServerConfig holds server configuration
 type ServerConfig struct {
-	Port               int
-	ServiceURL         string
-	ServicesConfigPath string
-	Debug              bool
-	LogLevel           slog.Level
+	Port                      int
+	ServiceURL                string
+	ServicesConfigPath        string
+	PaymentMethodsConfigPath  string
+	Debug                     bool
+	LogLevel                  slog.Level
 }
 
 // CORSConfig holds CORS configuration
@@ -74,7 +75,8 @@ func Load() (*Config, error) {
 		Server: ServerConfig{
 			Port:               serverPort,
 			ServiceURL:         getEnvOrDefault("SERVICE_URL", fmt.Sprintf("http://localhost:%d", serverPort)),
-			ServicesConfigPath: getEnvOrDefault("SERVICES_CONFIG_PATH", "configs/services.json"),
+			ServicesConfigPath:       getEnvOrDefault("SERVICES_CONFIG_PATH", "configs/services.json"),
+			PaymentMethodsConfigPath: getEnvOrDefault("PAYMENT_METHODS_CONFIG_PATH", "configs/payment_methods.json"),
 			Debug:              getBoolOrDefault("SERVER_DEBUG", true),
 			LogLevel:           parseLogLevel(getEnvOrDefault("SERVER_LOG_LEVEL", "info")),
 		},

@@ -1,0 +1,19 @@
+{
+  "version": "1.0",
+  "methods": [
+    {
+      "id": "lankapay",
+      "is_active": true,
+      "type": "REDIRECT",
+      "gateway_url": "https://sandbox.govpay.lk/checkout",
+      "template": "Pay {{ .Amount }} {{ .Currency }} ref {{ .ReferenceNumber }}"
+    },
+    {
+      "id": "govpay",
+      "is_active": true,
+      "type": "INFO",
+      "gateway_url": "",
+      "template": "GovPay ref {{ .ReferenceNumber }} amount {{ .Amount }}"
+    }
+  ]
+}
