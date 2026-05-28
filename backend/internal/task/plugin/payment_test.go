@@ -39,6 +39,12 @@ func (m *MockPaymentService) ProcessWebhook(ctx context.Context, payload payment
 	return args.Error(0)
 }
 
+func (m *MockPaymentService) SetTaskCompleter(completer payments.TaskCompleter) {}
+
+func (m *MockPaymentService) GetPaymentMethod(id string) (*payments.PaymentMethod, error) {
+	return &payments.PaymentMethod{ID: id, Type: "REDIRECT", GatewayURL: "https://mock.lk"}, nil
+}
+
 // ── FSM Tests ─────────────────────────────────────────────────────────────────
 
 func TestNewPaymentFSM(t *testing.T) {

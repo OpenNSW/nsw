@@ -41,12 +41,19 @@ func (r *TaskRenderer) Render(ctx context.Context, configRaw json.RawMessage, fa
 
 	result := make(renderer.RenderResult, len(sections))
 	for slot, sec := range sections {
-		payload, err := json.Marshal(sec.Content)
+		var content = sec.Content
+		secType := string(sec.Type)
+		if secType == "MARKDOWN" {
+			if str, ok := sec.Content.(string); ok {
+				content = map[string]any{"content": str}
+			}
+		}
+		payload, err := json.Marshal(content)
 		if err != nil {
 			return nil, fmt.Errorf("renderer: marshal section %q: %w", slot, err)
 		}
 		result[slot] = renderer.UIComponent{
-			Type:    string(sec.Type),
+			Type:    secType,
 			Payload: payload,
 		}
 	}

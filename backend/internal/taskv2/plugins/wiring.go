@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	flowplugins "github.com/OpenNSW/nsw-task-flow/plugins"
+	"github.com/OpenNSW/nsw/internal/payments"
 	"github.com/OpenNSW/nsw/pkg/remote"
 )
 
@@ -23,9 +24,9 @@ const (
 //
 // EXTERNAL_REVIEW uses our local plugin (ExternalReviewPlugin) that resolves
 // targets via remote.Manager and posts the OGA submission envelope. Payment
-// and API_CALL still use the library's stock plugins with the default HTTP
-// dispatcher — swap them out as local replacements are written.
-func Register(reg *flowplugins.Registry, mgr *remote.Manager, backendBaseURL string, devMode bool) error {
+// uses our local plugin (PaymentPlugin) that initiates checkout sessions via
+// payments.PaymentService.
+func Register(reg *flowplugins.Registry, mgr *remote.Manager, paymentService payments.PaymentService, backendBaseURL string, devMode bool) error {
 	if reg == nil {
 		return fmt.Errorf("plugins: registry is nil")
 	}
@@ -39,7 +40,7 @@ func Register(reg *flowplugins.Registry, mgr *remote.Manager, backendBaseURL str
 	}{
 		{TaskTypeUserInput, flowplugins.NewUserInputPlugin()},
 		{TaskTypeExternalReview, NewExternalReviewPlugin(mgr, backendBaseURL, devMode)},
-		{TaskTypePayment, flowplugins.NewPaymentPlugin(flowplugins.DefaultHTTPDispatcher)},
+		{TaskTypePayment, NewPaymentPlugin(paymentService)},
 		{TaskTypeAPICall, flowplugins.NewAPICallPlugin(flowplugins.DefaultHTTPDispatcher)},
 	}
 

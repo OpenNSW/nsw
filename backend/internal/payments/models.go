@@ -47,9 +47,10 @@ type CreateCheckoutRequest struct {
 
 // CreateCheckoutResponse is the expected reply from LankaPay.
 type CreateCheckoutResponse struct {
-	SessionID   string `json:"session_id"`
-	CheckoutURL string `json:"checkout_url"` // The hosted URL to redirect the user to
-	ExpiresIn   int    `json:"expires_in_seconds"`
+	SessionID       string `json:"session_id"`
+	CheckoutURL     string `json:"checkout_url"` // The hosted URL to redirect the user to
+	ExpiresIn       int    `json:"expires_in_seconds"`
+	ReferenceNumber string `json:"reference_number"`
 }
 
 // --------------------------------------------------------
