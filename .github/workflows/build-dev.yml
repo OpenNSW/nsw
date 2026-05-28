@@ -5,6 +5,11 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+# Cancel in-progress runs for the same branch when a new commit arrives.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   packages: write
@@ -13,8 +18,27 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
+  check-changes:
+    name: Detect Changed Paths
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      trader: ${{ steps.filter.outputs.trader }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            trader:
+              - 'portals/**'
+
   build-and-push-dev:
     name: Build & Push Dev - ${{ matrix.service_name }}
+    needs: check-changes
+    if: needs.check-changes.outputs[matrix.filter_name] == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -24,14 +48,17 @@ jobs:
             image_name: nsw-backend
             context: ./backend
             dockerfile: ./backend/Dockerfile
+            filter_name: backend
           - service_name: NSW DB Migrations
             image_name: nsw-api-migrations
             context: .
             dockerfile: ./backend/migrations.Dockerfile
+            filter_name: backend
           - service_name: Trader Portal
             image_name: trader-app
             context: ./portals
             dockerfile: ./portals/apps/trader-app/Dockerfile
+            filter_name: trader
 
     steps:
       - name: Checkout Application Repository
