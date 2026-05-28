@@ -75,7 +75,7 @@ func buildSubmissionBody(record *store.TaskRecord, data any, taskCode *string, c
 	return map[string]any{
 		"taskCode":   taskCode,
 		"taskId":     record.TaskID,
-		"workflowId": record.ParentWorkflowID,
+		"consignmentId": record.ParentWorkflowID,
 		"serviceUrl": callbackURL,
 		"data":       data,
 	}
