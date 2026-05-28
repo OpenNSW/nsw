@@ -48,6 +48,7 @@ type CORSConfig struct {
 }
 
 type NotificationConfig struct {
+	ConfigPath   string
 	SMTPHost     string
 	SMTPPort     int
 	SMTPUsername string
@@ -109,6 +110,7 @@ func Load() (*Config, error) {
 			InsecureSkipTLSVerify: getBoolOrDefault("AUTH_JWKS_INSECURE_SKIP_VERIFY", false),
 		},
 		Notification: NotificationConfig{
+			ConfigPath:   getEnvOrDefault("NOTIFICATIONS_CONFIG_PATH", "configs/notifications.json"),
 			SMTPHost:     getEnvOrDefault("EMAIL_SMTP_HOST", "localhost"),
 			SMTPPort:     getIntEnvOrDefault("EMAIL_SMTP_PORT", 587),
 			SMTPUsername: getEnvOrDefault("EMAIL_SMTP_USERNAME", ""),

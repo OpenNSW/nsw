@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 )
 
@@ -92,21 +93,14 @@ func TestNewManager(t *testing.T) {
 		}
 	})
 
-	t.Run("duplicate channel type — last wins", func(t *testing.T) {
+	t.Run("duplicate channel type returns error", func(t *testing.T) {
 		t.Parallel()
 		f := writeTempJSON(t, `{"email":{"a":1}}`)
 		p1 := &stubProvider{channelType: ChannelEmail}
 		p2 := &stubProvider{channelType: ChannelEmail}
-		m, err := NewManager(Config{Path: f}, p1, p2)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		_ = m.Send(context.Background(), validReq(ChannelEmail))
-		if p1.sendCalled {
-			t.Error("p1 should have been overwritten by p2")
-		}
-		if !p2.sendCalled {
-			t.Error("p2 should have been called")
+		_, err := NewManager(Config{Path: f}, p1, p2)
+		if err == nil {
+			t.Fatal("expected error for duplicate channel type, got nil")
 		}
 	})
 }
@@ -117,7 +111,7 @@ func TestManager_Send(t *testing.T) {
 	makeManager := func(t *testing.T, p *stubProvider) *Manager {
 		t.Helper()
 		key := string(p.channelType)
-		f := writeTempJSON(t, `{"`+key+`":{}}`)
+		f := writeTempJSON(t, fmt.Sprintf(`{%q:{}}`, key))
 		m, err := NewManager(Config{Path: f}, p)
 		if err != nil {
 			t.Fatalf("NewManager: %v", err)

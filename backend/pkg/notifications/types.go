@@ -26,7 +26,13 @@ type Request struct {
 	HTMLBody string      `json:"html_body,omitempty"`
 }
 
-func (r *Request) Validate() error {
+func (r Request) Validate() error {
+	switch r.Channel {
+	case ChannelEmail, ChannelSMS:
+	default:
+		return ErrInvalidChannel
+	}
+
 	if r.To == "" {
 		return ErrToRequired
 	}
@@ -40,8 +46,6 @@ func (r *Request) Validate() error {
 		if r.Body == "" {
 			return ErrBodyRequired
 		}
-	default:
-		return ErrInvalidChannel
 	}
 
 	return nil

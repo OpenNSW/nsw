@@ -31,16 +31,12 @@ import (
 	"github.com/OpenNSW/nsw/backend/pkg/storage"
 	"github.com/OpenNSW/nsw/backend/pkg/storage/drivers"
 	"github.com/OpenNSW/nsw/backend/pkg/uiprojector"
-
-	"github.com/OpenNSW/nsw/backend/pkg/notification"
-	"github.com/OpenNSW/nsw/backend/pkg/notification/channels"
 )
 
 // App contains an initialized HTTP server and cleanup hooks.
 type App struct {
-	Server              *http.Server
-	NotificationManager *notification.Manager
-	close               func() error
+	Server *http.Server
+	close  func() error
 }
 
 // Close releases resources initialized during bootstrap.
@@ -198,22 +194,6 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("auth system health check failed: %w", err)
 	}
 
-	// Initialize notification manager
-	notificationManager := notification.NewManager()
-	emailChannel := channels.NewEmailChannel(notification.EmailConfig{
-		SMTPHost:     cfg.Notification.SMTPHost,
-		SMTPPort:     cfg.Notification.SMTPPort,
-		SMTPUsername: cfg.Notification.SMTPUsername,
-		SMTPPassword: cfg.Notification.SMTPPassword,
-		SMTPSender:   cfg.Notification.SMTPSender,
-		TemplateRoot: cfg.Notification.TemplateRoot,
-	})
-	notificationManager.RegisterEmailChannel(emailChannel)
-
-	// TODO: Add SMS channel if needed
-	// smsChannel := channels.NewSMSChannel(...)
-	// notificationManager.RegisterSMSChannel(smsChannel)
-
 	taskV2Handler := taskv2.NewHTTPHandler(tm, taskV2.Store, taskV2.Assembler)
 
 	// withAuth wraps an individual handler with the authentication middleware.
@@ -311,8 +291,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	}
 
 	return &App{
-		Server:              server,
-		NotificationManager: notificationManager,
-		close:               closeFn,
+		Server: server,
+		close:  closeFn,
 	}, nil
 }

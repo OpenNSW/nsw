@@ -2,8 +2,8 @@ package notifications
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"log/slog"
 )
 
 // Manager routes notification requests to registered providers.
@@ -31,6 +31,9 @@ func NewManager(cfg Config, providers ...Provider) (*Manager, error) {
 	}
 
 	for _, p := range providers {
+		if p == nil {
+			return nil, errors.New("nil provider passed to NewManager")
+		}
 		raw, ok := cfgMap[string(p.Type())]
 		if !ok {
 			return nil, fmt.Errorf("no config for %q provider in %s", p.Type(), cfg.Path)
@@ -39,7 +42,7 @@ func NewManager(cfg Config, providers ...Provider) (*Manager, error) {
 			return nil, fmt.Errorf("configure %q provider: %w", p.Type(), err)
 		}
 		if _, dup := m.providers[p.Type()]; dup {
-			slog.Warn("duplicate notification provider registered, overwriting", "channel", p.Type())
+			return nil, fmt.Errorf("duplicate notification provider for channel %q", p.Type())
 		}
 		m.providers[p.Type()] = p
 	}
@@ -51,6 +54,10 @@ func NewManager(cfg Config, providers ...Provider) (*Manager, error) {
 // Returns an error if the request is invalid, no provider is registered for the
 // channel, or the provider's Send call fails.
 func (m *Manager) Send(ctx context.Context, req Request) error {
+	if m == nil {
+		return errors.New("notifications manager is not initialized")
+	}
+
 	if err := req.Validate(); err != nil {
 		return fmt.Errorf("invalid notification request: %w", err)
 	}

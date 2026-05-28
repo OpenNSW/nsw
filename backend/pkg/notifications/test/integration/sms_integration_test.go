@@ -10,9 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OpenNSW/nsw/pkg/notifications"
-	"github.com/OpenNSW/nsw/pkg/notifications/providers"
-	"github.com/OpenNSW/nsw/pkg/remote"
+	"github.com/OpenNSW/nsw/backend/pkg/notifications"
+	"github.com/OpenNSW/nsw/backend/pkg/notifications/providers"
 )
 
 func TestSMSIntegration(t *testing.T) {
@@ -36,34 +35,25 @@ func TestSMSIntegration(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	servicesJSON, err := json.Marshal(map[string]any{
-		"version": "1",
-		"services": []map[string]any{
-			{"id": "govsms-test", "url": srv.URL},
+	notificationsJSON, err := json.Marshal(map[string]any{
+		"sms": map[string]any{
+			"baseURL":  srv.URL,
+			"sidCode":  "TEST_SID",
+			"userName": "test_user",
+			"password": "test_pass",
 		},
 	})
 	if err != nil {
-		t.Fatalf("marshal services: %v", err)
+		t.Fatalf("marshal notifications config: %v", err)
 	}
-	servicesPath := filepath.Join(t.TempDir(), "services.json")
-	if err := os.WriteFile(servicesPath, servicesJSON, 0o600); err != nil {
-		t.Fatalf("write services file: %v", err)
-	}
-
-	notificationsJSON := `{"sms":{"service_id":"govsms-test","sid_code":"TEST_SID","username":"test_user","password":"test_pass"}}`
 	notificationsPath := filepath.Join(t.TempDir(), "notifications.json")
-	if err := os.WriteFile(notificationsPath, []byte(notificationsJSON), 0o600); err != nil {
+	if err := os.WriteFile(notificationsPath, notificationsJSON, 0o600); err != nil {
 		t.Fatalf("write notifications file: %v", err)
-	}
-
-	remoteManager := remote.NewManager()
-	if err := remoteManager.LoadServices(servicesPath); err != nil {
-		t.Fatalf("LoadServices: %v", err)
 	}
 
 	manager, err := notifications.NewManager(
 		notifications.Config{Path: notificationsPath},
-		providers.NewSMSProvider(remoteManager),
+		providers.NewSMSProvider(),
 	)
 	if err != nil {
 		t.Fatalf("NewManager: %v", err)
