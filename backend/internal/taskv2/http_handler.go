@@ -72,6 +72,7 @@ func (h *HTTPHandler) HandleCompleteTaskStep(w http.ResponseWriter, r *http.Requ
 		// genuinely malformed JSON.
 		if !errors.Is(err, io.EOF) && !errors.Is(err, http.ErrBodyReadAfterClose) {
 			writeJSONError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+			slog.Error("taskv2: failed to decode request body", "error", err)
 			return
 		}
 	}
@@ -86,6 +87,7 @@ func (h *HTTPHandler) HandleCompleteTaskStep(w http.ResponseWriter, r *http.Requ
 	}
 	if taskID == "" {
 		writeJSONError(w, http.StatusBadRequest, "task id is required")
+		slog.Error("taskv2: missing task id in request")
 		return
 	}
 
