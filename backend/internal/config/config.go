@@ -12,6 +12,7 @@ import (
 	"github.com/OpenNSW/nsw/internal/database"
 	"github.com/OpenNSW/nsw/internal/temporal"
 	"github.com/OpenNSW/nsw/internal/validation"
+	"github.com/OpenNSW/nsw/pkg/blobsource"
 	"github.com/OpenNSW/nsw/pkg/storage"
 )
 
@@ -24,6 +25,7 @@ type Config struct {
 	Auth         auth.Config
 	Notification NotificationConfig
 	Temporal     temporal.Config
+	BlobSource   blobsource.Config
 }
 
 // ServerConfig holds server configuration
@@ -117,6 +119,14 @@ func Load() (*Config, error) {
 			Port:      getIntEnvOrDefault("TEMPORAL_PORT", 7233),
 			Namespace: getEnvOrDefault("TEMPORAL_NAMESPACE", "default"),
 		},
+		BlobSource: blobsource.Config{
+			Type:                  getEnvOrDefault("BLOBSOURCE_TYPE", "local"),
+			LocalDir:              getEnvOrDefault("BLOBSOURCE_LOCAL_DIR", "./configs/blobs"),
+			GitHubRepo:            getEnvOrDefault("BLOBSOURCE_GITHUB_REPO", ""),
+			GitHubRef:             getEnvOrDefault("BLOBSOURCE_GITHUB_REF", ""),
+			GitHubBaseURL:         getEnvOrDefault("BLOBSOURCE_GITHUB_BASE_URL", ""),
+			GitHubRefreshInterval: getDurationOrDefault("BLOBSOURCE_GITHUB_REFRESH_INTERVAL", 0),
+		},
 	}
 
 	// Validate required fields
@@ -146,6 +156,9 @@ func (c *Config) Validate() error {
 	}
 	if err := c.Temporal.Validate(); err != nil {
 		return fmt.Errorf("invalid temporal configuration: %w", err)
+	}
+	if err := c.BlobSource.Validate(); err != nil {
+		return fmt.Errorf("invalid blobsource configuration: %w", err)
 	}
 	if len(c.CORS.AllowedOrigins) == 0 {
 		return fmt.Errorf("CORS_ALLOWED_ORIGINS is required")
