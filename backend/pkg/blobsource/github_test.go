@@ -1,4 +1,4 @@
-package templatesource
+package blobsource
 
 import (
 	"context"
@@ -12,9 +12,9 @@ import (
 	"time"
 )
 
-// stubTemplateServer serves a manifest + arbitrary form files. Routes match
-// the raw.githubusercontent.com layout: /<owner>/<repo>/<ref>/<path>.
-type stubTemplateServer struct {
+// stubBlobServer serves a manifest + arbitrary blob files. Routes match the
+// raw.githubusercontent.com layout: /<owner>/<repo>/<ref>/<path>.
+type stubBlobServer struct {
 	t        *testing.T
 	mu       sync.Mutex
 	manifest atomic.Value // []byte
@@ -22,9 +22,9 @@ type stubTemplateServer struct {
 	fetches  atomic.Int64 // counts manifest GETs
 }
 
-func newStubTemplateServer(t *testing.T) (*stubTemplateServer, *httptest.Server) {
+func newStubBlobServer(t *testing.T) (*stubBlobServer, *httptest.Server) {
 	t.Helper()
-	s := &stubTemplateServer{t: t, files: make(map[string][]byte)}
+	s := &stubBlobServer{t: t, files: make(map[string][]byte)}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/")
@@ -64,7 +64,7 @@ func newStubTemplateServer(t *testing.T) (*stubTemplateServer, *httptest.Server)
 }
 
 // setManifest installs a manifest whose byId is the given map.
-func (s *stubTemplateServer) setManifest(byID map[string]string) {
+func (s *stubBlobServer) setManifest(byID map[string]string) {
 	body, err := json.Marshal(map[string]any{"byId": byID})
 	if err != nil {
 		s.t.Fatalf("marshal manifest: %v", err)
@@ -73,17 +73,17 @@ func (s *stubTemplateServer) setManifest(byID map[string]string) {
 }
 
 // setRawManifest installs an arbitrary body (for parse-error tests).
-func (s *stubTemplateServer) setRawManifest(body []byte) {
+func (s *stubBlobServer) setRawManifest(body []byte) {
 	s.manifest.Store(body)
 }
 
-func (s *stubTemplateServer) setFile(path, body string) {
+func (s *stubBlobServer) setFile(path, body string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.files[path] = []byte(body)
 }
 
-func (s *stubTemplateServer) deleteFile(path string) {
+func (s *stubBlobServer) deleteFile(path string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.files, path)
@@ -105,19 +105,19 @@ func newTestGitHubSource(t *testing.T, srvURL string, interval time.Duration) So
 }
 
 func TestGitHub_HappyPath(t *testing.T) {
-	stub, srv := newStubTemplateServer(t)
-	stub.setManifest(map[string]string{"alpha": "templates/a.json"})
-	stub.setFile("templates/a.json", `{"schema":{"type":"object"}}`)
+	stub, srv := newStubBlobServer(t)
+	stub.setManifest(map[string]string{"alpha": "blobs/a.json"})
+	stub.setFile("blobs/a.json", `{"schema":{"type":"object"}}`)
 
 	src := newTestGitHubSource(t, srv.URL, 0)
 
-	body, ok, err := src.GetTemplate(context.Background(), "alpha")
+	body, ok, err := src.Get(context.Background(), "alpha")
 	if err != nil || !ok {
 		t.Fatalf("expected alpha (ok=%v, err=%v)", ok, err)
 	}
 	var got map[string]any
 	if err := json.Unmarshal(body, &got); err != nil {
-		t.Fatalf("returned form is not valid JSON: %v", err)
+		t.Fatalf("returned blob is not valid JSON: %v", err)
 	}
 	if _, ok := got["schema"]; !ok {
 		t.Errorf("expected schema field, got %v", got)
@@ -125,19 +125,19 @@ func TestGitHub_HappyPath(t *testing.T) {
 
 	// Second call should hit the in-memory cache (no new file fetch); easiest
 	// check is that it succeeds even after we delete the upstream file.
-	stub.deleteFile("templates/a.json")
-	if _, ok, err := src.GetTemplate(context.Background(), "alpha"); err != nil || !ok {
+	stub.deleteFile("blobs/a.json")
+	if _, ok, err := src.Get(context.Background(), "alpha"); err != nil || !ok {
 		t.Fatalf("expected cached alpha (ok=%v, err=%v)", ok, err)
 	}
 }
 
 func TestGitHub_UnknownIDReturnsNotFound(t *testing.T) {
-	stub, srv := newStubTemplateServer(t)
-	stub.setManifest(map[string]string{"alpha": "templates/a.json"})
+	stub, srv := newStubBlobServer(t)
+	stub.setManifest(map[string]string{"alpha": "blobs/a.json"})
 
 	src := newTestGitHubSource(t, srv.URL, 0)
 
-	body, ok, err := src.GetTemplate(context.Background(), "missing")
+	body, ok, err := src.Get(context.Background(), "missing")
 	if err != nil {
 		t.Fatalf("expected nil error for unknown ID, got %v", err)
 	}
@@ -148,7 +148,7 @@ func TestGitHub_UnknownIDReturnsNotFound(t *testing.T) {
 
 func TestGitHub_ManifestMissingFailsFast(t *testing.T) {
 	// Manifest not installed -> handler returns 404 on the first fetch.
-	_, srv := newStubTemplateServer(t)
+	_, srv := newStubBlobServer(t)
 
 	_, err := NewGitHub(context.Background(), GitHubConfig{
 		Repo:    "owner/repo",
@@ -161,7 +161,7 @@ func TestGitHub_ManifestMissingFailsFast(t *testing.T) {
 }
 
 func TestGitHub_ManifestInvalidJSONFailsFast(t *testing.T) {
-	stub, srv := newStubTemplateServer(t)
+	stub, srv := newStubBlobServer(t)
 	stub.setRawManifest([]byte(`{not json`))
 
 	_, err := NewGitHub(context.Background(), GitHubConfig{
@@ -174,46 +174,52 @@ func TestGitHub_ManifestInvalidJSONFailsFast(t *testing.T) {
 	}
 }
 
-func TestGitHub_FormFetchErrorPropagates(t *testing.T) {
-	stub, srv := newStubTemplateServer(t)
-	stub.setManifest(map[string]string{"alpha": "templates/a.json"})
-	// Intentionally do not install templates/a.json.
+func TestGitHub_BlobFetchErrorPropagates(t *testing.T) {
+	stub, srv := newStubBlobServer(t)
+	stub.setManifest(map[string]string{"alpha": "blobs/a.json"})
+	// Intentionally do not install blobs/a.json.
 
 	src := newTestGitHubSource(t, srv.URL, 0)
 
-	_, _, err := src.GetTemplate(context.Background(), "alpha")
+	_, _, err := src.Get(context.Background(), "alpha")
 	if err == nil {
-		t.Fatalf("expected fetch error for missing form file, got nil")
+		t.Fatalf("expected fetch error for missing blob file, got nil")
 	}
 }
 
-func TestGitHub_FormInvalidJSONReturnsError(t *testing.T) {
-	stub, srv := newStubTemplateServer(t)
-	stub.setManifest(map[string]string{"alpha": "templates/a.json"})
-	stub.setFile("templates/a.json", `not json`)
+// TestGitHub_NonJSONBlobIsServedVerbatim documents that the package no longer
+// validates blob payloads — any bytes the GitHub endpoint returns are passed
+// through to the caller as-is.
+func TestGitHub_NonJSONBlobIsServedVerbatim(t *testing.T) {
+	stub, srv := newStubBlobServer(t)
+	stub.setManifest(map[string]string{"alpha": "blobs/a.json"})
+	stub.setFile("blobs/a.json", `not json`)
 
 	src := newTestGitHubSource(t, srv.URL, 0)
 
-	_, _, err := src.GetTemplate(context.Background(), "alpha")
-	if err == nil {
-		t.Fatalf("expected error for invalid form JSON, got nil")
+	body, ok, err := src.Get(context.Background(), "alpha")
+	if err != nil || !ok {
+		t.Fatalf("expected blob to be served verbatim (ok=%v, err=%v)", ok, err)
+	}
+	if string(body) != "not json" {
+		t.Errorf("expected raw bytes 'not json', got %q", body)
 	}
 }
 
 func TestGitHub_ManifestRefreshInvalidatesCache(t *testing.T) {
-	stub, srv := newStubTemplateServer(t)
-	stub.setManifest(map[string]string{"alpha": "templates/a.json"})
-	stub.setFile("templates/a.json", `{"v":1}`)
-	stub.setFile("templates/a2.json", `{"v":2}`)
+	stub, srv := newStubBlobServer(t)
+	stub.setManifest(map[string]string{"alpha": "blobs/a.json"})
+	stub.setFile("blobs/a.json", `{"v":1}`)
+	stub.setFile("blobs/a2.json", `{"v":2}`)
 
 	src := newTestGitHubSource(t, srv.URL, 0)
 
-	if _, ok, err := src.GetTemplate(context.Background(), "alpha"); err != nil || !ok {
+	if _, ok, err := src.Get(context.Background(), "alpha"); err != nil || !ok {
 		t.Fatalf("expected initial alpha (ok=%v, err=%v)", ok, err)
 	}
 
 	// Repoint alpha to a different path; manually reload manifest via type assertion.
-	stub.setManifest(map[string]string{"alpha": "templates/a2.json"})
+	stub.setManifest(map[string]string{"alpha": "blobs/a2.json"})
 	gs, ok := src.(*githubSource)
 	if !ok {
 		t.Fatalf("expected *githubSource, got %T", src)
@@ -222,7 +228,7 @@ func TestGitHub_ManifestRefreshInvalidatesCache(t *testing.T) {
 		t.Fatalf("manifest reload: %v", err)
 	}
 
-	body, ok, err := src.GetTemplate(context.Background(), "alpha")
+	body, ok, err := src.Get(context.Background(), "alpha")
 	if err != nil || !ok {
 		t.Fatalf("expected refreshed alpha (ok=%v, err=%v)", ok, err)
 	}
@@ -231,23 +237,23 @@ func TestGitHub_ManifestRefreshInvalidatesCache(t *testing.T) {
 	}
 }
 
-// TestGitHub_ManifestRefreshClearsStaleContent verifies that updating a
-// template file in-place (same manifest path, new bytes) is reflected after
-// a manifest refresh. The old selective-eviction logic would have served
-// stale content in this scenario.
+// TestGitHub_ManifestRefreshClearsStaleContent verifies that updating a blob
+// file in-place (same manifest path, new bytes) is reflected after a manifest
+// refresh. The old selective-eviction logic would have served stale content
+// in this scenario.
 func TestGitHub_ManifestRefreshClearsStaleContent(t *testing.T) {
-	stub, srv := newStubTemplateServer(t)
-	stub.setManifest(map[string]string{"alpha": "templates/a.json"})
-	stub.setFile("templates/a.json", `{"v":1}`)
+	stub, srv := newStubBlobServer(t)
+	stub.setManifest(map[string]string{"alpha": "blobs/a.json"})
+	stub.setFile("blobs/a.json", `{"v":1}`)
 
 	src := newTestGitHubSource(t, srv.URL, 0)
 
-	if _, ok, err := src.GetTemplate(context.Background(), "alpha"); err != nil || !ok {
+	if _, ok, err := src.Get(context.Background(), "alpha"); err != nil || !ok {
 		t.Fatalf("expected initial alpha (ok=%v, err=%v)", ok, err)
 	}
 
 	// Update file content in-place; manifest path is unchanged.
-	stub.setFile("templates/a.json", `{"v":2}`)
+	stub.setFile("blobs/a.json", `{"v":2}`)
 	gs, ok := src.(*githubSource)
 	if !ok {
 		t.Fatalf("expected *githubSource, got %T", src)
@@ -256,7 +262,7 @@ func TestGitHub_ManifestRefreshClearsStaleContent(t *testing.T) {
 		t.Fatalf("manifest reload: %v", err)
 	}
 
-	body, ok, err := src.GetTemplate(context.Background(), "alpha")
+	body, ok, err := src.Get(context.Background(), "alpha")
 	if err != nil || !ok {
 		t.Fatalf("expected refreshed alpha (ok=%v, err=%v)", ok, err)
 	}
@@ -266,8 +272,8 @@ func TestGitHub_ManifestRefreshClearsStaleContent(t *testing.T) {
 }
 
 func TestGitHub_BackgroundRefreshTicks(t *testing.T) {
-	stub, srv := newStubTemplateServer(t)
-	stub.setManifest(map[string]string{"alpha": "templates/a.json"})
+	stub, srv := newStubBlobServer(t)
+	stub.setManifest(map[string]string{"alpha": "blobs/a.json"})
 
 	src := newTestGitHubSource(t, srv.URL, 30*time.Millisecond)
 
@@ -332,7 +338,7 @@ func TestGitHub_DefaultBaseURLFallback(t *testing.T) {
 }
 
 func TestGitHub_ManifestMissingByIDField(t *testing.T) {
-	stub, srv := newStubTemplateServer(t)
+	stub, srv := newStubBlobServer(t)
 	stub.setRawManifest([]byte(`{"workflows":{}}`)) // valid JSON but no byId key
 
 	_, err := NewGitHub(context.Background(), GitHubConfig{
@@ -346,7 +352,7 @@ func TestGitHub_ManifestMissingByIDField(t *testing.T) {
 }
 
 func TestGitHub_BackgroundRefreshLogsOnError(t *testing.T) {
-	stub, srv := newStubTemplateServer(t)
+	stub, srv := newStubBlobServer(t)
 	stub.setManifest(map[string]string{})
 
 	src := newTestGitHubSource(t, srv.URL, 30*time.Millisecond)
@@ -367,7 +373,7 @@ func TestGitHub_BackgroundRefreshLogsOnError(t *testing.T) {
 
 // Close is idempotent.
 func TestGitHub_CloseIsIdempotent(t *testing.T) {
-	stub, srv := newStubTemplateServer(t)
+	stub, srv := newStubBlobServer(t)
 	stub.setManifest(map[string]string{})
 
 	src := newTestGitHubSource(t, srv.URL, 0)

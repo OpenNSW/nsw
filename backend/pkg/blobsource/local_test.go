@@ -1,4 +1,4 @@
-package templatesource
+package blobsource
 
 import (
 	"context"
@@ -8,8 +8,8 @@ import (
 	"testing"
 )
 
-// writeTemplateFile writes content to <dir>/<name>.
-func writeTemplateFile(t *testing.T, dir, name, content string) {
+// writeBlobFile writes content to <dir>/<name>.
+func writeBlobFile(t *testing.T, dir, name, content string) {
 	t.Helper()
 	path := filepath.Join(dir, name)
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
@@ -17,97 +17,113 @@ func writeTemplateFile(t *testing.T, dir, name, content string) {
 	}
 }
 
-func TestLocal_LoadsValidTemplates(t *testing.T) {
+func TestLocal_LoadsBlobs(t *testing.T) {
 	dir := t.TempDir()
-	writeTemplateFile(t, dir, "alpha.json", `{"schema":{"type":"object"},"uiSchema":{"type":"VerticalLayout"}}`)
-	writeTemplateFile(t, dir, "beta.json", `{"schema":{"type":"object","title":"Beta"}}`)
+	writeBlobFile(t, dir, "alpha.json", `{"schema":{"type":"object"},"uiSchema":{"type":"VerticalLayout"}}`)
+	writeBlobFile(t, dir, "beta.json", `{"schema":{"type":"object","title":"Beta"}}`)
 
 	src, err := NewLocal(dir)
 	if err != nil {
 		t.Fatalf("NewLocal failed: %v", err)
 	}
 
-	if _, ok, err := src.GetTemplate(context.Background(), "alpha"); err != nil || !ok {
-		t.Errorf("expected template alpha to be loaded (ok=%v, err=%v)", ok, err)
+	if _, ok, err := src.Get(context.Background(), "alpha"); err != nil || !ok {
+		t.Errorf("expected blob alpha to be loaded (ok=%v, err=%v)", ok, err)
 	}
-	if _, ok, err := src.GetTemplate(context.Background(), "beta"); err != nil || !ok {
-		t.Errorf("expected template beta to be loaded (ok=%v, err=%v)", ok, err)
+	if _, ok, err := src.Get(context.Background(), "beta"); err != nil || !ok {
+		t.Errorf("expected blob beta to be loaded (ok=%v, err=%v)", ok, err)
 	}
 }
 
-func TestLocal_GetTemplateReturnsRawJSON(t *testing.T) {
+func TestLocal_GetReturnsRawBytes(t *testing.T) {
 	dir := t.TempDir()
 	body := `{"schema":{"type":"object","required":["foo"]},"uiSchema":{"type":"VerticalLayout"}}`
-	writeTemplateFile(t, dir, "alpha.json", body)
+	writeBlobFile(t, dir, "alpha.json", body)
 
 	src, err := NewLocal(dir)
 	if err != nil {
 		t.Fatalf("NewLocal failed: %v", err)
 	}
 
-	raw, ok, err := src.GetTemplate(context.Background(), "alpha")
+	raw, ok, err := src.Get(context.Background(), "alpha")
 	if err != nil || !ok {
 		t.Fatalf("expected alpha to be loaded (ok=%v, err=%v)", ok, err)
 	}
 
-	// Verify the returned bytes round-trip through JSON unmarshal.
+	if string(raw) != body {
+		t.Errorf("expected returned bytes to match file content exactly\n got: %s\nwant: %s", raw, body)
+	}
+
+	// Sanity check that the test payload itself is still JSON-shaped — proves
+	// JSON content still flows through unchanged.
 	var got map[string]any
 	if err := json.Unmarshal(raw, &got); err != nil {
-		t.Fatalf("returned template is not valid JSON: %v", err)
+		t.Fatalf("returned blob is not valid JSON: %v", err)
 	}
 	if _, ok := got["schema"]; !ok {
-		t.Errorf("expected schema field in returned template, got %v", got)
+		t.Errorf("expected schema field in returned blob, got %v", got)
 	}
 }
 
 func TestLocal_SkipsNonJSONFiles(t *testing.T) {
 	dir := t.TempDir()
-	writeTemplateFile(t, dir, "alpha.json", `{"schema":{"type":"object"}}`)
-	writeTemplateFile(t, dir, "readme.txt", `this is not a template`)
-	writeTemplateFile(t, dir, "beta.yaml", `schema: {}`)
+	writeBlobFile(t, dir, "alpha.json", `{"schema":{"type":"object"}}`)
+	writeBlobFile(t, dir, "readme.txt", `this is not a blob`)
+	writeBlobFile(t, dir, "beta.yaml", `schema: {}`)
 
 	src, err := NewLocal(dir)
 	if err != nil {
 		t.Fatalf("NewLocal failed: %v", err)
 	}
 
-	if _, ok, _ := src.GetTemplate(context.Background(), "alpha"); !ok {
+	if _, ok, _ := src.Get(context.Background(), "alpha"); !ok {
 		t.Errorf("expected alpha to be loaded")
 	}
 	// IDs should be derived from .json filenames only, never from .txt/.yaml.
-	if _, ok, _ := src.GetTemplate(context.Background(), "readme"); ok {
+	if _, ok, _ := src.Get(context.Background(), "readme"); ok {
 		t.Errorf("readme.txt should have been skipped")
 	}
-	if _, ok, _ := src.GetTemplate(context.Background(), "beta"); ok {
+	if _, ok, _ := src.Get(context.Background(), "beta"); ok {
 		t.Errorf("beta.yaml should have been skipped")
 	}
 }
 
-func TestLocal_GetTemplateMiss(t *testing.T) {
+func TestLocal_GetMiss(t *testing.T) {
 	dir := t.TempDir()
-	writeTemplateFile(t, dir, "alpha.json", `{"schema":{"type":"object"}}`)
+	writeBlobFile(t, dir, "alpha.json", `{"schema":{"type":"object"}}`)
 
 	src, err := NewLocal(dir)
 	if err != nil {
 		t.Fatalf("NewLocal failed: %v", err)
 	}
 
-	_, ok, err := src.GetTemplate(context.Background(), "does-not-exist")
+	_, ok, err := src.Get(context.Background(), "does-not-exist")
 	if ok {
-		t.Errorf("expected GetTemplate miss to return ok=false")
+		t.Errorf("expected Get miss to return ok=false")
 	}
 	if err != nil {
-		t.Errorf("expected GetTemplate miss to return nil error, got %v", err)
+		t.Errorf("expected Get miss to return nil error, got %v", err)
 	}
 }
 
-func TestLocal_ErrorOnInvalidJSON(t *testing.T) {
+// TestLocal_LoadsInvalidJSONWithoutError documents that the package no longer
+// validates payload syntax — files with invalid JSON load successfully and are
+// returned to the caller verbatim.
+func TestLocal_LoadsInvalidJSONWithoutError(t *testing.T) {
 	dir := t.TempDir()
-	writeTemplateFile(t, dir, "broken.json", `{this is not valid json`)
+	body := `{this is not valid json`
+	writeBlobFile(t, dir, "broken.json", body)
 
-	_, err := NewLocal(dir)
-	if err == nil {
-		t.Fatalf("expected error when loading invalid JSON, got nil")
+	src, err := NewLocal(dir)
+	if err != nil {
+		t.Fatalf("NewLocal should not validate payload syntax; got err: %v", err)
+	}
+	raw, ok, err := src.Get(context.Background(), "broken")
+	if err != nil || !ok {
+		t.Fatalf("expected broken blob to be served verbatim (ok=%v, err=%v)", ok, err)
+	}
+	if string(raw) != body {
+		t.Errorf("expected raw bytes unchanged, got %s", raw)
 	}
 }
 
@@ -115,7 +131,7 @@ func TestLocal_ErrorOnMissingDir(t *testing.T) {
 	root := t.TempDir()
 	_, err := NewLocal(filepath.Join(root, "does-not-exist"))
 	if err == nil {
-		t.Fatalf("expected error when templates directory is missing, got nil")
+		t.Fatalf("expected error when blobs directory is missing, got nil")
 	}
 }
 
@@ -129,8 +145,8 @@ func TestLocal_ErrorOnEmptyDir(t *testing.T) {
 
 func TestLocal_ErrorOnDirWithNoJSONFiles(t *testing.T) {
 	dir := t.TempDir()
-	writeTemplateFile(t, dir, "readme.txt", "not a template")
-	writeTemplateFile(t, dir, "config.yaml", "key: value")
+	writeBlobFile(t, dir, "readme.txt", "not a blob")
+	writeBlobFile(t, dir, "config.yaml", "key: value")
 
 	_, err := NewLocal(dir)
 	if err == nil {
@@ -140,7 +156,7 @@ func TestLocal_ErrorOnDirWithNoJSONFiles(t *testing.T) {
 
 func TestLocal_Close(t *testing.T) {
 	dir := t.TempDir()
-	writeTemplateFile(t, dir, "alpha.json", `{"schema":{}}`)
+	writeBlobFile(t, dir, "alpha.json", `{"schema":{}}`)
 	src, err := NewLocal(dir)
 	if err != nil {
 		t.Fatalf("NewLocal failed: %v", err)
@@ -176,21 +192,21 @@ func TestLocal_IgnoresSubdirectories(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, "nested"), 0o755); err != nil {
 		t.Fatalf("failed to create nested dir: %v", err)
 	}
-	writeTemplateFile(t, dir, "nested/should_be_ignored.json", `{"schema":{}}`)
-	writeTemplateFile(t, dir, "top.json", `{"schema":{"type":"object"}}`)
+	writeBlobFile(t, dir, "nested/should_be_ignored.json", `{"schema":{}}`)
+	writeBlobFile(t, dir, "top.json", `{"schema":{"type":"object"}}`)
 
 	src, err := NewLocal(dir)
 	if err != nil {
 		t.Fatalf("NewLocal failed: %v", err)
 	}
 
-	if _, ok, _ := src.GetTemplate(context.Background(), "top"); !ok {
+	if _, ok, _ := src.Get(context.Background(), "top"); !ok {
 		t.Errorf("expected top to be loaded")
 	}
-	if _, ok, _ := src.GetTemplate(context.Background(), "should_be_ignored"); ok {
+	if _, ok, _ := src.Get(context.Background(), "should_be_ignored"); ok {
 		t.Errorf("nested file should not be discovered")
 	}
-	if _, ok, _ := src.GetTemplate(context.Background(), "nested/should_be_ignored"); ok {
+	if _, ok, _ := src.Get(context.Background(), "nested/should_be_ignored"); ok {
 		t.Errorf("nested file should not be discovered under any key")
 	}
 }
