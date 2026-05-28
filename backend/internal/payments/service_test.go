@@ -69,9 +69,18 @@ func (m *mockRepository) WithTx(tx *gorm.DB) PaymentRepository {
 	return m
 }
 
+func newTestService(t *testing.T, repo PaymentRepository) PaymentService {
+	t.Helper()
+	svc, err := NewPaymentService(repo, "testdata/payment_methods.json")
+	if err != nil {
+		t.Fatalf("failed to create payment service: %v", err)
+	}
+	return svc
+}
+
 func TestCreateCheckoutSession(t *testing.T) {
 	repo := &mockRepository{txs: make(map[string]*PaymentTransaction)}
-	service := NewPaymentService(repo)
+	service := newTestService(t, repo)
 
 	req := CreateCheckoutRequest{
 		ReferenceNumber: "REF-123",
@@ -88,6 +97,24 @@ func TestCreateCheckoutSession(t *testing.T) {
 		}
 		if resp.SessionID == "" {
 			t.Fatal("expected session ID to be generated")
+		}
+		if resp.ReferenceNumber != "REF-123" {
+			t.Errorf("expected reference number to be REF-123, got %s", resp.ReferenceNumber)
+		}
+	})
+
+	t.Run("success with auto-generated reference number", func(t *testing.T) {
+		reqEmptyRef := req
+		reqEmptyRef.ReferenceNumber = ""
+		resp, err := service.CreateCheckoutSession(context.Background(), reqEmptyRef)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if resp.ReferenceNumber == "" {
+			t.Fatal("expected reference number to be generated")
+		}
+		if len(resp.ReferenceNumber) != 13 || resp.ReferenceNumber[:5] != "TNSW-" {
+			t.Errorf("unexpected generated reference format: %s", resp.ReferenceNumber)
 		}
 	})
 
@@ -112,7 +139,7 @@ func TestCreateCheckoutSession(t *testing.T) {
 
 func TestValidateReference(t *testing.T) {
 	repo := &mockRepository{txs: make(map[string]*PaymentTransaction)}
-	service := NewPaymentService(repo)
+	service := newTestService(t, repo)
 
 	t.Run("not found", func(t *testing.T) {
 		resp, err := service.ValidateReference(context.Background(), ValidateReferenceRequest{PaymentReference: "NON-EXISTENT"})
@@ -155,7 +182,7 @@ func TestValidateReference(t *testing.T) {
 
 func TestProcessWebhook(t *testing.T) {
 	repo := &mockRepository{txs: make(map[string]*PaymentTransaction)}
-	service := NewPaymentService(repo)
+	service := newTestService(t, repo)
 
 	txKey := "REF-123"
 	repo.txs[txKey] = &PaymentTransaction{
@@ -231,6 +258,38 @@ func TestProcessWebhook(t *testing.T) {
 		err := service.ProcessWebhook(context.Background(), payload)
 		if err != nil {
 			t.Fatalf("expected no error for idempotent call, got %v", err)
+		}
+	})
+}
+
+func TestGetPaymentMethod(t *testing.T) {
+	repo := &mockRepository{txs: make(map[string]*PaymentTransaction)}
+	service := newTestService(t, repo)
+
+	t.Run("lankapay exists", func(t *testing.T) {
+		m, err := service.GetPaymentMethod("lankapay")
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if m.ID != "lankapay" || m.Type != "REDIRECT" {
+			t.Errorf("unexpected payment method: %+v", m)
+		}
+	})
+
+	t.Run("govpay exists", func(t *testing.T) {
+		m, err := service.GetPaymentMethod("govpay")
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if m.ID != "govpay" || m.Type != "INFO" {
+			t.Errorf("unexpected payment method: %+v", m)
+		}
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		_, err := service.GetPaymentMethod("non_existent_method")
+		if err == nil {
+			t.Fatal("expected error, got nil")
 		}
 	})
 }

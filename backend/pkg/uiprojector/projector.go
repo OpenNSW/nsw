@@ -66,7 +66,15 @@ func NewMarkdownProjector() *MarkdownProjector {
 func (p *MarkdownProjector) Type() ProjectorType { return ProjectorMarkdown }
 
 func (p *MarkdownProjector) Project(ctx context.Context, templateContent []byte, data any) (Projection, error) {
-	tmpl, err := template.New("markdown").Parse(string(templateContent))
+	var wrapper struct {
+		Template string `json:"template"`
+	}
+	templateStr := string(templateContent)
+	if json.Unmarshal(templateContent, &wrapper) == nil && wrapper.Template != "" {
+		templateStr = wrapper.Template
+	}
+
+	tmpl, err := template.New("markdown").Parse(templateStr)
 	if err != nil {
 		return Projection{}, fmt.Errorf("markdown_projector: failed to parse template: %w", err)
 	}
