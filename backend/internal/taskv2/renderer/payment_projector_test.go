@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/OpenNSW/nsw/internal/payments"
-	"github.com/OpenNSW/nsw/pkg/uiprojector"
+	"github.com/OpenNSW/nsw/backend/internal/payments"
+	"github.com/OpenNSW/nsw/backend/pkg/uiprojector"
 	"github.com/stretchr/testify/assert"
 )
 

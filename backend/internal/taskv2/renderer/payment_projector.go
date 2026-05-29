@@ -7,8 +7,8 @@ import (
 	"sync"
 	"text/template"
 
-	"github.com/OpenNSW/nsw/internal/payments"
-	"github.com/OpenNSW/nsw/pkg/uiprojector"
+	"github.com/OpenNSW/nsw/backend/internal/payments"
+	"github.com/OpenNSW/nsw/backend/pkg/uiprojector"
 )
 
 // ProjectorPayment defines the payment instructions projector type.

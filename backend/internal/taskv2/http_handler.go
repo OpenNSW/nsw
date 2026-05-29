@@ -11,7 +11,7 @@ import (
 	"github.com/OpenNSW/nsw-task-flow/orchestrator"
 	tfstore "github.com/OpenNSW/nsw-task-flow/store"
 
-	"github.com/OpenNSW/nsw/internal/taskv2/renderer"
+	"github.com/OpenNSW/nsw/backend/internal/taskv2/renderer"
 )
 
 // TaskFetcher is the narrow surface HandleGetTask needs from the task store.
