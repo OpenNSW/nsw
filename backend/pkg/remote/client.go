@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OpenNSW/nsw/pkg/remote/auth"
+	"github.com/OpenNSW/nsw/backend/pkg/remote/auth"
 )
 
 // RetryConfig defines the strategy for retrying failed requests.

@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/OpenNSW/nsw/internal/app/bootstrap"
-	"github.com/OpenNSW/nsw/internal/config"
+	"github.com/OpenNSW/nsw/backend/internal/app/bootstrap"
+	"github.com/OpenNSW/nsw/backend/internal/config"
 )
 
 func main() {

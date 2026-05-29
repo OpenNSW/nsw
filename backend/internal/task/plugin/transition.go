@@ -3,7 +3,7 @@ package plugin
 import (
 	"fmt"
 
-	"github.com/OpenNSW/nsw/pkg/jsonform"
+	"github.com/OpenNSW/nsw/backend/pkg/jsonform"
 )
 
 // TransitionConfig drives dynamic FSM action resolution from a response field.

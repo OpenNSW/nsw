@@ -14,7 +14,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/OpenNSW/nsw/pkg/notification"
+	"github.com/OpenNSW/nsw/backend/pkg/notification"
 )
 
 // GovSMSConfig holds the credentials and settings for the Gov of Sri Lanka SMS provider.

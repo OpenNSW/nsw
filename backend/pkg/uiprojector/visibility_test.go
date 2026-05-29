@@ -3,7 +3,7 @@ package uiprojector_test
 import (
 	"testing"
 
-	"github.com/OpenNSW/nsw/pkg/uiprojector"
+	"github.com/OpenNSW/nsw/backend/pkg/uiprojector"
 	"github.com/stretchr/testify/assert"
 )
 

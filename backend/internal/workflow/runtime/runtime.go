@@ -8,8 +8,8 @@ import (
 
 	workflowmanager "github.com/OpenNSW/go-temporal-workflow"
 
-	taskmanager "github.com/OpenNSW/nsw/internal/task/manager"
-	"github.com/OpenNSW/nsw/internal/workflow/service"
+	taskmanager "github.com/OpenNSW/nsw/backend/internal/task/manager"
+	"github.com/OpenNSW/nsw/backend/internal/workflow/service"
 
 	"go.temporal.io/sdk/client"
 )

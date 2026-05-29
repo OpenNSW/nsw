@@ -1,7 +1,7 @@
 package manager
 
 import (
-	"github.com/OpenNSW/nsw/internal/task/plugin"
+	"github.com/OpenNSW/nsw/backend/internal/task/plugin"
 )
 
 type WorkflowManagerNotification struct {

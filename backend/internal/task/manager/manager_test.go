@@ -13,9 +13,9 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	"github.com/OpenNSW/nsw/internal/task/container"
-	"github.com/OpenNSW/nsw/internal/task/persistence"
-	"github.com/OpenNSW/nsw/internal/task/plugin"
+	"github.com/OpenNSW/nsw/backend/internal/task/container"
+	"github.com/OpenNSW/nsw/backend/internal/task/persistence"
+	"github.com/OpenNSW/nsw/backend/internal/task/plugin"
 )
 
 // MockTaskFactory

@@ -17,10 +17,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/OpenNSW/nsw/internal/auth"
-	"github.com/OpenNSW/nsw/internal/profile/cha"
-	"github.com/OpenNSW/nsw/internal/profile/company"
-	"github.com/OpenNSW/nsw/internal/profile/user"
+	"github.com/OpenNSW/nsw/backend/internal/auth"
+	"github.com/OpenNSW/nsw/backend/internal/profile/cha"
+	"github.com/OpenNSW/nsw/backend/internal/profile/company"
+	"github.com/OpenNSW/nsw/backend/internal/profile/user"
 )
 
 func withAuthContext(ctx context.Context, userID string) context.Context {

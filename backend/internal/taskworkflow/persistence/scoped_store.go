@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/OpenNSW/nsw/internal/task/plugin"
+	"github.com/OpenNSW/nsw/backend/internal/task/plugin"
 )
 
 // TaskScopedRecord is the subset of a task workflow row exposed to a single

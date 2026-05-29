@@ -7,7 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
-	formmodel "github.com/OpenNSW/nsw/internal/form/model"
+	formmodel "github.com/OpenNSW/nsw/backend/internal/form/model"
 )
 
 // ErrFormNotFound is returned when a form is not found

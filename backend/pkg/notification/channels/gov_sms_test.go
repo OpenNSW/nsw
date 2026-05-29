@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/OpenNSW/nsw/pkg/notification"
+	"github.com/OpenNSW/nsw/backend/pkg/notification"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
