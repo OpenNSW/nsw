@@ -371,6 +371,55 @@ func TestGitHub_BackgroundRefreshLogsOnError(t *testing.T) {
 	_ = src
 }
 
+func TestGitHub_CustomManifestPathResolvesRelativeBlobs(t *testing.T) {
+	stub, srv := newStubBlobServer(t)
+	// Manifest lives at agency-configs/fcau/manifest.json. byId values are
+	// repo-root-relative, so "agency-configs/fcau/task-configs/alpha.json"
+	// fetches from that exact path at the repo root.
+	stub.setFile("agency-configs/fcau/manifest.json",
+		`{"byId":{"alpha":"agency-configs/fcau/task-configs/alpha.json"}}`)
+	stub.setFile("agency-configs/fcau/task-configs/alpha.json", `{"v":1}`)
+
+	src, err := NewGitHub(context.Background(), GitHubConfig{
+		Repo:         "owner/repo",
+		Ref:          "main",
+		ManifestPath: "agency-configs/fcau/manifest.json",
+		BaseURL:      srv.URL,
+	})
+	if err != nil {
+		t.Fatalf("NewGitHub: %v", err)
+	}
+	t.Cleanup(func() { _ = src.Close() })
+
+	body, ok, err := src.Get(context.Background(), "alpha")
+	if err != nil || !ok {
+		t.Fatalf("expected alpha (ok=%v, err=%v)", ok, err)
+	}
+	if string(body) != `{"v":1}` {
+		t.Errorf("expected v:1 from nested path, got %s", body)
+	}
+}
+
+func TestGitHub_RejectsManifestPathTraversal(t *testing.T) {
+	_, srv := newStubBlobServer(t)
+	for _, badPath := range []string{
+		"../manifest.json",            // raw traversal
+		"/etc/manifest.json",          // absolute path
+		"foo/../../bar/manifest.json", // traversal via clean → ../bar/manifest.json
+		"..",                          // exactly ".."
+	} {
+		_, err := NewGitHub(context.Background(), GitHubConfig{
+			Repo:         "owner/repo",
+			Ref:          "main",
+			ManifestPath: badPath,
+			BaseURL:      srv.URL,
+		})
+		if err == nil {
+			t.Errorf("expected error for ManifestPath %q, got nil", badPath)
+		}
+	}
+}
+
 // Close is idempotent.
 func TestGitHub_CloseIsIdempotent(t *testing.T) {
 	stub, srv := newStubBlobServer(t)

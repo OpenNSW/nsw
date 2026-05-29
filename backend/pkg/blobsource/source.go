@@ -32,6 +32,7 @@ func NewFromConfig(ctx context.Context, cfg Config) (Source, error) {
 		return NewGitHub(ctx, GitHubConfig{
 			Repo:            cfg.GitHubRepo,
 			Ref:             cfg.GitHubRef,
+			ManifestPath:    cfg.GitHubManifestPath,
 			BaseURL:         cfg.GitHubBaseURL,
 			RefreshInterval: cfg.GitHubRefreshInterval,
 		})

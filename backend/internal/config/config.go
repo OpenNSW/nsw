@@ -11,9 +11,9 @@ import (
 	"github.com/OpenNSW/nsw/backend/internal/auth"
 	"github.com/OpenNSW/nsw/backend/internal/database"
 	"github.com/OpenNSW/nsw/backend/internal/temporal"
-	"github.com/OpenNSW/nsw/backend/internal/validation"
 	"github.com/OpenNSW/nsw/backend/pkg/blobsource"
 	"github.com/OpenNSW/nsw/backend/pkg/storage"
+	"github.com/OpenNSW/nsw/backend/pkg/validation"
 )
 
 // Config holds all configuration for the application

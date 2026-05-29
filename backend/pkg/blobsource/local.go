@@ -13,13 +13,36 @@ type localSource struct {
 	blobs map[string][]byte
 }
 
-// NewLocal reads every .json file directly from dir into memory and returns
-// a Source that serves them. The file basename (without ".json") is the
-// blob ID. Returns an error if dir is missing or contains no .json files.
+// NewLocal returns a Source backed by a local directory.
 //
-// Note: discovery is restricted to .json files for now. Payload bytes are
-// not parsed or validated — callers receive raw file contents.
+// If <dir>/manifest.json exists, the source loads blobs according to its
+// {"byId": {id: "relpath"}} mapping (mirroring the GitHub backend). Relative
+// paths are joined against dir and rejected if they escape dir via "..". This
+// lets a local clone of a manifest-based repo be served directly.
+//
+// Otherwise the source falls back to flat-directory mode: every .json file
+// directly in dir is loaded into memory, and the file basename (without
+// ".json") is the blob ID. Subdirectories are ignored.
+//
+// Returns an error if dir is missing or, in flat mode, contains no .json
+// files. Payload bytes are not parsed or validated — callers receive raw
+// file contents.
 func NewLocal(dir string) (Source, error) {
+	info, err := os.Stat(dir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to stat blobs directory %q: %w", dir, err)
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("blobsource: %q is not a directory", dir)
+	}
+
+	manifestPath := filepath.Join(dir, "manifest.json")
+	if _, err := os.Stat(manifestPath); err == nil {
+		return newLocalManifest(dir, manifestPath)
+	} else if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("failed to stat manifest %q: %w", manifestPath, err)
+	}
+
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read blobs directory %q: %w", dir, err)

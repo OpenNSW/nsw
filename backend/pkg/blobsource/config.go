@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/OpenNSW/nsw/backend/internal/validation"
+	"github.com/OpenNSW/nsw/backend/pkg/validation"
 )
 
 // Config selects and configures a blob source backend.
@@ -18,8 +18,14 @@ type Config struct {
 	LocalDir string
 
 	// github backend
-	GitHubRepo            string
-	GitHubRef             string
+	GitHubRepo string
+	GitHubRef  string
+	// GitHubManifestPath is the repo-relative path to the manifest file.
+	// Defaults to "manifest.json" (at repo root). Use a subdirectory path
+	// such as "fcau/manifest.json" when a repo carries one manifest per
+	// logical group; byId entries are then resolved relative to that
+	// manifest's directory.
+	GitHubManifestPath    string
 	GitHubBaseURL         string        // optional; defaults to DefaultGitHubBaseURL
 	GitHubRefreshInterval time.Duration // optional; 0 disables background refresh
 }

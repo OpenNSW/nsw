@@ -3,7 +3,7 @@ package auth
 import (
 	"fmt"
 
-	"github.com/OpenNSW/nsw/backend/internal/validation"
+	"github.com/OpenNSW/nsw/backend/pkg/validation"
 )
 
 type Config struct {

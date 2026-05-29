@@ -19,7 +19,7 @@ point.
 ## Import
 
 ```go
-import "github.com/OpenNSW/nsw/pkg/blobsource"
+import "github.com/OpenNSW/nsw/backend/pkg/blobsource"
 ```
 
 ## Configuration
@@ -38,6 +38,7 @@ type Config struct {
     // github backend
     GitHubRepo            string
     GitHubRef             string
+    GitHubManifestPath    string        // optional, defaults to "manifest.json"
     GitHubBaseURL         string        // optional
     GitHubRefreshInterval time.Duration // optional, 0 disables
 }
@@ -62,6 +63,7 @@ raw, ok, err := src.Get(ctx, "build-licence")
 | `BLOBSOURCE_LOCAL_DIR` | `./configs/blobs` | Required when `TYPE=local` |
 | `BLOBSOURCE_GITHUB_REPO` | — | Required when `TYPE=github`, e.g. `OpenNSW/one-trade-templates` |
 | `BLOBSOURCE_GITHUB_REF` | — | Required when `TYPE=github`. Pin to a SHA in production. |
+| `BLOBSOURCE_GITHUB_MANIFEST_PATH` | `manifest.json` | Repo-relative manifest path; use a subdir path for per-group manifests |
 | `BLOBSOURCE_GITHUB_BASE_URL` | `https://raw.githubusercontent.com` | Override for Enterprise / mirrors / tests |
 | `BLOBSOURCE_GITHUB_REFRESH_INTERVAL` | `0` (disabled) | Background manifest refresh, e.g. `5m` |
 
@@ -69,21 +71,31 @@ raw, ok, err := src.Get(ctx, "build-licence")
 
 ### Local source
 
-`NewLocal` reads every `.json` file in `dir` into memory at startup. The file
-basename without the `.json` extension becomes the blob ID.
+`NewLocal` serves blobs from a local directory. It has two modes, auto-selected
+by whether the directory contains a `manifest.json`:
 
 ```go
 src, err := blobsource.NewLocal("/etc/oga/blobs")
 ```
 
+**Flat mode** (no `manifest.json`): reads every `.json` file directly in `dir`
+into memory at startup. The file basename without the `.json` extension becomes
+the blob ID.
+
 - Returns an error if `dir` is missing or contains no `.json` files.
 - Subdirectories and non-`.json` files are silently skipped.
+
+**Manifest mode** (`dir/manifest.json` present): loads blobs from the paths
+named in the manifest's `byId` map (the same format the GitHub backend uses),
+resolved relative to `dir`. This lets a local clone of a manifest-based repo —
+whose blobs are nested under subdirectories — be served directly. Paths that
+escape `dir` via `..` or absolute paths are rejected.
+
+In both modes:
+
 - Payload bytes are not parsed or validated — files load even if their contents
   are not valid JSON.
 - `Close` is a no-op but must still be called to satisfy the interface.
-
-> Discovery is restricted to `.json` files for backward compatibility. If a
-> non-JSON consumer appears, this can be made configurable via `Config`.
 
 ### GitHub source
 
@@ -105,19 +117,24 @@ src, err := blobsource.NewGitHub(context.Background(), blobsource.GitHubConfig{
 |---|---|---|---|
 | `Repo` | yes | — | `"owner/name"` e.g. `"OpenNSW/one-trade-templates"` |
 | `Ref` | yes | — | Branch name or commit SHA. Pin to a SHA in production. |
-| `RefreshInterval` | no | `0` (disabled) | How often to re-fetch `manifest.json` in the background. |
+| `ManifestPath` | no | `manifest.json` | Repo-relative path to the manifest file. `byId` entries are always repo-root-relative. |
+| `RefreshInterval` | no | `0` (disabled) | How often to re-fetch the manifest in the background. |
 | `BaseURL` | no | `https://raw.githubusercontent.com` | Override for GitHub Enterprise, mirrors, or test servers. |
 | `HTTPClient` | no | 10 s-timeout client | Override for custom TLS, proxies, or test transports. |
 
 #### How it works
 
-1. **Manifest** — `manifest.json` must contain a top-level `byId` object that
-   maps blob IDs to repo-relative file paths:
+1. **Manifest** — the manifest file (`manifest.json` by default, or
+   `ManifestPath`) must contain a top-level `byId` object that maps blob IDs to
+   **repo-root-relative** file paths:
    ```json
    { "byId": { "build-licence": "forms/build-licence.json" } }
    ```
-   The manifest is the backend's own index format and is always parsed as JSON,
-   even though blob payloads themselves are treated as opaque bytes.
+   `byId` paths are always relative to the repository root, regardless of where
+   the manifest itself lives. With `ManifestPath: "agency-configs/fcau/manifest.json"`,
+   a `byId` entry `"agency-configs/fcau/task-configs/x.json"` fetches that exact
+   repo-root path. The manifest is always parsed as JSON, even though blob
+   payloads themselves are treated as opaque bytes.
 2. **Lazy fetch** — the first `Get` call for an ID fetches the file and caches
    it.
 3. **Background refresh** — when `RefreshInterval > 0`, a goroutine

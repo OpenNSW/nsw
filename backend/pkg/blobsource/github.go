@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"path"
+	"strings"
 	"sync"
 	"time"
 )
@@ -29,7 +31,11 @@ type GitHubConfig struct {
 	// Ref is a branch name or commit SHA. Pin to a SHA in production for
 	// reproducibility.
 	Ref string
-	// RefreshInterval is how often to re-fetch manifest.json in the background.
+	// ManifestPath is the repo-relative path to the manifest file. Defaults to
+	// "manifest.json" (at repo root). Blob paths inside the manifest's byId
+	// map are ALWAYS repo-root-relative, regardless of where the manifest lives.
+	ManifestPath string
+	// RefreshInterval is how often to re-fetch the manifest in the background.
 	// 0 disables background refresh.
 	RefreshInterval time.Duration
 	// BaseURL overrides the raw-content host. Defaults to DefaultGitHubBaseURL.
@@ -54,18 +60,19 @@ type manifestData struct {
 // path so pushes that move a blob to a different path invalidate the cache
 // for free.
 type githubSource struct {
-	repo     string
-	ref      string
-	baseURL  string
-	interval time.Duration
-	client   *http.Client
+	repo         string
+	ref          string
+	baseURL      string
+	manifestPath string // repo-relative path to the manifest file (default: "manifest.json")
+	interval     time.Duration
+	client       *http.Client
 
 	ctx    context.Context
 	cancel context.CancelFunc
 
 	mu        sync.RWMutex
 	byID      map[string]string // blobID -> repo-relative path
-	blobCache map[string][]byte // path -> blob bytes
+	blobCache map[string][]byte // repo-relative path -> blob bytes
 }
 
 // NewGitHub builds a Source that loads its manifest from a GitHub repo at
@@ -86,6 +93,16 @@ func NewGitHub(ctx context.Context, cfg GitHubConfig) (Source, error) {
 	if _, err := url.Parse(baseURL); err != nil {
 		return nil, fmt.Errorf("blobsource: invalid BaseURL %q: %w", baseURL, err)
 	}
+	manifestPath := cfg.ManifestPath
+	if manifestPath == "" {
+		manifestPath = "manifest.json"
+	}
+	// Clean before validation so that bypass attempts like "fcau/.." are
+	// normalised before the prefix check.
+	manifestPath = path.Clean(manifestPath)
+	if path.IsAbs(manifestPath) || manifestPath == ".." || strings.HasPrefix(manifestPath, "../") {
+		return nil, fmt.Errorf("blobsource: ManifestPath %q must be a relative path that does not escape the repository root", cfg.ManifestPath)
+	}
 	client := cfg.HTTPClient
 	if client == nil {
 		client = &http.Client{Timeout: 10 * time.Second}
@@ -93,15 +110,16 @@ func NewGitHub(ctx context.Context, cfg GitHubConfig) (Source, error) {
 
 	srcCtx, cancel := context.WithCancel(context.Background())
 	src := &githubSource{
-		repo:      cfg.Repo,
-		ref:       cfg.Ref,
-		baseURL:   baseURL,
-		interval:  cfg.RefreshInterval,
-		client:    client,
-		ctx:       srcCtx,
-		cancel:    cancel,
-		byID:      map[string]string{},
-		blobCache: map[string][]byte{},
+		repo:         cfg.Repo,
+		ref:          cfg.Ref,
+		baseURL:      baseURL,
+		manifestPath: manifestPath,
+		interval:     cfg.RefreshInterval,
+		client:       client,
+		ctx:          srcCtx,
+		cancel:       cancel,
+		byID:         map[string]string{},
+		blobCache:    map[string][]byte{},
 	}
 	if err := src.loadManifest(ctx); err != nil {
 		return nil, fmt.Errorf("blobsource: failed to load manifest from %s: %w", src.manifestURL(), err)
@@ -117,12 +135,15 @@ func NewGitHub(ctx context.Context, cfg GitHubConfig) (Source, error) {
 func (s *githubSource) manifestURL() string {
 	// BaseURL is validated at construction; JoinPath only errors on an
 	// unparseable base, so the discarded error is unreachable here.
-	u, _ := url.JoinPath(s.baseURL, s.repo, s.ref, "manifest.json")
+	u, _ := url.JoinPath(s.baseURL, s.repo, s.ref, s.manifestPath)
 	return u
 }
 
-func (s *githubSource) blobURL(path string) string {
-	u, _ := url.JoinPath(s.baseURL, s.repo, s.ref, path)
+// blobURL resolves a manifest entry's byId value into a fully-qualified raw
+// content URL. byId values are always repo-root-relative regardless of where
+// the manifest file itself lives, so this is a direct join with no adjustment.
+func (s *githubSource) blobURL(rel string) string {
+	u, _ := url.JoinPath(s.baseURL, s.repo, s.ref, rel)
 	return u
 }
 
