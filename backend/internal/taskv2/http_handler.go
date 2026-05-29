@@ -105,14 +105,14 @@ func (h *HTTPHandler) HandleCompleteTaskStep(w http.ResponseWriter, r *http.Requ
 // unwrapOGACallback detects OGA's legacy TaskResponse envelope and returns the
 // reviewer payload that the task plugin actually expects.
 //
-// OGA's sendToService posts back:
+// Agency's sendToService posts back:
 //
-//	{ "task_id": "...", "workflow_id": "...", "payload": { "action": "OGA_VERIFICATION", "content": {...} } }
+//	{ "task_id": "...", "consignment_id": "...", "payload": { "action": "AGENCY_VERIFICATION", "content": {...} } }
 //
 // but our plugins expect the bare reviewer form data. We detect the envelope
-// (presence of task_id + workflow_id + payload.content) and lift content up.
+// (presence of task_id + consignment_id + payload.content) and lift content up.
 //
-// TODO(oga-callback): remove once OGA is updated to post the bare reviewer
+// TODO(agency-callback): remove once the agency is updated to post the bare reviewer
 // payload directly to /api/v1/tasks/{id} (or to a dedicated /oga-callback
 // route that owns this translation).
 func unwrapOGACallback(payload map[string]any) map[string]any {
@@ -122,7 +122,7 @@ func unwrapOGACallback(payload map[string]any) map[string]any {
 	if _, hasTaskID := payload["task_id"]; !hasTaskID {
 		return payload
 	}
-	if _, hasWorkflowID := payload["workflow_id"]; !hasWorkflowID {
+	if _, hasConsignmentID := payload["consignment_id"]; !hasConsignmentID {
 		return payload
 	}
 	envelope, ok := payload["payload"].(map[string]any)
