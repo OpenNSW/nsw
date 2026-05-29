@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/OpenNSW/nsw/pkg/remote/auth"
+	"github.com/OpenNSW/nsw/backend/pkg/remote/auth"
 )
 
 type AuthConfig struct {

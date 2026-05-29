@@ -11,7 +11,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	"github.com/OpenNSW/nsw/internal/task/plugin"
+	"github.com/OpenNSW/nsw/backend/internal/task/plugin"
 )
 
 func setupStoreTestDB(t *testing.T) (*gorm.DB, sqlmock.Sqlmock) {

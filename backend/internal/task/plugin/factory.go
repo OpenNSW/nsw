@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/OpenNSW/nsw/internal/config"
-	"github.com/OpenNSW/nsw/internal/form"
-	"github.com/OpenNSW/nsw/internal/payments"
-	"github.com/OpenNSW/nsw/pkg/remote"
+	"github.com/OpenNSW/nsw/backend/internal/config"
+	"github.com/OpenNSW/nsw/backend/internal/form"
+	"github.com/OpenNSW/nsw/backend/internal/payments"
+	"github.com/OpenNSW/nsw/backend/pkg/remote"
 	"gorm.io/gorm"
 )
 

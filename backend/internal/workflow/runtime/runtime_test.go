@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	taskManager "github.com/OpenNSW/nsw/internal/task/manager"
-	"github.com/OpenNSW/nsw/internal/task/plugin"
-	"github.com/OpenNSW/nsw/internal/workflow/model"
+	taskManager "github.com/OpenNSW/nsw/backend/internal/task/manager"
+	"github.com/OpenNSW/nsw/backend/internal/task/plugin"
+	"github.com/OpenNSW/nsw/backend/internal/workflow/model"
 )
 
 type fakeTemporalManager struct {

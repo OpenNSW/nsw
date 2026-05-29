@@ -3,7 +3,7 @@ package model
 import (
 	"encoding/json"
 
-	taskPlugin "github.com/OpenNSW/nsw/internal/task/plugin"
+	taskPlugin "github.com/OpenNSW/nsw/backend/internal/task/plugin"
 )
 
 type WorkflowNodeTemplateType = taskPlugin.Type

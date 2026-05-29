@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	formmodel "github.com/OpenNSW/nsw/internal/form/model"
-	"github.com/OpenNSW/nsw/pkg/remote"
+	formmodel "github.com/OpenNSW/nsw/backend/internal/form/model"
+	"github.com/OpenNSW/nsw/backend/pkg/remote"
 )
 
 // wfeAPI is a minimal API stub for WaitForEventTask tests.

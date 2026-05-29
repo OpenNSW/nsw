@@ -1,6 +1,6 @@
 package plugin
 
-import "github.com/OpenNSW/nsw/pkg/jsonform"
+import "github.com/OpenNSW/nsw/backend/pkg/jsonform"
 
 // EmissionConfig holds the rules evaluated when a plugin action completes.
 // Every rule whose conditions all match contributes its outcome to the result.

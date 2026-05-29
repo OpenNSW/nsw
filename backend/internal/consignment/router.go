@@ -6,10 +6,10 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/OpenNSW/nsw/internal/auth"
-	"github.com/OpenNSW/nsw/internal/profile/cha"
-	"github.com/OpenNSW/nsw/internal/profile/company"
-	"github.com/OpenNSW/nsw/utils"
+	"github.com/OpenNSW/nsw/backend/internal/auth"
+	"github.com/OpenNSW/nsw/backend/internal/profile/cha"
+	"github.com/OpenNSW/nsw/backend/internal/profile/company"
+	"github.com/OpenNSW/nsw/backend/utils"
 )
 
 type Router struct {

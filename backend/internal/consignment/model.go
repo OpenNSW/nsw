@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/OpenNSW/nsw/internal/hscode"
-	"github.com/OpenNSW/nsw/internal/workflow/model"
+	"github.com/OpenNSW/nsw/backend/internal/hscode"
+	"github.com/OpenNSW/nsw/backend/internal/workflow/model"
 )
 
 // Flow represents the flow type of consignment.

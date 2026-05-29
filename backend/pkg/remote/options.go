@@ -3,7 +3,7 @@ package remote
 import (
 	"time"
 
-	"github.com/OpenNSW/nsw/pkg/remote/auth"
+	"github.com/OpenNSW/nsw/backend/pkg/remote/auth"
 )
 
 type Option func(*Client)

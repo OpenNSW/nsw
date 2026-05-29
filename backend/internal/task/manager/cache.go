@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/OpenNSW/nsw/internal/task/container"
+	"github.com/OpenNSW/nsw/backend/internal/task/container"
 )
 
 // cacheNode represents a node in the LRU cache doubly linked list

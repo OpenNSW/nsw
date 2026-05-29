@@ -12,7 +12,7 @@ import (
 	texttemplate "text/template"
 	"time"
 
-	"github.com/OpenNSW/nsw/pkg/notification"
+	"github.com/OpenNSW/nsw/backend/pkg/notification"
 	"github.com/go-mail/mail/v2"
 )
 

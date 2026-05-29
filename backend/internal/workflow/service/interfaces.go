@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	"github.com/OpenNSW/nsw/internal/workflow/model"
+	"github.com/OpenNSW/nsw/backend/internal/workflow/model"
 )
 
 // TemplateProvider defines the interface for retrieving workflow templates.

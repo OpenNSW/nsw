@@ -13,13 +13,13 @@ import (
 
 	workflowmanager "github.com/OpenNSW/go-temporal-workflow"
 
-	"github.com/OpenNSW/nsw/internal/hscode"
-	"github.com/OpenNSW/nsw/internal/profile/cha"
-	"github.com/OpenNSW/nsw/internal/profile/company"
-	"github.com/OpenNSW/nsw/internal/profile/user"
-	"github.com/OpenNSW/nsw/internal/workflow/model"
-	"github.com/OpenNSW/nsw/internal/workflow/service"
-	"github.com/OpenNSW/nsw/utils"
+	"github.com/OpenNSW/nsw/backend/internal/hscode"
+	"github.com/OpenNSW/nsw/backend/internal/profile/cha"
+	"github.com/OpenNSW/nsw/backend/internal/profile/company"
+	"github.com/OpenNSW/nsw/backend/internal/profile/user"
+	"github.com/OpenNSW/nsw/backend/internal/workflow/model"
+	"github.com/OpenNSW/nsw/backend/internal/workflow/service"
+	"github.com/OpenNSW/nsw/backend/utils"
 )
 
 // Service handles consignment-related operations.

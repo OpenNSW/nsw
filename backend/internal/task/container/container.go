@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/OpenNSW/nsw/internal/task/persistence"
-	"github.com/OpenNSW/nsw/internal/task/plugin"
+	"github.com/OpenNSW/nsw/backend/internal/task/persistence"
+	"github.com/OpenNSW/nsw/backend/internal/task/plugin"
 )
 
 type Container struct {

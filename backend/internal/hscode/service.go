@@ -7,7 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/OpenNSW/nsw/utils"
+	"github.com/OpenNSW/nsw/backend/utils"
 )
 
 type Service struct {

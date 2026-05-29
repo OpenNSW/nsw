@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OpenNSW/nsw/pkg/notification"
-	"github.com/OpenNSW/nsw/pkg/notification/channels"
+	"github.com/OpenNSW/nsw/backend/pkg/notification"
+	"github.com/OpenNSW/nsw/backend/pkg/notification/channels"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

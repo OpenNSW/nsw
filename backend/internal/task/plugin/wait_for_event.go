@@ -7,10 +7,10 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/OpenNSW/nsw/internal/form"
-	"github.com/OpenNSW/nsw/pkg/jsonform"
-	"github.com/OpenNSW/nsw/pkg/jsonutils"
-	"github.com/OpenNSW/nsw/pkg/remote"
+	"github.com/OpenNSW/nsw/backend/internal/form"
+	"github.com/OpenNSW/nsw/backend/pkg/jsonform"
+	"github.com/OpenNSW/nsw/backend/pkg/jsonutils"
+	"github.com/OpenNSW/nsw/backend/pkg/remote"
 )
 
 type waitForEventState string

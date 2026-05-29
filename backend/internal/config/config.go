@@ -8,12 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OpenNSW/nsw/internal/auth"
-	"github.com/OpenNSW/nsw/internal/database"
-	"github.com/OpenNSW/nsw/internal/temporal"
-	"github.com/OpenNSW/nsw/internal/validation"
-	"github.com/OpenNSW/nsw/pkg/blobsource"
-	"github.com/OpenNSW/nsw/pkg/storage"
+	"github.com/OpenNSW/nsw/backend/internal/auth"
+	"github.com/OpenNSW/nsw/backend/internal/database"
+	"github.com/OpenNSW/nsw/backend/internal/temporal"
+	"github.com/OpenNSW/nsw/backend/internal/validation"
+	"github.com/OpenNSW/nsw/backend/pkg/blobsource"
+	"github.com/OpenNSW/nsw/backend/pkg/storage"
 )
 
 // Config holds all configuration for the application

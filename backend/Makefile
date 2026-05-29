@@ -62,7 +62,7 @@ format: ## Auto-fix formatting and import issues
 	@echo "Formatting Go code..."
 	@gofmt -w -s $$(find . -name "*.go" -not -path "./vendor/*" -not -path "./mocks/*")
 	@echo "Organizing imports..."
-	@go run golang.org/x/tools/cmd/goimports@latest -w -local github.com/OpenNSW/nsw $$(find . -name "*.go" -not -path "./vendor/*" -not -path "./mocks/*")
+	@go run golang.org/x/tools/cmd/goimports@latest -w -local github.com/OpenNSW/nsw/backend $$(find . -name "*.go" -not -path "./vendor/*" -not -path "./mocks/*")
 	@echo "Running auto-fixable linters..."
 	@go run github.com/golangci/golangci-lint/cmd/golangci-lint@$(LINTER_VERSION) run --fix ./...
 	@echo "✓ Formatting complete!"

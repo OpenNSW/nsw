@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OpenNSW/nsw/internal/config"
-	"github.com/OpenNSW/nsw/internal/form"
-	"github.com/OpenNSW/nsw/pkg/jsonform"
-	"github.com/OpenNSW/nsw/pkg/remote"
+	"github.com/OpenNSW/nsw/backend/internal/config"
+	"github.com/OpenNSW/nsw/backend/internal/form"
+	"github.com/OpenNSW/nsw/backend/pkg/jsonform"
+	"github.com/OpenNSW/nsw/backend/pkg/remote"
 )
 
 const OutcomeEmitKeySimpleForm = "outcome_simple_form"
