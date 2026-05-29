@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/OpenNSW/nsw-task-flow/store"
-	"github.com/OpenNSW/nsw/internal/payments"
+	"github.com/OpenNSW/nsw/backend/internal/payments"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 )
