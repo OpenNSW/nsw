@@ -1,57 +1,157 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { JsonForms } from '@jsonforms/react'
 import { radixRenderers } from '@opennsw/jsonforms-renderers'
+import { Button } from '@radix-ui/themes'
 import type { JsonSchema } from '@jsonforms/core'
+import type { Handle } from '../types'
 import type { ZoneRendererProps } from './types'
 import { autoFillForm } from '../../utils/formUtils'
-
-export type FormHandle = {
-  getData: () => Record<string, unknown>
-  autoFill: () => void
-}
+import { getBooleanEnv } from '../../runtimeConfig'
 
 type Props = ZoneRendererProps<'FORM'> & {
-  onValidityChange?: (isValid: boolean) => void
+  // handles, when non-empty, render as physical controls in the form's own
+  // footer. Element identifiers are resolved against this renderer's
+  // catalog (see FORM_ELEMENT_CATALOG below).
+  handles?: Handle[]
+  // onAction fires when the user activates a handle. The renderer extracts
+  // its own form data and passes it alongside the command. Validation
+  // gating is internal — disabled handles cannot fire. The form is
+  // editable iff both handles and onAction are provided; otherwise it
+  // renders read-only.
+  onAction?: (command: string, data: Record<string, unknown>) => Promise<void>
 }
 
-export const FormRenderer = forwardRef<FormHandle, Props>(function FormRenderer({ payload, onValidityChange }, ref) {
+// FORM_ELEMENT_CATALOG is this renderer's published list of interactive
+// element identifiers and their visual treatment. Handles reference these by
+// name via Handle.element; unknown identifiers fall back to a plain solid
+// button so the action still dispatches.
+const FORM_ELEMENT_CATALOG: Record<string, { variant: 'solid' | 'outline'; color?: 'red' }> = {
+  primary_action: { variant: 'solid' },
+  secondary_action: { variant: 'outline' },
+  danger_action: { variant: 'solid', color: 'red' },
+}
+
+export function FormRenderer({ payload, handles, onAction }: Props) {
   const [data, setData] = useState<Record<string, unknown>>(payload.data ?? {})
   const dataRef = useRef(data)
   dataRef.current = data
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      getData: () => dataRef.current,
-      autoFill: () => {
-        const next = autoFillForm(payload.schema, dataRef.current) as Record<string, unknown>
-        setData(next)
-        onValidityChange?.(isFormValid(payload.schema, next, []))
-      },
-    }),
-    [onValidityChange, payload.schema],
-  )
+  const [isValid, setIsValid] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    onValidityChange?.(isFormValid(payload.schema, data, []))
+    setIsValid(isFormValid(payload.schema, data, []))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // A FORM zone is editable iff it has at least one legal handle and a
+  // dispatch callback; otherwise it renders read-only with no footer. This
+  // collapses interactivity, readonly, and button visibility into a single
+  // derived fact — the same rule the backend uses to derive Role.
+  const interactive = (handles?.length ?? 0) > 0 && onAction !== undefined
+  const showAutoFill = interactive && getBooleanEnv('VITE_SHOW_AUTOFILL_BUTTON', false)
+
+  const handleAutoFill = () => {
+    const next = autoFillForm(payload.schema, dataRef.current) as Record<string, unknown>
+    setData(next)
+    setIsValid(isFormValid(payload.schema, next, []))
+  }
+
+  const handleAction = (h: Handle) => {
+    if (!onAction) return
+    setSubmitting(true)
+    void onAction(h.command, dataRef.current).finally(() => setSubmitting(false))
+  }
+
   return (
-    <JsonForms
-      schema={payload.schema}
-      uischema={payload.uiSchema}
-      data={data}
-      renderers={radixRenderers}
-      readonly={payload.readonly ?? false}
-      onChange={({ data, errors }) => {
-        const next = (data ?? {}) as Record<string, unknown>
-        setData(next)
-        onValidityChange?.(isFormValid(payload.schema, next, errors ?? []))
-      }}
-    />
+    <>
+      <div className="p-6">
+        <JsonForms
+          schema={payload.schema}
+          uischema={payload.uiSchema}
+          data={data}
+          renderers={radixRenderers}
+          readonly={!interactive}
+          onChange={({ data, errors }) => {
+            const next = (data ?? {}) as Record<string, unknown>
+            setData(next)
+            setIsValid(isFormValid(payload.schema, next, errors ?? []))
+          }}
+        />
+      </div>
+      {interactive && (
+        <FormActionBar
+          handles={handles ?? []}
+          onAction={handleAction}
+          onAutoFill={showAutoFill ? handleAutoFill : undefined}
+          submitting={submitting}
+          canSubmit={isValid}
+        />
+      )}
+    </>
   )
-})
+}
+
+function FormActionBar({
+  handles,
+  onAction,
+  onAutoFill,
+  submitting,
+  canSubmit,
+}: {
+  handles: Handle[]
+  onAction: (h: Handle) => void
+  onAutoFill?: () => void
+  submitting: boolean
+  canSubmit: boolean
+}) {
+  return (
+    <div className="sticky bottom-0 border-t border-gray-100 bg-white/95 backdrop-blur rounded-b-lg shadow-[0_-4px_12px_-8px_rgba(0,0,0,0.08)]">
+      <div className="px-6 py-4 flex items-center gap-3">
+        {onAutoFill && (
+          <Button type="button" variant="soft" color="purple" size="3" onClick={onAutoFill} disabled={submitting}>
+            Demo - Auto Fill
+          </Button>
+        )}
+        <div className="flex-1" />
+        {handles.map((h) => (
+          <HandleButton
+            key={h.command}
+            handle={h}
+            onClick={onAction}
+            submitting={submitting}
+            canSubmit={canSubmit}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function HandleButton({
+  handle,
+  onClick,
+  submitting,
+  canSubmit,
+}: {
+  handle: Handle
+  onClick: (h: Handle) => void
+  submitting: boolean
+  canSubmit: boolean
+}) {
+  const style = (handle.element && FORM_ELEMENT_CATALOG[handle.element]) || { variant: 'solid' as const }
+  const disabled = submitting || !canSubmit
+  return (
+    <Button
+      onClick={() => onClick(handle)}
+      size="3"
+      variant={style.variant}
+      color={style.color}
+      disabled={disabled}
+    >
+      {submitting ? 'Submitting...' : handle.label}
+    </Button>
+  )
+}
 
 function isFormValid(schema: JsonSchema, data: Record<string, unknown>, errors: unknown[]): boolean {
   if (errors.length > 0) return false

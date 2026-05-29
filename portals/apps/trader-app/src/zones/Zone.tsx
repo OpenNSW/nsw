@@ -1,0 +1,28 @@
+import type { ZoneComponent } from './types'
+import { renderZoneComponent } from './renderers'
+
+type Props = {
+  name: string
+  component: ZoneComponent
+  onAction?: (command: string, data: Record<string, unknown>) => Promise<void>
+}
+
+// Zone is the chrome around every rendered zone: section header + white
+// rounded box. It is intentionally projector-agnostic — it forwards the
+// dispatch callback verbatim and lets renderZoneComponent fan out by type.
+// A zone is interactive iff onAction is provided AND the inner renderer
+// finds legal handles on its component; that derivation lives in the
+// renderer (today: FormRenderer), not here.
+export function Zone({ name, component, onAction }: Props) {
+  return (
+    <section className="space-y-2">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">{name}</span>
+        <span className="text-[10px] font-medium uppercase tracking-wider text-gray-300">{component.type}</span>
+      </div>
+      <div className="bg-white rounded-lg shadow-sm border border-gray-100">
+        {renderZoneComponent(component, { onAction })}
+      </div>
+    </section>
+  )
+}

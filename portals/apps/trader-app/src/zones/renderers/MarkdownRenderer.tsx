@@ -3,7 +3,7 @@ import type { ZoneRendererProps } from './types'
 
 export function MarkdownRenderer({ payload }: ZoneRendererProps<'MARKDOWN'>) {
   return (
-    <div className="text-sm text-gray-700 leading-relaxed space-y-3">
+    <div className="p-6 text-sm text-gray-700 leading-relaxed space-y-3">
       <ReactMarkdown
         components={{
           h1: ({ children }) => <h1 className="text-xl font-bold text-gray-900 mt-4 mb-2">{children}</h1>,

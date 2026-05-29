@@ -16,20 +16,30 @@ export type RedirectPayload = {
   content: string
 }
 
-export type ZoneComponent =
-  | { type: 'FORM'; payload: FormPayload }
-  | { type: 'MARKDOWN'; payload: MarkdownPayload }
-  | { type: 'REDIRECT'; payload: RedirectPayload }
-
 export type AlertVariant = 'info' | 'success' | 'warning' | 'error'
 
 export type Alert = string | { message: string; title?: string; variant?: AlertVariant }
 
-export type ActionVariant = 'primary' | 'outline' | 'danger'
+// Handle is one operation as the trader-app receives it: command identifies
+// what to dispatch, label is the user-facing text, element is an identifier
+// owned by this zone's renderer (e.g. 'primary_action', 'secondary_action'
+// for a FORM zone). Dispatch behavior — whether to gather form data,
+// validation gating — is decided by the renderer based on element, not by
+// any field on the handle itself.
+export type Handle = {
+  command: string
+  label: string
+  element?: string
+}
 
-export type Action =
-  | { kind: 'submit_form'; label: string; command: string; variant?: ActionVariant }
-  | { kind: 'task_action'; label: string; action: string; variant?: ActionVariant }
+type ZoneComponentBase = {
+  handles?: Handle[]
+}
+
+export type ZoneComponent =
+  | (ZoneComponentBase & { type: 'FORM'; payload: FormPayload })
+  | (ZoneComponentBase & { type: 'MARKDOWN'; payload: MarkdownPayload })
+  | (ZoneComponentBase & { type: 'REDIRECT'; payload: RedirectPayload })
 
 export type AuditEntry = {
   timestamp: string
@@ -40,12 +50,14 @@ export type AuditEntry = {
   details?: string
 }
 
+// ZoneView is the wire shape served by GET /api/v1/tasks/{id}. There is no
+// separate top-level actions list — operations ship inside their claiming
+// zone's handles (joined to state legality by the backend assembler).
 export type ZoneView = {
   task_id: string
   task_type: string
   state: string
   alert?: Alert
-  actions?: Action[]
   audit?: AuditEntry[]
   view: Record<string, ZoneComponent>
   created_at: string
