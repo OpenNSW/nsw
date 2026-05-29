@@ -6,7 +6,7 @@ import (
 	"net/url"
 
 	tfplugins "github.com/OpenNSW/nsw-task-flow/plugins"
-	"github.com/OpenNSW/nsw/pkg/remote"
+	"github.com/OpenNSW/nsw/backend/pkg/remote"
 )
 
 // Package plugins hosts taskv2's dispatching plugins. Outbound calls are

@@ -6,7 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/OpenNSW/nsw-task-flow/store"
-	"github.com/OpenNSW/nsw/pkg/remote"
+	"github.com/OpenNSW/nsw/backend/pkg/remote"
 )
 
 // ExternalReviewPlugin is our custom replacement for

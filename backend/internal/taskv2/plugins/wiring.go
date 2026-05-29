@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	flowplugins "github.com/OpenNSW/nsw-task-flow/plugins"
-	"github.com/OpenNSW/nsw/internal/payments"
-	"github.com/OpenNSW/nsw/pkg/remote"
+	"github.com/OpenNSW/nsw/backend/internal/payments"
+	"github.com/OpenNSW/nsw/backend/pkg/remote"
 )
 
 // Task type keys. These must match the SubTaskTemplate.Type values declared

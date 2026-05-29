@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/OpenNSW/nsw-task-flow/renderer"
-	"github.com/OpenNSW/nsw/pkg/uiprojector"
+	"github.com/OpenNSW/nsw/backend/pkg/uiprojector"
 )
 
 // TaskRenderer adapts uiprojector.Assembler to the nsw-task-flow renderer
