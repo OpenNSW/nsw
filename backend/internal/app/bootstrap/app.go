@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
-	engine "github.com/OpenNSW/go-temporal-workflow"
+	"github.com/LSFLK/argus/pkg/audit"
+
 	flowplugins "github.com/OpenNSW/nsw-task-flow/plugins"
-	"github.com/OpenNSW/nsw/backend/internal/workflow"
-
 	"github.com/OpenNSW/nsw/backend/internal/auth"
 	"github.com/OpenNSW/nsw/backend/internal/config"
 	"github.com/OpenNSW/nsw/backend/internal/consignment"
@@ -24,13 +24,13 @@ import (
 	"github.com/OpenNSW/nsw/backend/internal/taskv2"
 	taskv2plugins "github.com/OpenNSW/nsw/backend/internal/taskv2/plugins"
 	"github.com/OpenNSW/nsw/backend/internal/temporal"
+	"github.com/OpenNSW/nsw/backend/internal/workflow"
 	"github.com/OpenNSW/nsw/backend/internal/workflow/service"
-	"github.com/OpenNSW/nsw/backend/pkg/remote"
-	"github.com/OpenNSW/nsw/backend/pkg/storage"
-	"github.com/OpenNSW/nsw/backend/pkg/storage/drivers"
-
-	"github.com/OpenNSW/nsw/backend/pkg/notification"
-	"github.com/OpenNSW/nsw/backend/pkg/notification/channels"
+	"github.com/OpenNSW/nsw/pkg/notification"
+	"github.com/OpenNSW/nsw/pkg/notification/channels"
+	"github.com/OpenNSW/nsw/pkg/remote"
+	"github.com/OpenNSW/nsw/pkg/storage"
+	"github.com/OpenNSW/nsw/pkg/storage/drivers"
 )
 
 // App contains an initialized HTTP server and cleanup hooks.
@@ -128,8 +128,11 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	paymentService.SetTaskCompleter(tm)
 
+	// Initialize audit client for Argus from configuration.
+	auditClient := audit.NewClient(cfg.Audit)
+
 	consignmentService := consignment.NewService(db, templateService, chaService, companyService, userProfileService, hsCodeService)
-	consignmentRouter := consignment.NewRouter(consignmentService, chaService, companyService)
+	consignmentRouter := consignment.NewRouter(consignmentService, chaService, companyService, auditClient)
 
 	pr, stopParentRunner, err := workflow.WireParentRunner(temporalClient, tm, consignmentService)
 	if err != nil {
@@ -278,6 +281,14 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	closeFn := func() error {
 		var closeErrs []error
 
+		// Create a separate timeout context for shutting down the audit client
+		// to ensure pending logs are cleanly flushed regardless of parent context cancellation.
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := auditClient.Close(shutdownCtx); err != nil {
+			closeErrs = append(closeErrs, fmt.Errorf("failed to close audit client: %w", err))
+		}
 		if err := stopParentRunner(); err != nil {
 			closeErrs = append(closeErrs, fmt.Errorf("failed to stop parent runner: %w", err))
 		}

@@ -4,6 +4,7 @@ go 1.25.7
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
+	github.com/LSFLK/argus/pkg/audit v0.0.0-20260507005814-d59aefb70fba
 	github.com/OpenNSW/go-temporal-workflow v0.4.0
 	github.com/OpenNSW/nsw-task-flow v0.0.0-20260524054242-b39430bb2b1e
 	github.com/aws/aws-sdk-go-v2 v1.41.7

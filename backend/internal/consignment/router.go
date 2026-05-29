@@ -1,25 +1,52 @@
 package consignment
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
-	"github.com/OpenNSW/nsw/backend/internal/auth"
-	"github.com/OpenNSW/nsw/backend/internal/profile/cha"
-	"github.com/OpenNSW/nsw/backend/internal/profile/company"
-	"github.com/OpenNSW/nsw/backend/utils"
+	"github.com/LSFLK/argus/pkg/audit",
+	"github.com/OpenNSW/nsw/backend/internal/auth",
+	"github.com/OpenNSW/nsw/backend/internal/cha",
+	"github.com/OpenNSW/nsw/backend/internal/company",
+	"github.com/OpenNSW/nsw/backend/internal/profile/cha",
+	"github.com/OpenNSW/nsw/backend/internal/profile/company",
+	"github.com/OpenNSW/nsw/utils"
 )
 
 type Router struct {
-	cs      *Service
-	cha     cha.Service
-	company company.Service
+	cs          *Service
+	cha         cha.Service
+	company     company.Service
+	auditClient *audit.Client
 }
 
-func NewRouter(cs *Service, chaService cha.Service, companyService company.Service) *Router {
-	return &Router{cs: cs, cha: chaService, company: companyService}
+func NewRouter(cs *Service, chaService cha.Service, companyService company.Service, auditClient *audit.Client) *Router {
+	return &Router{
+		cs:          cs,
+		cha:         chaService,
+		company:     companyService,
+		auditClient: auditClient,
+	}
+}
+
+func (c *Router) extractActor(r *http.Request) (string, string) {
+	actorID := "SYSTEM"
+	actorType := "SYSTEM"
+	if authCtx := auth.GetAuthContext(r.Context()); authCtx != nil {
+		if authCtx.User != nil {
+			actorID = authCtx.User.ID
+			actorType = "USER"
+		} else if authCtx.Client != nil {
+			actorID = authCtx.Client.ClientID
+			actorType = "SYSTEM"
+		}
+	}
+	return actorID, actorType
 }
 
 // HandleCreateConsignment handles POST /api/v1/consignments
@@ -48,6 +75,45 @@ func (c *Router) HandleCreateConsignment(w http.ResponseWriter, r *http.Request)
 	traderID := authCtx.User.ID
 	// Stage 1: create shell only
 	consignment, err := c.cs.CreateConsignmentShell(r.Context(), req.Flow, req.ChaCompanyID, traderID)
+
+	// Fire the audit log asynchronously before returning the HTTP response.
+	// Do not let any failure block or fail the actual API response to the user.
+	if c.auditClient != nil {
+		actorID, actorType := c.extractActor(r)
+
+		var status string
+		var msg string
+		var targetID *string
+		if err != nil {
+			status = "FAILURE"
+			msg = fmt.Sprintf("Failed to create consignment: %v", err)
+		} else {
+			status = "SUCCESS"
+			msg = fmt.Sprintf("User created consignment shell %s", consignment.ID)
+			targetID = &consignment.ID
+		}
+
+		metadata := map[string]any{
+			"flow":           req.Flow,
+			"cha_company_id": req.ChaCompanyID,
+		}
+
+		auditLog := audit.AuditLogRequest{
+			Timestamp:  time.Now().UTC().Format(time.RFC3339),
+			EventType:  "SYSTEM_EVENT",
+			Action:     "CREATE_CONSIGNMENT",
+			Status:     status,
+			ActorID:    actorID,
+			ActorType:  actorType,
+			TargetID:   targetID,
+			TargetType: "CONSIGNMENT",
+			Message:    []byte(msg),
+			Metadata:   metadata,
+		}
+
+		go c.auditClient.LogEvent(context.Background(), &auditLog)
+	}
+
 	if err != nil {
 		if errors.Is(err, company.ErrCompanyNotFound) {
 			http.Error(w, "CHA company not found", http.StatusNotFound)
@@ -107,29 +173,35 @@ func (c *Router) HandleGetConsignments(w http.ResponseWriter, r *http.Request) {
 		filter.Flow = &flow
 	}
 
-	// Role-based identity resolution. Both roles scope to the requesting user's company,
-	// resolved from the OU handle that the auth middleware copied off the JWT.
-	if role != "trader" && role != "cha" {
-		http.Error(w, "query param role must be trader or cha", http.StatusBadRequest)
-		return
-	}
-
-	userCompany, err := c.company.GetCompanyByOUHandle(ctx, authCtx.User.OUHandle)
-	if err != nil {
-		if errors.Is(err, company.ErrCompanyNotFound) {
-			http.Error(w, "company profile not found for user", http.StatusForbidden)
-			return
-		}
-		slog.Error("failed to resolve user company", "ouHandle", authCtx.User.OUHandle, "error", err)
-		http.Error(w, "failed to resolve user company", http.StatusInternalServerError)
-		return
-	}
-
+	// Role-Based Identity Resolution
 	switch role {
 	case "cha":
+		userCompany, err := c.company.GetCompanyByOUHandle(ctx, authCtx.User.OUHandle)
+		if err != nil {
+			if errors.Is(err, company.ErrCompanyNotFound) {
+				http.Error(w, "company profile not found for user", http.StatusForbidden)
+				return
+			}
+			slog.Error("failed to resolve user company", "ouHandle", authCtx.User.OUHandle, "error", err)
+			http.Error(w, "failed to resolve user company", http.StatusInternalServerError)
+			return
+		}
 		filter.CHACompanyID = &userCompany.ID
 	case "trader":
+		userCompany, err := c.company.GetCompanyByOUHandle(ctx, authCtx.User.OUHandle)
+		if err != nil {
+			if errors.Is(err, company.ErrCompanyNotFound) {
+				http.Error(w, "company profile not found for user", http.StatusForbidden)
+				return
+			}
+			slog.Error("failed to resolve user company", "ouHandle", authCtx.User.OUHandle, "error", err)
+			http.Error(w, "failed to resolve user company", http.StatusInternalServerError)
+			return
+		}
 		filter.TraderCompanyID = &userCompany.ID
+	default:
+		http.Error(w, "query param role must be trader or cha", http.StatusBadRequest)
+		return
 	}
 	consignments, err := c.cs.ListConsignments(ctx, filter)
 	if err != nil {

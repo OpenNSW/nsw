@@ -8,12 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OpenNSW/nsw/backend/internal/auth"
-	"github.com/OpenNSW/nsw/backend/internal/database"
-	"github.com/OpenNSW/nsw/backend/internal/temporal"
-	"github.com/OpenNSW/nsw/backend/internal/validation"
-	"github.com/OpenNSW/nsw/backend/pkg/blobsource"
-	"github.com/OpenNSW/nsw/backend/pkg/storage"
+	"github.com/LSFLK/argus/pkg/audit"
+	"github.com/OpenNSW/nsw/internal/auth"
+	"github.com/OpenNSW/nsw/internal/database"
+	"github.com/OpenNSW/nsw/internal/temporal"
+	"github.com/OpenNSW/nsw/internal/validation"
+	"github.com/OpenNSW/nsw/pkg/blobsource"
+	"github.com/OpenNSW/nsw/pkg/storage"
 )
 
 // Config holds all configuration for the application
@@ -26,16 +27,17 @@ type Config struct {
 	Notification NotificationConfig
 	Temporal     temporal.Config
 	BlobSource   blobsource.Config
+	Audit        audit.Config
 }
 
 // ServerConfig holds server configuration
 type ServerConfig struct {
-	Port                      int
-	ServiceURL                string
-	ServicesConfigPath        string
-	PaymentMethodsConfigPath  string
-	Debug                     bool
-	LogLevel                  slog.Level
+	Port                     int
+	ServiceURL               string
+	ServicesConfigPath       string
+	PaymentMethodsConfigPath string
+	Debug                    bool
+	LogLevel                 slog.Level
 }
 
 // CORSConfig holds CORS configuration
@@ -73,12 +75,12 @@ func Load() (*Config, error) {
 			MaxConnLifetimeSeconds: getIntEnvOrDefault("DB_MAX_CONN_LIFETIME_SECONDS", 3600),
 		},
 		Server: ServerConfig{
-			Port:               serverPort,
-			ServiceURL:         getEnvOrDefault("SERVICE_URL", fmt.Sprintf("http://localhost:%d", serverPort)),
+			Port:                     serverPort,
+			ServiceURL:               getEnvOrDefault("SERVICE_URL", fmt.Sprintf("http://localhost:%d", serverPort)),
 			ServicesConfigPath:       getEnvOrDefault("SERVICES_CONFIG_PATH", "configs/services.json"),
 			PaymentMethodsConfigPath: getEnvOrDefault("PAYMENT_METHODS_CONFIG_PATH", "configs/payment_methods.json"),
-			Debug:              getBoolOrDefault("SERVER_DEBUG", true),
-			LogLevel:           parseLogLevel(getEnvOrDefault("SERVER_LOG_LEVEL", "info")),
+			Debug:                    getBoolOrDefault("SERVER_DEBUG", true),
+			LogLevel:                 parseLogLevel(getEnvOrDefault("SERVER_LOG_LEVEL", "info")),
 		},
 		CORS: CORSConfig{
 			AllowedOrigins:   parseCommaSeparated(getEnvOrDefault("CORS_ALLOWED_ORIGINS", "*")),
@@ -129,6 +131,10 @@ func Load() (*Config, error) {
 			GitHubBaseURL:         getEnvOrDefault("BLOBSOURCE_GITHUB_BASE_URL", ""),
 			GitHubRefreshInterval: getDurationOrDefault("BLOBSOURCE_GITHUB_REFRESH_INTERVAL", 0),
 		},
+		Audit: audit.Config{
+			BaseURL:   getEnvOrDefault("ARGUS_SERVICE_URL", ""),
+			AuthToken: os.Getenv("ARGUS_AUTH_TOKEN"),
+		},
 	}
 
 	// Validate required fields
@@ -176,6 +182,13 @@ func (c *Config) Validate() error {
 			return err
 		}
 	}
+
+	if strings.TrimSpace(c.Audit.BaseURL) != "" {
+		if err := validation.HTTPURL("ARGUS_SERVICE_URL", c.Audit.BaseURL); err != nil {
+			return fmt.Errorf("invalid audit configuration: %w", err)
+		}
+	}
+
 	return nil
 }
 

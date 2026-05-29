@@ -49,7 +49,7 @@ func TestConsignmentRouter_HandleGetConsignmentByID(t *testing.T) {
 	mockWM := new(MockWMV2)
 	svc := NewService(db, nil, nil, nil, nil, nil)
 	require.NoError(t, svc.RegisterWorkflowManager(mockWM))
-	r := NewRouter(svc, nil, nil)
+	r := NewRouter(svc, nil, nil, nil)
 
 	consignmentID := uuid.NewString()
 	sqlMock.MatchExpectationsInOrder(false)
@@ -72,7 +72,7 @@ func TestConsignmentRouter_HandleGetConsignments(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
 	mockCompany := new(MockCompanyService)
 	svc := NewService(db, nil, nil, mockCompany, nil, nil)
-	r := NewRouter(svc, nil, mockCompany)
+	r := NewRouter(svc, nil, mockCompany, nil)
 
 	traderID := "trader1"
 	companyID := "company-trader"
@@ -96,7 +96,7 @@ func TestConsignmentRouter_HandleGetConsignments_RoleCHA(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
 	mockCompany := new(MockCompanyService)
 	svc := NewService(db, nil, nil, mockCompany, nil, nil)
-	r := NewRouter(svc, nil, mockCompany)
+	r := NewRouter(svc, nil, mockCompany, nil)
 
 	companyID := "company-cha"
 	mockCompany.On("GetCompanyByOUHandle", mock.Anything, "cha-ou").Return(&company.Record{ID: companyID, OUHandle: "cha-ou", HasCHA: true}, nil)
@@ -116,7 +116,7 @@ func TestConsignmentRouter_HandleCreateConsignment(t *testing.T) {
 	mockCompany := new(MockCompanyService)
 	mockUser := new(MockUserService)
 	svc := NewService(db, nil, nil, mockCompany, mockUser, nil)
-	r := NewRouter(svc, nil, mockCompany)
+	r := NewRouter(svc, nil, nil, nil)
 
 	traderID := "trader1"
 	chaCompanyID := "cha-company"
@@ -160,7 +160,7 @@ func TestConsignmentRouter_HandleInitializeConsignment(t *testing.T) {
 	mockCompany := new(MockCompanyService)
 	svc := NewService(db, nil, mockCHA, mockCompany, nil, nil)
 	require.NoError(t, svc.RegisterWorkflowManager(mockWM))
-	r := NewRouter(svc, mockCHA, mockCompany)
+	r := NewRouter(svc, mockCHA, nil, nil)
 
 	id := uuid.NewString()
 	hsID := uuid.NewString()
@@ -207,7 +207,7 @@ func TestConsignmentRouter_HandleInitializeConsignment(t *testing.T) {
 
 func TestConsignmentRouter_HandleInitializeConsignment_NoID(t *testing.T) {
 	svc := NewService(nil, nil, nil, nil, nil, nil)
-	r := NewRouter(svc, nil, nil)
+	r := NewRouter(svc, nil, nil, nil)
 
 	req, _ := http.NewRequest("PUT", "/api/v1/consignments/", bytes.NewReader([]byte{}))
 	req = req.WithContext(withAuthContext(req.Context(), "user1"))
@@ -219,7 +219,7 @@ func TestConsignmentRouter_HandleInitializeConsignment_NoID(t *testing.T) {
 
 func TestConsignmentRouter_HandleInitializeConsignment_InvalidBody(t *testing.T) {
 	svc := NewService(nil, nil, nil, nil, nil, nil)
-	r := NewRouter(svc, nil, nil)
+	r := NewRouter(svc, nil, nil, nil)
 
 	req, _ := http.NewRequest("PUT", "/api/v1/consignments/id", bytes.NewBufferString("invalid json"))
 	req.SetPathValue("id", "id")
@@ -233,7 +233,7 @@ func TestConsignmentRouter_HandleInitializeConsignment_InvalidBody(t *testing.T)
 func TestConsignmentRouter_HandleGetConsignmentByID_InvalidID(t *testing.T) {
 	db, _ := setupTestDB(t)
 	svc := NewService(db, nil, nil, nil, nil, nil)
-	r := NewRouter(svc, nil, nil)
+	r := NewRouter(svc, nil, nil, nil)
 
 	req, _ := http.NewRequest("GET", "/api/v1/consignments/invalid-uuid", nil)
 	req.SetPathValue("id", "invalid-uuid")
@@ -246,7 +246,7 @@ func TestConsignmentRouter_HandleGetConsignmentByID_InvalidID(t *testing.T) {
 func TestConsignmentRouter_HandleGetConsignments_PaginationError(t *testing.T) {
 	db, _ := setupTestDB(t)
 	svc := NewService(db, nil, nil, nil, nil, nil)
-	r := NewRouter(svc, nil, nil)
+	r := NewRouter(svc, nil, nil, nil)
 
 	req, _ := http.NewRequest("GET", "/api/v1/consignments?limit=invalid", nil)
 	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
@@ -260,7 +260,7 @@ func TestConsignmentRouter_HandleGetConsignments_PaginationError(t *testing.T) {
 func TestConsignmentRouter_HandleGetConsignmentByID_ServiceError(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
 	svc := NewService(db, nil, nil, nil, nil, nil)
-	r := NewRouter(svc, nil, nil)
+	r := NewRouter(svc, nil, nil, nil)
 
 	id := uuid.NewString()
 	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"consignments\"").WillReturnError(fmt.Errorf("db error"))
@@ -278,8 +278,7 @@ func TestConsignmentRouter_HandleGetConsignments_ServiceError(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
 	mockCompany := new(MockCompanyService)
 	svc := NewService(db, nil, nil, mockCompany, nil, nil)
-	r := NewRouter(svc, nil, mockCompany)
-
+	r := NewRouter(svc, nil, mockCompany, nil)
 	mockCompany.On("GetCompanyByOUHandle", mock.Anything, "trader-ou").Return(&company.Record{ID: "trader-company", OUHandle: "trader-ou"}, nil)
 	sqlMock.ExpectQuery("(?i)SELECT count").WillReturnError(fmt.Errorf("db error"))
 
@@ -293,7 +292,7 @@ func TestConsignmentRouter_HandleGetConsignments_ServiceError(t *testing.T) {
 func TestConsignmentRouter_HandleCreateConsignment_CompanyNotFound(t *testing.T) {
 	mockCompany := new(MockCompanyService)
 	svc := NewService(nil, nil, nil, mockCompany, nil, nil)
-	r := NewRouter(svc, nil, mockCompany)
+	r := NewRouter(svc, nil, nil, nil)
 
 	mockCompany.On("GetCompanyByID", mock.Anything, "company-missing").Return(nil, company.ErrCompanyNotFound)
 
@@ -311,7 +310,7 @@ func TestConsignmentRouter_HandleCreateConsignment_CompanyNotFound(t *testing.T)
 func TestConsignmentRouter_HandleCreateConsignment_InvalidPayload(t *testing.T) {
 	db, _ := setupTestDB(t)
 	svc := NewService(db, nil, nil, nil, nil, nil)
-	r := NewRouter(svc, nil, nil)
+	r := NewRouter(svc, nil, nil, nil)
 
 	req, _ := http.NewRequest("POST", "/api/v1/consignments", bytes.NewBufferString("invalid json"))
 	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
@@ -322,7 +321,7 @@ func TestConsignmentRouter_HandleCreateConsignment_InvalidPayload(t *testing.T) 
 
 func TestConsignmentRouter_HandleGetConsignments_InvalidRole(t *testing.T) {
 	svc := NewService(nil, nil, nil, nil, nil, nil)
-	r := NewRouter(svc, nil, nil)
+	r := NewRouter(svc, nil, nil, nil)
 
 	req, _ := http.NewRequest("GET", "/api/v1/consignments?role=invalid", nil)
 	req = req.WithContext(withAuthContext(req.Context(), "user1"))
@@ -335,8 +334,7 @@ func TestConsignmentRouter_HandleGetConsignments_InvalidRole(t *testing.T) {
 func TestConsignmentRouter_HandleGetConsignments_CompanyNotFound(t *testing.T) {
 	mockCompany := new(MockCompanyService)
 	svc := NewService(nil, nil, nil, mockCompany, nil, nil)
-	r := NewRouter(svc, nil, mockCompany)
-
+	r := NewRouter(svc, nil, mockCompany, nil)
 	mockCompany.On("GetCompanyByOUHandle", mock.Anything, "cha-ou").Return(nil, company.ErrCompanyNotFound)
 
 	req, _ := http.NewRequest("GET", "/api/v1/consignments?role=cha", nil)
@@ -348,7 +346,7 @@ func TestConsignmentRouter_HandleGetConsignments_CompanyNotFound(t *testing.T) {
 }
 
 func TestConsignmentRouter_HandleGetConsignments_Unauthorized(t *testing.T) {
-	r := NewRouter(nil, nil, nil)
+	r := NewRouter(nil, nil, nil, nil)
 	req, _ := http.NewRequest("GET", "/api/v1/consignments", nil)
 	w := httptest.NewRecorder()
 	r.HandleGetConsignments(w, req)
@@ -356,7 +354,7 @@ func TestConsignmentRouter_HandleGetConsignments_Unauthorized(t *testing.T) {
 }
 
 func TestConsignmentRouter_HandleCreateConsignment_Unauthorized(t *testing.T) {
-	r := NewRouter(nil, nil, nil)
+	r := NewRouter(nil, nil, nil, nil)
 	req, _ := http.NewRequest("POST", "/api/v1/consignments", bytes.NewBufferString("{}"))
 	w := httptest.NewRecorder()
 	r.HandleCreateConsignment(w, req)
@@ -364,7 +362,7 @@ func TestConsignmentRouter_HandleCreateConsignment_Unauthorized(t *testing.T) {
 }
 
 func TestConsignmentRouter_HandleGetConsignmentByID_Unauthorized(t *testing.T) {
-	r := NewRouter(nil, nil, nil)
+	r := NewRouter(nil, nil, nil, nil)
 	req, _ := http.NewRequest("GET", "/api/v1/consignments/id", nil)
 	w := httptest.NewRecorder()
 	r.HandleGetConsignmentByID(w, req)
@@ -372,7 +370,7 @@ func TestConsignmentRouter_HandleGetConsignmentByID_Unauthorized(t *testing.T) {
 }
 
 func TestConsignmentRouter_HandleGetConsignmentByID_MissingID(t *testing.T) {
-	r := NewRouter(nil, nil, nil)
+	r := NewRouter(nil, nil, nil, nil)
 	req, _ := http.NewRequest("GET", "/api/v1/consignments/", nil)
 	req = req.WithContext(withAuthContext(req.Context(), "trader1"))
 	w := httptest.NewRecorder()
@@ -381,7 +379,7 @@ func TestConsignmentRouter_HandleGetConsignmentByID_MissingID(t *testing.T) {
 }
 
 func TestConsignmentRouter_HandleInitializeConsignment_Unauthorized(t *testing.T) {
-	r := NewRouter(nil, nil, nil)
+	r := NewRouter(nil, nil, nil, nil)
 	req, _ := http.NewRequest("PUT", "/api/v1/consignments/id", bytes.NewBufferString("{}"))
 	w := httptest.NewRecorder()
 	r.HandleInitializeConsignment(w, req)
@@ -389,7 +387,7 @@ func TestConsignmentRouter_HandleInitializeConsignment_Unauthorized(t *testing.T
 }
 
 func TestConsignmentRouter_HandleInitializeConsignment_EmptyHSCodes(t *testing.T) {
-	r := NewRouter(nil, nil, nil)
+	r := NewRouter(nil, nil, nil, nil)
 	body, _ := json.Marshal(InitializeConsignmentDTO{HSCodeIDs: []string{}})
 	req, _ := http.NewRequest("PUT", "/api/v1/consignments/id", bytes.NewBuffer(body))
 	req.SetPathValue("id", "id")
@@ -402,7 +400,7 @@ func TestConsignmentRouter_HandleInitializeConsignment_EmptyHSCodes(t *testing.T
 func TestConsignmentRouter_HandleGetConsignments_CompanyLookupError(t *testing.T) {
 	mockCompany := new(MockCompanyService)
 	svc := NewService(nil, nil, nil, mockCompany, nil, nil)
-	r := NewRouter(svc, nil, mockCompany)
+	r := NewRouter(svc, nil, mockCompany, nil)
 	mockCompany.On("GetCompanyByOUHandle", mock.Anything, "cha-ou").Return(nil, fmt.Errorf("db down"))
 
 	req, _ := http.NewRequest("GET", "/api/v1/consignments?role=cha", nil)
