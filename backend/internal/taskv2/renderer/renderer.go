@@ -11,8 +11,9 @@ import (
 
 // TaskRenderer adapts uiprojector.Assembler to the nsw-task-flow renderer
 // contract. The render config blob is interpreted as a uiprojector.Blueprint;
-// the resulting Sections are translated to UIComponents. Section.ID and
-// Section.Title are dropped — UIComponent has no slots for them.
+// the resulting Sections are translated into a slot→component map and
+// returned as opaque JSON bytes. Section.ID and Section.Title are dropped —
+// the on-wire component has no slots for them.
 type TaskRenderer struct {
 	assembler *uiprojector.Assembler
 }
@@ -21,9 +22,18 @@ func NewTaskRenderer(assembler *uiprojector.Assembler) *TaskRenderer {
 	return &TaskRenderer{assembler: assembler}
 }
 
-func (r *TaskRenderer) Render(ctx context.Context, configRaw json.RawMessage, facts renderer.Facts) (renderer.RenderResult, error) {
+// uiComponent is the per-slot wire shape produced by Render. It replaces the
+// nsw-task-flow renderer.UIComponent type that was removed when the upstream
+// Render contract collapsed to bytes-only; the shape is chosen to match what
+// the frontend ZoneComponent union already consumes.
+type uiComponent struct {
+	Type    string          `json:"type"`
+	Payload json.RawMessage `json:"payload"`
+}
+
+func (r *TaskRenderer) Render(ctx context.Context, configRaw json.RawMessage, facts renderer.Facts) (json.RawMessage, error) {
 	if len(configRaw) == 0 {
-		return renderer.RenderResult{}, nil
+		return json.RawMessage("{}"), nil
 	}
 
 	var bp uiprojector.Blueprint
@@ -39,9 +49,9 @@ func (r *TaskRenderer) Render(ctx context.Context, configRaw json.RawMessage, fa
 		return nil, fmt.Errorf("renderer: assemble: %w", err)
 	}
 
-	result := make(renderer.RenderResult, len(sections))
+	result := make(map[string]uiComponent, len(sections))
 	for slot, sec := range sections {
-		var content = sec.Content
+		content := sec.Content
 		secType := string(sec.Type)
 		if secType == "MARKDOWN" {
 			if str, ok := sec.Content.(string); ok {
@@ -52,12 +62,13 @@ func (r *TaskRenderer) Render(ctx context.Context, configRaw json.RawMessage, fa
 		if err != nil {
 			return nil, fmt.Errorf("renderer: marshal section %q: %w", slot, err)
 		}
-		result[slot] = renderer.UIComponent{
-			Type:    secType,
-			Payload: payload,
-		}
+		result[slot] = uiComponent{Type: secType, Payload: payload}
 	}
-	return result, nil
+	out, err := json.Marshal(result)
+	if err != nil {
+		return nil, fmt.Errorf("renderer: marshal result: %w", err)
+	}
+	return out, nil
 }
 
 var _ renderer.Renderer = (*TaskRenderer)(nil)

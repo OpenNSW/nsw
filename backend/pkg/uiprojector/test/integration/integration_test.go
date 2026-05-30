@@ -44,14 +44,12 @@ func TestUIProjectorIntegration(t *testing.T) {
 		ID: "consignment_review",
 		Sections: map[string]uiprojector.SectionBlueprint{
 			"header": {
-				ID:         "header",
 				Title:      "Consignment Status",
 				TemplateID: "markdown.md",
 				Projector:  "MARKDOWN",
 				DataKey:    "summary",
 			},
 			"declaration_form": {
-				ID:         "declaration_form",
 				Title:      "Import Declaration",
 				TemplateID: "form.json",
 				Projector:  "FORM",
@@ -61,7 +59,6 @@ func TestUIProjectorIntegration(t *testing.T) {
 				},
 			},
 			"approval_note": {
-				ID:         "approval_note",
 				Title:      "Final Approval",
 				TemplateID: "markdown.md",
 				Projector:  "MARKDOWN",
@@ -137,7 +134,6 @@ func TestUIProjectorIntegration(t *testing.T) {
 	t.Run("DataKey Requirement Validation", func(t *testing.T) {
 		// Add a section that requires a specific data key to be present
 		blueprint.Sections["conditional_section"] = uiprojector.SectionBlueprint{
-			ID:         "conditional_section",
 			TemplateID: "markdown.md",
 			Projector:  "MARKDOWN",
 			DataKey:    "extra_info",
