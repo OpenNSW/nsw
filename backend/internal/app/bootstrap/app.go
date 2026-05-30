@@ -96,11 +96,16 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	}
 
 	// parentRunner is forward-declared so the taskv2 completion callback can
-	// close over it. It is assigned below after WireParentRunner returns; the
-	// closure is only invoked when a task workflow finishes, by which point
-	// the assignment has already happened.
+	// close over it. It is assigned below after WireParentRunner returns.
+	// WireTaskV2 starts a Temporal worker synchronously, so the callback can
+	// in principle fire before that assignment — e.g. a workflow that was
+	// already complete when the worker resumed polling. The nil check turns
+	// that race from a panic into a typed error the engine can retry.
 	var parentRunner engine.TemporalManager
 	onTaskCompleted := func(parentWorkflowID, parentRunID, parentNodeID string, finalVariables map[string]any) error {
+		if parentRunner == nil {
+			return fmt.Errorf("task completion arrived before parent runner was wired")
+		}
 		return parentRunner.TaskDone(context.Background(), parentWorkflowID, parentRunID, parentNodeID, finalVariables)
 	}
 

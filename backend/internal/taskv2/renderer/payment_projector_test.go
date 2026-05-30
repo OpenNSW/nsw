@@ -64,6 +64,17 @@ func TestPaymentProjector_Project(t *testing.T) {
 		assert.Equal(t, "LankaPay App Fee (https://checkout.lk/123)", content["content"])
 	})
 
+	t.Run("returns placeholder when data is nil", func(t *testing.T) {
+		mockSvc.getPaymentMethodFunc = func(id string) (*payments.PaymentMethod, error) {
+			t.Fatalf("GetPaymentMethod should not be called when data is nil")
+			return nil, nil
+		}
+		out, err := proj.Project(context.Background(), nil, nil)
+		assert.NoError(t, err)
+		assert.Equal(t, uiprojector.SectionTypeMarkdown, out.Type)
+		assert.Equal(t, "Preparing payment details...", out.Content)
+	})
+
 	t.Run("renders govpay offline template", func(t *testing.T) {
 		mockSvc.getPaymentMethodFunc = func(id string) (*payments.PaymentMethod, error) {
 			assert.Equal(t, "govpay", id)

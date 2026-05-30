@@ -32,6 +32,12 @@ const FORM_ELEMENT_CATALOG: Record<string, { variant: 'solid' | 'outline'; color
 }
 
 export function FormRenderer({ payload, handles, onAction }: Props) {
+  // The form owns its data state from mount until submit. payload.data is
+  // consumed only as the initial seed: TraderZoneLayout keys Zone by task
+  // state, so a state transition unmounts this component and the next mount
+  // re-seeds from the fresh payload. Same-state background polls intentionally
+  // do *not* clobber in-flight edits — there is no server-side draft to merge
+  // back in, so re-syncing payload.data would silently destroy user input.
   const [data, setData] = useState<Record<string, unknown>>(payload.data ?? {})
   const dataRef = useRef(data)
   dataRef.current = data
