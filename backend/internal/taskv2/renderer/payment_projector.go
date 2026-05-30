@@ -33,7 +33,16 @@ func (p *PaymentProjector) Type() uiprojector.ProjectorType {
 }
 
 // Project resolves the selected payment method's instructions template and renders it.
+// When the payment facts haven't been populated yet (entering PENDING_PAYMENT before
+// CreateCheckoutSession completes), Project returns a placeholder markdown projection
+// so the page still loads instead of 500ing.
 func (p *PaymentProjector) Project(ctx context.Context, templateContent []byte, data any) (uiprojector.Projection, error) {
+	if data == nil {
+		return uiprojector.Projection{
+			Type:    uiprojector.SectionTypeMarkdown,
+			Content: "Preparing payment details...",
+		}, nil
+	}
 	dataMap, ok := data.(map[string]any)
 	if !ok {
 		return uiprojector.Projection{}, fmt.Errorf("payment_projector: expected map data, got %T", data)

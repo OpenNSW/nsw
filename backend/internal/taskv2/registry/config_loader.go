@@ -121,6 +121,9 @@ func loadTaskFolder(reg *InMemRegistry, dir string) error {
 				return fmt.Errorf("render %s: missing id", path)
 			}
 			reg.RegisterGeneric(probe.ID, data)
+			if renderID != "" && renderID != probe.ID {
+				return fmt.Errorf("task folder %s: multiple render ids (%s and %s)", dir, renderID, probe.ID)
+			}
 			renderID = probe.ID
 			taskType = probe.Type
 			slog.Info("registered render config", "id", probe.ID, "type", probe.Type, "path", path)

@@ -49,7 +49,15 @@ export function TaskDetailScreen() {
         if (useZoneRenderer) {
           const zv = await getZoneView(taskId, api)
           setZoneView(zv)
-          stopPolling()
+          // Poll while the task is waiting on the system (no zone advertises
+          // handles). The moment a zone exposes handles we're waiting on the
+          // user — stop polling so we don't race their in-flight form edits.
+          const awaitingUserInput = Object.values(zv.view).some((component) => (component.handles?.length ?? 0) > 0)
+          if (awaitingUserInput) {
+            stopPolling()
+          } else {
+            pollTimerRef.current = setTimeout(() => void fetchTask(true), POLL_INTERVAL_MS)
+          }
           return
         }
 

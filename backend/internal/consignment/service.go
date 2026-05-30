@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -501,8 +502,20 @@ func (s *Service) buildConsignmentDetailDTO(
 	edgeResponseDTOs := make([]model.WorkflowEdgeResponseDTO, 0)
 
 	if workflowV2 != nil {
+		// Iterate NodeInfo in a deterministic order. Go map iteration is
+		// randomized, which surfaces as flaky WorkflowNodes ordering in API
+		// responses and tests (e.g. TestConsignmentService_InitializeConsignmentByID_Success).
+		// Sorting by node ID is a stable shape; topological order based on
+		// Edges would be more user-meaningful and is a follow-up.
+		nodeIDs := make([]string, 0, len(workflowV2.NodeInfo))
+		for id := range workflowV2.NodeInfo {
+			nodeIDs = append(nodeIDs, id)
+		}
+		sort.Strings(nodeIDs)
+
 		taskTemplateIDs := make([]string, 0, len(workflowV2.NodeInfo))
-		for _, node := range workflowV2.NodeInfo {
+		for _, id := range nodeIDs {
+			node := workflowV2.NodeInfo[id]
 			if node.Type == workflowmanager.NodeTypeTask {
 				taskTemplateIDs = append(taskTemplateIDs, node.TaskTemplateID)
 			}
@@ -515,7 +528,8 @@ func (s *Service) buildConsignmentDetailDTO(
 		for _, taskTemplate := range taskTemplates {
 			taskTemplateMap[taskTemplate.ID] = taskTemplate
 		}
-		for _, node := range workflowV2.NodeInfo {
+		for _, id := range nodeIDs {
+			node := workflowV2.NodeInfo[id]
 			var taskName, taskDescription, taskType string
 			var nodeState model.WorkflowNodeState
 			if node.Type == workflowmanager.NodeTypeTask {
