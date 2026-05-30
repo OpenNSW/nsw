@@ -114,13 +114,7 @@ function FormActionBar({
         )}
         <div className="flex-1" />
         {handles.map((h) => (
-          <HandleButton
-            key={h.command}
-            handle={h}
-            onClick={onAction}
-            submitting={submitting}
-            canSubmit={canSubmit}
-          />
+          <HandleButton key={h.command} handle={h} onClick={onAction} submitting={submitting} canSubmit={canSubmit} />
         ))}
       </div>
     </div>
@@ -141,13 +135,7 @@ function HandleButton({
   const style = (handle.element && FORM_ELEMENT_CATALOG[handle.element]) || { variant: 'solid' as const }
   const disabled = submitting || !canSubmit
   return (
-    <Button
-      onClick={() => onClick(handle)}
-      size="3"
-      variant={style.variant}
-      color={style.color}
-      disabled={disabled}
-    >
+    <Button onClick={() => onClick(handle)} size="3" variant={style.variant} color={style.color} disabled={disabled}>
       {submitting ? 'Submitting...' : handle.label}
     </Button>
   )

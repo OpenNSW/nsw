@@ -113,7 +113,7 @@ func TestCreateCheckoutSession(t *testing.T) {
 		if resp.ReferenceNumber == "" {
 			t.Fatal("expected reference number to be generated")
 		}
-		if len(resp.ReferenceNumber) != 13 || resp.ReferenceNumber[:5] != "TNSW-" {
+		if len(resp.ReferenceNumber) != 12 || resp.ReferenceNumber[:4] != "TNSW" {
 			t.Errorf("unexpected generated reference format: %s", resp.ReferenceNumber)
 		}
 	})

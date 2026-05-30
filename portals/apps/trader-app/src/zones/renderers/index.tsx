@@ -17,13 +17,7 @@ export type RenderOptions = {
 export function renderZoneComponent(component: ZoneComponent, options: RenderOptions = {}) {
   switch (component.type) {
     case 'FORM':
-      return (
-        <FormRenderer
-          payload={component.payload}
-          handles={component.handles}
-          onAction={options.onAction}
-        />
-      )
+      return <FormRenderer payload={component.payload} handles={component.handles} onAction={options.onAction} />
     case 'MARKDOWN':
       return <MarkdownRenderer payload={component.payload} />
     case 'REDIRECT':
