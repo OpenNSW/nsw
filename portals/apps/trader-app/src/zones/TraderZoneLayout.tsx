@@ -18,12 +18,7 @@ export function TraderZoneLayout({ task, onSubmitForm }: Props) {
       <Header task={task} />
       {task.alert !== undefined && <AlertBanner alert={task.alert} />}
       {zones.map(([name, component]) => (
-        <Zone
-          key={`${name}:${task.task_id}:${task.state}`}
-          name={name}
-          component={component}
-          onAction={onSubmitForm}
-        />
+        <Zone key={`${name}:${task.task_id}:${task.state}`} name={name} component={component} onAction={onSubmitForm} />
       ))}
       {task.audit && task.audit.length > 0 && <AuditLog entries={task.audit} />}
     </div>
