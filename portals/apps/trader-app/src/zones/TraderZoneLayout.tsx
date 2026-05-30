@@ -1,6 +1,5 @@
 import type { Alert, AlertVariant, AuditEntry, ZoneComponent, ZoneView } from './types'
-import { WorkspaceZone } from './WorkspaceZone'
-import { PresentationalZone } from './PresentationalZone'
+import { Zone } from './Zone'
 
 type Props = {
   task: ZoneView
@@ -18,19 +17,14 @@ export function TraderZoneLayout({ task, onSubmitForm }: Props) {
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       <Header task={task} />
       {task.alert !== undefined && <AlertBanner alert={task.alert} />}
-      {zones.map(([name, component]) =>
-        name === 'workspace' ? (
-          <WorkspaceZone
-            key={`${name}:${task.task_id}:${task.state}`}
-            name={name}
-            component={component}
-            actions={task.actions ?? []}
-            onSubmitForm={onSubmitForm}
-          />
-        ) : (
-          <PresentationalZone key={name} name={name} component={component} />
-        ),
-      )}
+      {zones.map(([name, component]) => (
+        <Zone
+          key={`${name}:${task.task_id}:${task.state}`}
+          name={name}
+          component={component}
+          onAction={onSubmitForm}
+        />
+      ))}
       {task.audit && task.audit.length > 0 && <AuditLog entries={task.audit} />}
     </div>
   )

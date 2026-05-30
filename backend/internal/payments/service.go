@@ -86,7 +86,7 @@ func generatePaymentReference() string {
 	for i := range b {
 		b[i] = charset[int(b[i])%len(charset)]
 	}
-	return "TNSW-" + string(b)
+	return "TNSW" + string(b)
 }
 
 // CreateCheckoutSession saves the initial intent and returns mocked LankaPay session details.
