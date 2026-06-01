@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/OpenNSW/nsw/internal/paymentsv2/gateways"
+	"github.com/OpenNSW/nsw/backend/internal/paymentsv2/gateways"
 	"github.com/google/uuid"
 )
 

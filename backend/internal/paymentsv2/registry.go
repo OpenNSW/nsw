@@ -7,7 +7,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/OpenNSW/nsw/internal/paymentsv2/gateways"
+	"github.com/OpenNSW/nsw/backend/internal/paymentsv2/gateways"
 )
 
 // GatewayRegistry manages the discovery and lookup of payment gateways.
