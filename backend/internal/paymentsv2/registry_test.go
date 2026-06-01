@@ -3,12 +3,14 @@ package paymentsv2
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"testing"
 
 	"github.com/OpenNSW/nsw/backend/internal/paymentsv2/gateways"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 // MockGateway is a mock implementation of gateways.PaymentGateway
@@ -165,4 +167,35 @@ func TestGet(t *testing.T) {
 
 	_, err = registry.Get("non-existent")
 	assert.Error(t, err)
+}
+
+func writeTempConfig(t *testing.T, content string) string {
+	t.Helper()
+	f, err := os.CreateTemp(t.TempDir(), "pm-*.json")
+	require.NoError(t, err)
+	_, err = f.WriteString(content)
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+	return f.Name()
+}
+
+func TestNewRegistry_FileNotFound(t *testing.T) {
+	_, err := NewRegistry("/no/such/file.json", map[string]gateways.PaymentGateway{})
+	require.Error(t, err)
+}
+
+func TestNewRegistry_InvalidJSON(t *testing.T) {
+	path := writeTempConfig(t, `{ not valid json`)
+	_, err := NewRegistry(path, map[string]gateways.PaymentGateway{})
+	require.Error(t, err)
+}
+
+func TestNewRegistry_ApplyConfigError(t *testing.T) {
+	path := writeTempConfig(t, `{"version":"1.0","methods":[{"id":"gw1","is_active":true,"config":{"k":"v"}}]}`)
+	gw := new(MockGateway)
+	gw.On("ApplyConfig", mock.Anything).Return(errors.New("bad config"))
+
+	_, err := NewRegistry(path, map[string]gateways.PaymentGateway{"gw1": gw})
+	require.Error(t, err)
+	gw.AssertExpectations(t)
 }
