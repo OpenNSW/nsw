@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/OpenNSW/nsw/internal/paymentsv2/gateways"
+	"github.com/OpenNSW/nsw/backend/internal/paymentsv2/gateways"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -39,8 +39,8 @@ func (m *MockGateway) ExtractReferenceNumber(ctx context.Context, reqData json.R
 	return args.String(0), args.Error(1)
 }
 
-func (m *MockGateway) HandleValidateReference(ctx context.Context, tx gateways.ValidationTransaction, reqData json.RawMessage) (*gateways.ValidationResponse, error) {
-	args := m.Called(ctx, tx, reqData)
+func (m *MockGateway) HandleValidateReference(ctx context.Context, tx *gateways.ValidationTransaction, isPayable bool, reqData json.RawMessage) (*gateways.ValidationResponse, error) {
+	args := m.Called(ctx, tx, isPayable, reqData)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

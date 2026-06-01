@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 type Config struct {
@@ -65,11 +66,39 @@ func (g *GovPayGateway) CreateSession(ctx context.Context, req SessionRequest) (
 }
 
 func (g *GovPayGateway) ParseWebhook(ctx context.Context, body []byte, headers map[string][]string) (*WebhookPayload, error) {
-	var payload WebhookPayload
-	if err := json.Unmarshal(body, &payload); err != nil {
+	// Capture the raw status string (embedded field is shadowed for JSON decoding)
+	// so we can normalize GovPay's vocabulary instead of casting it blindly.
+	var raw struct {
+		WebhookPayload
+		Status string `json:"status"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
 		return nil, err
 	}
+
+	status, err := mapGovPayStatus(raw.Status)
+	if err != nil {
+		return nil, err
+	}
+
+	payload := raw.WebhookPayload
+	payload.Status = status
 	return &payload, nil
+}
+
+// mapGovPayStatus normalizes GovPay's status vocabulary into the canonical
+// WebhookStatus. Unknown values are rejected rather than silently stored.
+func mapGovPayStatus(raw string) (WebhookStatus, error) {
+	switch strings.ToUpper(strings.TrimSpace(raw)) {
+	case "SUCCESS", "PAID", "COMPLETED":
+		return WebhookStatusSuccess, nil
+	case "FAILED", "DECLINED", "REJECTED":
+		return WebhookStatusFailed, nil
+	case "PENDING", "INITIATED":
+		return WebhookStatusPending, nil
+	default:
+		return "", fmt.Errorf("govpay status %q: %w", raw, ErrUnsupportedWebhookStatus)
+	}
 }
 
 func (g *GovPayGateway) ExtractReferenceNumber(ctx context.Context, referenceData json.RawMessage) (string, error) {
@@ -86,10 +115,15 @@ func (g *GovPayGateway) ExtractReferenceNumber(ctx context.Context, referenceDat
 	return req.TransactionID, nil
 }
 
-func (g *GovPayGateway) HandleValidateReference(ctx context.Context, tx ValidationTransaction, reqData json.RawMessage) (*ValidationResponse, error) {
+func (g *GovPayGateway) HandleValidateReference(ctx context.Context, tx *ValidationTransaction, isPayable bool, reqData json.RawMessage) (*ValidationResponse, error) {
 	var req GovPayReq
 	if err := json.Unmarshal(reqData, &req); err != nil {
 		return nil, err
+	}
+
+	message := "Reference number is invalid, already settled, or expired"
+	if isPayable {
+		message = "Success"
 	}
 
 	resp := GovPayValidateResponse{
@@ -97,7 +131,7 @@ func (g *GovPayGateway) HandleValidateReference(ctx context.Context, tx Validati
 		SubInstID:     req.SubInstID,
 		ServiceID:     req.ServiceID,
 		ServiceName:   req.ServiceName,
-		Message:       "Success",
+		Message:       message,
 	}
 
 	payload, err := json.Marshal(resp)

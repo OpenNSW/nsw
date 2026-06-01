@@ -1,9 +1,12 @@
 package paymentsv2
 
 import (
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
+
+	"github.com/OpenNSW/nsw/backend/internal/paymentsv2/gateways"
 )
 
 // HTTPHandler handles public HTTP requests for the Payment Service.
@@ -64,6 +67,27 @@ func (h *HTTPHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 
 	err = h.service.ProcessWebhook(r.Context(), gatewayID, body, r.Header)
 	if err != nil {
+		// An unknown reference is permanent; respond 404 so the gateway stops
+		// retrying instead of hammering us forever. Everything else is treated
+		// as transient (500) so the gateway's retry can re-drive it.
+		if errors.Is(err, ErrTransactionNotFound) {
+			slog.WarnContext(r.Context(), "webhook for unknown reference", "gateway", gatewayID, "error", err)
+			http.Error(w, "unknown payment reference", http.StatusNotFound)
+			return
+		}
+		// Unsupported status is a permanent payload problem; 400 so the gateway
+		// stops retrying instead of hammering us with a body we can't process.
+		if errors.Is(err, gateways.ErrUnsupportedWebhookStatus) {
+			slog.WarnContext(r.Context(), "webhook with unsupported status", "gateway", gatewayID, "error", err)
+			http.Error(w, "unsupported payment status", http.StatusBadRequest)
+			return
+		}
+		// Amount/currency mismatch: never mark paid, and don't retry.
+		if errors.Is(err, ErrAmountMismatch) {
+			slog.WarnContext(r.Context(), "webhook amount/currency mismatch", "gateway", gatewayID, "error", err)
+			http.Error(w, "payment amount mismatch", http.StatusUnprocessableEntity)
+			return
+		}
 		slog.ErrorContext(r.Context(), "webhook processing failed", "gateway", gatewayID, "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return

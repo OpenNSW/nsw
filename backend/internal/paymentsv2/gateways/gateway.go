@@ -3,6 +3,7 @@ package gateways
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -14,6 +15,21 @@ const (
 	FlowTypeRedirect    InteractionType = "REDIRECT"
 	FlowTypeInstruction InteractionType = "INSTRUCTION"
 )
+
+// WebhookStatus is the canonical, gateway-neutral outcome a gateway must
+// normalize its own status vocabulary into when parsing a webhook.
+type WebhookStatus string
+
+const (
+	WebhookStatusPending WebhookStatus = "PENDING"
+	WebhookStatusSuccess WebhookStatus = "SUCCESS"
+	WebhookStatusFailed  WebhookStatus = "FAILED"
+)
+
+// ErrUnsupportedWebhookStatus indicates a gateway status that could not be
+// normalized into a WebhookStatus. It is a permanent condition (retrying the
+// same payload won't help), so callers should not signal the gateway to retry.
+var ErrUnsupportedWebhookStatus = errors.New("unsupported webhook status")
 
 type SessionRequest struct {
 	Amount             decimal.Decimal `json:"amount"`
@@ -34,7 +50,7 @@ type WebhookPayload struct {
 	ReferenceNumber      string            `json:"reference_number"`
 	SessionID            string            `json:"session_id"`
 	GatewayTransactionID string            `json:"gateway_transaction_id"`
-	Status               string            `json:"status"`
+	Status               WebhookStatus     `json:"status"`
 	Amount               decimal.Decimal   `json:"amount"`
 	Currency             string            `json:"currency"`
 	PaymentMethod        string            `json:"payment_method"`
@@ -72,8 +88,11 @@ type PaymentGateway interface {
 	// ExtractReferenceNumber parses the gateway-specific validation request to extract the reference number.
 	ExtractReferenceNumber(ctx context.Context, reqData json.RawMessage) (string, error)
 
-	// HandleValidateReference handles the final validation response after the transaction is found.
-	HandleValidateReference(ctx context.Context, tx ValidationTransaction, reqData json.RawMessage) (*ValidationResponse, error)
+	// HandleValidateReference formats the gateway-specific validation response.
+	// tx is nil when no matching transaction exists (unknown reference or a
+	// mismatched gateway); isPayable is the domain decision (exists, owned by
+	// this gateway, pending, and not expired) the gateway should reflect back.
+	HandleValidateReference(ctx context.Context, tx *ValidationTransaction, isPayable bool, reqData json.RawMessage) (*ValidationResponse, error)
 
 	// ParseWebhook processes raw gateway notifications into domain-neutral payloads.
 	ParseWebhook(ctx context.Context, body []byte, headers map[string][]string) (*WebhookPayload, error)

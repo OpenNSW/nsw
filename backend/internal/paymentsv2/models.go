@@ -1,9 +1,10 @@
 package paymentsv2
 
 import (
+	"errors"
 	"time"
 
-	"github.com/OpenNSW/nsw/internal/paymentsv2/gateways"
+	"github.com/OpenNSW/nsw/backend/internal/paymentsv2/gateways"
 	"github.com/shopspring/decimal"
 )
 
@@ -47,6 +48,27 @@ type CreateCheckoutRequest struct {
 	Metadata           map[string]string `json:"metadata"`                       // Pass-through data (e.g., TaskID)
 }
 
+// validate checks that a checkout request is well-formed. now is passed in so
+// the expiry check stays deterministic in tests.
+func (r CreateCheckoutRequest) validate(now time.Time) error {
+	if r.GatewayID == "" {
+		return errors.New("gateway_id is required")
+	}
+	if _, ok := r.Metadata["task_id"]; !ok {
+		return errors.New("task_id is required in metadata")
+	}
+	if !r.Amount.IsPositive() {
+		return errors.New("amount must be greater than zero")
+	}
+	if r.Currency == "" {
+		return errors.New("currency is required")
+	}
+	if !r.ExpiresAt.After(now) {
+		return errors.New("expires_at must be in the future")
+	}
+	return nil
+}
+
 // CreateCheckoutResponse is the expected reply from LankaPay.
 type CreateCheckoutResponse struct {
 	ReferenceNumber string                   `json:"reference_number"` // The generated NSW reference
@@ -82,18 +104,9 @@ type ValidateReferenceResponse struct {
 // Webhook and Internal Events
 // --------------------------------------------------------
 
-// WebhookPayload represents the external callback from LankaPay to the Payment Service.
-type WebhookPayload struct {
-	ReferenceNumber      string            `json:"reference_number"`
-	SessionID            string            `json:"session_id"`
-	GatewayTransactionID string            `json:"gateway_transaction_id"`
-	Status               PaymentStatus     `json:"status"`
-	Amount               decimal.Decimal   `json:"amount"`
-	Currency             string            `json:"currency"`
-	PaymentMethod        string            `json:"payment_method"`
-	Timestamp            string            `json:"timestamp"`
-	Metadata             map[string]string `json:"metadata"`
-}
+// The external webhook payload is defined once in the gateways package
+// (gateways.WebhookPayload); gateways normalize their own status vocabulary
+// into it via ParseWebhook.
 
 type EventData struct {
 	TaskID               string          `json:"task_id"`
