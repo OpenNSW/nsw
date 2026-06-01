@@ -205,7 +205,7 @@ func (s *Service) InitializeConsignmentByID(
 		First(&mapping).Error
 
 	if err != nil {
-=		tx.Rollback()
+		tx.Rollback()
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("no workflow template found for HS code %s and flow %s", hsCodeIDs[0], consignment.Flow)
 		}
