@@ -25,4 +25,3 @@ type TemplateProvider interface {
 	// GetWorkflowNodeTemplateByID retrieves a workflow node template by its ID.
 	GetWorkflowNodeTemplateByID(ctx context.Context, id string) (*model.WorkflowNodeTemplate, error)
 }
-

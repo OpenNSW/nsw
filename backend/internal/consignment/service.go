@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"sort"
 	"time"
 
@@ -201,33 +200,26 @@ func (s *Service) InitializeConsignmentByID(
 	}
 
 	var mapping WorkflowTemplateMap
-	slog.Error("DO_NOT_SUBMIT Running command:", "hsCodeIDs", hsCodeIDs, "consignment.Flow", consignment.Flow, "query", fmt.Sprintf("hs_code_id = %s AND consignment_flow = %s", hsCodeIDs[0], consignment.Flow))
 	err = tx.Model(&WorkflowTemplateMap{}).
 		Where("hs_code_id = ? AND consignment_flow = ?", hsCodeIDs[0], consignment.Flow).
 		First(&mapping).Error
 
 	if err != nil {
-		slog.Error("DO_NOT_SUBMIT Failed to get workflow template", "error", err)
-		tx.Rollback()
+=		tx.Rollback()
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("no workflow template found for HS code %s and flow %s", hsCodeIDs[0], consignment.Flow)
 		}
 		return nil, fmt.Errorf("failed to get workflow template: %w", err)
 	}
-	slog.Error("Found mapping:", "mapping", mapping)
 
 	wt, err := s.templateProvider.GetWorkflowTemplateByIDV2(ctx, mapping.WorkflowTemplateID)
 	if err != nil {
 		tx.Rollback()
-		slog.Error("DO_NOT_SUBMIT Failed to get workflow template", "error", err)
 		return nil, fmt.Errorf("failed to get workflow template from provider: %w", err)
 	}
 
-	slog.Error("DO_NOT_SUBMIT wt.WorkflowDefinition", "workflowDefinition", wt.WorkflowDefinition)
-
 	if err := s.wm.StartWorkflow(ctx, consignment.ID, wt.WorkflowDefinition, initialVars); err != nil {
 		tx.Rollback()
-		slog.Error("DO_NOT_SUBMIT Failed to start workflow", "error", err)
 		return nil, fmt.Errorf("failed to register workflow: %w", err)
 	}
 
