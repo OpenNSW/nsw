@@ -16,5 +16,5 @@ export interface UserProfile {
 }
 
 export async function getProfile(apiClient: ApiClient): Promise<UserProfile> {
-  return apiClient.get<UserProfile>('/profile')
+  return apiClient.get<UserProfile>('/users/me')
 }

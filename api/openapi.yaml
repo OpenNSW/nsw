@@ -386,6 +386,33 @@ paths:
         "500":
           description: Internal server error
 
+  # User Endpoints
+  /users/me:
+    get:
+      summary: Get Current User Profile
+      description: >
+        Retrieve the profile of the currently authenticated user, including
+        nested company details when the user is associated with a company.
+        Requires Authorization header with Bearer JWT access token.
+      operationId: getCurrentUserProfile
+      tags:
+        - Users
+      security:
+        - traderAuth: []
+      responses:
+        "200":
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Missing or invalid authentication token
+        "404":
+          description: User profile not found
+        "500":
+          description: Internal server error
+
 components:
   schemas:
     # Enums and Constants
@@ -876,6 +903,57 @@ components:
           description: Associated workflow nodes
           items:
             $ref: "#/components/schemas/WorkflowNodeResponseDTO"
+
+    # User Schemas
+    CompanySummary:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          description: Company ID
+        name:
+          type: string
+          description: Company name
+
+    UserProfile:
+      type: object
+      required:
+        - id
+        - email
+        - phoneNumber
+        - data
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          description: User ID
+        email:
+          type: string
+          format: email
+          description: User email address
+        phoneNumber:
+          type: string
+          description: User phone number
+        data:
+          type: object
+          nullable: true
+          description: Arbitrary user profile data stored as JSON
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp of user record creation
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp of last user record update
+        company:
+          $ref: "#/components/schemas/CompanySummary"
+          description: Associated company summary (present only when the user belongs to a company)
 
     # Error Response
     ErrorResponse:
