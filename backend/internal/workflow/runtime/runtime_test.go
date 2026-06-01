@@ -57,6 +57,9 @@ func (m *fakeTemporalManager) StopWorker() {
 	m.stopCalled = true
 }
 
+func (m *fakeTemporalManager) RegisterDefinitionHandler(_ func(templateID string) (workflowmanager.WorkflowDefinition, error)) {
+}
+
 type fakeTemplateProvider struct {
 	template *model.WorkflowNodeTemplate
 	err      error

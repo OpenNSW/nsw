@@ -3,13 +3,19 @@ package service
 import (
 	"context"
 
+	engine "github.com/OpenNSW/go-temporal-workflow"
 	"github.com/OpenNSW/nsw/backend/internal/workflow/model"
 )
 
-// TemplateProvider defines the interface for retrieving workflow templates.
-// This abstraction allows for easier testing and flexibility in template storage.
-type TemplateProvider interface {
+// WorkflowDefinitionProvider defines the interface for retrieving in-memory workflow definitions.
+type WorkflowDefinitionProvider interface {
+	GetWorkflow(id string) (engine.WorkflowDefinition, bool)
+}
 
+// TemplateProvider defines the interface for retrieving workflow templates.
+// TODO: Clean this up. With all workflows moved to the file-backed template registry,
+// we no longer need the database-backed TemplateService or this interface.
+type TemplateProvider interface {
 	// GetWorkflowTemplateByIDV2 retrieves a workflow template by its ID.
 	GetWorkflowTemplateByIDV2(ctx context.Context, id string) (*model.WorkflowTemplateV2, error)
 
@@ -19,3 +25,4 @@ type TemplateProvider interface {
 	// GetWorkflowNodeTemplateByID retrieves a workflow node template by its ID.
 	GetWorkflowNodeTemplateByID(ctx context.Context, id string) (*model.WorkflowNodeTemplate, error)
 }
+
