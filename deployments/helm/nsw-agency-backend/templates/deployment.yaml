@@ -20,9 +20,22 @@ spec:
       imagePullSecrets:
         {{- toYaml .Values.imagePullSecrets | nindent 8 }}
       {{- end }}
-      {{- with .Values.affinity }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
+      {{- if .Values.templates.enabled }}
+      initContainers:
+        - name: copy-templates
+          image: "{{ .Values.templates.image.repository }}:{{ .Values.templates.image.tag | default "dev-latest" }}"
+          imagePullPolicy: {{ .Values.templates.image.pullPolicy | default "IfNotPresent" }}
+          command:
+            - sh
+            - -c
+            - |
+              echo "Copying all JSON forms from /app/configs/fcau into shared volume..."
+              find /app/configs/fcau -name "*_jsonform.json" -exec cp {} /shared/ \;
+              echo "Done. Files copied:"
+              ls /shared/
+          volumeMounts:
+            - name: forms-volume
+              mountPath: /shared
       {{- end }}
       containers:
         - name: {{ .Chart.Name }}
@@ -74,9 +87,11 @@ spec:
               value: {{ .Values.config.useWorkflowManagerV2 | default "true" | quote }}
             - name: CONFIG_DIR
               value: "/opt/nsw-agency/data"
+            - name: FORM_TEMPLATES_DIR
+              value: "/app/data/forms"
           volumeMounts:
             - name: forms-volume
-              mountPath: /opt/nsw-agency/data/forms
+              mountPath: /app/data/forms
           livenessProbe:
             httpGet:
               path: /health
@@ -96,7 +111,15 @@ spec:
             runAsNonRoot: true
             capabilities:
               drop: ["ALL"]
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       volumes:
         - name: forms-volume
+          {{- if .Values.templates.enabled }}
+          emptyDir: {}
+          {{- else }}
           configMap:
             name: {{ include "nsw-agency-backend.fullname" . }}-forms
+          {{- end }}
