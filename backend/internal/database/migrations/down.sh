@@ -14,8 +14,6 @@ DOWNS=(
   "016_create_company_records.down.sql"
   "015_fcau_workflow_seed.down.sql"
   "014_fcau_workflow_nodes_seed.down.sql"
-  "013_fcau_forms_seed.down.sql"
-  "012_create_task_workflow_tasks.down.sql"
   "011_workflow_tem_v2.down.sql"
   "010_workflow_table.down.sql"
   "009_insert_cha_entity.down.sql"
@@ -23,7 +21,6 @@ DOWNS=(
   "007_insert_seed_pre_consignment_template.down.sql"
   "006_insert_seed_company_records.down.sql"
   "004_insert_seed_workflow_node_templates.down.sql"
-  "003_insert_seed_form_templates.down.sql"
   "002_insert_seed_hscodes.down.sql"
   "001_initial_schema.down.sql"
 )

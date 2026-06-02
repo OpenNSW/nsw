@@ -48,7 +48,6 @@ fi
 MIGRATIONS=(
     "001_initial_schema.up.sql"
     "002_insert_seed_hscodes.up.sql"
-    "003_insert_seed_form_templates.up.sql"
     "004_insert_seed_workflow_node_templates.up.sql"
     "006_insert_seed_company_records.up.sql"
     "007_insert_seed_pre_consignment_template.up.sql"
@@ -56,8 +55,6 @@ MIGRATIONS=(
     "009_insert_cha_entity.up.sql"
     "010_workflow_table.up.sql"
     "011_workflow_tem_v2.up.sql"
-    "012_create_task_workflow_tasks.up.sql"
-    "013_fcau_forms_seed.up.sql"
     "014_fcau_workflow_nodes_seed.up.sql"
     "015_fcau_workflow_seed.up.sql"
     "016_create_company_records.up.sql"
