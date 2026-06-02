@@ -69,10 +69,12 @@ func TestApplicationStore_SQLite_FileCreated(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test_oga.db")
 
-	_, err := NewApplicationStore(Config{DB: database.Config{Driver: "sqlite", Path: dbPath}})
+	store, err := NewApplicationStore(Config{DB: database.Config{Driver: "sqlite", Path: dbPath}})
 	if err != nil {
 		t.Fatalf("NewApplicationStore failed: %v", err)
 	}
+	// Close the DB before the TempDir cleanup runs; Windows cannot delete an open file.
+	t.Cleanup(func() { _ = store.Close() })
 
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		t.Error("expected .db file to be created at configured DBPath")

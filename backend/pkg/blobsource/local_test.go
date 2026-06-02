@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -167,6 +168,9 @@ func TestLocal_Close(t *testing.T) {
 }
 
 func TestLocal_ErrorOnUnreadableFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows ACLs do not honour POSIX chmod 000; file remains readable by the owner")
+	}
 	if os.Getuid() == 0 {
 		t.Skip("running as root; chmod restrictions do not apply")
 	}

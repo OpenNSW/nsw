@@ -46,9 +46,8 @@ func TestLocalFSDriver_DirectoryHashing(t *testing.T) {
 	// Test Get
 	reader, contentType, err := driver.Get(ctx, key)
 	if err != nil {
-		t.Errorf("Get failed: %v", err)
+		t.Fatalf("Get failed: %v", err)
 	}
-	defer reader.Close()
 
 	if contentType != "application/pdf" {
 		t.Errorf("expected content type application/pdf, got %s", contentType)
@@ -62,6 +61,9 @@ func TestLocalFSDriver_DirectoryHashing(t *testing.T) {
 	if !strings.Contains(url, "/uploads") || !strings.Contains(url, "token=") || !strings.Contains(url, "expiresAt=") {
 		t.Errorf("unexpected URL format: %s", url)
 	}
+
+	// Close explicitly before Delete: Windows cannot delete an open file handle.
+	reader.Close()
 
 	// Test Delete
 	err = driver.Delete(ctx, key)

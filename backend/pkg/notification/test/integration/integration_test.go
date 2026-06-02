@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -61,7 +62,9 @@ func TestNotificationIntegration(t *testing.T) {
 		case data := <-received:
 			assert.Equal(t, "test_user", data["userName"])
 			assert.Equal(t, "+1234567890", data["phoneNumber"])
-			assert.Equal(t, "Your OTP is 998877. Do not share it with anyone.\n", data["data"])
+			// Normalise line endings: template files may have CRLF on Windows checkout.
+			smsData := strings.ReplaceAll(data["data"].(string), "\r\n", "\n")
+			assert.Equal(t, "Your OTP is 998877. Do not share it with anyone.\n", smsData)
 		case <-time.After(1 * time.Second):
 			t.Fatal("SMS was not received by the mock server in time")
 		}

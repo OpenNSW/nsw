@@ -152,20 +152,22 @@ func (s *ApplicationStore) ListWorkflows(ctx context.Context, search string, off
 		return nil, 0, err
 	}
 
-	// Subquery to get the latest updated_at and the count for each workflow_id
-	latestSubquery := s.db.Model(&ApplicationRecord{}).
-		Select("workflow_id, MAX(updated_at) as max_updated, COUNT(*) as task_count").
-		Group("workflow_id")
+	// Rank rows within each workflow by (updated_at DESC, task_id DESC) so that ties on
+	// updated_at (common on Windows due to low clock resolution) are broken by task_id.
+	// COUNT(*) OVER gives the total task count without a separate GROUP BY subquery.
+	rankedSubquery := s.db.Model(&ApplicationRecord{}).
+		Select("workflow_id, updated_at, status, " +
+			"ROW_NUMBER() OVER (PARTITION BY workflow_id ORDER BY updated_at DESC, task_id DESC) as rn, " +
+			"COUNT(*) OVER (PARTITION BY workflow_id) as task_count")
 
 	if search != "" {
-		latestSubquery = latestSubquery.Where("workflow_id LIKE ?", "%"+search+"%")
+		rankedSubquery = rankedSubquery.Where("workflow_id LIKE ?", "%"+search+"%")
 	}
 
-	// Join with original table to get the status of the record with that max_updated
-	err := s.db.WithContext(ctx).Model(&ApplicationRecord{}).
-		Select("applications.workflow_id, applications.updated_at, applications.status, latest.task_count").
-		Joins("JOIN (?) as latest ON applications.workflow_id = latest.workflow_id AND applications.updated_at = latest.max_updated", latestSubquery).
-		Order("applications.updated_at DESC").
+	err := s.db.WithContext(ctx).Table("(?) as ranked", rankedSubquery).
+		Select("workflow_id, updated_at, status, task_count").
+		Where("rn = 1").
+		Order("updated_at DESC").
 		Offset(offset).
 		Limit(limit).
 		Scan(&summaries).Error
