@@ -25,6 +25,8 @@ import (
 // Service handles consignment-related operations.
 // It coordinates between workflow templates, nodes, and the workflow manager.
 // It also implements WorkflowEventHandler for domain-specific lifecycle callbacks.
+// TODO: Clean this up to use TemplateService directly instead of the TemplateProvider interface
+// once the database-backed template setup is completely retired.
 type Service struct {
 	db               *gorm.DB
 	templateProvider service.TemplateProvider
@@ -199,7 +201,6 @@ func (s *Service) InitializeConsignmentByID(
 
 	var mapping WorkflowTemplateMap
 	err = tx.Model(&WorkflowTemplateMap{}).
-		Preload("WorkflowTemplate").
 		Where("hs_code_id = ? AND consignment_flow = ?", hsCodeIDs[0], consignment.Flow).
 		First(&mapping).Error
 
@@ -211,7 +212,11 @@ func (s *Service) InitializeConsignmentByID(
 		return nil, fmt.Errorf("failed to get workflow template: %w", err)
 	}
 
-	wt := &mapping.WorkflowTemplate
+	wt, err := s.templateProvider.GetWorkflowTemplateByIDV2(ctx, mapping.WorkflowTemplateID)
+	if err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("failed to get workflow template from provider: %w", err)
+	}
 
 	if err := s.wm.StartWorkflow(ctx, consignment.ID, wt.WorkflowDefinition, initialVars); err != nil {
 		tx.Rollback()

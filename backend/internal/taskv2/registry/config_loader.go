@@ -48,13 +48,34 @@ func LoadConfigsInto(reg *InMemRegistry, rootDir string) error {
 
 	taskFolders := 0
 	for _, e := range entries {
-		if !e.IsDir() {
-			continue
+		if e.IsDir() {
+			if err := loadTaskFolder(reg, filepath.Join(rootDir, e.Name())); err != nil {
+				return err
+			}
+			taskFolders++
+		} else {
+			// Load the top level workflow definition
+			name := e.Name()
+			if name == "workflow.json" || strings.HasSuffix(name, "_workflow.json") {
+				path := filepath.Join(rootDir, name)
+				data, err := os.ReadFile(path)
+				if err != nil {
+					return fmt.Errorf("read %s: %w", path, err)
+				}
+				if !json.Valid(data) {
+					return fmt.Errorf("invalid JSON in %s", path)
+				}
+				var w engine.WorkflowDefinition
+				if err := json.Unmarshal(data, &w); err != nil {
+					return fmt.Errorf("workflow %s: %w", path, err)
+				}
+				if w.ID == "" {
+					return fmt.Errorf("workflow %s: missing id", path)
+				}
+				reg.RegisterWorkflow(w)
+				slog.Info("registered top-level workflow", "id", w.ID, "path", path)
+			}
 		}
-		if err := loadTaskFolder(reg, filepath.Join(rootDir, e.Name())); err != nil {
-			return err
-		}
-		taskFolders++
 	}
 
 	if taskFolders == 0 {

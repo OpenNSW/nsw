@@ -24,7 +24,6 @@ func (base *BaseModel) BeforeCreate(tx *gorm.DB) (err error) {
 	base.CreatedAt = time.Now().UTC()
 	base.UpdatedAt = time.Now().UTC()
 	return
-
 }
 
 // BeforeUpdate is a GORM hook that is triggered before an existing record is updated.

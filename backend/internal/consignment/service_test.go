@@ -316,10 +316,9 @@ func TestConsignmentService_InitializeConsignmentByID_Success(t *testing.T) {
 		WithArgs(hsID, "IMPORT", 1).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "hs_code_id", "consignment_flow", "workflow_template_id"}).
 			AddRow(uuid.NewString(), hsID, "IMPORT", wtID))
-	sqlMock.ExpectQuery(`SELECT \* FROM "workflow_template_v2"`).
-		WithArgs(wtID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "version", "workflow_definition"}).
-			AddRow(wtID, "tmpl", "v1", []byte(`{"id":"template1"}`)))
+	mockTP.On("GetWorkflowTemplateByIDV2", mock.Anything, wtID).Return(&model.WorkflowTemplateV2{
+		WorkflowDefinition: wfDef,
+	}, nil)
 	mockWM.On("StartWorkflow", mock.Anything, id, wfDef, mock.MatchedBy(func(vars map[string]any) bool {
 		tc, ok := vars["traderCompany"].(map[string]any)
 		return ok && tc["id"] == traderCompanyID
@@ -539,7 +538,8 @@ func TestConsignmentService_InitializeConsignmentByID_StartWorkflowError(t *test
 	mockWM := new(MockWMV2)
 	mockCHA := new(MockCHAService)
 	mockCompany := new(MockCompanyService)
-	svc := NewService(db, nil, mockCHA, mockCompany, nil, nil)
+	mockTP := new(MockTemplateProvider)
+	svc := NewService(db, mockTP, mockCHA, mockCompany, nil, nil)
 	require.NoError(t, svc.RegisterWorkflowManager(mockWM))
 
 	id := uuid.NewString()
@@ -563,11 +563,11 @@ func TestConsignmentService_InitializeConsignmentByID_StartWorkflowError(t *test
 		WithArgs(hsID, "IMPORT", 1).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "hs_code_id", "consignment_flow", "workflow_template_id"}).
 			AddRow(uuid.NewString(), hsID, "IMPORT", wtID))
-	sqlMock.ExpectQuery(`SELECT \* FROM "workflow_template_v2"`).
-		WithArgs(wtID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "version", "workflow_definition"}).
-			AddRow(wtID, "tmpl", "v1", []byte(`{"id":"tmpl"}`)))
+	mockTP.On("GetWorkflowTemplateByIDV2", mock.Anything, wtID).Return(&model.WorkflowTemplateV2{
+		WorkflowDefinition: workflowManagerV2.WorkflowDefinition{ID: "tmpl"},
+	}, nil)
 	mockWM.On("StartWorkflow", mock.Anything, id, workflowManagerV2.WorkflowDefinition{ID: "tmpl"}, mock.Anything).Return(errors.New("start failed"))
+	sqlMock.ExpectRollback()
 
 	_, err := svc.InitializeConsignmentByID(context.Background(), id, []string{hsID}, chaID)
 	assert.Error(t, err)
@@ -578,10 +578,12 @@ func TestConsignmentService_InitializeConsignmentByID_TemplateProviderError(t *t
 	db, sqlMock := setupTestDB(t)
 	mockCHA := new(MockCHAService)
 	mockCompany := new(MockCompanyService)
-	svc := NewService(db, nil, mockCHA, mockCompany, nil, nil)
+	mockTP := new(MockTemplateProvider)
+	svc := NewService(db, mockTP, mockCHA, mockCompany, nil, nil)
 
 	id := uuid.NewString()
 	hsID := "hs1"
+	wtID := uuid.NewString()
 	chaID := "cha1"
 	chaCompanyID := "company-cha"
 	traderCompanyID := "company-trader"
@@ -598,12 +600,14 @@ func TestConsignmentService_InitializeConsignmentByID_TemplateProviderError(t *t
 
 	sqlMock.ExpectQuery(`SELECT \* FROM "workflow_template_map"`).
 		WithArgs(hsID, "IMPORT", 1).
-		WillReturnError(errors.New("provider error"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "hs_code_id", "consignment_flow", "workflow_template_id"}).
+			AddRow(uuid.NewString(), hsID, "IMPORT", wtID))
+	mockTP.On("GetWorkflowTemplateByIDV2", mock.Anything, wtID).Return(nil, errors.New("provider error"))
 	sqlMock.ExpectRollback()
 
 	_, err := svc.InitializeConsignmentByID(context.Background(), id, []string{hsID}, chaID)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to get workflow template")
+	assert.Contains(t, err.Error(), "failed to get workflow template from provider")
 }
 
 func TestConsignmentService_InitializeConsignmentByID_CHACompanyMismatch(t *testing.T) {

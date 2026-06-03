@@ -23,11 +23,14 @@ import (
 	"github.com/OpenNSW/nsw/backend/internal/profile/user"
 	"github.com/OpenNSW/nsw/backend/internal/taskv2"
 	taskv2plugins "github.com/OpenNSW/nsw/backend/internal/taskv2/plugins"
+	"github.com/OpenNSW/nsw/backend/internal/taskv2/registry"
+	taskrenderer "github.com/OpenNSW/nsw/backend/internal/taskv2/renderer"
 	"github.com/OpenNSW/nsw/backend/internal/temporal"
 	"github.com/OpenNSW/nsw/backend/internal/workflow/service"
 	"github.com/OpenNSW/nsw/backend/pkg/remote"
 	"github.com/OpenNSW/nsw/backend/pkg/storage"
 	"github.com/OpenNSW/nsw/backend/pkg/storage/drivers"
+	"github.com/OpenNSW/nsw/backend/pkg/uiprojector"
 
 	"github.com/OpenNSW/nsw/backend/pkg/notification"
 	"github.com/OpenNSW/nsw/backend/pkg/notification/channels"
@@ -83,7 +86,13 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to initialize payment service: %w", err)
 	}
 
-	templateService := service.NewTemplateService(db)
+	templateRegistry := registry.NewInMemRegistry()
+	if err := registry.LoadConfigsInto(templateRegistry, "configs/fcau"); err != nil {
+		_ = database.Close(db)
+		return nil, fmt.Errorf("failed to load taskv2 configs: %w", err)
+	}
+
+	templateService := service.NewTemplateService(db).WithRegistry(templateRegistry)
 	chaService := cha.NewService(db)
 	companyService := company.NewService(db)
 	userProfileService := user.NewService(db)
@@ -123,7 +132,8 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to register taskv2 plugins: %w", err)
 	}
 
-	taskV2, stopTaskV2, err := taskv2.WireTaskV2(db, temporalClient, pluginsRegistry, paymentService, onTaskCompleted)
+	projectors := append(uiprojector.DefaultProjectors(), taskrenderer.NewPaymentProjector(paymentService))
+	taskV2, stopTaskV2, err := taskv2.WireTaskV2(db, temporalClient, pluginsRegistry, templateRegistry, projectors, onTaskCompleted)
 	if err != nil {
 		temporalClient.Close()
 		_ = database.Close(db)
