@@ -101,7 +101,7 @@ func TestConsignmentRouter_HandleGetConsignments_RoleCHA(t *testing.T) {
 	companyID := "company-cha"
 	mockCompany.On("GetCompanyByOUHandle", mock.Anything, "cha-ou").Return(&company.Record{ID: companyID, OUHandle: "cha-ou", HasCHA: true}, nil)
 
-	sqlMock.ExpectQuery("(?i)SELECT count").WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+	sqlMock.ExpectQuery("(?i)SELECT .* FROM \"consignments\"").WillReturnRows(sqlmock.NewRows([]string{"id"}))
 
 	req, _ := http.NewRequest("GET", "/api/v1/consignments?role=cha", nil)
 	req = req.WithContext(withAuthContextOU(req.Context(), "cha", "cha-ou"))

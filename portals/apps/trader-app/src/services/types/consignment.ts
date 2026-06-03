@@ -1,3 +1,5 @@
+import type { PaginatedResponse } from './common'
+
 export interface CHA {
   id: string
   name: string
@@ -89,7 +91,5 @@ export interface CreateConsignmentRequest {
 }
 
 export type CreateConsignmentResponse = ConsignmentDetail
-
-import type { PaginatedResponse } from './common'
 
 export type ConsignmentListResult = PaginatedResponse<ConsignmentSummary>

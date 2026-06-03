@@ -22,14 +22,6 @@ export type ApiResponse<T> = {
   error?: ErrorResponse
 }
 
-export type PaginatedResponse<T> = {
-  data: T[]
-  total: number
-  page: number
-  pageSize: number
-  totalPages: number
-}
-
 function buildQueryParams(params: QueryParams): URLSearchParams {
   const entries = Object.entries(params)
     .filter(([, value]) => value !== undefined)

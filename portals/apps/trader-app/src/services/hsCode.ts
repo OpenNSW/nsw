@@ -1,11 +1,10 @@
 import { defaultApiClient, type ApiClient } from './api'
-import type { PaginatedResponse } from './types/common'
-import type { HSCode, HSCodeQueryParams } from './types/hsCode'
+import type { HSCodeListResult, HSCodeQueryParams } from './types/hsCode'
 
 export async function getHSCodes(
   params: HSCodeQueryParams = {},
   apiClient: ApiClient = defaultApiClient,
-): Promise<PaginatedResponse<HSCode>> {
+): Promise<HSCodeListResult> {
   // Convert HSCodeQueryParams to QueryParams
   const queryParams: Record<string, string | number> = {}
   if (params.hsCodeStartsWith) {
@@ -18,5 +17,5 @@ export async function getHSCodes(
     queryParams.offset = params.offset
   }
 
-  return apiClient.get<PaginatedResponse<HSCode>>('/hscodes', queryParams)
+  return apiClient.get<HSCodeListResult>('/hscodes', queryParams)
 }

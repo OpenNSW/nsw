@@ -1,4 +1,4 @@
-package utils
+package pagination
 
 import (
 	"fmt"
@@ -9,9 +9,25 @@ import (
 const pageSizeDefault = 50
 const pageSizeMax = 100
 
-// GetPaginationParams calculates the offset and limit for pagination based on the provided values.
+// Page is the standard pagination envelope returned by all list endpoints.
+type Page[T any] struct {
+	Items  []T   `json:"items"`
+	Total  int64 `json:"total"`
+	Offset int   `json:"offset"`
+	Limit  int   `json:"limit"`
+}
+
+// NewPageResult constructs a Page from items and pagination metadata, ensuring Items is never nil.
+func NewPageResult[T any](items []T, total int64, offset, limit int) Page[T] {
+	if items == nil {
+		items = []T{}
+	}
+	return Page[T]{Items: items, Total: total, Offset: offset, Limit: limit}
+}
+
+// ResolvePaginationParams calculates the offset and limit for pagination based on the provided values.
 // If offset or limit are nil, default values are used. The limit is capped at a maximum value.
-func GetPaginationParams(offset *int, limit *int) (int, int) {
+func ResolvePaginationParams(offset *int, limit *int) (int, int) {
 	finalOffset := 0
 	finalLimit := pageSizeDefault
 
@@ -48,9 +64,6 @@ func ParsePaginationParams(r *http.Request) (*int, *int, error) {
 		}
 		if limitVal < 1 {
 			return nil, nil, fmt.Errorf("invalid 'limit' query parameter, must be at least 1")
-		}
-		if limitVal > pageSizeMax {
-			return nil, nil, fmt.Errorf("invalid 'limit' query parameter, maximum allowed is %d", pageSizeMax)
 		}
 		limit = &limitVal
 	}

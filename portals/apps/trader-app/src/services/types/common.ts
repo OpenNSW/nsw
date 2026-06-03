@@ -1,6 +1,6 @@
 export interface PaginatedResponse<T> {
   items: T[]
-  totalCount: number
+  total: number
   offset: number
   limit: number
 }
