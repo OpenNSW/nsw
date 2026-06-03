@@ -135,10 +135,9 @@ Pull requests to `main` run Docker image validation through `.github/workflows/d
 
 - This workflow validates builds for all deployable Docker targets in this repository:
   - `backend/Dockerfile`
-  - `oga/Dockerfile`
   - `portals/apps/trader-app/Dockerfile`
   - `portals/apps/oga-app/Dockerfile`
-- It runs only when relevant Docker build contexts change (`backend/**`, `oga/**`, `portals/**`) or when the workflow file changes.
+- It runs only when relevant Docker build contexts change (`backend/**`, `portals/**`) or when the workflow file changes.
 - It validates builds only and does **not** push/publish images.
 - Image publishing belongs to release CD workflows and is intentionally out of scope for this CI workflow.
 

@@ -197,7 +197,6 @@ This repository currently does not ship complete production-ready Kubernetes man
 
 - `idp` group: Thunder setup + Thunder runtime
 - `core` group: postgres + migration job + backend + trader portal
-- `oga-*` groups: per-agency backend + portal
 
 ### 7.3 Kubernetes deployment checklist
 
