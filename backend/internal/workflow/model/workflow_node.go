@@ -2,11 +2,9 @@ package model
 
 import (
 	"encoding/json"
-
-	taskPlugin "github.com/OpenNSW/nsw/backend/internal/task/plugin"
 )
 
-type WorkflowNodeTemplateType = taskPlugin.Type
+type WorkflowNodeTemplateType string
 
 type WorkflowNodeState string
 
