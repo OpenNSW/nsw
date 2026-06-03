@@ -122,7 +122,6 @@ export async function createPreConsignment(
   return apiClient.post<CreatePreConsignmentRequest, PreConsignmentInstance>('/pre-consignments', payload)
 }
 
-
 // Submit the form data (Action: SUBMIT_FORM or DRAFT)
 export async function submitPreConsignmentTask(
   request: TaskCommandRequest,
