@@ -1,0 +1,13 @@
+{{- if .Values.taskConfigs }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nsw-agency-backend.fullname" . }}-taskconfigs
+  labels:
+    {{- include "nsw-agency-backend.labels" . | nindent 4 }}
+data:
+{{- range $key, $value := .Values.taskConfigs }}
+  {{ $key | quote }}: |-
+{{ $value | indent 4 }}
+{{- end }}
+{{- end }}

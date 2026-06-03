@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nsw-api.fullname" . }}-templates
+  labels:
+    {{- include "nsw-api.labels" . | nindent 4 }}
+data:
+{{- range $key, $value := .Values.templates }}
+  {{ $key | quote }}: |-
+{{ $value | indent 4 }}
+{{- end }}

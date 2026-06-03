@@ -77,6 +77,10 @@ spec:
           volumeMounts:
             - name: forms-volume
               mountPath: /opt/nsw-agency/data/forms
+            {{- if .Values.taskConfigs }}
+            - name: taskconfigs-volume
+              mountPath: /opt/nsw-agency/data/task-configs
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /health
@@ -100,3 +104,8 @@ spec:
         - name: forms-volume
           configMap:
             name: {{ include "nsw-agency-backend.fullname" . }}-forms
+        {{- if .Values.taskConfigs }}
+        - name: taskconfigs-volume
+          configMap:
+            name: {{ include "nsw-agency-backend.fullname" . }}-taskconfigs
+        {{- end }}
