@@ -2,29 +2,23 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Button, Spinner, Text } from '@radix-ui/themes'
 import { ArrowLeftIcon } from '@radix-ui/react-icons'
-import { getTaskInfo, getZoneView, submitTaskStep } from '../services/task'
+import { getZoneView, submitTaskStep } from '../services/task'
 import { useApi } from '../services/ApiContext'
-import PluginRenderer, { type RenderInfo } from '../plugins'
-import { getBooleanEnv } from '../runtimeConfig'
 import { TraderZoneLayout } from '../zones/TraderZoneLayout'
 import type { ZoneView } from '../zones/types'
 
 const POLL_INTERVAL_MS = 3000
 const POST_SUBMIT_REFETCH_DELAY_MS = 1500
-const PAYMENT_TERMINAL_STATES = ['COMPLETED', 'FAILED']
-const WAIT_FOR_EVENT_TERMINAL_STATES = ['COMPLETED', 'RECEIVED_CALLBACK', 'NOTIFY_FAILED', 'SUBMISSION_FAILED']
 
 export function TaskDetailScreen() {
   const { taskId } = useParams<{ taskId: string }>()
   const navigate = useNavigate()
   const goBack = () => navigate(-1)
   const api = useApi()
-  const [renderInfo, setRenderInfo] = useState<RenderInfo | null>(null)
   const [zoneView, setZoneView] = useState<ZoneView | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const useZoneRenderer = getBooleanEnv('VITE_USE_ZONE_RENDERER', false)
 
   const stopPolling = useCallback(() => {
     if (pollTimerRef.current) {
@@ -46,33 +40,16 @@ export function TaskDetailScreen() {
         if (!silent) setLoading(true)
         if (!silent) setError(null)
 
-        if (useZoneRenderer) {
-          const zv = await getZoneView(taskId, api)
-          setZoneView(zv)
-          // Poll while the task is waiting on the system (no zone advertises
-          // handles). The moment a zone exposes handles we're waiting on the
-          // user — stop polling so we don't race their in-flight form edits.
-          const awaitingUserInput = Object.values(zv.view).some((component) => (component.handles?.length ?? 0) > 0)
-          if (awaitingUserInput) {
-            stopPolling()
-          } else {
-            pollTimerRef.current = setTimeout(() => void fetchTask(true), POLL_INTERVAL_MS)
-          }
-          return
-        }
-
-        const taskRenderInfo = await getTaskInfo(taskId, api)
-        setRenderInfo(taskRenderInfo)
-
-        // Poll for tasks that are still in progress
-        const { type, pluginState } = taskRenderInfo
-        const shouldPoll =
-          (type === 'PAYMENT' && !PAYMENT_TERMINAL_STATES.includes(pluginState)) ||
-          (type === 'WAIT_FOR_EVENT' && !WAIT_FOR_EVENT_TERMINAL_STATES.includes(pluginState))
-        if (shouldPoll) {
-          pollTimerRef.current = setTimeout(() => void fetchTask(true), POLL_INTERVAL_MS)
-        } else {
+        const zv = await getZoneView(taskId, api)
+        setZoneView(zv)
+        // Poll while the task is waiting on the system (no zone advertises
+        // handles). The moment a zone exposes handles we're waiting on the
+        // user — stop polling so we don't race their in-flight form edits.
+        const awaitingUserInput = Object.values(zv.view).some((component) => (component.handles?.length ?? 0) > 0)
+        if (awaitingUserInput) {
           stopPolling()
+        } else {
+          pollTimerRef.current = setTimeout(() => void fetchTask(true), POLL_INTERVAL_MS)
         }
       } catch (err) {
         if (silent) {
@@ -86,7 +63,7 @@ export function TaskDetailScreen() {
         if (!silent) setLoading(false)
       }
     },
-    [api, taskId, stopPolling, useZoneRenderer],
+    [api, taskId, stopPolling],
   )
 
   useEffect(() => {
@@ -123,52 +100,7 @@ export function TaskDetailScreen() {
     )
   }
 
-  if (useZoneRenderer) {
-    if (!zoneView) {
-      return (
-        <div className="p-6">
-          <div className="bg-white rounded-lg shadow p-6 text-center">
-            <Text size="4" color="gray" weight="medium">
-              Task not found.
-            </Text>
-            <div className="mt-4">
-              <Button variant="soft" onClick={goBack}>
-                <ArrowLeftIcon />
-                Go Back
-              </Button>
-            </div>
-          </div>
-        </div>
-      )
-    }
-    return (
-      <div className="bg-gray-50 min-h-full">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-          <Button variant="ghost" color="gray" onClick={goBack}>
-            <ArrowLeftIcon />
-            Back to Tasks
-          </Button>
-        </div>
-        <TraderZoneLayout
-          task={zoneView}
-          onSubmitForm={async (_command, data) => {
-            if (!taskId) return
-            try {
-              await submitTaskStep(taskId, data, api)
-              // Give Temporal a moment to advance the workflow before refetching.
-              await new Promise((resolve) => setTimeout(resolve, POST_SUBMIT_REFETCH_DELAY_MS))
-              await fetchTask()
-            } catch (err) {
-              setError('Failed to submit task. Please try again.')
-              console.error(err)
-            }
-          }}
-        />
-      </div>
-    )
-  }
-
-  if (!renderInfo) {
+  if (!zoneView) {
     return (
       <div className="p-6">
         <div className="bg-white rounded-lg shadow p-6 text-center">
@@ -187,17 +119,28 @@ export function TaskDetailScreen() {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-full">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-6">
-          <Button variant="ghost" color="gray" onClick={goBack}>
-            <ArrowLeftIcon />
-            Back to Tasks
-          </Button>
-        </div>
-
-        <PluginRenderer response={renderInfo} onTaskUpdated={fetchTask} />
+    <div className="bg-gray-50 min-h-full">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <Button variant="ghost" color="gray" onClick={goBack}>
+          <ArrowLeftIcon />
+          Back to Tasks
+        </Button>
       </div>
+      <TraderZoneLayout
+        task={zoneView}
+        onSubmitForm={async (_command, data) => {
+          if (!taskId) return
+          try {
+            await submitTaskStep(taskId, data, api)
+            // Give Temporal a moment to advance the workflow before refetching.
+            await new Promise((resolve) => setTimeout(resolve, POST_SUBMIT_REFETCH_DELAY_MS))
+            await fetchTask()
+          } catch (err) {
+            setError('Failed to submit task. Please try again.')
+            console.error(err)
+          }
+        }}
+      />
     </div>
   )
 }

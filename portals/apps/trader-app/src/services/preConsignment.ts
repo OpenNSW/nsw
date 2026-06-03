@@ -1,8 +1,7 @@
 // portals/apps/trader-app/src/services/preConsignment.ts
 
 import { defaultApiClient, type ApiClient } from './api'
-import type { TaskFormData } from './task'
-import { sendTaskCommand, getTaskInfo } from './task'
+import { sendTaskCommand } from './task'
 
 // --- Types based on Backend DTOs ---
 
@@ -123,25 +122,6 @@ export async function createPreConsignment(
   return apiClient.post<CreatePreConsignmentRequest, PreConsignmentInstance>('/pre-consignments', payload)
 }
 
-// Fetch the form schema (GET endpoint)
-export async function fetchPreConsignmentTaskForm(
-  taskId: string,
-  apiClient: ApiClient = defaultApiClient,
-): Promise<TaskFormData> {
-  const renderInfo = await getTaskInfo(taskId, apiClient)
-  // Extract form data from the render info structure
-  // For SIMPLE_FORM type, content has traderFormInfo
-  if (renderInfo.type === 'SIMPLE_FORM' && 'traderFormInfo' in renderInfo.content) {
-    const traderFormInfo = renderInfo.content.traderFormInfo
-    return {
-      title: traderFormInfo.title,
-      schema: traderFormInfo.schema,
-      uiSchema: traderFormInfo.uiSchema,
-      formData: traderFormInfo.formData || {},
-    }
-  }
-  throw new Error('Unexpected task response structure')
-}
 
 // Submit the form data (Action: SUBMIT_FORM or DRAFT)
 export async function submitPreConsignmentTask(
