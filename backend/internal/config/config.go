@@ -126,6 +126,7 @@ func Load() (*Config, error) {
 			LocalDir:              getEnvOrDefault("BLOBSOURCE_LOCAL_DIR", "./configs/blobs"),
 			GitHubRepo:            getEnvOrDefault("BLOBSOURCE_GITHUB_REPO", ""),
 			GitHubRef:             getEnvOrDefault("BLOBSOURCE_GITHUB_REF", ""),
+			GitHubManifestPath:    getEnvOrDefault("BLOBSOURCE_GITHUB_MANIFEST_PATH", "manifest.json"),
 			GitHubBaseURL:         getEnvOrDefault("BLOBSOURCE_GITHUB_BASE_URL", ""),
 			GitHubRefreshInterval: getDurationOrDefault("BLOBSOURCE_GITHUB_REFRESH_INTERVAL", 0),
 		},

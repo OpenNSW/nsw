@@ -65,8 +65,9 @@ func safeJoin(absDir, rel string) (string, error) {
 		return "", fmt.Errorf("manifest path %q must be relative", rel)
 	}
 	cleaned := filepath.Clean(filepath.Join(absDir, rel))
-	// Fast path: check before resolving symlinks.
-	if cleaned != absDir && !strings.HasPrefix(cleaned, absDir+string(filepath.Separator)) {
+	// filepath.Rel is more robust than string-prefix checks across OSes.
+	relPath, err := filepath.Rel(absDir, cleaned)
+	if err != nil || strings.HasPrefix(relPath, "..") {
 		return "", fmt.Errorf("manifest path %q escapes manifest directory", rel)
 	}
 	// Resolve symlinks to prevent traversal via symlinks pointing outside absDir.
@@ -74,7 +75,8 @@ func safeJoin(absDir, rel string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("manifest path %q: %w", rel, err)
 	}
-	if real != absDir && !strings.HasPrefix(real, absDir+string(filepath.Separator)) {
+	realRel, err := filepath.Rel(absDir, real)
+	if err != nil || strings.HasPrefix(realRel, "..") {
 		return "", fmt.Errorf("manifest path %q escapes manifest directory via symlink", rel)
 	}
 	return real, nil

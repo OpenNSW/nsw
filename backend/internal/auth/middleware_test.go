@@ -186,6 +186,7 @@ func TestBuildAuthContext_NilPrincipal(t *testing.T) {
 	authCtx := buildAuthContext(nil)
 	if authCtx == nil {
 		t.Fatalf("expected auth context")
+		return
 	}
 	if authCtx.User != nil || authCtx.Client != nil {
 		t.Fatalf("expected empty auth context, got %+v", authCtx)
@@ -197,6 +198,7 @@ func TestBuildAuthContext_UnknownType(t *testing.T) {
 	authCtx := buildAuthContext(principal)
 	if authCtx == nil {
 		t.Fatalf("expected auth context")
+		return
 	}
 	if authCtx.User != nil || authCtx.Client != nil {
 		t.Fatalf("expected empty auth context, got %+v", authCtx)
@@ -215,6 +217,7 @@ func TestAuthMiddleware_ValidClientCredentialsToken(t *testing.T) {
 		authCtx := GetAuthContext(r.Context())
 		if authCtx == nil {
 			t.Fatalf("expected auth context")
+			return
 		}
 		if authCtx.Client == nil || authCtx.Client.ClientID != "TRADER_PORTAL_APP" {
 			t.Fatalf("expected client id TRADER_PORTAL_APP, got %v", authCtx.Client)

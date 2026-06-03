@@ -22,6 +22,7 @@ func TestNewManager_AllowsNilUserProfileService(t *testing.T) {
 	}
 	if manager == nil {
 		t.Fatalf("expected manager, got nil")
+		return
 	}
 	if manager.userProfileService != nil {
 		t.Fatalf("expected nil userProfileService, got %T", manager.userProfileService)

@@ -69,6 +69,7 @@ type githubSource struct {
 
 	ctx    context.Context
 	cancel context.CancelFunc
+	wg     sync.WaitGroup
 
 	mu        sync.RWMutex
 	byID      map[string]string // blobID -> repo-relative path
@@ -127,6 +128,7 @@ func NewGitHub(ctx context.Context, cfg GitHubConfig) (Source, error) {
 	slog.Info("github blob source initialized",
 		"repo", src.repo, "ref", src.ref, "manifestEntries", len(src.byID))
 	if src.interval > 0 {
+		src.wg.Add(1)
 		go src.refreshLoop()
 	}
 	return src, nil
@@ -176,6 +178,7 @@ func (s *githubSource) loadManifest(ctx context.Context) error {
 }
 
 func (s *githubSource) refreshLoop() {
+	defer s.wg.Done()
 	ticker := time.NewTicker(s.interval)
 	defer ticker.Stop()
 	for {
@@ -228,9 +231,11 @@ func (s *githubSource) Get(ctx context.Context, id string) ([]byte, bool, error)
 }
 
 // Close stops the background refresh goroutine and cancels any in-flight
-// manifest fetch. Safe to call multiple times.
+// manifest fetch. Blocks until the background goroutine has exited.
+// Safe to call multiple times.
 func (s *githubSource) Close() error {
 	s.cancel()
+	s.wg.Wait()
 	return nil
 }
 
@@ -243,9 +248,19 @@ func (s *githubSource) fetch(ctx context.Context, requestURL string) ([]byte, er
 	if err != nil {
 		return nil, fmt.Errorf("GET %s: %w", requestURL, err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	// Drain before closing so the underlying TCP/TLS connection can be reused.
+	defer func() { _, _ = io.Copy(io.Discard, resp.Body); _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("GET %s: unexpected status %d", requestURL, resp.StatusCode)
 	}
-	return io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
+	// Read one byte past the limit so we can distinguish "exactly at limit" from
+	// "over limit" — io.LimitReader alone would silently truncate.
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("GET %s: read error: %w", requestURL, err)
+	}
+	if int64(len(body)) > maxResponseBytes {
+		return nil, fmt.Errorf("GET %s: response exceeds %d bytes", requestURL, maxResponseBytes)
+	}
+	return body, nil
 }
