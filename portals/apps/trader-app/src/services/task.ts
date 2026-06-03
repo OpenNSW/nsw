@@ -1,15 +1,7 @@
 import { defaultApiClient, type ApiClient, type ApiResponse, apiPost } from './api'
-import type { RenderInfo } from '../plugins'
 import type { ZoneView } from '../zones/types'
 
 export type TaskCommand = 'SUBMISSION' | 'SAVE_AS_DRAFT'
-
-export interface TaskFormData {
-  title: string
-  schema: any
-  uiSchema?: any
-  formData: any
-}
 
 export interface TaskCommandRequest {
   command: TaskCommand
@@ -30,14 +22,6 @@ export interface SendTaskCommandRequest {
 }
 
 const TASKS_API_URL = '/tasks'
-
-export async function getTaskInfo(taskId: string, apiClient: ApiClient = defaultApiClient): Promise<RenderInfo> {
-  const response = await apiClient.get<{ success: boolean; data: RenderInfo }>(`${TASKS_API_URL}/${taskId}`)
-  if (!response.data) {
-    throw new Error('Failed to fetch task information')
-  }
-  return response.data
-}
 
 export async function getZoneView(taskId: string, apiClient: ApiClient = defaultApiClient): Promise<ZoneView> {
   return apiClient.get<ZoneView>(`${TASKS_API_URL}/${taskId}`)

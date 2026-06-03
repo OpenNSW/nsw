@@ -9,9 +9,9 @@ on:
     # Only run when files that affect a Docker build context change,
     # or when this workflow file itself changes.
     paths:
-      - 'backend/**'
-      - 'portals/**'
-      - '.github/workflows/docker-validation.yml'
+      - "backend/**"
+      - "portals/**"
+      - ".github/workflows/docker-validation.yml"
 
 jobs:
   # STAGE 1: Detect which build contexts were actually changed in this PR.
@@ -28,18 +28,18 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Detect relevant changes
-         id: filter
-         uses: dorny/paths-filter@v3
-         with:
-           filters: |
-             backend:
-               - 'backend/**'
-             portals:
-               - 'portals/**'
-             # Treat a change to this workflow file as touching all contexts
-             # so every image is validated when CI config itself changes.
-             workflow:
-               - '.github/workflows/docker-validation.yml'
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            portals:
+              - 'portals/**'
+            # Treat a change to this workflow file as touching all contexts
+            # so every image is validated when CI config itself changes.
+            workflow:
+              - '.github/workflows/docker-validation.yml'
 
   # STAGE 2: Build all relevant Docker images in parallel.
   # fail-fast: false ensures one failing build does not cancel the others,
@@ -56,9 +56,9 @@ jobs:
             context: ./backend
             dockerfile: ./backend/Dockerfile
             tag: nsw-backend:validate
-            trigger: backend  # matches a detect-changes output key
+            trigger: backend # matches a detect-changes output key
           - name: trader-portal
-            context: ./portals  # full portals/ workspace needed for shared packages
+            context: ./portals # full portals/ workspace needed for shared packages
             dockerfile: ./portals/apps/trader-app/Dockerfile
             tag: trader-app:validate
             trigger: portals
@@ -88,7 +88,7 @@ jobs:
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
-          push: false  # validation only — never push in this workflow
+          push: false # validation only — never push in this workflow
           tags: ${{ matrix.tag }}
           # GHA cache backend reuses layers across runs, keyed by image name.
           cache-from: type=gha
