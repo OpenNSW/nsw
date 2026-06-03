@@ -15,7 +15,7 @@ securityContext:
       - ALL
 
 image:
-  repository: ghcr.io/opennsw/nsw-api
+  repository: ghcr.io/opennsw/nsw-backend
   pullPolicy: IfNotPresent
   tag: 0.0.0-replace-me
 
