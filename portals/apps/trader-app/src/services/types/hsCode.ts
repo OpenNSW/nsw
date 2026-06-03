@@ -1,3 +1,5 @@
+import type { PaginatedResponse } from './common'
+
 export interface HSCode {
   id: string
   hsCode: string
@@ -10,3 +12,5 @@ export interface HSCodeQueryParams {
   limit?: number
   offset?: number
 }
+
+export type HSCodeListResult = PaginatedResponse<HSCode>

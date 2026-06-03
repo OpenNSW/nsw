@@ -12,9 +12,9 @@ import (
 // stubService is a minimal Service stub for handler tests. It captures the filter passed
 // into ListCompanies so tests can assert query-param parsing.
 type stubService struct {
-	listRecords []Record
-	listErr     error
-	lastFilter  ListFilter
+	listResult *ListResult
+	listErr    error
+	lastFilter ListFilter
 }
 
 func (s *stubService) GetCompanyByID(_ context.Context, _ string) (*Record, error) { return nil, nil }
@@ -23,18 +23,26 @@ func (s *stubService) GetCompanyByOUHandle(_ context.Context, _ string) (*Record
 }
 func (s *stubService) UpdateCompany(_ context.Context, _ string, _ map[string]any) error { return nil }
 func (s *stubService) Health(_ context.Context) error                                    { return nil }
-func (s *stubService) ListCompanies(_ context.Context, filter ListFilter) ([]Record, error) {
+func (s *stubService) ListCompanies(_ context.Context, filter ListFilter) (*ListResult, error) {
 	s.lastFilter = filter
-	return s.listRecords, s.listErr
+	return s.listResult, s.listErr
+}
+
+func emptyResult() *ListResult {
+	return &ListResult{Items: []Summary{}, Total: 0, Offset: 0, Limit: 50}
 }
 
 func TestHandler_HandleGetCompanies_Success(t *testing.T) {
-	records := []Record{
-		// Include fields the Summary should drop to ensure they don't leak into the response.
-		{ID: "adam-pvt-ltd", Name: "ADAM PVT LTD", OUHandle: "adam-pvt-ltd", HasCHA: true, Data: []byte(`{"br_no":"BR-1"}`)},
-		{ID: "edward-pvt-ltd", Name: "EDWARD PVT LTD", OUHandle: "edward-pvt-ltd", HasCHA: true, Data: []byte(`{"br_no":"BR-2"}`)},
+	result := &ListResult{
+		Items: []Summary{
+			{ID: "adam-pvt-ltd", Name: "ADAM PVT LTD", HasCHA: true},
+			{ID: "edward-pvt-ltd", Name: "EDWARD PVT LTD", HasCHA: true},
+		},
+		Total:  2,
+		Offset: 0,
+		Limit:  50,
 	}
-	stub := &stubService{listRecords: records}
+	stub := &stubService{listResult: result}
 	h := NewHandler(stub)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/companies", nil)
@@ -51,7 +59,7 @@ func TestHandler_HandleGetCompanies_Success(t *testing.T) {
 	if err := json.NewDecoder(w.Body).Decode(&got); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
-	if got.Total != 2 || got.Offset != 0 || got.Limit != 2 {
+	if got.Total != 2 || got.Offset != 0 || got.Limit != 50 {
 		t.Fatalf("unexpected envelope: %+v", got)
 	}
 	if len(got.Items) != 2 || got.Items[0].ID != "adam-pvt-ltd" || got.Items[1].ID != "edward-pvt-ltd" {
@@ -92,7 +100,7 @@ func TestHandler_HandleGetCompanies_Success(t *testing.T) {
 }
 
 func TestHandler_HandleGetCompanies_HasCHATrue(t *testing.T) {
-	stub := &stubService{listRecords: []Record{}}
+	stub := &stubService{listResult: emptyResult()}
 	h := NewHandler(stub)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/companies?has_cha=true", nil)
@@ -108,7 +116,7 @@ func TestHandler_HandleGetCompanies_HasCHATrue(t *testing.T) {
 }
 
 func TestHandler_HandleGetCompanies_HasCHAFalse(t *testing.T) {
-	stub := &stubService{listRecords: []Record{}}
+	stub := &stubService{listResult: emptyResult()}
 	h := NewHandler(stub)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/companies?has_cha=false", nil)
@@ -124,7 +132,7 @@ func TestHandler_HandleGetCompanies_HasCHAFalse(t *testing.T) {
 }
 
 func TestHandler_HandleGetCompanies_HasCHAInvalid(t *testing.T) {
-	stub := &stubService{listRecords: []Record{}}
+	stub := &stubService{listResult: emptyResult()}
 	h := NewHandler(stub)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/companies?has_cha=notabool", nil)
@@ -137,7 +145,7 @@ func TestHandler_HandleGetCompanies_HasCHAInvalid(t *testing.T) {
 }
 
 func TestHandler_HandleGetCompanies_NameFilter(t *testing.T) {
-	stub := &stubService{listRecords: []Record{}}
+	stub := &stubService{listResult: emptyResult()}
 	h := NewHandler(stub)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/companies?name=adam", nil)
@@ -153,7 +161,7 @@ func TestHandler_HandleGetCompanies_NameFilter(t *testing.T) {
 }
 
 func TestHandler_HandleGetCompanies_CombinedFilter(t *testing.T) {
-	stub := &stubService{listRecords: []Record{}}
+	stub := &stubService{listResult: emptyResult()}
 	h := NewHandler(stub)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/companies?has_cha=true&name=adam", nil)
@@ -168,6 +176,39 @@ func TestHandler_HandleGetCompanies_CombinedFilter(t *testing.T) {
 	}
 	if stub.lastFilter.Name == nil || *stub.lastFilter.Name != "adam" {
 		t.Fatalf("expected Name=adam, got %+v", stub.lastFilter.Name)
+	}
+}
+
+func TestHandler_HandleGetCompanies_PaginationParams(t *testing.T) {
+	stub := &stubService{listResult: emptyResult()}
+	h := NewHandler(stub)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/companies?offset=10&limit=25", nil)
+	w := httptest.NewRecorder()
+	h.HandleGetCompanies(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	ten, twentyfive := 10, 25
+	if stub.lastFilter.Offset == nil || *stub.lastFilter.Offset != ten {
+		t.Fatalf("expected Offset=10, got %+v", stub.lastFilter.Offset)
+	}
+	if stub.lastFilter.Limit == nil || *stub.lastFilter.Limit != twentyfive {
+		t.Fatalf("expected Limit=25, got %+v", stub.lastFilter.Limit)
+	}
+}
+
+func TestHandler_HandleGetCompanies_InvalidPagination(t *testing.T) {
+	stub := &stubService{listResult: emptyResult()}
+	h := NewHandler(stub)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/companies?limit=notanint", nil)
+	w := httptest.NewRecorder()
+	h.HandleGetCompanies(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
 	}
 }
 

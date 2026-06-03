@@ -117,12 +117,12 @@ func (m *MockCompanyService) GetCompanyByOUHandle(ctx context.Context, ouHandle 
 	return args.Get(0).(*company.Record), args.Error(1)
 }
 
-func (m *MockCompanyService) ListCompanies(ctx context.Context, filter company.ListFilter) ([]company.Record, error) {
+func (m *MockCompanyService) ListCompanies(ctx context.Context, filter company.ListFilter) (*company.ListResult, error) {
 	args := m.Called(ctx, filter)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]company.Record), args.Error(1)
+	return args.Get(0).(*company.ListResult), args.Error(1)
 }
 
 func (m *MockCompanyService) UpdateCompany(ctx context.Context, id string, data map[string]any) error {
@@ -467,26 +467,25 @@ func TestConsignmentService_ListConsignments_TraderCompany_Empty(t *testing.T) {
 	ctx := context.Background()
 	companyID := "company-1"
 
-	sqlMock.ExpectQuery(`SELECT count\(\*\) FROM "consignments" WHERE trader_company_id = \$1`).
-		WithArgs(companyID).
-		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+	sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE trader_company_id = \$1`).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}))
 
 	result, err := svc.ListConsignments(ctx, Filter{TraderCompanyID: &companyID})
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
-	assert.Equal(t, int64(0), result.TotalCount)
+	assert.Equal(t, int64(0), result.Total)
 	assert.Empty(t, result.Items)
 	assert.NoError(t, sqlMock.ExpectationsWereMet())
 }
 
-func TestConsignmentService_ListConsignments_TraderCompany_CountError(t *testing.T) {
+func TestConsignmentService_ListConsignments_TraderCompany_FindError(t *testing.T) {
 	db, sqlMock := setupTestDB(t)
 	svc := NewService(db, nil, nil, nil, nil, hscode.NewService(db))
 	ctx := context.Background()
 	companyID := "company-1"
 
-	sqlMock.ExpectQuery(`SELECT count\(\*\) FROM "consignments"`).
-		WillReturnError(errors.New("count error"))
+	sqlMock.ExpectQuery(`SELECT \* FROM "consignments"`).
+		WillReturnError(errors.New("find error"))
 
 	result, err := svc.ListConsignments(ctx, Filter{TraderCompanyID: &companyID})
 	assert.Error(t, err)
@@ -683,8 +682,6 @@ func TestConsignmentService_ListConsignments_WithItems(t *testing.T) {
 	consignmentID := uuid.NewString()
 	hsID := uuid.NewString()
 
-	sqlMock.ExpectQuery(`SELECT count\(\*\) FROM "consignments"`).
-		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 	sqlMock.ExpectQuery(`SELECT \* FROM "consignments"`).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "flow", "trader_id", "state", "items", "created_at", "updated_at"}).
 			AddRow(consignmentID, "IMPORT", traderID, "IN_PROGRESS", []byte(`[{"hsCodeId":"`+hsID+`"}]`), time.Now(), time.Now()))
@@ -700,7 +697,7 @@ func TestConsignmentService_ListConsignments_WithItems(t *testing.T) {
 
 	result, err := svc.ListConsignments(context.Background(), Filter{TraderCompanyID: &traderID})
 	assert.NoError(t, err)
-	assert.Equal(t, int64(1), result.TotalCount)
+	assert.Equal(t, int64(1), result.Total)
 	require.Len(t, result.Items, 1)
 	// End node subtracted: total was 3, becomes 2.
 	assert.Equal(t, 2, result.Items[0].WorkflowNodeCount)
@@ -712,8 +709,6 @@ func TestConsignmentService_ListConsignments_FindError(t *testing.T) {
 	svc := NewService(db, nil, nil, nil, nil, nil)
 	traderID := "trader1"
 
-	sqlMock.ExpectQuery(`SELECT count\(\*\) FROM "consignments"`).
-		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 	sqlMock.ExpectQuery(`SELECT \* FROM "consignments"`).
 		WillReturnError(errors.New("find error"))
 
@@ -727,8 +722,6 @@ func TestConsignmentService_ListConsignments_NodeCountError(t *testing.T) {
 	svc := NewService(db, nil, nil, nil, nil, nil)
 	traderID := "trader1"
 
-	sqlMock.ExpectQuery(`SELECT count\(\*\) FROM "consignments"`).
-		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 	sqlMock.ExpectQuery(`SELECT \* FROM "consignments"`).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "items"}).AddRow(uuid.NewString(), []byte("[]")))
 	sqlMock.ExpectQuery(`SELECT workflow_id`).WillReturnError(errors.New("node count error"))
@@ -743,8 +736,6 @@ func TestConsignmentService_ListConsignments_EndNodeError(t *testing.T) {
 	svc := NewService(db, nil, nil, nil, nil, nil)
 	traderID := "trader1"
 
-	sqlMock.ExpectQuery(`SELECT count\(\*\) FROM "consignments"`).
-		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 	sqlMock.ExpectQuery(`SELECT \* FROM "consignments"`).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "items"}).AddRow(uuid.NewString(), []byte("[]")))
 	sqlMock.ExpectQuery(`SELECT workflow_id`).
@@ -762,13 +753,12 @@ func TestConsignmentService_ListConsignments_CHACompanyPath(t *testing.T) {
 	svc := NewService(db, nil, nil, nil, nil, nil)
 	companyID := "company-cha"
 
-	sqlMock.ExpectQuery(`SELECT count\(\*\) FROM "consignments" WHERE cha_company_id = \$1`).
-		WithArgs(companyID).
-		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+	sqlMock.ExpectQuery(`SELECT \* FROM "consignments" WHERE cha_company_id = \$1`).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}))
 
 	result, err := svc.ListConsignments(context.Background(), Filter{CHACompanyID: &companyID})
 	assert.NoError(t, err)
-	assert.Equal(t, int64(0), result.TotalCount)
+	assert.Equal(t, int64(0), result.Total)
 }
 
 func TestConsignmentService_BuildItemResponseDTOs_MissingHSCode(t *testing.T) {

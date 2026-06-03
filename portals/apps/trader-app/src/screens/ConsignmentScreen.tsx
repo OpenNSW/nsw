@@ -300,7 +300,7 @@ export function ConsignmentScreen() {
           return
         }
         setConsignments(data.items || [])
-        setTotalCount(data.totalCount || 0)
+        setTotalCount(data.total || 0)
       } catch (error) {
         if (requestId !== listRequestIdRef.current) {
           return
