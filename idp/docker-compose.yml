@@ -1,46 +1,45 @@
 services:
   # Initialize database from the image
-  thunder-db-init:
-    image: ghcr.io/asgardeo/thunder:0.35.0
-    command: sh -c "cp -r /opt/thunder/repository/database/* /data/ && (cp -r /opt/thunder/consent/repository/database/* /consent-data/ 2>/dev/null || true)"
+  thunderid-db-init:
+    image: ghcr.io/thunder-id/thunderid:0.41.0
+    command: sh -c "cp -r /opt/thunderid/repository/database/* /data/ && (cp -r /opt/thunderid/consent/repository/database/* /consent-data/ 2>/dev/null || true)"
     volumes:
-      - thunder-db:/data
+      - thunderid-db:/data
       - consent-db:/consent-data
     restart: "no"
 
   # Run setup once with the shared database
-  thunder-setup:
-    image: ghcr.io/asgardeo/thunder:0.35.0
+  thunderid-setup:
+    image: ghcr.io/thunder-id/thunderid:0.41.0
     command: ./setup.sh
     env_file:
       - .env
     volumes:
-      - thunder-db:/opt/thunder/repository/database
-      - consent-db:/opt/thunder/consent/repository/database
-      - ./01-default-resources.sh:/opt/thunder/bootstrap/01-default-resources.sh
-      - ./02-sample-resources.sh:/opt/thunder/bootstrap/02-sample-resources.sh
+      - thunderid-db:/opt/thunderid/repository/database
+      - consent-db:/opt/thunderid/consent/repository/database
+      - ./02-sample-resources.sh:/opt/thunderid/bootstrap/02-sample-resources.sh
     depends_on:
-      thunder-db-init:
+      thunderid-db-init:
         condition: service_completed_successfully
     restart: "no"
 
-  # Run Thunder server with the shared database
-  thunder:
-    image: ghcr.io/asgardeo/thunder:0.35.0
+  # Run ThunderID server with the shared database
+  thunderid:
+    image: ghcr.io/thunder-id/thunderid:0.41.0
     depends_on:
-      thunder-setup:
+      thunderid-setup:
         condition: service_completed_successfully
     ports:
-      - "${THUNDER_PORT:-8090}:${THUNDER_PORT:-8090}"
+      - "${PORT:-8090}:${PORT:-8090}"
     env_file:
       - .env
     volumes:
-      - thunder-db:/opt/thunder/repository/database
-      - consent-db:/opt/thunder/consent/repository/database
-      - ./deployment.yaml:/opt/thunder/repository/conf/deployment.yaml
+      - thunderid-db:/opt/thunderid/repository/database
+      - consent-db:/opt/thunderid/consent/repository/database
+      - ./deployment.yaml:/opt/thunderid/repository/conf/deployment.yaml
 
 volumes:
-  thunder-db:
+  thunderid-db:
     driver: local
   consent-db:
     driver: local
