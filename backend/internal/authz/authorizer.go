@@ -53,6 +53,11 @@ func (a *Authorizer) RequireAnyScope(scopes ...string) func(http.Handler) http.H
 	if len(scopes) == 0 {
 		panic("authz: RequireAnyScope requires at least one scope")
 	}
+	for _, s := range scopes {
+		if s == "" {
+			panic("authz: RequireAnyScope requires non-empty scopes")
+		}
+	}
 	return a.require(func(p Principal) bool { return HasAnyScope(p, scopes...) }, scopes...)
 }
 
@@ -60,6 +65,11 @@ func (a *Authorizer) RequireAnyScope(scopes ...string) func(http.Handler) http.H
 func (a *Authorizer) RequireAllScopes(scopes ...string) func(http.Handler) http.Handler {
 	if len(scopes) == 0 {
 		panic("authz: RequireAllScopes requires at least one scope")
+	}
+	for _, s := range scopes {
+		if s == "" {
+			panic("authz: RequireAllScopes requires non-empty scopes")
+		}
 	}
 	return a.require(func(p Principal) bool { return HasAllScopes(p, scopes...) }, scopes...)
 }

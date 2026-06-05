@@ -170,5 +170,18 @@ func TestRequireAnyAndAllScopes(t *testing.T) {
 				a.RequireAllScopes()
 			}
 		})
+
+		t.Run("empty scope string panics ("+name+")", func(t *testing.T) {
+			defer func() {
+				if recover() == nil {
+					t.Fatal("expected panic when empty scope string provided")
+				}
+			}()
+			if name == "any" {
+				a.RequireAnyScope("nsw:task:read", "")
+			} else {
+				a.RequireAllScopes("nsw:task:read", "")
+			}
+		})
 	}
 }
