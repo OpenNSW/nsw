@@ -73,7 +73,7 @@ raw, ok, err := src.Get(ctx, "build-licence")
 basename without the `.json` extension becomes the blob ID.
 
 ```go
-src, err := blobsource.NewLocal("/etc/oga/blobs")
+src, err := blobsource.NewLocal("/etc/agency/blobs")
 ```
 
 - Returns an error if `dir` is missing or contains no `.json` files.

@@ -9,7 +9,6 @@ Workflow file: `.github/workflows/release.yml`
 The workflow builds and publishes these images to GHCR:
 
 - `ghcr.io/<owner>/<repo>/nsw-backend`
-- `ghcr.io/<owner>/<repo>/nsw-oga-backend`
 - `ghcr.io/<owner>/<repo>/nsw-trader-portal`
 - `ghcr.io/<owner>/<repo>/nsw-oga-portal`
 
@@ -75,7 +74,6 @@ Replace `<owner>/<repo>` and `<version>` accordingly:
 
 ```bash
 docker pull ghcr.io/<owner>/<repo>/nsw-backend:<version>
-docker pull ghcr.io/<owner>/<repo>/nsw-oga-backend:<version>
 docker pull ghcr.io/<owner>/<repo>/nsw-trader-portal:<version>
 docker pull ghcr.io/<owner>/<repo>/nsw-oga-portal:<version>
 ```
