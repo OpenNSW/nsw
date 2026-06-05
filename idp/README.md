@@ -87,6 +87,9 @@ single project script via a mount:
   - **`Private_User`** and **`Government_User`** user types
   - **`Traders`** and **`CHA`** groups; **`Trader`** and **`CHA`** roles (assigned to the
     matching groups — role inheritance is group-based)
+  - **`OGA Reviewers`** group + **`OGA Reviewer`** role (government reviewers); **`AgencyM2M`**
+    role (machine clients) — see *API authorization* below
+  - **`NSW_API`** and **`AGENCY_API`** OAuth2 resource servers (scopes + token audiences)
   - Sample users: `suresh`, `ramesh`, `gomesh` (ADAM), `naresh` (EDWARD), and
     `npqs_user` / `fcau_user` / `ird_user` / `cda_user` (government OUs)
   - **SPA applications** and **M2M applications** (see below)
@@ -104,6 +107,33 @@ single project script via a mount:
 M2M (client-credentials) apps for external services calling NSW APIs:
 `NPQS_TO_NSW`, `FCAU_TO_NSW`, `IRD_TO_NSW`, `CDA_TO_NSW` (auth method:
 `client_secret_basic`).
+
+## API authorization (OAuth2)
+
+Each protected backend is registered as a **resource server** whose `identifier`
+becomes the access-token **audience** (`aud`):
+
+| Resource server (`identifier`) | Backend | Scopes (`<resource>:<action>`) |
+| --- | --- | --- |
+| `NSW_API` | [OpenNSW/nsw](https://github.com/OpenNSW/nsw) `backend/` | `nsw:consignment:{read,write}`, `nsw:task:{read,write}`, `nsw:{hscode,company,cha}:read`, `nsw:storage:{read,write,delete}` |
+| `AGENCY_API` | [OpenNSW/nsw-agency](https://github.com/OpenNSW/nsw-agency) `backend/` | `agency:application:{read,review,feedback}`, `agency:consignment:read`, `agency:storage:{read,write}` |
+
+Scopes are namespaced (`nsw:*` / `agency:*`) so each maps to exactly one audience.
+
+**How tokens get their scopes + audience** — in ThunderID, a token's scopes (and
+therefore its `aud`) come from a **role grant on the principal**, not from the app's
+requestable `scopes` list. So every caller is granted the relevant scopes via a role:
+
+| Caller | Grant | Token `aud` |
+| --- | --- | --- |
+| TraderApp users | `Trader` / `CHA` role (via group) → `NSW_API` scopes | `NSW_API` |
+| `*_TO_NSW` M2M clients | **`AgencyM2M` role assigned to the application** (`type: app`) → `NSW_API` scopes | `NSW_API` |
+| OGA portal users | `OGA Reviewer` role (via `OGA Reviewers` group) → `AGENCY_API` scopes | `AGENCY_API` |
+
+> Because each caller's role sets the correct audience, the backends can enable
+> audience validation (`jwt.WithAudience("NSW_API")` / `"AGENCY_API"`). Without a role
+> grant, ThunderID falls back to `aud = client_id` and emits no scopes — which is why
+> M2M clients need the `AgencyM2M` role assigned to the application itself.
 
 ## Notes
 
