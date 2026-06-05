@@ -11,7 +11,6 @@ For full-stack orchestration and deployment architecture, see `docs/DEPLOYMENT.m
 | Component | Dockerfile | Image Tag (local) | Purpose |
 |---|---|---|---|
 | NSW Backend API | `backend/Dockerfile` | `nsw-backend:local` | Core backend service |
-| OGA Backend | `oga/Dockerfile` | `nsw-oga-backend:local` | OGA backend service (NPQS/FCAU/IRD instances) |
 | Trader Portal | `portals/apps/trader-app/Dockerfile` | `nsw-trader-portal:local` | Trader frontend |
 | OGA Portal | `portals/apps/oga-app/Dockerfile` | `nsw-oga-portal:local` | OGA frontend (instance-config driven) |
 
@@ -21,7 +20,6 @@ From repository root:
 
 ```bash
 docker build -f backend/Dockerfile -t nsw-backend:local backend
-docker build -f oga/Dockerfile -t nsw-oga-backend:local oga
 docker build -f portals/apps/trader-app/Dockerfile -t nsw-trader-portal:local portals
 docker build -f portals/apps/oga-app/Dockerfile -t nsw-oga-portal:local portals
 ```
@@ -32,11 +30,10 @@ Pull requests to `main` validate Docker builds using `.github/workflows/docker-v
 
 - Validated Docker targets:
   - `backend/Dockerfile` (context: `backend/`)
-  - `oga/Dockerfile` (context: `oga/`)
   - `portals/apps/trader-app/Dockerfile` (context: `portals/`)
   - `portals/apps/oga-app/Dockerfile` (context: `portals/`)
 - Trigger behavior:
-  - Runs when changes are in `backend/**`, `oga/**`, `portals/**`, or the workflow file itself.
+  - Runs when changes are in `backend/**`, `portals/**`, or the workflow file itself.
   - Builds execute only for matrix entries whose context changed.
   - Any Docker build failure fails the workflow.
 - Scope boundary:
@@ -80,27 +77,9 @@ docker run --rm --name nsw-backend \
 
 > Note: Set `AUTH_JWKS_INSECURE_SKIP_VERIFY=false` (or omit it) when using a valid TLS certificate on the IDP in non-local environments.
 
-## 4.2 OGA Backend
-
-```bash
-docker run --rm --name nsw-oga-backend \
-  -p 8081:8081 \
-  -v nsw-oga-data:/data \
-  -e OGA_PORT=8081 \
-  -e OGA_DEFAULT_FORM_ID=default \
-  -e OGA_ALLOWED_ORIGINS=http://localhost:5174,http://localhost:5175,http://localhost:5176 \
-  -e OGA_NSW_API_BASE_URL=http://backend:8080/api/v1 \
-  -e OGA_NSW_CLIENT_ID=IRD_TO_NSW \
-  -e OGA_NSW_CLIENT_SECRET=1234 \
-  -e OGA_NSW_TOKEN_URL=https://localhost:8090/oauth2/token \
-  -e OGA_NSW_SCOPES= \
-  -e OGA_NSW_TOKEN_INSECURE_SKIP_VERIFY=true \
-  nsw-oga-backend:local
-```
-
 To run multiple OGA instances, start multiple containers with different names/ports and separate volumes.
 
-## 4.3 Trader Portal
+## 4.2 Trader Portal
 
 ```bash
 docker run --rm --name nsw-trader-portal \
@@ -115,7 +94,7 @@ docker run --rm --name nsw-trader-portal \
   nsw-trader-portal:local
 ```
 
-## 4.4 OGA Portal
+## 4.3 OGA Portal
 
 ```bash
 docker run --rm --name nsw-oga-portal \
@@ -129,8 +108,6 @@ docker run --rm --name nsw-oga-portal \
   -e VITE_IDP_PLATFORM=AsgardeoV2 \
   nsw-oga-portal:local
 ```
-
-To run multiple OGA portal instances, start multiple containers with different ports and `VITE_INSTANCE_CONFIG` / `VITE_IDP_CLIENT_ID` values.
 
 ## 5) Recommended for Full Stack
 
