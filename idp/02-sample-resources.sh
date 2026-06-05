@@ -14,20 +14,20 @@ if [[ -f "$ENV_FILE" ]]; then
     set +a
 fi
 
-SAMPLE_USER_PASSWORD="${THUNDER_SAMPLE_USER_PASSWORD:-1234}"
-SURESH_PASSWORD="${THUNDER_SAMPLE_SURESH_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
-RAMESH_PASSWORD="${THUNDER_SAMPLE_RAMESH_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
-GOMESH_PASSWORD="${THUNDER_SAMPLE_GOMESH_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
-NARESH_PASSWORD="${THUNDER_SAMPLE_NARESH_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
-NPQS_USER_PASSWORD="${THUNDER_SAMPLE_NPQS_USER_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
-FCAU_USER_PASSWORD="${THUNDER_SAMPLE_FCAU_USER_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
-IRD_USER_PASSWORD="${THUNDER_SAMPLE_IRD_USER_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
-CDA_USER_PASSWORD="${THUNDER_SAMPLE_CDA_USER_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
-M2M_CLIENT_SECRET="${THUNDER_M2M_CLIENT_SECRET:-1234}"
-NPQS_M2M_CLIENT_SECRET="${THUNDER_M2M_NPQS_SECRET:-${M2M_CLIENT_SECRET}}"
-FCAU_M2M_CLIENT_SECRET="${THUNDER_M2M_FCAU_SECRET:-${M2M_CLIENT_SECRET}}"
-IRD_M2M_CLIENT_SECRET="${THUNDER_M2M_IRD_SECRET:-${M2M_CLIENT_SECRET}}"
-CDA_M2M_CLIENT_SECRET="${THUNDER_M2M_CDA_SECRET:-${M2M_CLIENT_SECRET}}"
+SAMPLE_USER_PASSWORD="${SAMPLE_USER_PASSWORD:-1234}"
+SURESH_PASSWORD="${SAMPLE_SURESH_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
+RAMESH_PASSWORD="${SAMPLE_RAMESH_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
+GOMESH_PASSWORD="${SAMPLE_GOMESH_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
+NARESH_PASSWORD="${SAMPLE_NARESH_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
+NPQS_USER_PASSWORD="${SAMPLE_NPQS_USER_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
+FCAU_USER_PASSWORD="${SAMPLE_FCAU_USER_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
+IRD_USER_PASSWORD="${SAMPLE_IRD_USER_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
+CDA_USER_PASSWORD="${SAMPLE_CDA_USER_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
+M2M_CLIENT_SECRET="${M2M_CLIENT_SECRET:-1234}"
+NPQS_M2M_CLIENT_SECRET="${M2M_NPQS_SECRET:-${M2M_CLIENT_SECRET}}"
+FCAU_M2M_CLIENT_SECRET="${M2M_FCAU_SECRET:-${M2M_CLIENT_SECRET}}"
+IRD_M2M_CLIENT_SECRET="${M2M_IRD_SECRET:-${M2M_CLIENT_SECRET}}"
+CDA_M2M_CLIENT_SECRET="${M2M_CDA_SECRET:-${M2M_CLIENT_SECRET}}"
 
 log_info "Creating sample Thunder resources..."
 echo ""
@@ -43,7 +43,7 @@ extract_first_id() {
 get_user_id_by_username() {
     local USERNAME="$1"
     local RESPONSE HTTP_CODE BODY
-    RESPONSE=$(thunder_api_call GET "/users?limit=100&offset=0")
+    RESPONSE=$(api_call GET "/users?limit=100&offset=0")
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
 
@@ -60,7 +60,7 @@ get_group_id_by_name() {
     local GROUP_NAME="$1"
     local OU_ID="$2"
     local RESPONSE HTTP_CODE BODY
-    RESPONSE=$(thunder_api_call GET "/groups?limit=100&offset=0")
+    RESPONSE=$(api_call GET "/groups?limit=100&offset=0")
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
 
@@ -76,7 +76,7 @@ get_role_id_by_name() {
     local ROLE_NAME="$1"
     local OU_ID="$2"
     local RESPONSE HTTP_CODE BODY
-    RESPONSE=$(thunder_api_call GET "/roles?limit=100&offset=0")
+    RESPONSE=$(api_call GET "/roles?limit=100&offset=0")
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
 
@@ -92,7 +92,7 @@ get_flow_id_by_handle() {
     local FLOW_TYPE="$1"
     local FLOW_HANDLE="$2"
     local RESPONSE HTTP_CODE BODY
-    RESPONSE=$(thunder_api_call GET "/flows?limit=30&offset=0&flowType=${FLOW_TYPE}")
+    RESPONSE=$(api_call GET "/flows?limit=30&offset=0&flowType=${FLOW_TYPE}")
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
 
@@ -107,7 +107,7 @@ get_flow_id_by_handle() {
 get_application_id_by_client_id() {
     local CLIENT_ID="$1"
     local RESPONSE HTTP_CODE BODY
-    RESPONSE=$(thunder_api_call GET "/applications?limit=200&offset=0")
+    RESPONSE=$(api_call GET "/applications?limit=200&offset=0")
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
 
@@ -122,7 +122,7 @@ get_application_id_by_client_id() {
 get_ou_id_by_handle() {
     local OU_HANDLE="$1"
     local RESPONSE HTTP_CODE BODY
-    RESPONSE=$(thunder_api_call GET "/organization-units/tree/${OU_HANDLE}")
+    RESPONSE=$(api_call GET "/organization-units/tree/${OU_HANDLE}")
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
 
@@ -161,7 +161,7 @@ create_user_in_ou() {
 }
 JSON
 
-    RESPONSE=$(thunder_api_call POST "/users" "${USER_PAYLOAD}")
+    RESPONSE=$(api_call POST "/users" "${USER_PAYLOAD}")
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
 
@@ -330,7 +330,7 @@ create_spa_application() {
 }
 JSON
 
-    RESPONSE=$(thunder_api_call POST "/applications" "${APP_PAYLOAD}")
+    RESPONSE=$(api_call POST "/applications" "${APP_PAYLOAD}")
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
 
@@ -397,7 +397,7 @@ create_m2m_application() {
 }
 JSON
 
-    RESPONSE=$(thunder_api_call POST "/applications" "${APP_PAYLOAD}")
+    RESPONSE=$(api_call POST "/applications" "${APP_PAYLOAD}")
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
 
@@ -443,7 +443,7 @@ ensure_user_in_group() {
 }
 JSON
 
-    RESPONSE=$(thunder_api_call POST "/groups/${GROUP_ID}/members/add" "${MEMBERS_ADD_PAYLOAD}")
+    RESPONSE=$(api_call POST "/groups/${GROUP_ID}/members/add" "${MEMBERS_ADD_PAYLOAD}")
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
 
@@ -466,7 +466,7 @@ assign_role_to_group() {
     local RESPONSE HTTP_CODE BODY
     
     # Check existing assignments first to avoid server-side unique constraint errors
-    RESPONSE=$(thunder_api_call GET "/roles/${ROLE_ID}/assignments?type=group")
+    RESPONSE=$(api_call GET "/roles/${ROLE_ID}/assignments?type=group")
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
 
@@ -488,7 +488,7 @@ assign_role_to_group() {
 }
 JSON
 
-    RESPONSE=$(thunder_api_call POST "/roles/${ROLE_ID}/assignments/add" "${ROLE_ASSIGNMENT_PAYLOAD}")
+    RESPONSE=$(api_call POST "/roles/${ROLE_ID}/assignments/add" "${ROLE_ASSIGNMENT_PAYLOAD}")
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
 
@@ -527,7 +527,7 @@ read -r -d '' PRIVATE_SECTOR_OU_PAYLOAD <<JSON || true
 }
 JSON
 
-RESPONSE=$(thunder_api_call POST "/organization-units" "${PRIVATE_SECTOR_OU_PAYLOAD}")
+RESPONSE=$(api_call POST "/organization-units" "${PRIVATE_SECTOR_OU_PAYLOAD}")
 HTTP_CODE="${RESPONSE: -3}"
 BODY="${RESPONSE%???}"
 
@@ -536,7 +536,7 @@ if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]]; then
     PRIVATE_SECTOR_OU_ID=$(extract_first_id "$BODY")
 elif [[ "$HTTP_CODE" == "409" ]]; then
     log_warning "Private Sector organization unit already exists, retrieving ID..."
-    RESPONSE=$(thunder_api_call GET "/organization-units/tree/${PRIVATE_SECTOR_OU_HANDLE}")
+    RESPONSE=$(api_call GET "/organization-units/tree/${PRIVATE_SECTOR_OU_HANDLE}")
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
 
@@ -580,7 +580,7 @@ read -r -d '' ADAM_PVT_LTD_OU_PAYLOAD <<JSON || true
 }
 JSON
 
-RESPONSE=$(thunder_api_call POST "/organization-units" "${ADAM_PVT_LTD_OU_PAYLOAD}")
+RESPONSE=$(api_call POST "/organization-units" "${ADAM_PVT_LTD_OU_PAYLOAD}")
 HTTP_CODE="${RESPONSE: -3}"
 BODY="${RESPONSE%???}"
 
@@ -589,7 +589,7 @@ if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]]; then
     ADAM_PVT_LTD_OU_ID=$(extract_first_id "$BODY")
 elif [[ "$HTTP_CODE" == "409" ]]; then
     log_warning "ADAM PVT LTD organization unit already exists, retrieving ID..."
-    RESPONSE=$(thunder_api_call GET "/organization-units/tree/${ADAM_PVT_LTD_OU_PATH}")
+    RESPONSE=$(api_call GET "/organization-units/tree/${ADAM_PVT_LTD_OU_PATH}")
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
 
@@ -633,7 +633,7 @@ read -r -d '' EDWARD_PVT_LTD_OU_PAYLOAD <<JSON || true
 }
 JSON
 
-RESPONSE=$(thunder_api_call POST "/organization-units" "${EDWARD_PVT_LTD_OU_PAYLOAD}")
+RESPONSE=$(api_call POST "/organization-units" "${EDWARD_PVT_LTD_OU_PAYLOAD}")
 HTTP_CODE="${RESPONSE: -3}"
 BODY="${RESPONSE%???}"
 
@@ -642,7 +642,7 @@ if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]]; then
     EDWARD_PVT_LTD_OU_ID=$(extract_first_id "$BODY")
 elif [[ "$HTTP_CODE" == "409" ]]; then
     log_warning "EDWARD PVT LTD organization unit already exists, retrieving ID..."
-    RESPONSE=$(thunder_api_call GET "/organization-units/tree/${EDWARD_PVT_LTD_OU_PATH}")
+    RESPONSE=$(api_call GET "/organization-units/tree/${EDWARD_PVT_LTD_OU_PATH}")
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
 
@@ -688,7 +688,7 @@ read -r -d '' GOVERNMENT_ORG_OU_PAYLOAD <<JSON || true
 }
 JSON
 
-RESPONSE=$(thunder_api_call POST "/organization-units" "${GOVERNMENT_ORG_OU_PAYLOAD}")
+RESPONSE=$(api_call POST "/organization-units" "${GOVERNMENT_ORG_OU_PAYLOAD}")
 HTTP_CODE="${RESPONSE: -3}"
 BODY="${RESPONSE%???}"
 
@@ -697,7 +697,7 @@ if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]]; then
     GOVERNMENT_ORG_OU_ID=$(extract_first_id "$BODY")
 elif [[ "$HTTP_CODE" == "409" ]]; then
     log_warning "Government Organization already exists, retrieving ID..."
-    RESPONSE=$(thunder_api_call GET "/organization-units/tree/${GOVERNMENT_ORG_OU_HANDLE}")
+    RESPONSE=$(api_call GET "/organization-units/tree/${GOVERNMENT_ORG_OU_HANDLE}")
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
 
@@ -733,7 +733,7 @@ read -r -d '' NPQS_OU_PAYLOAD <<JSON || true
 }
 JSON
 
-RESPONSE=$(thunder_api_call POST "/organization-units" "${NPQS_OU_PAYLOAD}")
+RESPONSE=$(api_call POST "/organization-units" "${NPQS_OU_PAYLOAD}")
 HTTP_CODE="${RESPONSE: -3}"
 BODY="${RESPONSE%???}"
 
@@ -742,7 +742,7 @@ if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]]; then
     NPQS_OU_ID=$(extract_first_id "$BODY")
 elif [[ "$HTTP_CODE" == "409" ]]; then
     log_warning "NPQS organization unit already exists, retrieving ID..."
-    RESPONSE=$(thunder_api_call GET "/organization-units/tree/${GOVERNMENT_ORG_OU_HANDLE}/${NPQS_OU_HANDLE}")
+    RESPONSE=$(api_call GET "/organization-units/tree/${GOVERNMENT_ORG_OU_HANDLE}/${NPQS_OU_HANDLE}")
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
 
@@ -778,7 +778,7 @@ read -r -d '' FCAU_OU_PAYLOAD <<JSON || true
 }
 JSON
 
-RESPONSE=$(thunder_api_call POST "/organization-units" "${FCAU_OU_PAYLOAD}")
+RESPONSE=$(api_call POST "/organization-units" "${FCAU_OU_PAYLOAD}")
 HTTP_CODE="${RESPONSE: -3}"
 BODY="${RESPONSE%???}"
 
@@ -787,7 +787,7 @@ if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]]; then
     FCAU_OU_ID=$(extract_first_id "$BODY")
 elif [[ "$HTTP_CODE" == "409" ]]; then
     log_warning "FCAU organization unit already exists, retrieving ID..."
-    RESPONSE=$(thunder_api_call GET "/organization-units/tree/${GOVERNMENT_ORG_OU_HANDLE}/${FCAU_OU_HANDLE}")
+    RESPONSE=$(api_call GET "/organization-units/tree/${GOVERNMENT_ORG_OU_HANDLE}/${FCAU_OU_HANDLE}")
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
 
@@ -823,7 +823,7 @@ read -r -d '' IRD_OU_PAYLOAD <<JSON || true
 }
 JSON
 
-RESPONSE=$(thunder_api_call POST "/organization-units" "${IRD_OU_PAYLOAD}")
+RESPONSE=$(api_call POST "/organization-units" "${IRD_OU_PAYLOAD}")
 HTTP_CODE="${RESPONSE: -3}"
 BODY="${RESPONSE%???}"
 
@@ -832,7 +832,7 @@ if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]]; then
     IRD_OU_ID=$(extract_first_id "$BODY")
 elif [[ "$HTTP_CODE" == "409" ]]; then
     log_warning "IRD organization unit already exists, retrieving ID..."
-    RESPONSE=$(thunder_api_call GET "/organization-units/tree/${GOVERNMENT_ORG_OU_HANDLE}/${IRD_OU_HANDLE}")
+    RESPONSE=$(api_call GET "/organization-units/tree/${GOVERNMENT_ORG_OU_HANDLE}/${IRD_OU_HANDLE}")
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
 
@@ -868,7 +868,7 @@ read -r -d '' CDA_OU_PAYLOAD <<JSON || true
 }
 JSON
 
-RESPONSE=$(thunder_api_call POST "/organization-units" "${CDA_OU_PAYLOAD}")
+RESPONSE=$(api_call POST "/organization-units" "${CDA_OU_PAYLOAD}")
 HTTP_CODE="${RESPONSE: -3}"
 BODY="${RESPONSE%???}"
 
@@ -877,7 +877,7 @@ if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]]; then
     CDA_OU_ID=$(extract_first_id "$BODY")
 elif [[ "$HTTP_CODE" == "409" ]]; then
     log_warning "CDA organization unit already exists, retrieving ID..."
-    RESPONSE=$(thunder_api_call GET "/organization-units/tree/${GOVERNMENT_ORG_OU_HANDLE}/${CDA_OU_HANDLE}")
+    RESPONSE=$(api_call GET "/organization-units/tree/${GOVERNMENT_ORG_OU_HANDLE}/${CDA_OU_HANDLE}")
     HTTP_CODE="${RESPONSE: -3}"
     BODY="${RESPONSE%???}"
 
@@ -951,7 +951,7 @@ read -r -d '' PRIVATE_USER_TYPE_PAYLOAD <<JSON || true
 }
 JSON
 
-RESPONSE=$(thunder_api_call POST "/user-schemas" "${PRIVATE_USER_TYPE_PAYLOAD}")
+RESPONSE=$(api_call POST "/user-types" "${PRIVATE_USER_TYPE_PAYLOAD}")
 HTTP_CODE="${RESPONSE: -3}"
 
 if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]]; then
@@ -1012,7 +1012,7 @@ read -r -d '' GOVERNMENT_USER_TYPE_PAYLOAD <<JSON || true
 }
 JSON
 
-RESPONSE=$(thunder_api_call POST "/user-schemas" "${GOVERNMENT_USER_TYPE_PAYLOAD}")
+RESPONSE=$(api_call POST "/user-types" "${GOVERNMENT_USER_TYPE_PAYLOAD}")
 HTTP_CODE="${RESPONSE: -3}"
 
 if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]]; then
@@ -1040,7 +1040,7 @@ read -r -d '' TRADERS_GROUP_PAYLOAD <<JSON || true
 }
 JSON
 
-RESPONSE=$(thunder_api_call POST "/groups" "${TRADERS_GROUP_PAYLOAD}")
+RESPONSE=$(api_call POST "/groups" "${TRADERS_GROUP_PAYLOAD}")
 HTTP_CODE="${RESPONSE: -3}"
 BODY="${RESPONSE%???}"
 
@@ -1079,7 +1079,7 @@ read -r -d '' CHA_GROUP_PAYLOAD <<JSON || true
 }
 JSON
 
-RESPONSE=$(thunder_api_call POST "/groups" "${CHA_GROUP_PAYLOAD}")
+RESPONSE=$(api_call POST "/groups" "${CHA_GROUP_PAYLOAD}")
 HTTP_CODE="${RESPONSE: -3}"
 BODY="${RESPONSE%???}"
 
@@ -1119,7 +1119,7 @@ read -r -d '' TRADER_ROLE_PAYLOAD <<JSON || true
 }
 JSON
 
-RESPONSE=$(thunder_api_call POST "/roles" "${TRADER_ROLE_PAYLOAD}")
+RESPONSE=$(api_call POST "/roles" "${TRADER_ROLE_PAYLOAD}")
 HTTP_CODE="${RESPONSE: -3}"
 BODY="${RESPONSE%???}"
 
@@ -1154,7 +1154,7 @@ read -r -d '' CHA_ROLE_PAYLOAD <<JSON || true
 }
 JSON
 
-RESPONSE=$(thunder_api_call POST "/roles" "${CHA_ROLE_PAYLOAD}")
+RESPONSE=$(api_call POST "/roles" "${CHA_ROLE_PAYLOAD}")
 HTTP_CODE="${RESPONSE: -3}"
 BODY="${RESPONSE%???}"
 
@@ -1242,7 +1242,7 @@ echo ""
 log_info "Fetching Classic theme and default flows..."
 
 CLASSIC_THEME_ID=""
-RESPONSE=$(thunder_api_call GET "/design/themes")
+RESPONSE=$(api_call GET "/design/themes")
 HTTP_CODE="${RESPONSE: -3}"
 BODY="${RESPONSE%???}"
 
