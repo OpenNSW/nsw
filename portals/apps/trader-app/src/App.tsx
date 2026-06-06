@@ -10,6 +10,7 @@ import { SignedOut } from '@asgardeo/react'
 import { LoginScreen } from './screens/LoginScreen.tsx'
 import { ApiProvider, useApi } from './services/ApiContext'
 import { RoleProvider } from './services/RoleContext'
+import { ProfileProvider } from './services/ProfileContext'
 import { UploadProvider } from '@opennsw/jsonforms-renderers'
 import { uploadFile, getDownloadUrl } from './services/storage'
 import { useAuthContext } from './hooks/useAuthContext'
@@ -37,9 +38,11 @@ function ProtectedLayout() {
   return (
     <ApiProvider>
       <RoleProvider availableGroups={availableRoles} isLoading={isResolvingRoles}>
-        <UploadWrapper>
-          <Layout />
-        </UploadWrapper>
+        <ProfileProvider>
+          <UploadWrapper>
+            <Layout />
+          </UploadWrapper>
+        </ProfileProvider>
       </RoleProvider>
     </ApiProvider>
   )
