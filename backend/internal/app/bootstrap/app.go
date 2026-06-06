@@ -199,7 +199,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	taskV2Handler := taskv2.NewHTTPHandler(tm, taskV2.Store, taskV2.Assembler)
 
 	// withAuth wraps an individual handler with the authentication middleware.
-	withAuth := authManager.Middleware()
+	withAuth := authManager.RequireAuthMiddleware()
 
 	// authzr gates routes by the OAuth2 scopes carried on the token.
 	// The extractor bridges the authn layer (auth.GetAuthContext) into the
