@@ -32,6 +32,7 @@ func buildAuthContext(principal *Principal) *AuthContext {
 				OUID:        principal.UserPrincipal.OUID,
 				OUHandle:    principal.UserPrincipal.OUHandle,
 				Roles:       principal.UserPrincipal.Roles,
+				Scopes:      principal.UserPrincipal.Scopes,
 			},
 		}
 	case ClientPrincipalType:
@@ -39,7 +40,11 @@ func buildAuthContext(principal *Principal) *AuthContext {
 			return &AuthContext{}
 		}
 		return &AuthContext{
-			Client: &ClientContext{ClientID: principal.ClientPrincipal.ClientID},
+			Client: &ClientContext{
+				ClientID: principal.ClientPrincipal.ClientID,
+				Roles:    principal.ClientPrincipal.Roles,
+				Scopes:   principal.ClientPrincipal.Scopes,
+			},
 		}
 	default:
 		return &AuthContext{}

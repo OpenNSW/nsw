@@ -19,15 +19,36 @@ const (
 	ClientCredentialsGrant AllowedGrantType = "client_credentials"
 )
 
+// spaceDelimitedScope unmarshals the OAuth2 "scope" claim, which is a single
+// space-delimited string (RFC 6749 §3.3), e.g. "nsw:task:read nsw:storage:read".
+// It defensively also accepts a JSON array of strings. An absent claim leaves it
+// nil; an empty string yields an empty slice.
+type spaceDelimitedScope []string
+
+func (s *spaceDelimitedScope) UnmarshalJSON(data []byte) error {
+	var str string
+	if err := json.Unmarshal(data, &str); err == nil {
+		*s = strings.Fields(str)
+		return nil
+	}
+	var arr []string
+	if err := json.Unmarshal(data, &arr); err != nil {
+		return fmt.Errorf("scope claim must be a string or array of strings: %w", err)
+	}
+	*s = arr
+	return nil
+}
+
 type tokenClaims struct {
 	jwt.RegisteredClaims
-	ClientID    string           `json:"client_id"`
-	GrantType   AllowedGrantType `json:"grant_type"`
-	Email       *string          `json:"email,omitempty"`
-	PhoneNumber *string          `json:"phone_number,omitempty"`
-	OUID        *string          `json:"ouId,omitempty"`
-	OUHandle    *string          `json:"ouHandle,omitempty"`
-	Roles       []string         `json:"roles,omitempty"`
+	ClientID    string              `json:"client_id"`
+	GrantType   AllowedGrantType    `json:"grant_type"`
+	Email       *string             `json:"email,omitempty"`
+	PhoneNumber *string             `json:"phone_number,omitempty"`
+	OUID        *string             `json:"ouId,omitempty"`
+	OUHandle    *string             `json:"ouHandle,omitempty"`
+	Roles       []string            `json:"roles,omitempty"`
+	Scopes      spaceDelimitedScope `json:"scope,omitempty"`
 }
 
 type PrincipalType string
@@ -38,7 +59,9 @@ const (
 )
 
 type ClientPrincipal struct {
-	ClientID string `json:"clientId"`
+	ClientID string   `json:"clientId"`
+	Roles    []string `json:"roles"`
+	Scopes   []string `json:"scopes"`
 }
 
 type UserPrincipal struct {
@@ -48,6 +71,7 @@ type UserPrincipal struct {
 	OUID        string   `json:"ouId"`
 	OUHandle    string   `json:"ouHandle"`
 	Roles       []string `json:"roles"`
+	Scopes      []string `json:"scopes"`
 }
 
 type Principal struct {
@@ -168,7 +192,7 @@ func (te *TokenExtractor) ExtractPrincipalFromHeader(authHeader string) (*Princi
 	parsedToken, err := jwt.ParseWithClaims(tokenString, claims, te.keyFunc,
 		jwt.WithValidMethods([]string{"RS256", "RS384", "RS512"}),
 		jwt.WithIssuer(te.expIssuer),
-		// jwt.WithAudience(te.audience), // TODO: Once Thunder(IdP) supports defining audience claim, add this validation back.
+		jwt.WithAudience(te.expAudience),
 		jwt.WithLeeway(30*time.Second),
 	)
 	if err != nil {
@@ -239,6 +263,7 @@ func (te *TokenExtractor) userPrincipalFromClaims(claims *tokenClaims) (*UserPri
 		OUID:        *claims.OUID,
 		OUHandle:    *claims.OUHandle,
 		Roles:       claims.Roles,
+		Scopes:      []string(claims.Scopes),
 	}, nil
 }
 
@@ -248,6 +273,8 @@ func (te *TokenExtractor) clientPrincipalFromClaims(claims *tokenClaims) (*Clien
 	}
 	return &ClientPrincipal{
 		ClientID: claims.ClientID,
+		Roles:    claims.Roles,
+		Scopes:   []string(claims.Scopes),
 	}, nil
 }
 
