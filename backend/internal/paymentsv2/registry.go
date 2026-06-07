@@ -26,8 +26,9 @@ type paymentRegistry struct {
 }
 
 // NewRegistry initializes a new registry by loading configuration from a file.
-// It maps gateway IDs from the config to the provided map of implementations.
-func NewRegistry(configPath string, gateways map[string]gateways.PaymentGateway) (GatewayRegistry, error) {
+// For each configured gateway it invokes the matching factory to construct a
+// fully configured implementation, so gateways are immutable after init.
+func NewRegistry(configPath string, factories map[string]gateways.Factory) (GatewayRegistry, error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read payment methods config: %w", err)
@@ -43,20 +44,21 @@ func NewRegistry(configPath string, gateways map[string]gateways.PaymentGateway)
 	}
 
 	registry := &paymentRegistry{
-		gateways: gateways,
+		gateways: make(map[string]gateways.PaymentGateway),
 		infos:    make(map[string]GatewayInfo),
 	}
 
 	for _, info := range config.Methods {
 		registry.infos[info.ID] = info
 
-		// If a gateway implementation exists for this info, apply its config
-		if gateway, ok := gateways[info.ID]; ok {
-			if len(info.Config) > 0 {
-				if err := gateway.ApplyConfig(info.Config); err != nil {
-					return nil, fmt.Errorf("failed to apply config for gateway %s: %w", info.ID, err)
-				}
+		// If a factory is registered for this info, construct the gateway from
+		// its config once, here. No post-init mutation.
+		if factory, ok := factories[info.ID]; ok {
+			gateway, err := factory(info.Config)
+			if err != nil {
+				return nil, fmt.Errorf("failed to construct gateway %s: %w", info.ID, err)
 			}
+			registry.gateways[info.ID] = gateway
 		}
 	}
 
@@ -77,9 +79,9 @@ func (r *paymentRegistry) Get(id string) (gateways.PaymentGateway, error) {
 
 func (r *paymentRegistry) ListInfo() []GatewayInfo {
 	r.mu.RLock()
-	defer r.mu.RUnlock()
 
-	var activeMethods []GatewayInfo
+	// Pre-allocate capacity to avoid repeated slice re-allocations.
+	activeMethods := make([]GatewayInfo, 0, len(r.infos))
 	for _, info := range r.infos {
 		if info.IsActive {
 			// Sanitize: Return only UI-safe fields
@@ -91,9 +93,16 @@ func (r *paymentRegistry) ListInfo() []GatewayInfo {
 			})
 		}
 	}
+	// Release the lock before the CPU-bound sort so other readers aren't blocked.
+	r.mu.RUnlock()
 
-	// Sort by DisplayOrder for consistent UI presentation
+	// Sort by DisplayOrder for consistent UI presentation, falling back to ID as a
+	// stable tie-breaker so gateways sharing a DisplayOrder don't reorder between
+	// calls (map traversal order is randomized).
 	sort.Slice(activeMethods, func(i, j int) bool {
+		if activeMethods[i].RenderInfo.DisplayOrder == activeMethods[j].RenderInfo.DisplayOrder {
+			return activeMethods[i].ID < activeMethods[j].ID
+		}
 		return activeMethods[i].RenderInfo.DisplayOrder < activeMethods[j].RenderInfo.DisplayOrder
 	})
 

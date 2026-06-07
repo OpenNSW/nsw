@@ -74,11 +74,13 @@ type ValidationResponse struct {
 	HTTPStatus int
 }
 
+// Factory constructs a configured, ready-to-use gateway from its raw config.
+// One factory per gateway type; the registry calls it once at init so gateways
+// are immutable after construction (no post-init config mutation).
+type Factory func(config json.RawMessage) (PaymentGateway, error)
+
 // PaymentGateway defines the interface for external payment gateway integration.
 type PaymentGateway interface {
-	// ApplyConfig injects the configuration for the gateway method.
-	ApplyConfig(config json.RawMessage) error
-
 	// GetFlowType returns the flow type of the gateway (REDIRECT or INSTRUCTION).
 	GetFlowType() InteractionType
 

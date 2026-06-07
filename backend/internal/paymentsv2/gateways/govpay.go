@@ -35,8 +35,9 @@ type GovPayGateway struct {
 	cfg Config
 }
 
+// NewGovPayGateway satisfies gateways.Factory: it constructs a fully configured
+// GovPayGateway from its raw config.
 func NewGovPayGateway(cfg json.RawMessage) (PaymentGateway, error) {
-
 	var config Config
 	if err := json.Unmarshal(cfg, &config); err != nil {
 		return nil, err
@@ -45,13 +46,6 @@ func NewGovPayGateway(cfg json.RawMessage) (PaymentGateway, error) {
 	return &GovPayGateway{
 		cfg: config,
 	}, nil
-}
-
-func (g *GovPayGateway) ApplyConfig(config json.RawMessage) error {
-	if err := json.Unmarshal(config, &g.cfg); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (g *GovPayGateway) GetFlowType() InteractionType {

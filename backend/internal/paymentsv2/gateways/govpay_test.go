@@ -107,13 +107,15 @@ func TestGovPay_CreateSession(t *testing.T) {
 	assert.NotEmpty(t, resp.Instructions)
 }
 
-func TestGovPay_ApplyConfig(t *testing.T) {
-	g := &GovPayGateway{}
-
-	require.NoError(t, g.ApplyConfig([]byte(`{"BaseURL":"https://sandbox.govpay.lk"}`)))
+func TestNewGovPayGateway(t *testing.T) {
+	gw, err := NewGovPayGateway([]byte(`{"BaseURL":"https://sandbox.govpay.lk"}`))
+	require.NoError(t, err)
+	g, ok := gw.(*GovPayGateway)
+	require.True(t, ok)
 	assert.Equal(t, "https://sandbox.govpay.lk", g.cfg.BaseURL)
 
-	require.Error(t, g.ApplyConfig([]byte(`not json`)))
+	_, err = NewGovPayGateway([]byte(`not json`))
+	require.Error(t, err)
 }
 
 func TestGovPay_ExtractReferenceNumber_InvalidJSON(t *testing.T) {

@@ -18,11 +18,6 @@ type MockGateway struct {
 	mock.Mock
 }
 
-func (m *MockGateway) ApplyConfig(config json.RawMessage) error {
-	args := m.Called(config)
-	return args.Error(0)
-}
-
 func (m *MockGateway) GetFlowType() gateways.InteractionType {
 	args := m.Called()
 	return args.Get(0).(gateways.InteractionType)
@@ -81,17 +76,21 @@ func TestNewRegistry(t *testing.T) {
 	tmpFile.Close()
 
 	mockG := new(MockGateway)
-	mockG.On("ApplyConfig", json.RawMessage(`{"apiKey": "secret"}`)).Return(nil)
 
-	gateways := map[string]gateways.PaymentGateway{
-		"lankapay": mockG,
+	var gotConfig json.RawMessage
+	factories := map[string]gateways.Factory{
+		"lankapay": func(cfg json.RawMessage) (gateways.PaymentGateway, error) {
+			gotConfig = cfg
+			return mockG, nil
+		},
 	}
 
-	registry, err := NewRegistry(tmpFile.Name(), gateways)
+	registry, err := NewRegistry(tmpFile.Name(), factories)
 	assert.NoError(t, err)
 	assert.NotNil(t, registry)
 
-	mockG.AssertExpectations(t)
+	// The factory receives the gateway's config verbatim from the file.
+	assert.JSONEq(t, `{"apiKey": "secret"}`, string(gotConfig))
 }
 
 func TestListInfo(t *testing.T) {
@@ -130,7 +129,7 @@ func TestListInfo(t *testing.T) {
 	defer os.Remove(tmpFile.Name())
 	os.WriteFile(tmpFile.Name(), []byte(configContent), 0644)
 
-	registry, _ := NewRegistry(tmpFile.Name(), map[string]gateways.PaymentGateway{})
+	registry, _ := NewRegistry(tmpFile.Name(), map[string]gateways.Factory{})
 	infos := registry.ListInfo()
 
 	// 1. Should only contain active methods
@@ -159,7 +158,10 @@ func TestGet(t *testing.T) {
 	os.WriteFile(tmpFile.Name(), []byte(configContent), 0644)
 
 	mockG := new(MockGateway)
-	registry, _ := NewRegistry(tmpFile.Name(), map[string]gateways.PaymentGateway{"gw1": mockG})
+	factories := map[string]gateways.Factory{
+		"gw1": func(cfg json.RawMessage) (gateways.PaymentGateway, error) { return mockG, nil },
+	}
+	registry, _ := NewRegistry(tmpFile.Name(), factories)
 
 	gateway, err := registry.Get("gw1")
 	assert.NoError(t, err)
@@ -180,22 +182,24 @@ func writeTempConfig(t *testing.T, content string) string {
 }
 
 func TestNewRegistry_FileNotFound(t *testing.T) {
-	_, err := NewRegistry("/no/such/file.json", map[string]gateways.PaymentGateway{})
+	_, err := NewRegistry("/no/such/file.json", map[string]gateways.Factory{})
 	require.Error(t, err)
 }
 
 func TestNewRegistry_InvalidJSON(t *testing.T) {
 	path := writeTempConfig(t, `{ not valid json`)
-	_, err := NewRegistry(path, map[string]gateways.PaymentGateway{})
+	_, err := NewRegistry(path, map[string]gateways.Factory{})
 	require.Error(t, err)
 }
 
-func TestNewRegistry_ApplyConfigError(t *testing.T) {
+func TestNewRegistry_FactoryError(t *testing.T) {
 	path := writeTempConfig(t, `{"version":"1.0","methods":[{"id":"gw1","is_active":true,"config":{"k":"v"}}]}`)
-	gw := new(MockGateway)
-	gw.On("ApplyConfig", mock.Anything).Return(errors.New("bad config"))
+	factories := map[string]gateways.Factory{
+		"gw1": func(cfg json.RawMessage) (gateways.PaymentGateway, error) {
+			return nil, errors.New("bad config")
+		},
+	}
 
-	_, err := NewRegistry(path, map[string]gateways.PaymentGateway{"gw1": gw})
+	_, err := NewRegistry(path, factories)
 	require.Error(t, err)
-	gw.AssertExpectations(t)
 }
