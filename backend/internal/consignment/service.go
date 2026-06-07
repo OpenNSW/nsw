@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	workflowmanager "github.com/OpenNSW/go-temporal-workflow"
+	tfstore "github.com/OpenNSW/nsw-task-flow/store"
 
 	"github.com/OpenNSW/nsw/backend/internal/hscode"
 	"github.com/OpenNSW/nsw/backend/internal/profile/cha"
@@ -20,6 +21,11 @@ import (
 	"github.com/OpenNSW/nsw/backend/internal/workflow/service"
 	"github.com/OpenNSW/nsw/backend/pkg/pagination"
 )
+
+// TaskStore is the narrow interface needed from taskv2 package to load task records.
+type TaskStore interface {
+	GetAllTasks(ctx context.Context, parentWorkflowID string) []tfstore.TaskRecord
+}
 
 // Service handles consignment-related operations.
 // It coordinates between workflow templates, nodes, and the workflow manager.
@@ -34,6 +40,7 @@ type Service struct {
 	companyService   company.Service
 	userService      user.Service
 	hsCodeService    *hscode.Service
+	taskStore        TaskStore
 }
 
 // NewService creates a new instance of Service.
@@ -44,6 +51,7 @@ func NewService(
 	companyService company.Service,
 	userService user.Service,
 	hsCodeService *hscode.Service,
+	taskStore TaskStore,
 ) *Service {
 	return &Service{
 		db:               db,
@@ -52,6 +60,7 @@ func NewService(
 		companyService:   companyService,
 		userService:      userService,
 		hsCodeService:    hsCodeService,
+		taskStore:        taskStore,
 	}
 }
 
@@ -538,29 +547,16 @@ func (s *Service) buildConsignmentDetailDTO(
 	}, nil
 }
 
-// buildNodeDTOsFromTaskRecords queries task_records_v2 by root_workflow_id and converts each
+// buildNodeDTOsFromTaskRecords queries tasks via the TaskStore by root_workflow_id and converts each
 // non-SYSTEM record into a WorkflowNodeResponseDTO for the consignment detail response.
-// This replaces the NodeInfo-based approach: every task record—including those from child
+// This replaces the direct database access: every task record—including those from child
 // workflows spawned by SPLIT_TASK—shares the same root_workflow_id (the consignment ID),
 // so a single exact-match query captures the complete task picture.
 func (s *Service) buildNodeDTOsFromTaskRecords(ctx context.Context, consignmentID string) ([]model.WorkflowNodeResponseDTO, error) {
-	var tasks []struct {
-		TaskID               string          `gorm:"column:task_id"`
-		TaskType             string          `gorm:"column:task_type"`
-		State                string          `gorm:"column:state"`
-		ActiveTaskTemplateID string          `gorm:"column:active_task_template_id"`
-		RenderConfig         json.RawMessage `gorm:"column:render_config"`
-		CreatedAt            time.Time       `gorm:"column:created_at"`
-		UpdatedAt            time.Time       `gorm:"column:updated_at"`
+	if s.taskStore == nil {
+		return nil, fmt.Errorf("task store not initialized")
 	}
-	if err := s.db.WithContext(ctx).
-		Table("task_records_v2").
-		Select("task_id, task_type, state, active_task_template_id, render_config, created_at, updated_at").
-		Where("root_workflow_id = ?", consignmentID).
-		Order("created_at ASC").
-		Find(&tasks).Error; err != nil {
-		return nil, fmt.Errorf("failed to load task records for consignment %s: %w", consignmentID, err)
-	}
+	tasks := s.taskStore.GetAllTasks(ctx, consignmentID)
 
 	dtos := make([]model.WorkflowNodeResponseDTO, 0, len(tasks))
 	for _, t := range tasks {
