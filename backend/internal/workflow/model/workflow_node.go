@@ -58,13 +58,6 @@ type WorkflowNodeResponseDTO struct {
 	Outcome              *string                         `json:"outcome,omitempty"`       // Outcome sub-state when COMPLETED
 }
 
-type WorkflowEdgeResponseDTO struct {
-	ID        string `json:"id"`
-	SourceID  string `json:"source_id"`
-	TargetID  string `json:"target_id"`
-	Condition string `json:"condition,omitempty"` // Optional condition for the edge (used for conditional unlocks)
-}
-
 // WorkflowNodeTemplateResponseDTO represents workflow node template details in the response.
 type WorkflowNodeTemplateResponseDTO struct {
 	Name        string `json:"name"`        // Name of the workflow node template

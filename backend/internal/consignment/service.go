@@ -131,7 +131,7 @@ func (s *Service) CreateConsignmentShell(ctx context.Context, flow Flow, chaComp
 	if err := s.db.WithContext(ctx).First(consignment, "id = ?", consignment.ID).Error; err != nil {
 		return nil, fmt.Errorf("failed to reload consignment: %w", err)
 	}
-	responseDTO, err := s.buildConsignmentDetailDTO(ctx, consignment, nil, make(map[string]hscode.HSCode))
+	responseDTO, err := s.buildConsignmentDetailDTO(ctx, consignment, make(map[string]hscode.HSCode))
 	if err != nil {
 		return nil, err
 	}
@@ -241,10 +241,7 @@ func (s *Service) InitializeConsignmentByID(
 		return nil, fmt.Errorf("failed to reload consignment: %w", err)
 	}
 
-	var workflowInstance *workflowmanager.WorkflowInstance
-
-	workflowInstance, err = s.wm.GetStatus(ctx, consignment.ID)
-	if err != nil {
+	if _, err := s.wm.GetStatus(ctx, consignment.ID); err != nil {
 		return nil, fmt.Errorf("failed to get workflow details: %w", err)
 	}
 
@@ -253,7 +250,7 @@ func (s *Service) InitializeConsignmentByID(
 		return nil, err
 	}
 
-	responseDTO, err := s.buildConsignmentDetailDTO(ctx, &consignment, workflowInstance, hsCodeMap)
+	responseDTO, err := s.buildConsignmentDetailDTO(ctx, &consignment, hsCodeMap)
 	if err != nil {
 		return nil, err
 	}
@@ -269,12 +266,10 @@ func (s *Service) GetConsignmentByID(ctx context.Context, consignmentID string) 
 		return nil, fmt.Errorf("failed to retrieve consignment with ID %s: %w", consignmentID, result.Error)
 	}
 
-	// Load workflow details (nodes + templates) if workflow exists
-	var workflowInstance *workflowmanager.WorkflowInstance
-	var err error
+	// Confirm the workflow is reachable if one exists; node details now come
+	// from task records rather than this status snapshot.
 	if consignment.State != Initialized {
-		workflowInstance, err = s.wm.GetStatus(ctx, consignment.ID)
-		if err != nil {
+		if _, err := s.wm.GetStatus(ctx, consignment.ID); err != nil {
 			return nil, fmt.Errorf("failed to get workflow details: %w", err)
 		}
 	}
@@ -284,7 +279,7 @@ func (s *Service) GetConsignmentByID(ctx context.Context, consignmentID string) 
 		return nil, err
 	}
 
-	responseDTO, err := s.buildConsignmentDetailDTO(ctx, &consignment, workflowInstance, hsCodeMap)
+	responseDTO, err := s.buildConsignmentDetailDTO(ctx, &consignment, hsCodeMap)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build consignment response DTO: %w", err)
 	}
@@ -497,11 +492,9 @@ func (s *Service) getHSCodeMap(ctx context.Context, items []Item) (map[string]hs
 }
 
 // buildConsignmentDetailDTO builds a DetailDTO from a Consignment.
-// The workflow parameter provides the workflow nodes (nil for INITIALIZED consignments).
 func (s *Service) buildConsignmentDetailDTO(
 	ctx context.Context,
 	consignment *Consignment,
-	workflowV2 *workflowmanager.WorkflowInstance,
 	hsCodeMap map[string]hscode.HSCode,
 ) (*DetailDTO, error) {
 	itemResponseDTOs, err := s.buildConsignmentItemResponseDTOs(consignment.Items, hsCodeMap)
@@ -512,18 +505,6 @@ func (s *Service) buildConsignmentDetailDTO(
 	nodeResponseDTOs, err := s.buildNodeDTOsFromTaskRecords(ctx, consignment.ID)
 	if err != nil {
 		return nil, err
-	}
-
-	edgeResponseDTOs := make([]model.WorkflowEdgeResponseDTO, 0)
-	if workflowV2 != nil {
-		for _, edge := range workflowV2.Edges {
-			edgeResponseDTOs = append(edgeResponseDTOs, model.WorkflowEdgeResponseDTO{
-				ID:        edge.ID,
-				SourceID:  edge.SourceID,
-				TargetID:  edge.TargetID,
-				Condition: edge.Condition,
-			})
-		}
 	}
 
 	chaID := ""
@@ -543,7 +524,6 @@ func (s *Service) buildConsignmentDetailDTO(
 		CreatedAt:       consignment.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:       consignment.UpdatedAt.Format(time.RFC3339),
 		WorkflowNodes:   nodeResponseDTOs,
-		Edges:           edgeResponseDTOs,
 	}, nil
 }
 
