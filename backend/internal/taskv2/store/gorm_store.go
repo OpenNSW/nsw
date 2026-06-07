@@ -73,7 +73,7 @@ func (s *GormTaskStore) GetAllTasks(ctx context.Context, parentWorkflowID string
 	var models []TaskRecordModel
 	query := s.db.WithContext(ctx)
 	if parentWorkflowID != "" {
-		query = query.Where("parent_workflow_id = ?", parentWorkflowID)
+		query = query.Where("root_workflow_id = ?", parentWorkflowID)
 	}
 	if err := query.Find(&models).Error; err != nil {
 		slog.Error("taskv2 store: GetAllTasks db error", "parentWorkflowId", parentWorkflowID, "error", err)

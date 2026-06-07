@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
 	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	workflowmanager "github.com/OpenNSW/go-temporal-workflow"
+	tfstore "github.com/OpenNSW/nsw-task-flow/store"
 
 	"github.com/OpenNSW/nsw/backend/internal/hscode"
 	"github.com/OpenNSW/nsw/backend/internal/profile/cha"
@@ -21,6 +21,11 @@ import (
 	"github.com/OpenNSW/nsw/backend/internal/workflow/service"
 	"github.com/OpenNSW/nsw/backend/pkg/pagination"
 )
+
+// TaskStore is the narrow interface needed from taskv2 package to load task records.
+type TaskStore interface {
+	GetAllTasks(ctx context.Context, parentWorkflowID string) []tfstore.TaskRecord
+}
 
 // Service handles consignment-related operations.
 // It coordinates between workflow templates, nodes, and the workflow manager.
@@ -35,6 +40,7 @@ type Service struct {
 	companyService   company.Service
 	userService      user.Service
 	hsCodeService    *hscode.Service
+	taskStore        TaskStore
 }
 
 // NewService creates a new instance of Service.
@@ -45,6 +51,7 @@ func NewService(
 	companyService company.Service,
 	userService user.Service,
 	hsCodeService *hscode.Service,
+	taskStore TaskStore,
 ) *Service {
 	return &Service{
 		db:               db,
@@ -53,6 +60,7 @@ func NewService(
 		companyService:   companyService,
 		userService:      userService,
 		hsCodeService:    hsCodeService,
+		taskStore:        taskStore,
 	}
 }
 
@@ -123,7 +131,7 @@ func (s *Service) CreateConsignmentShell(ctx context.Context, flow Flow, chaComp
 	if err := s.db.WithContext(ctx).First(consignment, "id = ?", consignment.ID).Error; err != nil {
 		return nil, fmt.Errorf("failed to reload consignment: %w", err)
 	}
-	responseDTO, err := s.buildConsignmentDetailDTO(ctx, consignment, nil, make(map[string]hscode.HSCode))
+	responseDTO, err := s.buildConsignmentDetailDTO(ctx, consignment, make(map[string]hscode.HSCode))
 	if err != nil {
 		return nil, err
 	}
@@ -233,10 +241,7 @@ func (s *Service) InitializeConsignmentByID(
 		return nil, fmt.Errorf("failed to reload consignment: %w", err)
 	}
 
-	var workflowInstance *workflowmanager.WorkflowInstance
-
-	workflowInstance, err = s.wm.GetStatus(ctx, consignment.ID)
-	if err != nil {
+	if _, err := s.wm.GetStatus(ctx, consignment.ID); err != nil {
 		return nil, fmt.Errorf("failed to get workflow details: %w", err)
 	}
 
@@ -245,7 +250,7 @@ func (s *Service) InitializeConsignmentByID(
 		return nil, err
 	}
 
-	responseDTO, err := s.buildConsignmentDetailDTO(ctx, &consignment, workflowInstance, hsCodeMap)
+	responseDTO, err := s.buildConsignmentDetailDTO(ctx, &consignment, hsCodeMap)
 	if err != nil {
 		return nil, err
 	}
@@ -261,12 +266,10 @@ func (s *Service) GetConsignmentByID(ctx context.Context, consignmentID string) 
 		return nil, fmt.Errorf("failed to retrieve consignment with ID %s: %w", consignmentID, result.Error)
 	}
 
-	// Load workflow details (nodes + templates) if workflow exists
-	var workflowInstance *workflowmanager.WorkflowInstance
-	var err error
+	// Confirm the workflow is reachable if one exists; node details now come
+	// from task records rather than this status snapshot.
 	if consignment.State != Initialized {
-		workflowInstance, err = s.wm.GetStatus(ctx, consignment.ID)
-		if err != nil {
+		if _, err := s.wm.GetStatus(ctx, consignment.ID); err != nil {
 			return nil, fmt.Errorf("failed to get workflow details: %w", err)
 		}
 	}
@@ -276,7 +279,7 @@ func (s *Service) GetConsignmentByID(ctx context.Context, consignmentID string) 
 		return nil, err
 	}
 
-	responseDTO, err := s.buildConsignmentDetailDTO(ctx, &consignment, workflowInstance, hsCodeMap)
+	responseDTO, err := s.buildConsignmentDetailDTO(ctx, &consignment, hsCodeMap)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build consignment response DTO: %w", err)
 	}
@@ -489,11 +492,9 @@ func (s *Service) getHSCodeMap(ctx context.Context, items []Item) (map[string]hs
 }
 
 // buildConsignmentDetailDTO builds a DetailDTO from a Consignment.
-// The workflow parameter provides the workflow nodes (nil for INITIALIZED consignments).
 func (s *Service) buildConsignmentDetailDTO(
 	ctx context.Context,
 	consignment *Consignment,
-	workflowV2 *workflowmanager.WorkflowInstance,
 	hsCodeMap map[string]hscode.HSCode,
 ) (*DetailDTO, error) {
 	itemResponseDTOs, err := s.buildConsignmentItemResponseDTOs(consignment.Items, hsCodeMap)
@@ -501,87 +502,9 @@ func (s *Service) buildConsignmentDetailDTO(
 		return nil, err
 	}
 
-	nodeResponseDTOs := make([]model.WorkflowNodeResponseDTO, 0)
-	edgeResponseDTOs := make([]model.WorkflowEdgeResponseDTO, 0)
-
-	if workflowV2 != nil {
-		// Iterate NodeInfo in a deterministic order. Go map iteration is
-		// randomized, which surfaces as flaky WorkflowNodes ordering in API
-		// responses and tests (e.g. TestConsignmentService_InitializeConsignmentByID_Success).
-		// Sorting by node ID is a stable shape; topological order based on
-		// Edges would be more user-meaningful and is a follow-up.
-		nodeIDs := make([]string, 0, len(workflowV2.NodeInfo))
-		for id := range workflowV2.NodeInfo {
-			nodeIDs = append(nodeIDs, id)
-		}
-		sort.Strings(nodeIDs)
-
-		taskTemplateIDs := make([]string, 0, len(workflowV2.NodeInfo))
-		for _, id := range nodeIDs {
-			node := workflowV2.NodeInfo[id]
-			if node.Type == workflowmanager.NodeTypeTask {
-				taskTemplateIDs = append(taskTemplateIDs, node.TaskTemplateID)
-			}
-		}
-		taskTemplates, err := s.templateProvider.GetWorkflowNodeTemplatesByIDs(ctx, taskTemplateIDs)
-		if err != nil {
-			return nil, fmt.Errorf("failed to retrieve workflow node templates for consignment %s: %w", consignment.ID, err)
-		}
-		taskTemplateMap := make(map[string]model.WorkflowNodeTemplate)
-		for _, taskTemplate := range taskTemplates {
-			taskTemplateMap[taskTemplate.ID] = taskTemplate
-		}
-		for _, id := range nodeIDs {
-			node := workflowV2.NodeInfo[id]
-			var taskName, taskDescription, taskType string
-			var nodeState model.WorkflowNodeState
-			if node.Type == workflowmanager.NodeTypeTask {
-				if taskTemplate, ok := taskTemplateMap[node.TaskTemplateID]; ok {
-					taskName = taskTemplate.Name
-					taskDescription = taskTemplate.Description
-					taskType = string(taskTemplate.Type)
-				} else {
-					// Subflow IDs (e.g. FCAU's fcau-pay-app-fee-flow) live in the
-					// file-backed taskv2 registry, not workflow_node_templates.
-					// Fall back to the template ID until a unified template
-					// provider exists.
-					taskName = node.TaskTemplateID
-					taskType = string(workflowmanager.NodeTypeTask)
-				}
-			} else {
-				taskType = string(node.Type)
-			}
-			// TODO: clean up translations once the frontend is updated.
-			switch node.Status {
-			case workflowmanager.NodeStatusRunning:
-				nodeState = model.WorkflowNodeStateInProgress
-			case workflowmanager.NodeStatusCompleted:
-				nodeState = model.WorkflowNodeStateCompleted
-			case workflowmanager.NodeStatusFailed:
-				nodeState = model.WorkflowNodeStateFailed
-			case workflowmanager.NodeStatusNotStarted:
-				nodeState = model.WorkflowNodeStateLocked
-			}
-			nodeResponseDTOs = append(nodeResponseDTOs, model.WorkflowNodeResponseDTO{
-				ID:        node.ID,
-				CreatedAt: node.CreatedAt.Format(time.RFC3339),
-				UpdatedAt: node.UpdatedAt.Format(time.RFC3339),
-				WorkflowNodeTemplate: model.WorkflowNodeTemplateResponseDTO{
-					Name:        taskName,
-					Description: taskDescription,
-					Type:        taskType,
-				},
-				State: nodeState,
-			})
-		}
-		for _, edge := range workflowV2.Edges {
-			edgeResponseDTOs = append(edgeResponseDTOs, model.WorkflowEdgeResponseDTO{
-				ID:        edge.ID,
-				SourceID:  edge.SourceID,
-				TargetID:  edge.TargetID,
-				Condition: edge.Condition,
-			})
-		}
+	nodeResponseDTOs, err := s.buildNodeDTOsFromTaskRecords(ctx, consignment.ID)
+	if err != nil {
+		return nil, err
 	}
 
 	chaID := ""
@@ -601,8 +524,64 @@ func (s *Service) buildConsignmentDetailDTO(
 		CreatedAt:       consignment.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:       consignment.UpdatedAt.Format(time.RFC3339),
 		WorkflowNodes:   nodeResponseDTOs,
-		Edges:           edgeResponseDTOs,
 	}, nil
+}
+
+// buildNodeDTOsFromTaskRecords queries tasks via the TaskStore by root_workflow_id and converts each
+// non-SYSTEM record into a WorkflowNodeResponseDTO for the consignment detail response.
+// This replaces the direct database access: every task record—including those from child
+// workflows spawned by SPLIT_TASK—shares the same root_workflow_id (the consignment ID),
+// so a single exact-match query captures the complete task picture.
+func (s *Service) buildNodeDTOsFromTaskRecords(ctx context.Context, consignmentID string) ([]model.WorkflowNodeResponseDTO, error) {
+	if s.taskStore == nil {
+		return nil, fmt.Errorf("task store not initialized")
+	}
+	tasks := s.taskStore.GetAllTasks(ctx, consignmentID)
+
+	dtos := make([]model.WorkflowNodeResponseDTO, 0, len(tasks))
+	for _, t := range tasks {
+		if t.TaskType == "SYSTEM" {
+			continue
+		}
+		var nodeState model.WorkflowNodeState
+		switch t.State {
+		case "COMPLETED":
+			nodeState = model.WorkflowNodeStateCompleted
+		case "FAILED":
+			nodeState = model.WorkflowNodeStateFailed
+		default:
+			nodeState = model.WorkflowNodeStateInProgress
+		}
+		dtos = append(dtos, model.WorkflowNodeResponseDTO{
+			ID:        t.TaskID,
+			CreatedAt: t.CreatedAt.Format(time.RFC3339),
+			UpdatedAt: t.UpdatedAt.Format(time.RFC3339),
+			WorkflowNodeTemplate: model.WorkflowNodeTemplateResponseDTO{
+				Name: taskDisplayName(t.ActiveTaskTemplateID, t.RenderConfig),
+				Type: t.TaskType,
+			},
+			State: nodeState,
+		})
+	}
+	return dtos, nil
+}
+
+// taskDisplayName extracts the human-readable title from a task's render config workspace
+// section, falling back to the active template ID when no title is present.
+func taskDisplayName(templateID string, renderConfig json.RawMessage) string {
+	if len(renderConfig) > 0 {
+		var rc struct {
+			Sections map[string]struct {
+				Title string `json:"title"`
+			} `json:"sections"`
+		}
+		if err := json.Unmarshal(renderConfig, &rc); err == nil {
+			if ws, ok := rc.Sections["workspace"]; ok && ws.Title != "" {
+				return ws.Title
+			}
+		}
+	}
+	return templateID
 }
 
 // companyRecordToMap converts a company.Record to a map[string]any via its JSON tags. The
