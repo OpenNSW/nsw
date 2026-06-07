@@ -93,9 +93,8 @@ function Playground() {
     }
   }
 
-  // Remount JsonForms when the structural schema/uischema change so it doesn't
-  // hold onto stale internal state between edits.
-  const formKey = useMemo(() => `${selectedId}:${schemaText.length}:${uiText.length}`, [selectedId, schemaText, uiText])
+  // Remount JsonForms when switching fixtures so it doesn't hold onto stale internal state.
+  const formKey = selectedId
 
   return (
     <Flex align="start" style={{ minHeight: '100vh' }}>

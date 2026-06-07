@@ -112,6 +112,8 @@ export const DateControl = ({ data, handleChange, path, label, required, errors,
           <DayPicker
             mode="single"
             captionLayout="dropdown"
+            startMonth={new Date(1900, 0)}
+            endMonth={new Date(new Date().getFullYear() + 100, 11)}
             selected={selected}
             defaultMonth={selected}
             onSelect={(d) => {
