@@ -18,6 +18,7 @@ const (
 	TaskTypeExternalReview = "EXTERNAL_REVIEW"
 	TaskTypePayment        = "PAYMENT"
 	TaskTypeAPICall        = "API_CALL"
+	TaskTypeNotification   = "NOTIFICATION"
 )
 
 // Register installs the taskv2 plugins on reg.
@@ -25,7 +26,8 @@ const (
 // EXTERNAL_REVIEW uses our local plugin (ExternalReviewPlugin) that resolves
 // targets via remote.Manager and posts the OGA submission envelope. Payment
 // uses our local plugin (PaymentPlugin) that initiates checkout sessions via
-// payments.PaymentService.
+// payments.PaymentService. NOTIFICATION uses NotificationPlugin which
+// dispatches SMS/email through notifications.Manager.
 func Register(reg *flowplugins.Registry, mgr *remote.Manager, paymentService payments.PaymentService, backendBaseURL string, devMode bool) error {
 	if reg == nil {
 		return fmt.Errorf("plugins: registry is nil")
