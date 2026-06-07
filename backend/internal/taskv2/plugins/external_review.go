@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/OpenNSW/nsw-task-flow/store"
 	"github.com/OpenNSW/nsw/backend/pkg/remote"
@@ -75,8 +76,25 @@ func buildSubmissionBody(record *store.TaskRecord, data any, taskCode *string, c
 	return map[string]any{
 		"taskCode":      taskCode,
 		"taskId":        record.TaskID,
-		"consignmentId": record.ParentWorkflowID,
+		"consignmentId": rootWorkflowID(record.ParentWorkflowID),
 		"serviceUrl":    callbackURL,
 		"data":          data,
 	}
+}
+
+// rootWorkflowID recovers the top-level consignment ID from a (possibly
+// child-workflow-mangled) parent workflow ID by taking everything before the
+// first "--" separator that FormatChildWorkflowID introduces for SPLIT_TASK
+// branches (format: "{root}--{nodeID}--{branchID}").
+//
+// TODO: this is a stop-gap string-parsing derivation that duplicates the one
+// in internal/taskv2/store/model.go. Replace both once the engine threads a
+// RootWorkflowID through TaskPayload/TaskRecord natively (see SPLIT_TASK /
+// dynamic_split.go childVars propagation) so external dispatch can read
+// record.RootWorkflowID directly instead of reconstructing it.
+func rootWorkflowID(parentWorkflowID string) string {
+	if idx := strings.Index(parentWorkflowID, "--"); idx != -1 {
+		return parentWorkflowID[:idx]
+	}
+	return parentWorkflowID
 }
