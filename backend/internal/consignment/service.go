@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	core "github.com/OpenNSW/core/workflow"
 	workflowmanager "github.com/OpenNSW/go-temporal-workflow"
 	tfstore "github.com/OpenNSW/nsw-task-flow/store"
 
@@ -36,6 +37,7 @@ type Service struct {
 	db               *gorm.DB
 	templateProvider service.TemplateProvider
 	wm               workflowmanager.Manager
+	wmCore           core.Manager
 	chaService       cha.Service
 	companyService   company.Service
 	userService      user.Service
@@ -74,6 +76,82 @@ func (s *Service) RegisterWorkflowManager(wm workflowmanager.Manager) error {
 	}
 	s.wm = wm
 	return nil
+}
+
+// RegisterWorkflowManagerCore registers a core/workflow-based manager. This exists
+// alongside RegisterWorkflowManager during the migration to github.com/OpenNSW/core:
+// callers wired against the new core libraries can register here instead of pulling
+// in go-temporal-workflow. Only one of the two managers may be registered; whichever
+// is set is used by startWorkflow/getWorkflowStatus below.
+func (s *Service) RegisterWorkflowManagerCore(wm core.Manager) error {
+	if s.wmCore != nil {
+		return fmt.Errorf("core workflow manager already registered for ConsignmentService")
+	}
+	if wm == nil {
+		return fmt.Errorf("core workflow manager cannot be nil")
+	}
+	s.wmCore = wm
+	return nil
+}
+
+// startWorkflow starts a workflow on whichever manager is registered, converting
+// the definition to core's type when running on the core/workflow manager. The two
+// WorkflowDefinition types are structurally identical (core/workflow is a fork of
+// go-temporal-workflow), so the conversion is a plain field copy.
+func (s *Service) startWorkflow(ctx context.Context, workflowID string, def workflowmanager.WorkflowDefinition, vars map[string]any) error {
+	if s.wmCore != nil {
+		return s.wmCore.StartWorkflow(ctx, workflowID, toCoreWorkflowDefinition(def), vars)
+	}
+	return s.wm.StartWorkflow(ctx, workflowID, def, vars)
+}
+
+// getWorkflowStatus checks that a workflow is reachable on whichever manager is
+// registered. Callers only care whether the lookup succeeds, not the returned
+// instance, so no conversion of WorkflowInstance is needed.
+func (s *Service) getWorkflowStatus(ctx context.Context, workflowID string) error {
+	if s.wmCore != nil {
+		_, err := s.wmCore.GetStatus(ctx, workflowID)
+		return err
+	}
+	_, err := s.wm.GetStatus(ctx, workflowID)
+	return err
+}
+
+// toCoreWorkflowDefinition converts a go-temporal-workflow.WorkflowDefinition to its
+// core/workflow equivalent. The two types (and their Node/Edge/SplitTaskConfig
+// members) are field-for-field identical, so this is a straight copy.
+func toCoreWorkflowDefinition(def workflowmanager.WorkflowDefinition) core.WorkflowDefinition {
+	nodes := make([]core.Node, len(def.Nodes))
+	for i, n := range def.Nodes {
+		// nsw/backend is pinned to go-temporal-workflow v0.4.0, which predates
+		// SPLIT_TASK/SplitTaskConfig — nothing to carry over for that field.
+		nodes[i] = core.Node{
+			ID:             n.ID,
+			Type:           core.NodeType(n.Type),
+			GatewayType:    core.GatewayType(n.GatewayType),
+			TaskTemplateID: n.TaskTemplateID,
+			InputMapping:   n.InputMapping,
+			OutputMapping:  n.OutputMapping,
+		}
+	}
+
+	edges := make([]core.Edge, len(def.Edges))
+	for i, e := range def.Edges {
+		edges[i] = core.Edge{
+			ID:        e.ID,
+			SourceID:  e.SourceID,
+			TargetID:  e.TargetID,
+			Condition: e.Condition,
+		}
+	}
+
+	return core.WorkflowDefinition{
+		ID:      def.ID,
+		Name:    def.Name,
+		Version: def.Version,
+		Nodes:   nodes,
+		Edges:   edges,
+	}
 }
 
 // CompletionHandler is called by the workflow runtime when a workflow completes. It delegates to the appropriate domain-specific handler based on the workflow type.
@@ -226,7 +304,7 @@ func (s *Service) InitializeConsignmentByID(
 		return nil, fmt.Errorf("failed to get workflow template from provider: %w", err)
 	}
 
-	if err := s.wm.StartWorkflow(ctx, consignment.ID, wt.WorkflowDefinition, initialVars); err != nil {
+	if err := s.startWorkflow(ctx, consignment.ID, wt.WorkflowDefinition, initialVars); err != nil {
 		tx.Rollback()
 		return nil, fmt.Errorf("failed to register workflow: %w", err)
 	}
@@ -241,7 +319,7 @@ func (s *Service) InitializeConsignmentByID(
 		return nil, fmt.Errorf("failed to reload consignment: %w", err)
 	}
 
-	if _, err := s.wm.GetStatus(ctx, consignment.ID); err != nil {
+	if err := s.getWorkflowStatus(ctx, consignment.ID); err != nil {
 		return nil, fmt.Errorf("failed to get workflow details: %w", err)
 	}
 
@@ -305,7 +383,7 @@ func (s *Service) CreateAndStartConsignment(ctx context.Context, traderID string
 		return nil, fmt.Errorf("failed to create consignment: %w", err)
 	}
 
-	if err := s.wm.StartWorkflow(ctx, consignment.ID, wt.WorkflowDefinition, initialVars); err != nil {
+	if err := s.startWorkflow(ctx, consignment.ID, wt.WorkflowDefinition, initialVars); err != nil {
 		return nil, fmt.Errorf("failed to register workflow: %w", err)
 	}
 
@@ -335,7 +413,7 @@ func (s *Service) GetConsignmentByID(ctx context.Context, consignmentID string) 
 	// Confirm the workflow is reachable if one exists; node details now come
 	// from task records rather than this status snapshot.
 	if consignment.State != Initialized {
-		if _, err := s.wm.GetStatus(ctx, consignment.ID); err != nil {
+		if err := s.getWorkflowStatus(ctx, consignment.ID); err != nil {
 			return nil, fmt.Errorf("failed to get workflow details: %w", err)
 		}
 	}

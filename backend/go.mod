@@ -1,6 +1,6 @@
 module github.com/OpenNSW/nsw/backend
 
-go 1.25.7
+go 1.26.3
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
@@ -14,12 +14,13 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/stretchr/testify v1.11.1
-	go.temporal.io/sdk v1.43.0
+	go.temporal.io/sdk v1.44.1
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.1
 )
 
 require (
+	github.com/OpenNSW/core v0.0.0-00010101000000-000000000000
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.10 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.23 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.23 // indirect
@@ -52,7 +53,7 @@ require (
 	github.com/robfig/cron v1.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
-	go.temporal.io/api v1.62.11 // indirect
+	go.temporal.io/api v1.62.12 // indirect
 	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
@@ -64,3 +65,5 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/OpenNSW/core => ../../core
