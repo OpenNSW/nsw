@@ -2,7 +2,7 @@ apiVersion: v2
 name: nsw-agency-backend
 description: A standardized, generic Helm chart for NSW Agency backend services
 type: application
-version: 0.1.1
+version: 0.1.2
 appVersion: "1.0.0"
 
 # Standardizing maintainers and source for team clarity

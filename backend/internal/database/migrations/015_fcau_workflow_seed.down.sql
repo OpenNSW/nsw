@@ -1,4 +1,3 @@
--- Migration: 014_fcau_workflow_seed.down.sql
 -- Description: Roll back workflow seed data.
 
 DELETE FROM workflow_template_map
@@ -8,4 +7,4 @@ DELETE FROM hs_codes
 WHERE id = 'fcau-hs-code-0001';
 
 DELETE FROM workflow_template_v2
-WHERE id = 'fcau-v1';
+WHERE id = 'fcau-health-certificate-reg';

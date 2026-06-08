@@ -134,7 +134,19 @@ spec:
 
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          {{- if .Values.templates }}
+          volumeMounts:
+            - name: templates-volume
+              mountPath: /app/configs/fcau
+          {{- end }}
       {{- with .Values.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if .Values.templates }}
+      volumes:
+        - name: templates-volume
+          configMap:
+            name: {{ include "nsw-api.fullname" . }}-templates
+      {{- end }}
+

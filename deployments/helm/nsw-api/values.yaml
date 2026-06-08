@@ -112,3 +112,7 @@ affinity:
             matchLabels:
               app.kubernetes.io/name: nsw-api
           topologyKey: kubernetes.io/hostname
+
+templates: {}
+
+
