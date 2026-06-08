@@ -4,6 +4,7 @@ go 1.26.3
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
+	github.com/OpenNSW/core v0.0.0-20260608092108-7ca654c29b5d
 	github.com/OpenNSW/go-temporal-workflow v0.5.0
 	github.com/OpenNSW/nsw-task-flow v0.0.0-20260526134015-a84391d97c36
 	github.com/aws/aws-sdk-go-v2 v1.41.7
@@ -20,7 +21,6 @@ require (
 )
 
 require (
-	github.com/OpenNSW/core v0.0.0-00010101000000-000000000000
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.10 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.23 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.23 // indirect
