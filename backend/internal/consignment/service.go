@@ -71,6 +71,9 @@ func (s *Service) RegisterWorkflowManager(wm workflowmanager.Manager) error {
 	if s.wm != nil {
 		return fmt.Errorf("workflow manager already registered for ConsignmentService")
 	}
+	if s.wmCore != nil {
+		return fmt.Errorf("cannot register workflow manager when core workflow manager is already registered")
+	}
 	if wm == nil {
 		return fmt.Errorf("workflow manager cannot be nil")
 	}
@@ -87,6 +90,9 @@ func (s *Service) RegisterWorkflowManagerCore(wm core.Manager) error {
 	if s.wmCore != nil {
 		return fmt.Errorf("core workflow manager already registered for ConsignmentService")
 	}
+	if s.wm != nil {
+		return fmt.Errorf("cannot register core workflow manager when legacy workflow manager is already registered")
+	}
 	if wm == nil {
 		return fmt.Errorf("core workflow manager cannot be nil")
 	}
@@ -102,6 +108,9 @@ func (s *Service) startWorkflow(ctx context.Context, workflowID string, def work
 	if s.wmCore != nil {
 		return s.wmCore.StartWorkflow(ctx, workflowID, toCoreWorkflowDefinition(def), vars)
 	}
+	if s.wm == nil {
+		return fmt.Errorf("no workflow manager registered for ConsignmentService")
+	}
 	return s.wm.StartWorkflow(ctx, workflowID, def, vars)
 }
 
@@ -112,6 +121,9 @@ func (s *Service) getWorkflowStatus(ctx context.Context, workflowID string) erro
 	if s.wmCore != nil {
 		_, err := s.wmCore.GetStatus(ctx, workflowID)
 		return err
+	}
+	if s.wm == nil {
+		return fmt.Errorf("no workflow manager registered for ConsignmentService")
 	}
 	_, err := s.wm.GetStatus(ctx, workflowID)
 	return err
