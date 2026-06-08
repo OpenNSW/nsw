@@ -32,7 +32,7 @@ USER appuser:appuser
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-	CMD wget -qO- http://localhost:${SERVER_PORT:-8080}/health || exit 1
+    CMD wget -qO- http://localhost:${SERVER_PORT:-8080}/health || exit 1
 
 # Run the binary
 CMD ["/app/server"]
