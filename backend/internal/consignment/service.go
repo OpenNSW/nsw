@@ -123,8 +123,16 @@ func (s *Service) getWorkflowStatus(ctx context.Context, workflowID string) erro
 func toCoreWorkflowDefinition(def workflowmanager.WorkflowDefinition) core.WorkflowDefinition {
 	nodes := make([]core.Node, len(def.Nodes))
 	for i, n := range def.Nodes {
-		// nsw/backend is pinned to go-temporal-workflow v0.4.0, which predates
-		// SPLIT_TASK/SplitTaskConfig — nothing to carry over for that field.
+		var splitTask *core.SplitTaskConfig
+		if n.SplitTask != nil {
+			splitTask = &core.SplitTaskConfig{
+				Mode:            core.SplitMode(n.SplitTask.Mode),
+				ItemsVariable:   n.SplitTask.ItemsVariable,
+				ResultsVariable: n.SplitTask.ResultsVariable,
+				FailureMode:     core.FailureMode(n.SplitTask.FailureMode),
+				IterationKey:    n.SplitTask.IterationKey,
+			}
+		}
 		nodes[i] = core.Node{
 			ID:             n.ID,
 			Type:           core.NodeType(n.Type),
@@ -132,6 +140,7 @@ func toCoreWorkflowDefinition(def workflowmanager.WorkflowDefinition) core.Workf
 			TaskTemplateID: n.TaskTemplateID,
 			InputMapping:   n.InputMapping,
 			OutputMapping:  n.OutputMapping,
+			SplitTask:      splitTask,
 		}
 	}
 
