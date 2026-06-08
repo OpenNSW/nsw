@@ -43,9 +43,11 @@ type Consignment struct {
 	TraderID        string `gorm:"type:varchar(100);column:trader_id;not null" json:"traderId"`                // Trader user who created the consignment
 	TraderCompanyID string `gorm:"type:varchar(100);column:trader_company_id;not null" json:"traderCompanyId"` // Company the trader belongs to
 
-	// CHA (company chosen at Stage 1; specific CHA assigned at Stage 2)
-	CHACompanyID string  `gorm:"type:varchar(100);column:cha_company_id;not null" json:"chaCompanyId"` // CHA company selected by the trader at Stage 1
-	CHAID        *string `gorm:"type:varchar(100);column:cha_id" json:"chaId,omitempty"`               // CHA who claimed the consignment at Stage 2
+	// CHA (company chosen at Stage 1; specific CHA assigned at Stage 2). Both are nil for
+	// direct-start consignments (e.g. trade-export-v1), where CHA selection happens inside
+	// the workflow itself rather than as an upfront trader/CHA handoff.
+	CHACompanyID *string `gorm:"type:varchar(100);column:cha_company_id" json:"chaCompanyId,omitempty"` // CHA company selected by the trader at Stage 1
+	CHAID        *string `gorm:"type:varchar(100);column:cha_id" json:"chaId,omitempty"`                // CHA who claimed the consignment at Stage 2
 
 	// Relationships
 	Workflow *model.Workflow `gorm:"foreignKey:ID;references:ID" json:"-"` // Associated Workflow (1:1, same ID)
@@ -109,7 +111,6 @@ type DetailDTO struct {
 	CreatedAt       string                          `json:"createdAt"`       // Timestamp of consignment creation
 	UpdatedAt       string                          `json:"updatedAt"`       // Timestamp of last consignment update
 	WorkflowNodes   []model.WorkflowNodeResponseDTO `json:"workflowNodes"`   // Associated workflow nodes with template details
-	Edges           []model.WorkflowEdgeResponseDTO `json:"edges"`           // Edges between workflow nodes
 }
 
 // SummaryDTO represents the consignment data returned in list responses.

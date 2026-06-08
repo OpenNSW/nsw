@@ -1,21 +1,21 @@
 module github.com/OpenNSW/nsw/backend
 
-go 1.25.7
+go 1.26.3
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
+	github.com/OpenNSW/core v0.0.0-20260608092108-7ca654c29b5d
 	github.com/OpenNSW/go-temporal-workflow v0.4.0
 	github.com/OpenNSW/nsw-task-flow v0.0.0-20260526134015-a84391d97c36
 	github.com/aws/aws-sdk-go-v2 v1.41.7
 	github.com/aws/aws-sdk-go-v2/config v1.32.17
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.16
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.100.1
-	github.com/go-mail/mail/v2 v2.3.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/stretchr/testify v1.11.1
-	go.temporal.io/sdk v1.43.0
+	go.temporal.io/sdk v1.44.1
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.1
 )
@@ -53,7 +53,7 @@ require (
 	github.com/robfig/cron v1.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
-	go.temporal.io/api v1.62.11 // indirect
+	go.temporal.io/api v1.62.12 // indirect
 	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
@@ -63,7 +63,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260504160031-60b97b32f348 // indirect
 	google.golang.org/grpc v1.81.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
-	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
-	gopkg.in/mail.v2 v2.3.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

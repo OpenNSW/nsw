@@ -3,6 +3,7 @@ package store
 import (
 	"encoding/json"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/OpenNSW/nsw-task-flow/store"
@@ -15,6 +16,7 @@ type TaskRecordModel struct {
 	State                 string          `gorm:"column:state;type:text"`
 	RenderConfig          json.RawMessage `gorm:"column:render_config;type:jsonb;serializer:json"`
 	ParentWorkflowID      string          `gorm:"column:parent_workflow_id;type:text;index"`
+	RootWorkflowID        string          `gorm:"column:root_workflow_id;type:text;not null;default:''"`
 	ParentRunID           string          `gorm:"column:parent_run_id;type:text"`
 	ParentNodeID          string          `gorm:"column:parent_node_id;type:text"`
 	TaskWorkflowID        string          `gorm:"column:task_workflow_id;type:text;index"`
@@ -66,12 +68,26 @@ func FromDomain(r store.TaskRecord) TaskRecordModel {
 	if err != nil {
 		slog.Error("taskv2 store: FromDomain failed to marshal Data", "taskId", r.TaskID, "error", err)
 	}
+	// root_workflow_id is the top-level consignment ID — the first segment of
+	// parent_workflow_id before any "--" separator introduced by SPLIT_TASK
+	// child workflow IDs (format: "{root}--{nodeID}--{branchID}").
+	//
+	// TODO: this is a stop-gap string-parsing derivation (duplicated in
+	// internal/taskv2/plugins/external_review.go's rootWorkflowID). Replace
+	// both once the engine threads a RootWorkflowID through
+	// TaskPayload/TaskRecord natively (propagated via SPLIT_TASK /
+	// dynamic_split.go childVars) so we can copy r.RootWorkflowID directly.
+	rootWorkflowID := r.ParentWorkflowID
+	if idx := strings.Index(r.ParentWorkflowID, "--"); idx != -1 {
+		rootWorkflowID = r.ParentWorkflowID[:idx]
+	}
 	return TaskRecordModel{
 		TaskID:                r.TaskID,
 		TaskType:              r.TaskType,
 		State:                 r.State,
 		RenderConfig:          r.RenderConfig,
 		ParentWorkflowID:      r.ParentWorkflowID,
+		RootWorkflowID:        rootWorkflowID,
 		ParentRunID:           r.ParentRunID,
 		ParentNodeID:          r.ParentNodeID,
 		TaskWorkflowID:        r.TaskWorkflowID,

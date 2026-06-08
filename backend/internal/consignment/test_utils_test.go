@@ -6,11 +6,71 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	workflowManagerV2 "github.com/OpenNSW/go-temporal-workflow"
+	tfstore "github.com/OpenNSW/nsw-task-flow/store"
+	"github.com/OpenNSW/nsw/backend/internal/workflow/model"
 	"github.com/stretchr/testify/mock"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+// MockTemplateProvider implements service.TemplateProvider for testing.
+type MockTemplateProvider struct {
+	mock.Mock
+}
+
+func (m *MockTemplateProvider) GetWorkflowTemplateByID(ctx context.Context, id string) (*model.WorkflowTemplate, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.WorkflowTemplate), args.Error(1)
+}
+
+func (m *MockTemplateProvider) GetWorkflowTemplateByIDV2(ctx context.Context, id string) (*model.WorkflowTemplateV2, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.WorkflowTemplateV2), args.Error(1)
+}
+
+func (m *MockTemplateProvider) GetWorkflowNodeTemplatesByIDs(ctx context.Context, ids []string) ([]model.WorkflowNodeTemplate, error) {
+	args := m.Called(ctx, ids)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]model.WorkflowNodeTemplate), args.Error(1)
+}
+
+func (m *MockTemplateProvider) GetWorkflowNodeTemplateByID(ctx context.Context, id string) (*model.WorkflowNodeTemplate, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.WorkflowNodeTemplate), args.Error(1)
+}
+
+func (m *MockTemplateProvider) GetEndNodeTemplate(ctx context.Context) (*model.WorkflowNodeTemplate, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.WorkflowNodeTemplate), args.Error(1)
+}
+
+// MockTaskStore implements consignment.TaskStore for testing.
+type MockTaskStore struct {
+	mock.Mock
+}
+
+func (m *MockTaskStore) GetAllTasks(ctx context.Context, parentWorkflowID string) []tfstore.TaskRecord {
+	args := m.Called(ctx, parentWorkflowID)
+	if args.Get(0) == nil {
+		return nil
+	}
+	return args.Get(0).([]tfstore.TaskRecord)
+}
 
 // MockWMV2 implements workflowManagerV2.TemporalManager for testing.
 type MockWMV2 struct {
