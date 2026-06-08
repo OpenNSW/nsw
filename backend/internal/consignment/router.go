@@ -70,6 +70,33 @@ func (c *Router) HandleCreateConsignment(w http.ResponseWriter, r *http.Request)
 	}
 }
 
+// HandleStartConsignment handles POST /api/v1/consignments/start
+// Creates an export consignment and starts its workflow directly — no CHA company or HS code
+// is collected up front; the workflow's own tasks collect those later. Response: DetailDTO.
+func (c *Router) HandleStartConsignment(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	authCtx := auth.GetAuthContext(ctx)
+	if authCtx == nil || authCtx.User == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	traderID := authCtx.User.ID
+	consignment, err := c.cs.CreateAndStartConsignment(ctx, traderID)
+	if err != nil {
+		slog.Error("failed to create and start consignment", "error", err)
+		http.Error(w, "failed to create consignment: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(w).Encode(consignment); err != nil {
+		slog.Error("failed to encode response for consignment", "error", err)
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
+}
+
 // HandleGetConsignments handles GET /api/v1/consignments
 // Query params: role=trader | role=cha (defaults to trader).
 // When role=cha the CHA is resolved from the authenticated user's email.

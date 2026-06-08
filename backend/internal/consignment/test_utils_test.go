@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	workflowManagerV2 "github.com/OpenNSW/go-temporal-workflow"
-	tfstore "github.com/OpenNSW/nsw-task-flow/store"
+	workflowManagerV2 "github.com/OpenNSW/core/workflow"
+	tfstore "github.com/OpenNSW/core/taskflow/store"
 	"github.com/OpenNSW/nsw/backend/internal/workflow/model"
 	"github.com/stretchr/testify/mock"
 	"gorm.io/driver/postgres"

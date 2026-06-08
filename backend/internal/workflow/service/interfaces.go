@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	engine "github.com/OpenNSW/go-temporal-workflow"
+	engine "github.com/OpenNSW/core/workflow"
 	"github.com/OpenNSW/nsw/backend/internal/workflow/model"
 )
 

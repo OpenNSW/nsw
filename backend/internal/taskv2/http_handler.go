@@ -8,8 +8,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/OpenNSW/nsw-task-flow/orchestrator"
-	tfstore "github.com/OpenNSW/nsw-task-flow/store"
+	"github.com/OpenNSW/core/taskflow/orchestrator"
+	tfstore "github.com/OpenNSW/core/taskflow/store"
 
 	"github.com/OpenNSW/nsw/backend/internal/taskv2/renderer"
 )

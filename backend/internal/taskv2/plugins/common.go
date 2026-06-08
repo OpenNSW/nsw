@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"net/url"
 
-	tfplugins "github.com/OpenNSW/nsw-task-flow/plugins"
+	tfplugins "github.com/OpenNSW/core/taskflow/plugins"
 	"github.com/OpenNSW/nsw/backend/pkg/remote"
 )
 

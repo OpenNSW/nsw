@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	engine "github.com/OpenNSW/go-temporal-workflow"
-	"github.com/OpenNSW/nsw-task-flow/orchestrator"
+	engine "github.com/OpenNSW/core/workflow"
+	"github.com/OpenNSW/core/taskflow/orchestrator"
 )
 
 // LoadConfigsInto walks rootDir using a folder-as-task convention. Each

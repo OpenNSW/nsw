@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	engine "github.com/OpenNSW/go-temporal-workflow"
+	engine "github.com/OpenNSW/core/workflow"
 	"go.temporal.io/sdk/client"
 )
 

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/OpenNSW/nsw-task-flow/renderer"
+	"github.com/OpenNSW/core/taskflow/renderer"
 	"github.com/OpenNSW/nsw/backend/pkg/uiprojector"
 )
 

@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	workflowManagerV2 "github.com/OpenNSW/go-temporal-workflow"
-	tfstore "github.com/OpenNSW/nsw-task-flow/store"
+	workflowManagerV2 "github.com/OpenNSW/core/workflow"
+	tfstore "github.com/OpenNSW/core/taskflow/store"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

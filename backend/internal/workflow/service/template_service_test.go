@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	engine "github.com/OpenNSW/go-temporal-workflow"
+	engine "github.com/OpenNSW/core/workflow"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/driver/postgres"

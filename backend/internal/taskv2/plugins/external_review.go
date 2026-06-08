@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/OpenNSW/nsw-task-flow/store"
+	"github.com/OpenNSW/core/taskflow/store"
 	"github.com/OpenNSW/nsw/backend/pkg/remote"
 )
 

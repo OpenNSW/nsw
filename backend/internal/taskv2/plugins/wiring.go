@@ -6,7 +6,7 @@ package plugins
 import (
 	"fmt"
 
-	flowplugins "github.com/OpenNSW/nsw-task-flow/plugins"
+	flowplugins "github.com/OpenNSW/core/taskflow/plugins"
 	"github.com/OpenNSW/nsw/backend/internal/payments"
 	"github.com/OpenNSW/nsw/backend/pkg/remote"
 )

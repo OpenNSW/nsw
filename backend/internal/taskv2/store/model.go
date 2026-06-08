@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OpenNSW/nsw-task-flow/store"
+	"github.com/OpenNSW/core/taskflow/store"
 )
 
 // TaskRecordModel is the GORM-compatible model for nsw-task-flow's TaskRecord.

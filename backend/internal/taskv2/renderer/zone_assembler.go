@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	tfrenderer "github.com/OpenNSW/nsw-task-flow/renderer"
-	"github.com/OpenNSW/nsw-task-flow/store"
+	tfrenderer "github.com/OpenNSW/core/taskflow/renderer"
+	"github.com/OpenNSW/core/taskflow/store"
 )
 
 // ZoneViewAssembler builds the ZoneView payload served by GET /api/v1/tasks/{id}.

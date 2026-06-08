@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	workflowManagerV2 "github.com/OpenNSW/go-temporal-workflow"
-	tfstore "github.com/OpenNSW/nsw-task-flow/store"
+	workflowManagerV2 "github.com/OpenNSW/core/workflow"
+	tfstore "github.com/OpenNSW/core/taskflow/store"
 	"github.com/OpenNSW/nsw/backend/internal/hscode"
 	"github.com/OpenNSW/nsw/backend/internal/profile/cha"
 	"github.com/OpenNSW/nsw/backend/internal/profile/company"

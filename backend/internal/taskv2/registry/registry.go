@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"sync"
 
-	engine "github.com/OpenNSW/go-temporal-workflow"
-	"github.com/OpenNSW/nsw-task-flow/orchestrator"
+	engine "github.com/OpenNSW/core/workflow"
+	"github.com/OpenNSW/core/taskflow/orchestrator"
 )
 
 // InMemRegistry is a basic in-memory implementation of orchestrator.TaskTemplateRegistry.

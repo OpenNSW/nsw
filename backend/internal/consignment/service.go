@@ -10,8 +10,8 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	workflowmanager "github.com/OpenNSW/go-temporal-workflow"
-	tfstore "github.com/OpenNSW/nsw-task-flow/store"
+	workflowmanager "github.com/OpenNSW/core/workflow"
+	tfstore "github.com/OpenNSW/core/taskflow/store"
 
 	"github.com/OpenNSW/nsw/backend/internal/hscode"
 	"github.com/OpenNSW/nsw/backend/internal/profile/cha"
@@ -120,7 +120,7 @@ func (s *Service) CreateConsignmentShell(ctx context.Context, flow Flow, chaComp
 		Flow:            flow,
 		TraderID:        traderID,
 		TraderCompanyID: traderCompany.ID,
-		CHACompanyID:    chaCompany.ID,
+		CHACompanyID:    &chaCompany.ID,
 		State:           Initialized,
 		Items:           []Item{},
 	}
@@ -171,7 +171,7 @@ func (s *Service) InitializeConsignmentByID(
 	if err != nil {
 		return nil, fmt.Errorf("CHA lookup failed: %w", err)
 	}
-	if chaRecord.CompanyID != consignment.CHACompanyID {
+	if consignment.CHACompanyID == nil || chaRecord.CompanyID != *consignment.CHACompanyID {
 		return nil, ErrCHACompanyMismatch
 	}
 
@@ -255,6 +255,79 @@ func (s *Service) InitializeConsignmentByID(
 		return nil, err
 	}
 
+	return responseDTO, nil
+}
+
+// directStartExportWorkflowTemplateID is the top-level workflow started immediately by
+// CreateAndStartConsignment. CHA and HS code selection happen inside this workflow's own
+// tasks (trade_1_cha_selection, trade_2_hscode_selection) as workflow variables
+// (trade.cha_id, trade.hs_codes) rather than as an upfront trader/CHA handoff.
+const directStartExportWorkflowTemplateID = "trade-export-v1"
+
+// CreateAndStartConsignment creates an export consignment and starts its workflow directly,
+// in one step — replacing the two-stage trader-creates-shell → CHA-claims-with-HS-code handoff
+// for flows whose entire CHA/HS-code selection now happens inside the workflow itself.
+func (s *Service) CreateAndStartConsignment(ctx context.Context, traderID string) (*DetailDTO, error) {
+	traderUser, err := s.userService.GetUser(traderID)
+	if err != nil {
+		return nil, fmt.Errorf("trader user lookup failed: %w", err)
+	}
+
+	traderCompany, err := s.companyService.GetCompanyByOUHandle(ctx, traderUser.OUHandle)
+	if err != nil {
+		return nil, fmt.Errorf("trader company lookup failed: %w", err)
+	}
+
+	traderCompanyVars, err := companyRecordToMap(traderCompany)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal trader company: %w", err)
+	}
+	initialVars := map[string]any{"traderCompany": traderCompanyVars}
+
+	wt, err := s.templateProvider.GetWorkflowTemplateByIDV2(ctx, directStartExportWorkflowTemplateID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workflow template: %w", err)
+	}
+
+	consignment := &Consignment{
+		ID:              uuid.NewString(),
+		Flow:            FlowExport,
+		TraderID:        traderID,
+		TraderCompanyID: traderCompany.ID,
+		State:           InProgress,
+		Items:           []Item{},
+	}
+
+	tx := s.db.WithContext(ctx).Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	if err := tx.Create(consignment).Error; err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("failed to create consignment: %w", err)
+	}
+
+	if err := s.wm.StartWorkflow(ctx, consignment.ID, wt.WorkflowDefinition, initialVars); err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("failed to register workflow: %w", err)
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("failed to commit: %w", err)
+	}
+
+	if err := s.db.WithContext(ctx).First(consignment, "id = ?", consignment.ID).Error; err != nil {
+		return nil, fmt.Errorf("failed to reload consignment: %w", err)
+	}
+
+	responseDTO, err := s.buildConsignmentDetailDTO(ctx, consignment, make(map[string]hscode.HSCode))
+	if err != nil {
+		return nil, err
+	}
 	return responseDTO, nil
 }
 
@@ -430,6 +503,10 @@ func (s *Service) listConsignmentsWithBaseQuery(ctx context.Context, baseQuery *
 		if c.CHAID != nil {
 			chaID = *c.CHAID
 		}
+		chaCompanyID := ""
+		if c.CHACompanyID != nil {
+			chaCompanyID = *c.CHACompanyID
+		}
 
 		consignmentDTOs = append(consignmentDTOs, SummaryDTO{
 			ID:                         c.ID,
@@ -437,7 +514,7 @@ func (s *Service) listConsignmentsWithBaseQuery(ctx context.Context, baseQuery *
 			State:                      c.State,
 			TraderID:                   c.TraderID,
 			TraderCompanyID:            c.TraderCompanyID,
-			ChaCompanyID:               c.CHACompanyID,
+			ChaCompanyID:               chaCompanyID,
 			ChaID:                      chaID,
 			Items:                      itemResponseDTOs,
 			CreatedAt:                  c.CreatedAt.Format(time.RFC3339),
@@ -511,6 +588,10 @@ func (s *Service) buildConsignmentDetailDTO(
 	if consignment.CHAID != nil {
 		chaID = *consignment.CHAID
 	}
+	chaCompanyID := ""
+	if consignment.CHACompanyID != nil {
+		chaCompanyID = *consignment.CHACompanyID
+	}
 
 	return &DetailDTO{
 		ID:              consignment.ID,
@@ -518,7 +599,7 @@ func (s *Service) buildConsignmentDetailDTO(
 		State:           consignment.State,
 		TraderID:        consignment.TraderID,
 		TraderCompanyID: consignment.TraderCompanyID,
-		ChaCompanyID:    consignment.CHACompanyID,
+		ChaCompanyID:    chaCompanyID,
 		ChaID:           chaID,
 		Items:           itemResponseDTOs,
 		CreatedAt:       consignment.CreatedAt.Format(time.RFC3339),

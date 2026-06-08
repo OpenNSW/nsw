@@ -1,6 +1,6 @@
 package model
 
-import wmv2 "github.com/OpenNSW/go-temporal-workflow"
+import wmv2 "github.com/OpenNSW/core/workflow"
 
 type WorkflowTemplate struct {
 	BaseModel

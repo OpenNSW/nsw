@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log"
 
-	engine "github.com/OpenNSW/go-temporal-workflow"
-	"github.com/OpenNSW/nsw-task-flow/orchestrator"
-	"github.com/OpenNSW/nsw-task-flow/plugins"
+	engine "github.com/OpenNSW/core/workflow"
+	"github.com/OpenNSW/core/taskflow/orchestrator"
+	"github.com/OpenNSW/core/taskflow/plugins"
 	"github.com/OpenNSW/nsw/backend/internal/taskv2/registry"
 	taskrenderer "github.com/OpenNSW/nsw/backend/internal/taskv2/renderer"
 	"github.com/OpenNSW/nsw/backend/internal/taskv2/store"
