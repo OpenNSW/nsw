@@ -5,12 +5,22 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	engine "github.com/OpenNSW/go-temporal-workflow"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+type mockWorkflowRegistry struct {
+	workflow engine.WorkflowDefinition
+	found    bool
+}
+
+func (m *mockWorkflowRegistry) GetWorkflow(id string) (engine.WorkflowDefinition, bool) {
+	return m.workflow, m.found
+}
 
 func setupTestDB(t *testing.T) (*gorm.DB, sqlmock.Sqlmock) {
 	db, mock, err := sqlmock.New()
@@ -52,21 +62,29 @@ func TestTemplateService_GetWorkflowNodeTemplatesByIDs(t *testing.T) {
 }
 
 func TestTemplateService_GetWorkflowTemplateByIDV2(t *testing.T) {
-	db, sqlMock := setupTestDB(t)
+	db, _ := setupTestDB(t)
 	service := NewTemplateService(db)
 	ctx := context.Background()
-
 	id := uuid.NewString()
 
-	sqlMock.ExpectQuery(`SELECT \* FROM "workflow_template_v2" WHERE id = \$1 ORDER BY "workflow_template_v2"."id" LIMIT \$2`).
-		WithArgs(id, 1).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name"}).AddRow(id, "Test Template V2"))
+	// 1. Registry not configured
+	_, err := service.GetWorkflowTemplateByIDV2(ctx, id)
+	assert.ErrorContains(t, err, "workflow registry is not configured")
 
+	// 2. Registry configured but workflow not found
+	reg := &mockWorkflowRegistry{found: false}
+	service.WithRegistry(reg)
+	_, err = service.GetWorkflowTemplateByIDV2(ctx, id)
+	assert.ErrorContains(t, err, "not found in registry")
+
+	// 3. Workflow found
+	reg.found = true
+	reg.workflow = engine.WorkflowDefinition{ID: "template-1"}
 	result, err := service.GetWorkflowTemplateByIDV2(ctx, id)
-
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
-	assert.Equal(t, id, result.ID)
+	assert.Equal(t, id, result.Name)
+	assert.Equal(t, "template-1", result.WorkflowDefinition.ID)
 }
 
 func TestTemplateService_GetWorkflowNodeTemplateByID(t *testing.T) {

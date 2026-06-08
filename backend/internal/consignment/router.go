@@ -9,7 +9,7 @@ import (
 	"github.com/OpenNSW/nsw/backend/internal/auth"
 	"github.com/OpenNSW/nsw/backend/internal/profile/cha"
 	"github.com/OpenNSW/nsw/backend/internal/profile/company"
-	"github.com/OpenNSW/nsw/backend/utils"
+	"github.com/OpenNSW/nsw/backend/pkg/pagination"
 )
 
 type Router struct {
@@ -87,7 +87,7 @@ func (c *Router) HandleGetConsignments(w http.ResponseWriter, r *http.Request) {
 	if role == "" {
 		role = "trader"
 	}
-	offset, limit, err := utils.ParsePaginationParams(r)
+	offset, limit, err := pagination.ParsePaginationParams(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

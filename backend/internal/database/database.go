@@ -13,7 +13,7 @@ import (
 // New creates a new database connection using the provided configuration
 func New(cfg Config) (*gorm.DB, error) {
 	// Configure GORM logger
-	gormLogger := logger.Default.LogMode(logger.Info)
+	gormLogger := logger.Default.LogMode(logger.Error)
 
 	// Open database connection
 	db, err := gorm.Open(postgres.Open(cfg.DSN()), &gorm.Config{

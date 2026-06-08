@@ -32,7 +32,7 @@ export function PreconsignmentScreen() {
         return
       }
       setItems(response.items || [])
-      setTotalCount(response.totalCount)
+      setTotalCount(response.total)
     } catch (error) {
       if (requestId !== listRequestIdRef.current) {
         return

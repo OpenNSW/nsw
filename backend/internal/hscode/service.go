@@ -7,7 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/OpenNSW/nsw/backend/utils"
+	"github.com/OpenNSW/nsw/backend/pkg/pagination"
 )
 
 type Service struct {
@@ -23,59 +23,35 @@ func NewService(db *gorm.DB) *Service {
 
 // GetAll retrieves all HS codes from the database
 func (s *Service) GetAll(ctx context.Context, filter Filter) (*ListResult, error) {
-	// Get total count first for pagination (with filter applied)
-	var totalCount int64
-	countQuery := s.db.WithContext(ctx).Model(&HSCode{})
+	finalOffset, finalLimit := pagination.ResolvePaginationParams(filter.Offset, filter.Limit)
 
-	// Apply the same filter to the count query
-	if filter.HSCodeStartsWith != nil && *filter.HSCodeStartsWith != "" {
-		countQuery = countQuery.Where("hs_code LIKE ?", *filter.HSCodeStartsWith+"%")
-	}
-
-	countResult := countQuery.Count(&totalCount)
-	if countResult.Error != nil {
-		return nil, fmt.Errorf("failed to count HS codes: %w", countResult.Error)
-	}
-
-	// If no HS codes found, return early
-	if totalCount == 0 {
-		return &ListResult{
-			TotalCount: 0,
-			Items:      []HSCode{},
-			Offset:     0,
-			Limit:      0,
-		}, nil
+	// baseQuery builds a fresh *gorm.DB with only the filter conditions applied.
+	// A new instance is constructed each time to prevent GORM's shared Clauses map
+	// from being contaminated by pagination (LIMIT/OFFSET) set on the list query.
+	baseQuery := func() *gorm.DB {
+		q := s.db.WithContext(ctx).Model(&HSCode{})
+		if filter.HSCodeStartsWith != nil && *filter.HSCodeStartsWith != "" {
+			q = q.Where("hs_code LIKE ?", *filter.HSCodeStartsWith+"%")
+		}
+		return q
 	}
 
 	var hsCodes []HSCode
-	query := s.db.WithContext(ctx)
-
-	// Apply filter: HSCode starts with
-	if filter.HSCodeStartsWith != nil && *filter.HSCodeStartsWith != "" {
-		query = query.Where("hs_code LIKE ?", *filter.HSCodeStartsWith+"%")
+	if err := baseQuery().Offset(finalOffset).Limit(finalLimit).Order("hs_code ASC").Find(&hsCodes).Error; err != nil {
+		return nil, fmt.Errorf("failed to retrieve HS codes: %w", err)
 	}
 
-	// Apply pagination with defaults and limits
-	finalOffset, finalLimit := utils.GetPaginationParams(filter.Offset, filter.Limit)
-	query = query.Offset(finalOffset).Limit(finalLimit)
-
-	// Add ordering for consistent pagination
-	query = query.Order("hs_code ASC")
-
-	result := query.Find(&hsCodes)
-	if result.Error != nil {
-		return nil, fmt.Errorf("failed to retrieve HS codes: %w", result.Error)
+	var totalCount int64
+	if len(hsCodes) < finalLimit && finalOffset == 0 {
+		totalCount = int64(len(hsCodes))
+	} else {
+		if err := baseQuery().Count(&totalCount).Error; err != nil {
+			return nil, fmt.Errorf("failed to count HS codes: %w", err)
+		}
 	}
 
-	// Prepare the result
-	hsCodeListResult := &ListResult{
-		TotalCount: totalCount,
-		Items:      hsCodes,
-		Offset:     finalOffset,
-		Limit:      finalLimit,
-	}
-
-	return hsCodeListResult, nil
+	result := pagination.NewPageResult(hsCodes, totalCount, finalOffset, finalLimit)
+	return &result, nil
 }
 
 // GetByID retrieves an HS code by its ID from the database

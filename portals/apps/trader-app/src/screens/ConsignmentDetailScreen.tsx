@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Button, Badge, Spinner, Text, Flex } from '@radix-ui/themes'
 import { ArrowLeftIcon, InfoCircledIcon, ClockIcon, MagnifyingGlassIcon, ReloadIcon } from '@radix-ui/react-icons'
-import { WorkflowViewer, ActionListView } from '../components/WorkflowViewer'
+import { ActionListView } from '../components/WorkflowViewer'
 import type { ConsignmentDetail } from '../services/types/consignment.ts'
 import { getConsignment, initializeConsignment } from '../services/consignment.ts'
 import { useApi } from '../services/ApiContext'
@@ -21,7 +21,6 @@ export function ConsignmentDetailScreen() {
   const [error, setError] = useState<string | null>(null)
   const [hsPickerOpen, setHsPickerOpen] = useState(false)
   const [initializing, setInitializing] = useState(false)
-  const [viewMode] = useState<'list' | 'graph'>('list')
 
   const { role } = useRole()
 
@@ -186,23 +185,14 @@ export function ConsignmentDetailScreen() {
         <div className="p-4 flex-1 flex flex-col min-h-0">
           {workflowNodes.length > 0 ? (
             <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-              {viewMode === 'list' ? (
-                <ActionListView
-                  className="flex-1 min-h-0"
-                  steps={workflowNodes}
-                  consignmentId={consignmentId!}
-                  onRefresh={handleRefresh}
-                  refreshing={refreshing}
-                  consignmentState={consignment.state}
-                />
-              ) : (
-                <WorkflowViewer
-                  className="h-full border-0 bg-transparent"
-                  steps={workflowNodes}
-                  onRefresh={handleRefresh}
-                  refreshing={refreshing}
-                />
-              )}
+              <ActionListView
+                className="flex-1 min-h-0"
+                steps={workflowNodes}
+                consignmentId={consignmentId!}
+                onRefresh={handleRefresh}
+                refreshing={refreshing}
+                consignmentState={consignment.state}
+              />
             </div>
           ) : consignment.state === 'INITIALIZED' ? (
             <div

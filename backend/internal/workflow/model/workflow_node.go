@@ -2,11 +2,9 @@ package model
 
 import (
 	"encoding/json"
-
-	taskPlugin "github.com/OpenNSW/nsw/backend/internal/task/plugin"
 )
 
-type WorkflowNodeTemplateType = taskPlugin.Type
+type WorkflowNodeTemplateType string
 
 type WorkflowNodeState string
 
@@ -58,13 +56,6 @@ type WorkflowNodeResponseDTO struct {
 	State                WorkflowNodeState               `json:"state"`                   // State of the workflow node
 	ExtendedState        *string                         `json:"extendedState,omitempty"` // Optional extended state information (e.g., error details)
 	Outcome              *string                         `json:"outcome,omitempty"`       // Outcome sub-state when COMPLETED
-}
-
-type WorkflowEdgeResponseDTO struct {
-	ID        string `json:"id"`
-	SourceID  string `json:"source_id"`
-	TargetID  string `json:"target_id"`
-	Condition string `json:"condition,omitempty"` // Optional condition for the edge (used for conditional unlocks)
 }
 
 // WorkflowNodeTemplateResponseDTO represents workflow node template details in the response.

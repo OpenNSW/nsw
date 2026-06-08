@@ -61,11 +61,14 @@ type UserContext struct {
 	OUID        string   `json:"ouId"`
 	OUHandle    string   `json:"ouHandle"`
 	Roles       []string `json:"roles"`
+	Scopes      []string `json:"scopes"`
 }
 
 // ClientContext represents a machine client's context.
 type ClientContext struct {
-	ClientID string
+	ClientID string   `json:"clientId"`
+	Roles    []string `json:"roles"`
+	Scopes   []string `json:"scopes"`
 }
 
 // AuthContext is the transient authentication context injected into each request
@@ -99,4 +102,71 @@ func GetAuthContext(ctx context.Context) *AuthContext {
 		return nil
 	}
 	return authCtx
+}
+
+// The methods below form a small, stable seam over the authenticated principal so
+// that a future authz layer can depend on a narrow interface it defines itself
+// (e.g. interface{ Roles() []string; Scopes() []string; Subject() string }) which
+// *AuthContext satisfies structurally — rather than reaching into the concrete
+// User/Client fields or branching on principal type. They are nil-safe.
+
+// Type reports the principal type of the context: UserPrincipalType,
+// ClientPrincipalType, or "" when unauthenticated.
+func (a *AuthContext) Type() PrincipalType {
+	switch {
+	case a == nil:
+		return ""
+	case a.User != nil:
+		return UserPrincipalType
+	case a.Client != nil:
+		return ClientPrincipalType
+	default:
+		return ""
+	}
+}
+
+// Subject returns a stable identifier for the principal: the resolved user ID
+// (falling back to the IdP user ID) for users, the client ID for clients, or "".
+func (a *AuthContext) Subject() string {
+	switch {
+	case a == nil:
+		return ""
+	case a.User != nil:
+		if a.User.ID != "" {
+			return a.User.ID
+		}
+		return a.User.IDPUserID
+	case a.Client != nil:
+		return a.Client.ClientID
+	default:
+		return ""
+	}
+}
+
+// Roles returns the granted roles for the principal (user or client), or nil.
+func (a *AuthContext) Roles() []string {
+	switch {
+	case a == nil:
+		return nil
+	case a.User != nil:
+		return a.User.Roles
+	case a.Client != nil:
+		return a.Client.Roles
+	default:
+		return nil
+	}
+}
+
+// Scopes returns the granted OAuth2 scopes for the principal (user or client), or nil.
+func (a *AuthContext) Scopes() []string {
+	switch {
+	case a == nil:
+		return nil
+	case a.User != nil:
+		return a.User.Scopes
+	case a.Client != nil:
+		return a.Client.Scopes
+	default:
+		return nil
+	}
 }

@@ -11,7 +11,9 @@ import (
 	flowplugins "github.com/OpenNSW/nsw-task-flow/plugins"
 	"github.com/OpenNSW/nsw/backend/internal/workflow"
 
+	"github.com/OpenNSW/nsw/backend/internal/app/scopes"
 	"github.com/OpenNSW/nsw/backend/internal/auth"
+	"github.com/OpenNSW/nsw/backend/internal/authz"
 	"github.com/OpenNSW/nsw/backend/internal/config"
 	"github.com/OpenNSW/nsw/backend/internal/consignment"
 	"github.com/OpenNSW/nsw/backend/internal/database"
@@ -23,21 +25,20 @@ import (
 	"github.com/OpenNSW/nsw/backend/internal/profile/user"
 	"github.com/OpenNSW/nsw/backend/internal/taskv2"
 	taskv2plugins "github.com/OpenNSW/nsw/backend/internal/taskv2/plugins"
+	"github.com/OpenNSW/nsw/backend/internal/taskv2/registry"
+	taskrenderer "github.com/OpenNSW/nsw/backend/internal/taskv2/renderer"
 	"github.com/OpenNSW/nsw/backend/internal/temporal"
 	"github.com/OpenNSW/nsw/backend/internal/workflow/service"
 	"github.com/OpenNSW/nsw/backend/pkg/remote"
 	"github.com/OpenNSW/nsw/backend/pkg/storage"
 	"github.com/OpenNSW/nsw/backend/pkg/storage/drivers"
-
-	"github.com/OpenNSW/nsw/backend/pkg/notification"
-	"github.com/OpenNSW/nsw/backend/pkg/notification/channels"
+	"github.com/OpenNSW/nsw/backend/pkg/uiprojector"
 )
 
 // App contains an initialized HTTP server and cleanup hooks.
 type App struct {
-	Server              *http.Server
-	NotificationManager *notification.Manager
-	close               func() error
+	Server *http.Server
+	close  func() error
 }
 
 // Close releases resources initialized during bootstrap.
@@ -83,7 +84,13 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to initialize payment service: %w", err)
 	}
 
-	templateService := service.NewTemplateService(db)
+	templateRegistry := registry.NewInMemRegistry()
+	if err := registry.LoadConfigsInto(templateRegistry, "configs/fcau"); err != nil {
+		_ = database.Close(db)
+		return nil, fmt.Errorf("failed to load taskv2 configs: %w", err)
+	}
+
+	templateService := service.NewTemplateService(db).WithRegistry(templateRegistry)
 	chaService := cha.NewService(db)
 	companyService := company.NewService(db)
 	userProfileService := user.NewService(db)
@@ -123,7 +130,8 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to register taskv2 plugins: %w", err)
 	}
 
-	taskV2, stopTaskV2, err := taskv2.WireTaskV2(db, temporalClient, pluginsRegistry, paymentService, onTaskCompleted)
+	projectors := append(uiprojector.DefaultProjectors(), taskrenderer.NewPaymentProjector(paymentService))
+	taskV2, stopTaskV2, err := taskv2.WireTaskV2(db, temporalClient, pluginsRegistry, templateRegistry, projectors, onTaskCompleted)
 	if err != nil {
 		temporalClient.Close()
 		_ = database.Close(db)
@@ -133,7 +141,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	paymentService.SetTaskCompleter(tm)
 
-	consignmentService := consignment.NewService(db, templateService, chaService, companyService, userProfileService, hsCodeService)
+	consignmentService := consignment.NewService(db, templateService, chaService, companyService, userProfileService, hsCodeService, taskV2.Store)
 	consignmentRouter := consignment.NewRouter(consignmentService, chaService, companyService)
 
 	pr, stopParentRunner, err := workflow.WireParentRunner(temporalClient, tm, consignmentService)
@@ -188,26 +196,34 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("auth system health check failed: %w", err)
 	}
 
-	// Initialize notification manager
-	notificationManager := notification.NewManager()
-	emailChannel := channels.NewEmailChannel(notification.EmailConfig{
-		SMTPHost:     cfg.Notification.SMTPHost,
-		SMTPPort:     cfg.Notification.SMTPPort,
-		SMTPUsername: cfg.Notification.SMTPUsername,
-		SMTPPassword: cfg.Notification.SMTPPassword,
-		SMTPSender:   cfg.Notification.SMTPSender,
-		TemplateRoot: cfg.Notification.TemplateRoot,
-	})
-	notificationManager.RegisterEmailChannel(emailChannel)
-
-	// TODO: Add SMS channel if needed
-	// smsChannel := channels.NewSMSChannel(...)
-	// notificationManager.RegisterSMSChannel(smsChannel)
-
 	taskV2Handler := taskv2.NewHTTPHandler(tm, taskV2.Store, taskV2.Assembler)
 
 	// withAuth wraps an individual handler with the authentication middleware.
-	withAuth := authManager.Middleware()
+	withAuth := authManager.RequireAuthMiddleware()
+
+	// authzr gates routes by the OAuth2 scopes carried on the token.
+	// The extractor bridges the authn layer (auth.GetAuthContext) into the
+	// generic authz.Principal interface — authz imports nothing from internal/auth.
+	authzr, err := authz.New(func(ctx context.Context) (authz.Principal, bool) {
+		ac := auth.GetAuthContext(ctx)
+		if ac == nil || ac.Type() == "" {
+			return nil, false
+		}
+		return ac, true
+	})
+	if err != nil {
+		_ = stopParentRunner()
+		_ = stopTaskV2()
+		temporalClient.Close()
+		_ = authManager.Close()
+		_ = database.Close(db)
+		return nil, fmt.Errorf("failed to create authz: %w", err)
+	}
+	// withScope returns a middleware requiring the given scope; compose after withAuth
+	// so the auth context is already injected when the scope check runs.
+	withScope := func(scope string) func(http.Handler) http.Handler {
+		return authzr.RequireScope(scope)
+	}
 
 	mux := http.NewServeMux()
 
@@ -239,28 +255,28 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 		})
 	})
 
-	// API routes. Each handler is individually wrapped with auth,
-	// so public or differently-authenticated routes can be added
-	// alongside these without restructuring the mux.
-	mux.Handle("GET /api/v1/tasks/{id}", withAuth(http.HandlerFunc(taskV2Handler.HandleGetTask)))
-	mux.Handle("POST /api/v1/tasks/{id}", withAuth(http.HandlerFunc(taskV2Handler.HandleCompleteTaskStep)))
+	// API routes. Each handler is wrapped with auth (JWT validation) then a
+	// scope gate. Order matters: withAuth injects the AuthContext; withScope
+	// reads it. Public routes (payments, local-dev storage) are below.
+	mux.Handle("GET /api/v1/tasks/{id}", withAuth(withScope(scopes.TaskRead)(http.HandlerFunc(taskV2Handler.HandleGetTask))))
+	mux.Handle("POST /api/v1/tasks/{id}", withAuth(withScope(scopes.TaskWrite)(http.HandlerFunc(taskV2Handler.HandleCompleteTaskStep))))
 	// TODO(oga-callback): remove once OGA POSTs directly to /api/v1/tasks/{id}
 	// with the bare reviewer payload. This legacy route accepts OGA's
 	// {task_id, workflow_id, payload:{action, content}} envelope and the
 	// handler unwraps payload.content + falls back to body-level task_id.
-	mux.Handle("POST /api/v1/tasks", withAuth(http.HandlerFunc(taskV2Handler.HandleCompleteTaskStep)))
-	mux.Handle("GET /api/v1/hscodes", withAuth(http.HandlerFunc(hsCodeRouter.HandleGetAll)))
-	mux.Handle("GET /api/v1/chas", withAuth(http.HandlerFunc(chaHandler.HandleGetCHAs)))
-	mux.Handle("GET /api/v1/companies", withAuth(http.HandlerFunc(companyHandler.HandleGetCompanies)))
-	mux.Handle("POST /api/v1/consignments", withAuth(http.HandlerFunc(consignmentRouter.HandleCreateConsignment)))
-	mux.Handle("GET /api/v1/consignments/{id}", withAuth(http.HandlerFunc(consignmentRouter.HandleGetConsignmentByID)))
-	mux.Handle("PUT /api/v1/consignments/{id}", withAuth(http.HandlerFunc(consignmentRouter.HandleInitializeConsignment)))
-	mux.Handle("GET /api/v1/consignments", withAuth(http.HandlerFunc(consignmentRouter.HandleGetConsignments)))
+	mux.Handle("POST /api/v1/tasks", withAuth(withScope(scopes.TaskWrite)(http.HandlerFunc(taskV2Handler.HandleCompleteTaskStep))))
+	mux.Handle("GET /api/v1/hscodes", withAuth(withScope(scopes.HSCodeRead)(http.HandlerFunc(hsCodeRouter.HandleGetAll))))
+	mux.Handle("GET /api/v1/chas", withAuth(withScope(scopes.CHARead)(http.HandlerFunc(chaHandler.HandleGetCHAs))))
+	mux.Handle("GET /api/v1/companies", withAuth(withScope(scopes.CompanyRead)(http.HandlerFunc(companyHandler.HandleGetCompanies))))
+	mux.Handle("POST /api/v1/consignments", withAuth(withScope(scopes.ConsignmentWrite)(http.HandlerFunc(consignmentRouter.HandleCreateConsignment))))
+	mux.Handle("GET /api/v1/consignments/{id}", withAuth(withScope(scopes.ConsignmentRead)(http.HandlerFunc(consignmentRouter.HandleGetConsignmentByID))))
+	mux.Handle("PUT /api/v1/consignments/{id}", withAuth(withScope(scopes.ConsignmentWrite)(http.HandlerFunc(consignmentRouter.HandleInitializeConsignment))))
+	mux.Handle("GET /api/v1/consignments", withAuth(withScope(scopes.ConsignmentRead)(http.HandlerFunc(consignmentRouter.HandleGetConsignments))))
 
 	// Storage
-	mux.Handle("POST /api/v1/storage", withAuth(http.HandlerFunc(storageHandler.Upload)))
-	mux.Handle("GET /api/v1/storage/{key}", withAuth(http.HandlerFunc(storageHandler.Download)))
-	mux.Handle("DELETE /api/v1/storage/{key}", withAuth(http.HandlerFunc(storageHandler.Delete)))
+	mux.Handle("POST /api/v1/storage", withAuth(withScope(scopes.StorageWrite)(http.HandlerFunc(storageHandler.Upload))))
+	mux.Handle("GET /api/v1/storage/{key}", withAuth(withScope(scopes.StorageRead)(http.HandlerFunc(storageHandler.Download))))
+	mux.Handle("DELETE /api/v1/storage/{key}", withAuth(withScope(scopes.StorageDelete)(http.HandlerFunc(storageHandler.Delete))))
 
 	// External Webhooks bypass standard JWT auth.
 	// They should use webhook signatures, implemented in the handler directly or via specialized middleware.
@@ -301,8 +317,7 @@ func Build(ctx context.Context, cfg *config.Config) (*App, error) {
 	}
 
 	return &App{
-		Server:              server,
-		NotificationManager: notificationManager,
-		close:               closeFn,
+		Server: server,
+		close:  closeFn,
 	}, nil
 }

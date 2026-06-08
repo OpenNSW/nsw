@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"gorm.io/gorm"
+
+	"github.com/OpenNSW/nsw/backend/pkg/pagination"
 )
 
 // Service defines operations for company profile management.
@@ -21,9 +23,9 @@ type Service interface {
 	// Returns ErrCompanyNotFound if no record exists.
 	GetCompanyByOUHandle(ctx context.Context, ouHandle string) (*Record, error)
 
-	// ListCompanies returns company records ordered by name, optionally filtered by HasCHA and a
-	// case-insensitive substring match on Name.
-	ListCompanies(ctx context.Context, filter ListFilter) ([]Record, error)
+	// ListCompanies returns a paginated list of companies ordered by name, optionally filtered by
+	// HasCHA and a case-insensitive substring match on Name.
+	ListCompanies(ctx context.Context, filter ListFilter) (*ListResult, error)
 
 	// UpdateCompany performs an append-only merge of data into the company's Data field.
 	// New keys are added and existing keys are replaced only when explicitly provided.
@@ -69,24 +71,44 @@ func (s *service) GetCompanyByOUHandle(ctx context.Context, ouHandle string) (*R
 	return s.getByField(ctx, "ou_handle", ouHandle)
 }
 
-func (s *service) ListCompanies(ctx context.Context, filter ListFilter) ([]Record, error) {
-	q := s.db.WithContext(ctx).Model(&Record{})
-	if filter.HasCHA != nil {
-		q = q.Where("has_cha = ?", *filter.HasCHA)
-	}
-	if filter.Name != nil {
-		name := strings.TrimSpace(*filter.Name)
-		if name != "" {
-			q = q.Where("name ILIKE ?", "%"+name+"%")
+func (s *service) ListCompanies(ctx context.Context, filter ListFilter) (*ListResult, error) {
+	finalOffset, finalLimit := pagination.ResolvePaginationParams(filter.Offset, filter.Limit)
+
+	// baseQuery builds a fresh *gorm.DB with only the filter conditions applied.
+	// A new instance is constructed each time to prevent GORM's shared Clauses map
+	// from being contaminated by pagination (LIMIT/OFFSET) set on the list query.
+	baseQuery := func() *gorm.DB {
+		q := s.db.WithContext(ctx).Model(&Record{})
+		if filter.HasCHA != nil {
+			q = q.Where("has_cha = ?", *filter.HasCHA)
 		}
+		if filter.Name != nil {
+			name := strings.TrimSpace(*filter.Name)
+			if name != "" {
+				q = q.Where("name ILIKE ?", "%"+name+"%")
+			}
+		}
+		return q
 	}
 
-	var records []Record
-	if err := q.Order("name ASC").Find(&records).Error; err != nil {
+	var items []Summary
+	if err := baseQuery().Select("id, name, has_cha").Order("name ASC").Offset(finalOffset).Limit(finalLimit).Scan(&items).Error; err != nil {
 		slog.Error("failed to list company records", "error", err)
 		return nil, fmt.Errorf("database query failed: %w", err)
 	}
-	return records, nil
+
+	var totalCount int64
+	if len(items) < finalLimit && finalOffset == 0 {
+		totalCount = int64(len(items))
+	} else {
+		if err := baseQuery().Count(&totalCount).Error; err != nil {
+			slog.Error("failed to count company records", "error", err)
+			return nil, fmt.Errorf("database query failed: %w", err)
+		}
+	}
+
+	result := pagination.NewPageResult(items, totalCount, finalOffset, finalLimit)
+	return &result, nil
 }
 
 func (s *service) UpdateCompany(ctx context.Context, id string, data map[string]any) error {

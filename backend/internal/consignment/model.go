@@ -6,6 +6,7 @@ import (
 
 	"github.com/OpenNSW/nsw/backend/internal/hscode"
 	"github.com/OpenNSW/nsw/backend/internal/workflow/model"
+	"github.com/OpenNSW/nsw/backend/pkg/pagination"
 )
 
 // Flow represents the flow type of consignment.
@@ -108,7 +109,6 @@ type DetailDTO struct {
 	CreatedAt       string                          `json:"createdAt"`       // Timestamp of consignment creation
 	UpdatedAt       string                          `json:"updatedAt"`       // Timestamp of last consignment update
 	WorkflowNodes   []model.WorkflowNodeResponseDTO `json:"workflowNodes"`   // Associated workflow nodes with template details
-	Edges           []model.WorkflowEdgeResponseDTO `json:"edges"`           // Edges between workflow nodes
 }
 
 // SummaryDTO represents the consignment data returned in list responses.
@@ -127,13 +127,8 @@ type SummaryDTO struct {
 	CompletedWorkflowNodeCount int               `json:"completedWorkflowNodeCount"` // Number of completed workflow nodes
 }
 
-// ListResult represents the result of querying consignments with pagination
-type ListResult struct {
-	TotalCount int64        `json:"totalCount"`
-	Items      []SummaryDTO `json:"items"`
-	Offset     int          `json:"offset"`
-	Limit      int          `json:"limit"`
-}
+// ListResult is the pagination envelope returned by the list consignments endpoint.
+type ListResult = pagination.Page[SummaryDTO]
 
 // Filter will be used when querying consignments as batch.
 // For GET /consignments?role=trader use TraderCompanyID; for role=cha use CHACompanyID.
