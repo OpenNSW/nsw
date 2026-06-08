@@ -40,12 +40,12 @@ spec:
             - name: PGUSER
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.config.database.credentialsSecretName | default (printf "%s-db-credentials" .Release.Name) }}
+                  name: {{ .Values.config.database.credentialsSecretName | default (printf "%s-db-credentials" (include "nsw-agency-backend.fullname" .)) }}
                   key: {{ .Values.config.database.userKey | default "user" }}
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.config.database.credentialsSecretName | default (printf "%s-db-credentials" .Release.Name) }}
+                  name: {{ .Values.config.database.credentialsSecretName | default (printf "%s-db-credentials" (include "nsw-agency-backend.fullname" .)) }}
                   key: password
             - name: PGDATABASE
               value: {{ .Values.config.database.name | quote }}
