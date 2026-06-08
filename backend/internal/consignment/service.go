@@ -299,24 +299,17 @@ func (s *Service) CreateAndStartConsignment(ctx context.Context, traderID string
 	}
 
 	tx := s.db.WithContext(ctx).Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
+	defer tx.Rollback()
 
 	if err := tx.Create(consignment).Error; err != nil {
-		tx.Rollback()
 		return nil, fmt.Errorf("failed to create consignment: %w", err)
 	}
 
 	if err := s.wm.StartWorkflow(ctx, consignment.ID, wt.WorkflowDefinition, initialVars); err != nil {
-		tx.Rollback()
 		return nil, fmt.Errorf("failed to register workflow: %w", err)
 	}
 
 	if err := tx.Commit().Error; err != nil {
-		tx.Rollback()
 		return nil, fmt.Errorf("failed to commit: %w", err)
 	}
 
