@@ -8,6 +8,7 @@ import (
 
 	"github.com/OpenNSW/core/authn"
 	"github.com/OpenNSW/core/pagination"
+
 	"github.com/OpenNSW/nsw/backend/internal/profile/cha"
 	"github.com/OpenNSW/nsw/backend/internal/profile/company"
 )
