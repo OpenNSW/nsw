@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/OpenNSW/nsw/backend/internal/auth"
+	"github.com/OpenNSW/core/authn"
 	"github.com/OpenNSW/nsw/backend/internal/profile/cha"
 	"github.com/OpenNSW/nsw/backend/internal/profile/company"
 	"github.com/OpenNSW/nsw/backend/internal/profile/user"
@@ -26,24 +26,24 @@ import (
 )
 
 func withAuthContext(ctx context.Context, userID string) context.Context {
-	authCtx := &auth.AuthContext{
-		User: &auth.UserContext{
+	authCtx := &authn.AuthContext{
+		User: &authn.UserContext{
 			ID:    userID,
 			Email: userID + "@example.com",
 		},
 	}
-	return context.WithValue(ctx, auth.AuthContextKey, authCtx)
+	return context.WithValue(ctx, authn.AuthContextKey, authCtx)
 }
 
 func withAuthContextOU(ctx context.Context, userID, ouHandle string) context.Context {
-	authCtx := &auth.AuthContext{
-		User: &auth.UserContext{
+	authCtx := &authn.AuthContext{
+		User: &authn.UserContext{
 			ID:       userID,
 			Email:    userID + "@example.com",
 			OUHandle: ouHandle,
 		},
 	}
-	return context.WithValue(ctx, auth.AuthContextKey, authCtx)
+	return context.WithValue(ctx, authn.AuthContextKey, authCtx)
 }
 
 func TestConsignmentRouter_HandleGetConsignmentByID(t *testing.T) {

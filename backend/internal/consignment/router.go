@@ -6,10 +6,10 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/OpenNSW/nsw/backend/internal/auth"
+	"github.com/OpenNSW/core/authn"
+	"github.com/OpenNSW/core/pagination"
 	"github.com/OpenNSW/nsw/backend/internal/profile/cha"
 	"github.com/OpenNSW/nsw/backend/internal/profile/company"
-	"github.com/OpenNSW/nsw/backend/pkg/pagination"
 )
 
 type Router struct {
@@ -27,7 +27,7 @@ func NewRouter(cs *Service, chaService cha.Service, companyService company.Servi
 // Legacy: body { flow, items } → creates and initializes workflow
 func (c *Router) HandleCreateConsignment(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	authCtx := auth.GetAuthContext(ctx)
+	authCtx := authn.GetAuthContext(ctx)
 	if authCtx == nil || authCtx.User == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -75,7 +75,7 @@ func (c *Router) HandleCreateConsignment(w http.ResponseWriter, r *http.Request)
 // is collected up front; the workflow's own tasks collect those later. Response: DetailDTO.
 func (c *Router) HandleStartConsignment(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	authCtx := auth.GetAuthContext(ctx)
+	authCtx := authn.GetAuthContext(ctx)
 	if authCtx == nil || authCtx.User == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -103,7 +103,7 @@ func (c *Router) HandleStartConsignment(w http.ResponseWriter, r *http.Request) 
 // Pagination: offset, limit. Optional filters: state, flow.
 func (c *Router) HandleGetConsignments(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	authCtx := auth.GetAuthContext(ctx)
+	authCtx := authn.GetAuthContext(ctx)
 	if authCtx == nil || authCtx.User == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -176,7 +176,7 @@ func (c *Router) HandleGetConsignments(w http.ResponseWriter, r *http.Request) {
 // Body: InitializeConsignmentDTO { hsCodeIds: []uuid }. Response: DetailDTO.
 func (c *Router) HandleInitializeConsignment(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	authCtx := auth.GetAuthContext(ctx)
+	authCtx := authn.GetAuthContext(ctx)
 	if authCtx == nil || authCtx.User == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -237,7 +237,7 @@ func (c *Router) HandleInitializeConsignment(w http.ResponseWriter, r *http.Requ
 // Response: DetailDTO
 func (c *Router) HandleGetConsignmentByID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	authCtx := auth.GetAuthContext(ctx)
+	authCtx := authn.GetAuthContext(ctx)
 	if authCtx == nil || authCtx.User == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
