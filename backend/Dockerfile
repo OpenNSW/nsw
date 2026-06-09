@@ -1,4 +1,4 @@
-FROM golang:1.26-bookworm AS builder
+FROM golang:1.26.3-bookworm AS builder
 
 WORKDIR /app
 
@@ -32,7 +32,7 @@ USER appuser:appuser
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-	CMD wget -qO- http://localhost:${SERVER_PORT:-8080}/health || exit 1
+    CMD wget -qO- http://localhost:${SERVER_PORT:-8080}/health || exit 1
 
 # Run the binary
 CMD ["/app/server"]

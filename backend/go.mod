@@ -4,8 +4,8 @@ go 1.26.3
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
-	github.com/OpenNSW/core v0.0.0-20260608092108-7ca654c29b5d
-	github.com/OpenNSW/go-temporal-workflow v0.4.0
+	github.com/OpenNSW/core v0.0.0-20260608153546-9c3e08a703e0
+	github.com/OpenNSW/go-temporal-workflow v0.5.0
 	github.com/OpenNSW/nsw-task-flow v0.0.0-20260526134015-a84391d97c36
 	github.com/aws/aws-sdk-go-v2 v1.41.7
 	github.com/aws/aws-sdk-go-v2/config v1.32.17
