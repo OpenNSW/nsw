@@ -5,15 +5,23 @@ import * as path from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
-export default defineConfig({
+// `vite build` builds the library; `vite` (serve) runs the dev playground in dev/.
+export default defineConfig(({ command }) => ({
+  // In serve mode, treat dev/ as the app root so dev/index.html is the entry.
+  ...(command === 'serve' ? { root: 'dev' } : {}),
   plugins: [
     react(),
     tailwindcss(),
-    dts({
-      include: ['src'],
-      tsconfigPath: './tsconfig.app.json',
-      rollupTypes: true,
-    }),
+    // Type declarations are only needed for the library build.
+    ...(command === 'build'
+      ? [
+          dts({
+            include: ['src'],
+            tsconfigPath: './tsconfig.app.json',
+            rollupTypes: true,
+          }),
+        ]
+      : []),
   ],
   build: {
     lib: {
@@ -35,4 +43,4 @@ export default defineConfig({
       ],
     },
   },
-})
+}))
