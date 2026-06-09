@@ -1,6 +1,0 @@
-apiVersion: v2
-name: nsw-agency-app
-description: Generic Helm chart for the NSW Agency portal
-type: application
-version: 0.1.0
-appVersion: "1.0.0"
