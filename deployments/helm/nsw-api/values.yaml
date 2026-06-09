@@ -54,7 +54,8 @@ config:
       - "TRADER_PORTAL_APP"
       - "FCAU_TO_NSW"
       - "NPQS_TO_NSW"
-      - "IRD_TO_NSW"
+      - "SLTB_TO_NSW"
+      - "CDA_TO_NSW"
     insecureSkipTlsVerify: false
 
   serviceUrl: ""
