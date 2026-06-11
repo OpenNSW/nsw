@@ -22,13 +22,11 @@ NARESH_PASSWORD="${SAMPLE_NARESH_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
 NPQS_USER_PASSWORD="${SAMPLE_NPQS_USER_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
 FCAU_USER_PASSWORD="${SAMPLE_FCAU_USER_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
 IRD_USER_PASSWORD="${SAMPLE_IRD_USER_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
-SLTB_USER_PASSWORD="${SAMPLE_SLTB_USER_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
 CDA_USER_PASSWORD="${SAMPLE_CDA_USER_PASSWORD:-${SAMPLE_USER_PASSWORD}}"
 M2M_CLIENT_SECRET="${M2M_CLIENT_SECRET:-1234}"
 NPQS_M2M_CLIENT_SECRET="${M2M_NPQS_SECRET:-${M2M_CLIENT_SECRET}}"
 FCAU_M2M_CLIENT_SECRET="${M2M_FCAU_SECRET:-${M2M_CLIENT_SECRET}}"
 IRD_M2M_CLIENT_SECRET="${M2M_IRD_SECRET:-${M2M_CLIENT_SECRET}}"
-SLTB_M2M_CLIENT_SECRET="${M2M_SLTB_SECRET:-${M2M_CLIENT_SECRET}}"
 CDA_M2M_CLIENT_SECRET="${M2M_CDA_SECRET:-${M2M_CLIENT_SECRET}}"
 
 # ----------------------------------------------------------------------------
@@ -328,10 +326,6 @@ create_spa_application() {
                     ]
                 },
                 "scopeClaims": {
-                    "openid": [
-                        "ouId",
-                        "ouHandle"
-                    ],
                     "profile": [
                         "name",
                         "given_name",
@@ -962,7 +956,6 @@ GOVERNMENT_ORG_OU_HANDLE="government-organization"
 NPQS_OU_HANDLE="npqs"
 FCAU_OU_HANDLE="fcau"
 IRD_OU_HANDLE="ird"
-SLTB_OU_HANDLE="sltb"
 CDA_OU_HANDLE="cda"
 
 log_info "Creating Government Organization root organization unit..."
@@ -1142,50 +1135,6 @@ if [[ -z "$IRD_OU_ID" ]]; then
 fi
 
 log_info "IRD OU ID: $IRD_OU_ID"
-
-echo ""
-log_info "Creating SLTB organization unit..."
-
-read -r -d '' SLTB_OU_PAYLOAD <<JSON || true
-{
-    "handle": "${SLTB_OU_HANDLE}",
-    "name": "SLTB",
-    "description": "Sri Lanka Tea Board",
-    "parentId": "${GOVERNMENT_ORG_OU_ID}"
-}
-JSON
-
-RESPONSE=$(api_call POST "/organization-units" "${SLTB_OU_PAYLOAD}")
-HTTP_CODE="${RESPONSE: -3}"
-BODY="${RESPONSE%???}"
-
-if [[ "$HTTP_CODE" == "201" ]] || [[ "$HTTP_CODE" == "200" ]] || [[ "$HTTP_CODE" == "202" ]]; then
-    log_success "SLTB organization unit created successfully"
-    SLTB_OU_ID=$(extract_first_id "$BODY")
-elif [[ "$HTTP_CODE" == "409" ]]; then
-    log_warning "SLTB organization unit already exists, retrieving ID..."
-    RESPONSE=$(api_call GET "/organization-units/tree/${GOVERNMENT_ORG_OU_HANDLE}/${SLTB_OU_HANDLE}")
-    HTTP_CODE="${RESPONSE: -3}"
-    BODY="${RESPONSE%???}"
-    if [[ "$HTTP_CODE" == "200" ]]; then
-        SLTB_OU_ID=$(extract_first_id "$BODY")
-    else
-        log_error "Failed to fetch SLTB OU (HTTP $HTTP_CODE)"
-        echo "Response: $BODY"
-        exit 1
-    fi
-else
-    log_error "Failed to create SLTB organization unit (HTTP $HTTP_CODE)"
-    echo "Response: $BODY"
-    exit 1
-fi
-
-if [[ -z "$SLTB_OU_ID" ]]; then
-    log_error "Could not determine SLTB organization unit ID"
-    exit 1
-fi
-
-log_info "SLTB OU ID: $SLTB_OU_ID"
 
 echo ""
 log_info "Creating CDA organization unit..."
@@ -1634,9 +1583,6 @@ USER_FCAU_ID="$CREATED_USER_ID"
 create_user_in_ou "Government_User" "$IRD_OU_ID" "ird_user" "ird_user@government.dev" "IRD" "User" "$IRD_USER_PASSWORD" "+94771234562"
 USER_IRD_ID="$CREATED_USER_ID"
 
-create_user_in_ou "Government_User" "$SLTB_OU_ID" "sltb_user" "sltb_user@government.dev" "SLTB" "User" "$SLTB_USER_PASSWORD" "+94771234564"
-USER_SLTB_ID="$CREATED_USER_ID"
-
 create_user_in_ou "Government_User" "$CDA_OU_ID" "cda_user" "cda_user@government.dev" "CDA" "User" "$CDA_USER_PASSWORD" "+94771234563"
 USER_CDA_ID="$CREATED_USER_ID"
 
@@ -1658,7 +1604,6 @@ ensure_user_in_group "$CHA_GROUP_ID" "$USER_NARESH" "CHA" "naresh"
 ensure_user_in_group "$OGA_REVIEWERS_GROUP_ID" "$USER_NPQS_ID" "OGA Reviewers" "npqs_user"
 ensure_user_in_group "$OGA_REVIEWERS_GROUP_ID" "$USER_FCAU_ID" "OGA Reviewers" "fcau_user"
 ensure_user_in_group "$OGA_REVIEWERS_GROUP_ID" "$USER_IRD_ID" "OGA Reviewers" "ird_user"
-ensure_user_in_group "$OGA_REVIEWERS_GROUP_ID" "$USER_SLTB_ID" "OGA Reviewers" "sltb_user"
 ensure_user_in_group "$OGA_REVIEWERS_GROUP_ID" "$USER_CDA_ID" "OGA Reviewers" "cda_user"
 
 echo ""
@@ -1712,14 +1657,12 @@ DEFAULT_OU_ID_FOR_TRADER=$(get_ou_id_by_handle "default")
 NPQS_OU_ID_FOR_APP=$(get_ou_id_by_handle "government-organization/npqs")
 FCAU_OU_ID_FOR_APP=$(get_ou_id_by_handle "government-organization/fcau")
 IRD_OU_ID_FOR_APP=$(get_ou_id_by_handle "government-organization/ird")
-SLTB_OU_ID_FOR_APP=$(get_ou_id_by_handle "government-organization/sltb")
 CDA_OU_ID_FOR_APP=$(get_ou_id_by_handle "government-organization/cda")
 
 create_spa_application "TraderApp" "Application for trader portal built with React" "TRADER_PORTAL_APP" "5173" "Private_User" "${DEFAULT_OU_ID_FOR_TRADER}" "${TRADER_NSW_SCOPES}"
 create_spa_application "NPQSPortalApp" "Application for NPQS portal built with React" "OGA_PORTAL_APP_NPQS" "5174" "Government_User" "${NPQS_OU_ID_FOR_APP}" "${AGENCY_REVIEWER_SCOPES}"
 create_spa_application "FCAUPortalApp" "Application for FCAU portal built with React" "OGA_PORTAL_APP_FCAU" "5175" "Government_User" "${FCAU_OU_ID_FOR_APP}" "${AGENCY_REVIEWER_SCOPES}"
 create_spa_application "IRDPortalApp" "Application for IRD portal built with React" "OGA_PORTAL_APP_IRD" "5176" "Government_User" "${IRD_OU_ID_FOR_APP}" "${AGENCY_REVIEWER_SCOPES}"
-create_spa_application "SLTBPortalApp" "Application for SLTB portal built with React" "OGA_PORTAL_APP_SLTB" "5178" "Government_User" "${SLTB_OU_ID_FOR_APP}" "${AGENCY_REVIEWER_SCOPES}"
 create_spa_application "CDAPortalApp" "Application for CDA portal built with React" "OGA_PORTAL_APP_CDA" "5177" "Government_User" "${CDA_OU_ID_FOR_APP}" "${AGENCY_REVIEWER_SCOPES}"
 
 echo ""
@@ -1758,10 +1701,6 @@ create_m2m_application "IRD_TO_NSW_M2M" "Machine-to-machine integration for IRD 
 IRD_TO_NSW_M2M_APP_ID="$CREATED_M2M_APP_ID"
 assign_role_to_app "$AGENCY_M2M_ROLE_ID" "$IRD_TO_NSW_M2M_APP_ID" "AgencyM2M" "IRD_TO_NSW_M2M"
 
-create_m2m_application "SLTB_TO_NSW_M2M" "Machine-to-machine integration for SLTB to NSW" "SLTB_TO_NSW" "${SLTB_M2M_CLIENT_SECRET}" "${DEFAULT_OU_ID_FOR_M2M}" "${M2M_NSW_SCOPES}"
-SLTB_TO_NSW_M2M_APP_ID="$CREATED_M2M_APP_ID"
-assign_role_to_app "$AGENCY_M2M_ROLE_ID" "$SLTB_TO_NSW_M2M_APP_ID" "AgencyM2M" "SLTB_TO_NSW_M2M"
-
 create_m2m_application "CDA_TO_NSW_M2M" "Machine-to-machine integration for CDA to NSW" "CDA_TO_NSW" "${CDA_M2M_CLIENT_SECRET}" "${DEFAULT_OU_ID_FOR_M2M}" "${M2M_NSW_SCOPES}"
 CDA_TO_NSW_M2M_APP_ID="$CREATED_M2M_APP_ID"
 assign_role_to_app "$AGENCY_M2M_ROLE_ID" "$CDA_TO_NSW_M2M_APP_ID" "AgencyM2M" "CDA_TO_NSW_M2M"
@@ -1777,7 +1716,7 @@ log_info "Private Sector OU path: ${PRIVATE_SECTOR_OU_HANDLE}"
 log_info "ADAM PVT LTD OU path: ${ADAM_PVT_LTD_OU_PATH}"
 log_info "EDWARD PVT LTD OU path: ${EDWARD_PVT_LTD_OU_PATH}"
 log_info "Government Organization OU path: ${GOVERNMENT_ORG_OU_HANDLE}"
-log_info "Government child OUs: ${NPQS_OU_HANDLE}, ${FCAU_OU_HANDLE}, ${IRD_OU_HANDLE}, ${SLTB_OU_HANDLE}, ${CDA_OU_HANDLE}"
+log_info "Government child OUs: ${NPQS_OU_HANDLE}, ${FCAU_OU_HANDLE}, ${IRD_OU_HANDLE}, ${CDA_OU_HANDLE}"
 log_info "Private user type: Private_User"
 log_info "Government user type: Government_User"
 log_info "Traders group -> Trader role (NSW_API scopes)"
@@ -1787,9 +1726,9 @@ log_info "suresh in groups: Traders, CHA"
 log_info "ramesh in groups: CHA"
 log_info "gomesh in groups: Traders"
 log_info "naresh (EDWARD PVT LTD) in groups: CHA"
-log_info "Government users: npqs_user, fcau_user, ird_user, sltb_user, cda_user"
-log_info "App client IDs: TRADER_PORTAL_APP, OGA_PORTAL_APP_NPQS, OGA_PORTAL_APP_FCAU, OGA_PORTAL_APP_IRD, OGA_PORTAL_APP_SLTB, OGA_PORTAL_APP_CDA"
-log_info "M2M client IDs: NPQS_TO_NSW, FCAU_TO_NSW, IRD_TO_NSW, SLTB_TO_NSW, CDA_TO_NSW"
+log_info "Government users: npqs_user, fcau_user, ird_user, cda_user"
+log_info "App client IDs: TRADER_PORTAL_APP, OGA_PORTAL_APP_NPQS, OGA_PORTAL_APP_FCAU, OGA_PORTAL_APP_IRD, OGA_PORTAL_APP_CDA"
+log_info "M2M client IDs: NPQS_TO_NSW, FCAU_TO_NSW, IRD_TO_NSW, CDA_TO_NSW"
 log_info "M2M auth method: client_secret_basic"
 echo ""
 log_info "Resource servers (token audiences):"
