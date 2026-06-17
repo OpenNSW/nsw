@@ -5,6 +5,7 @@ import { UploadIcon, FileTextIcon, Cross2Icon, CheckCircledIcon, ExclamationTria
 import { useState, useRef, useEffect, useCallback, type ChangeEvent, type DragEvent } from 'react'
 import { useUpload } from '../contexts/UploadContext'
 import { getErrorMessage } from '../utils/error'
+import { useClearWhenHidden } from '../hooks/useClearWhenHidden'
 import * as React from 'react'
 
 interface FileEntry {
@@ -80,15 +81,7 @@ const FileControl = ({
 }: FileControlProps) => {
   const uploadContext = useUpload()
 
-  useEffect(() => {
-    if (visible === false) {
-      handleChange(path, null)
-    }
-  }, [visible, path, handleChange])
-
-  if (visible === false) {
-    return null
-  }
+  useClearWhenHidden(visible, path, handleChange, null)
 
   const isValid = !errors || errors.length === 0
 
@@ -166,6 +159,10 @@ const FileControl = ({
     },
     [currentKeys, maxFiles, maxSize, accept, uploadContext, path, handleChange, isMulti],
   )
+
+  if (visible === false) {
+    return null
+  }
 
   const handleDrag = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault()

@@ -1,8 +1,8 @@
 import { type ControlProps, isBooleanControl, type RankedTester, rankWith } from '@jsonforms/core'
 import { withJsonFormsControlProps } from '@jsonforms/react'
-import { useEffect } from 'react'
-
 import { Checkbox, Text, Flex, Box } from '@radix-ui/themes'
+import { useClearWhenHidden } from '../hooks/useClearWhenHidden'
+
 import { getErrorMessage } from '../utils/error'
 
 export const BooleanControl = ({
@@ -16,11 +16,7 @@ export const BooleanControl = ({
   enabled,
   visible = true,
 }: ControlProps) => {
-  useEffect(() => {
-    if (visible === false) {
-      handleChange(path, undefined)
-    }
-  }, [visible, path, handleChange])
+  useClearWhenHidden(visible, path, handleChange)
 
   if (visible === false) {
     return null

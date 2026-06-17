@@ -1,6 +1,6 @@
 import { type ControlProps, isEnumControl, isOneOfControl, or, type RankedTester } from '@jsonforms/core'
 import { withJsonFormsControlProps } from '@jsonforms/react'
-import { useEffect } from 'react'
+import { useClearWhenHidden } from '../hooks/useClearWhenHidden'
 
 import { Box, Flex, Text, RadioGroup } from '@radix-ui/themes'
 import { getErrorMessage } from '../utils/error'
@@ -16,11 +16,7 @@ export const RadioControl = ({
   enabled,
   visible = true,
 }: ControlProps) => {
-  useEffect(() => {
-    if (visible === false) {
-      handleChange(path, undefined)
-    }
-  }, [visible, path, handleChange])
+  useClearWhenHidden(visible, path, handleChange)
 
   if (visible === false) {
     return null

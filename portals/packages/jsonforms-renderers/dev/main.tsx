@@ -153,7 +153,7 @@ function Playground() {
                 renderers={radixRenderers}
                 ajv={ajv}
                 onChange={({ data }) => setData(data as Record<string, unknown>)}
-                validationMode={'ValidateAndShow'}
+                validationMode="ValidateAndShow"
               />
             </Card>
             <Card>
