@@ -1,6 +1,9 @@
 import { type ControlProps, isEnumControl, type RankedTester, rankWith, isOneOfControl, or } from '@jsonforms/core'
 import { withJsonFormsControlProps } from '@jsonforms/react'
+import { useEffect } from 'react'
+
 import { Select, Text, Flex, Box } from '@radix-ui/themes'
+import { getErrorMessage } from '../utils/error'
 
 export const SelectControl = ({
   data,
@@ -12,7 +15,18 @@ export const SelectControl = ({
   schema,
   uischema,
   enabled,
+  visible = true,
 }: ControlProps) => {
+  useEffect(() => {
+    if (visible === false) {
+      handleChange(path, undefined)
+    }
+  }, [visible, path, handleChange])
+
+  if (visible === false) {
+    return null
+  }
+
   const isValid = errors.length === 0
 
   // Derive options
@@ -49,9 +63,9 @@ export const SelectControl = ({
             ))}
           </Select.Content>
         </Select.Root>
-        {!isValid && errors !== 'is a required property' && (
+        {!isValid && (
           <Text color="red" size="1">
-            {errors}
+            {getErrorMessage(errors, label)}
           </Text>
         )}
         {schema.description && (

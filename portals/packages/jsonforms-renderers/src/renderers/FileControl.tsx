@@ -4,6 +4,7 @@ import { Card, Flex, Text, Box, IconButton, Button } from '@radix-ui/themes'
 import { UploadIcon, FileTextIcon, Cross2Icon, CheckCircledIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons'
 import { useState, useRef, useEffect, useCallback, type ChangeEvent, type DragEvent } from 'react'
 import { useUpload } from '../contexts/UploadContext'
+import { getErrorMessage } from '../utils/error'
 import * as React from 'react'
 
 interface FileEntry {
@@ -27,6 +28,8 @@ interface FileControlProps {
   uischema?: ControlElement
   schema?: JsonSchema & { 'x-file'?: XFileOptions }
   enabled?: boolean
+  errors: string
+  visible?: boolean
 }
 
 function normalizeData(data: string | string[] | null): string[] {
@@ -63,8 +66,31 @@ function formatAccept(accept: string): string {
     .join(', ')
 }
 
-const FileControl = ({ data, handleChange, path, label, required, uischema, schema, enabled }: FileControlProps) => {
+const FileControl = ({
+  data,
+  handleChange,
+  path,
+  label,
+  required,
+  uischema,
+  schema,
+  enabled,
+  errors,
+  visible = true,
+}: FileControlProps) => {
   const uploadContext = useUpload()
+
+  useEffect(() => {
+    if (visible === false) {
+      handleChange(path, null)
+    }
+  }, [visible, path, handleChange])
+
+  if (visible === false) {
+    return null
+  }
+
+  const isValid = !errors || errors.length === 0
 
   // Read x-file constraints from schema
   const xFile: XFileOptions = schema?.['x-file'] ?? {}
@@ -321,6 +347,11 @@ const FileControl = ({ data, handleChange, path, label, required, uischema, sche
       {isEnabled && atLimit && isMulti && (
         <Text size="1" color="gray" mt="1" style={{ display: 'block', textAlign: 'center' }}>
           Maximum {maxFiles} files uploaded. Remove one to replace it.
+        </Text>
+      )}
+      {!isValid && (
+        <Text color="red" size="1" mt="2" style={{ display: 'block' }}>
+          {getErrorMessage(errors, label)}
         </Text>
       )}
     </Box>

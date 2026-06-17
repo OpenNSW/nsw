@@ -10,10 +10,12 @@ import {
 import { withJsonFormsControlProps } from '@jsonforms/react'
 import { TextField, Text, Flex, Box, Popover, Button } from '@radix-ui/themes'
 import { CalendarIcon } from '@radix-ui/react-icons'
-import { useState, type ReactNode } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/style.css'
 import dayjs from 'dayjs'
+
+import { getErrorMessage } from '../utils/error'
 
 const toISODate = (d: Date) => dayjs(d).format('YYYY-MM-DD')
 
@@ -43,9 +45,9 @@ const FieldShell = ({ path, label, required, errors, description, children }: Sh
           {label} {required && <Text color="red">*</Text>}
         </Text>
         {children}
-        {!isValid && errors !== 'is a required property' && (
+        {!isValid && (
           <Text color="red" size="1">
-            {errors}
+            {getErrorMessage(errors, label)}
           </Text>
         )}
         {description && (
@@ -58,7 +60,26 @@ const FieldShell = ({ path, label, required, errors, description, children }: Sh
   )
 }
 
-export const DateControl = ({ data, handleChange, path, label, required, errors, schema, enabled }: ControlProps) => {
+export const DateControl = ({
+  data,
+  handleChange,
+  path,
+  label,
+  required,
+  errors,
+  schema,
+  enabled,
+  visible = true,
+}: ControlProps) => {
+  useEffect(() => {
+    if (visible === false) {
+      handleChange(path, undefined)
+    }
+  }, [visible, path, handleChange])
+
+  if (visible === false) {
+    return null
+  }
   const isValid = errors.length === 0
   const [open, setOpen] = useState(false)
   const value: string = typeof data === 'string' ? data : ''

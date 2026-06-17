@@ -1,6 +1,9 @@
 import { type ControlProps, isNumberControl, type RankedTester, rankWith, isIntegerControl, or } from '@jsonforms/core'
 import { withJsonFormsControlProps } from '@jsonforms/react'
+import { useEffect } from 'react'
+
 import { TextField, Text, Flex, Box } from '@radix-ui/themes'
+import { getErrorMessage } from '../utils/error'
 
 export const NumberControl = ({
   data,
@@ -12,7 +15,18 @@ export const NumberControl = ({
   uischema,
   schema,
   enabled,
+  visible = true,
 }: ControlProps) => {
+  useEffect(() => {
+    if (visible === false) {
+      handleChange(path, undefined)
+    }
+  }, [visible, path, handleChange])
+
+  if (visible === false) {
+    return null
+  }
+
   const isValid = errors.length === 0
 
   const handleNumberChange = (value: string) => {
@@ -41,9 +55,9 @@ export const NumberControl = ({
           color={!isValid ? 'red' : undefined}
           id={path}
         />
-        {!isValid && errors !== 'is a required property' && (
+        {!isValid && (
           <Text color="red" size="1">
-            {errors}
+            {getErrorMessage(errors, label)}
           </Text>
         )}
         {schema.description && (
