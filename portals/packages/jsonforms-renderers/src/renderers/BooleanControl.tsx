@@ -1,6 +1,7 @@
 import { type ControlProps, isBooleanControl, type RankedTester, rankWith } from '@jsonforms/core'
 import { withJsonFormsControlProps } from '@jsonforms/react'
 import { Checkbox, Text, Flex, Box } from '@radix-ui/themes'
+import { getErrorMessage } from '../utils/error'
 
 export const BooleanControl = ({
   data,
@@ -29,7 +30,7 @@ export const BooleanControl = ({
       </Flex>
       {!isValid && (
         <Text color="red" size="1" className="block mt-1">
-          {errors}
+          {getErrorMessage(errors, label)}
         </Text>
       )}
       {schema.description && (

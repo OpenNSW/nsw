@@ -1,6 +1,7 @@
 import { type ControlProps, isEnumControl, isOneOfControl, or, type RankedTester } from '@jsonforms/core'
 import { withJsonFormsControlProps } from '@jsonforms/react'
 import { Box, Flex, Text, RadioGroup } from '@radix-ui/themes'
+import { getErrorMessage } from '../utils/error'
 
 export const RadioControl = ({ data, handleChange, path, label, required, errors, schema, enabled }: ControlProps) => {
   const isValid = errors.length === 0
@@ -54,9 +55,9 @@ export const RadioControl = ({ data, handleChange, path, label, required, errors
           </Flex>
         </RadioGroup.Root>
 
-        {!isValid && errors !== 'is a required property' && (
+        {!isValid && (
           <Text color="red" size="1">
-            {errors}
+            {getErrorMessage(errors, label)}
           </Text>
         )}
 

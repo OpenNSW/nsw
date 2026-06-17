@@ -1,6 +1,7 @@
 import { type ControlProps, isEnumControl, type RankedTester, rankWith, isOneOfControl, or } from '@jsonforms/core'
 import { withJsonFormsControlProps } from '@jsonforms/react'
 import { Select, Text, Flex, Box } from '@radix-ui/themes'
+import { getErrorMessage } from '../utils/error'
 
 export const SelectControl = ({
   data,
@@ -49,9 +50,9 @@ export const SelectControl = ({
             ))}
           </Select.Content>
         </Select.Root>
-        {!isValid && errors !== 'is a required property' && (
+        {!isValid && (
           <Text color="red" size="1">
-            {errors}
+            {getErrorMessage(errors, label)}
           </Text>
         )}
         {schema.description && (

@@ -1,6 +1,7 @@
 import { type ControlProps, isStringControl, type RankedTester, rankWith } from '@jsonforms/core'
 import { withJsonFormsControlProps } from '@jsonforms/react'
 import { TextField, Text, Flex, Box } from '@radix-ui/themes'
+import { getErrorMessage } from '../utils/error'
 
 export const TextControl = ({
   data,
@@ -29,9 +30,9 @@ export const TextControl = ({
           color={!isValid ? 'red' : undefined}
           id={path}
         />
-        {!isValid && errors !== 'is a required property' && (
+        {!isValid && (
           <Text color="red" size="1">
-            {errors}
+            {getErrorMessage(errors, label)}
           </Text>
         )}
         {schema.description && (

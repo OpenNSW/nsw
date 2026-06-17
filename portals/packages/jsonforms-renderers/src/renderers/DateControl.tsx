@@ -15,6 +15,8 @@ import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/style.css'
 import dayjs from 'dayjs'
 
+import { getErrorMessage } from '../utils/error'
+
 const toISODate = (d: Date) => dayjs(d).format('YYYY-MM-DD')
 
 // Parse with an explicit midnight so the string is read as local time — a bare
@@ -43,9 +45,9 @@ const FieldShell = ({ path, label, required, errors, description, children }: Sh
           {label} {required && <Text color="red">*</Text>}
         </Text>
         {children}
-        {!isValid && errors !== 'is a required property' && (
+        {!isValid && (
           <Text color="red" size="1">
-            {errors}
+            {getErrorMessage(errors, label)}
           </Text>
         )}
         {description && (
