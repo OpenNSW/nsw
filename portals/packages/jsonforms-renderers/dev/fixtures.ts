@@ -92,6 +92,36 @@ export const fixtures: Fixture[] = [
     } as UISchemaElement,
   },
   {
+    id: 'search-select',
+    name: 'Search Select',
+    schema: {
+      type: 'object',
+      properties: {
+        country: {
+          type: 'string',
+          description: 'Type to search — offset-paginated from /api/countries-offset',
+          'x-search': {
+            path: '/api/countries-offset',
+            valueKey: 'id',
+            labelKey: 'name',
+            pageSize: 5,
+          },
+        },
+      },
+      required: ['country'],
+    } as unknown as JsonSchema,
+    uischema: {
+      type: 'VerticalLayout',
+      elements: [
+        {
+          type: 'Control',
+          scope: '#/properties/country',
+          options: { placeholder: 'Search for a country…' },
+        },
+      ],
+    } as UISchemaElement,
+  },
+  {
     id: 'date',
     name: 'Date / Time',
     schema: {
@@ -227,6 +257,7 @@ export const fixtures: Fixture[] = [
       ],
     } as UISchemaElement,
   },
+
   {
     id: 'label',
     name: 'Label',
