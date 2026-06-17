@@ -10,7 +10,7 @@ import {
 import { withJsonFormsControlProps } from '@jsonforms/react'
 import { TextField, Text, Flex, Box, Popover, Button } from '@radix-ui/themes'
 import { CalendarIcon } from '@radix-ui/react-icons'
-import { useState, type ReactNode } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/style.css'
 import dayjs from 'dayjs'
@@ -71,6 +71,12 @@ export const DateControl = ({
   enabled,
   visible = true,
 }: ControlProps) => {
+  useEffect(() => {
+    if (visible === false) {
+      handleChange(path, undefined)
+    }
+  }, [visible, path, handleChange])
+
   if (visible === false) {
     return null
   }

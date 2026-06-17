@@ -80,6 +80,12 @@ const FileControl = ({
 }: FileControlProps) => {
   const uploadContext = useUpload()
 
+  useEffect(() => {
+    if (visible === false) {
+      handleChange(path, null)
+    }
+  }, [visible, path, handleChange])
+
   if (visible === false) {
     return null
   }
