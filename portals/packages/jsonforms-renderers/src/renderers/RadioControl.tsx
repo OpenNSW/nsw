@@ -3,7 +3,20 @@ import { withJsonFormsControlProps } from '@jsonforms/react'
 import { Box, Flex, Text, RadioGroup } from '@radix-ui/themes'
 import { getErrorMessage } from '../utils/error'
 
-export const RadioControl = ({ data, handleChange, path, label, required, errors, schema, enabled }: ControlProps) => {
+export const RadioControl = ({
+  data,
+  handleChange,
+  path,
+  label,
+  required,
+  errors,
+  schema,
+  enabled,
+  visible = true,
+}: ControlProps) => {
+  if (visible === false) {
+    return null
+  }
   const isValid = errors.length === 0
 
   let options: { value: any; label: string }[] = []

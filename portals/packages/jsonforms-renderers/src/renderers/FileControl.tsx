@@ -29,6 +29,7 @@ interface FileControlProps {
   schema?: JsonSchema & { 'x-file'?: XFileOptions }
   enabled?: boolean
   errors: string
+  visible?: boolean
 }
 
 function normalizeData(data: string | string[] | null): string[] {
@@ -75,8 +76,14 @@ const FileControl = ({
   schema,
   enabled,
   errors,
+  visible = true,
 }: FileControlProps) => {
   const uploadContext = useUpload()
+
+  if (visible === false) {
+    return null
+  }
+
   const isValid = !errors || errors.length === 0
 
   // Read x-file constraints from schema

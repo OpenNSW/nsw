@@ -60,7 +60,20 @@ const FieldShell = ({ path, label, required, errors, description, children }: Sh
   )
 }
 
-export const DateControl = ({ data, handleChange, path, label, required, errors, schema, enabled }: ControlProps) => {
+export const DateControl = ({
+  data,
+  handleChange,
+  path,
+  label,
+  required,
+  errors,
+  schema,
+  enabled,
+  visible = true,
+}: ControlProps) => {
+  if (visible === false) {
+    return null
+  }
   const isValid = errors.length === 0
   const [open, setOpen] = useState(false)
   const value: string = typeof data === 'string' ? data : ''

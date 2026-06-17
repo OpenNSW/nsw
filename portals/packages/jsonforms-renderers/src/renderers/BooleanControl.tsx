@@ -12,7 +12,12 @@ export const BooleanControl = ({
   errors,
   schema,
   enabled,
+  visible = true,
 }: ControlProps) => {
+  if (visible === false) {
+    return null
+  }
+
   const isValid = errors.length === 0
 
   return (

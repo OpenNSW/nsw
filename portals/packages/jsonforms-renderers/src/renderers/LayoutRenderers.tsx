@@ -13,9 +13,21 @@ import { Box, Flex, Tabs, Heading } from '@radix-ui/themes'
 import { useState } from 'react'
 
 // Vertical Layout
-export const VerticalLayoutRenderer = ({ uischema, schema, path, renderers, cells, enabled }: LayoutProps) => {
+export const VerticalLayoutRenderer = ({
+  uischema,
+  schema,
+  path,
+  renderers,
+  cells,
+  enabled,
+  visible = true,
+}: LayoutProps) => {
   const layout = uischema as Layout
   const elements = layout.elements
+
+  if (visible === false) {
+    return null
+  }
 
   return (
     <Flex direction="column" gap="4">
@@ -37,9 +49,21 @@ export const VerticalLayoutRenderer = ({ uischema, schema, path, renderers, cell
 export const VerticalLayoutTester: RankedTester = rankWith(1, uiTypeIs('VerticalLayout'))
 
 // Horizontal Layout
-export const HorizontalLayoutRenderer = ({ uischema, schema, path, renderers, cells, enabled }: LayoutProps) => {
+export const HorizontalLayoutRenderer = ({
+  uischema,
+  schema,
+  path,
+  renderers,
+  cells,
+  enabled,
+  visible = true,
+}: LayoutProps) => {
   const layout = uischema as Layout
   const elements = layout.elements
+
+  if (visible === false) {
+    return null
+  }
 
   return (
     <Flex direction="row" gap="4">
@@ -62,9 +86,21 @@ export const HorizontalLayoutRenderer = ({ uischema, schema, path, renderers, ce
 export const HorizontalLayoutTester: RankedTester = rankWith(1, uiTypeIs('HorizontalLayout'))
 
 // Group Layout
-export const GroupLayoutRenderer = ({ uischema, schema, path, renderers, cells, enabled }: LayoutProps) => {
+export const GroupLayoutRenderer = ({
+  uischema,
+  schema,
+  path,
+  renderers,
+  cells,
+  enabled,
+  visible = true,
+}: LayoutProps) => {
   const group = uischema as GroupLayout
   const elements = group.elements
+
+  if (visible === false) {
+    return null
+  }
 
   return (
     <Box mb="6">
@@ -104,10 +140,15 @@ export const CategorizationLayoutRenderer = ({
   renderers,
   cells,
   enabled,
+  visible = true,
 }: CategorizationLayoutProps) => {
   const categorization = uischema as CategorizationInterface
   const categories = categorization.elements.filter((e): e is CategoryInterface => e.type === 'Category')
   const [activeTab, setActiveTab] = useState(categories[0]?.label || '')
+
+  if (visible === false) {
+    return null
+  }
 
   if (!categories.length) return null
 

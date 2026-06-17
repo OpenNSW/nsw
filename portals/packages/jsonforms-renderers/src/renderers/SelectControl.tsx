@@ -13,7 +13,12 @@ export const SelectControl = ({
   schema,
   uischema,
   enabled,
+  visible = true,
 }: ControlProps) => {
+  if (visible === false) {
+    return null
+  }
+
   const isValid = errors.length === 0
 
   // Derive options

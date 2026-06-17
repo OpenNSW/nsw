@@ -13,7 +13,12 @@ export const NumberControl = ({
   uischema,
   schema,
   enabled,
+  visible = true,
 }: ControlProps) => {
+  if (visible === false) {
+    return null
+  }
+
   const isValid = errors.length === 0
 
   const handleNumberChange = (value: string) => {
