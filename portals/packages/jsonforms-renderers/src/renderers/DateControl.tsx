@@ -10,7 +10,9 @@ import {
 import { withJsonFormsControlProps } from '@jsonforms/react'
 import { TextField, Text, Flex, Box, Popover, Button } from '@radix-ui/themes'
 import { CalendarIcon } from '@radix-ui/react-icons'
-import { useState, useEffect, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
+import { useClearWhenHidden } from '../hooks/useClearWhenHidden'
+
 import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/style.css'
 import dayjs from 'dayjs'
@@ -71,17 +73,15 @@ export const DateControl = ({
   enabled,
   visible = true,
 }: ControlProps) => {
-  useEffect(() => {
-    if (visible === false) {
-      handleChange(path, undefined)
-    }
-  }, [visible, path, handleChange])
+  useClearWhenHidden(visible, path, handleChange)
+
+  const isValid = errors.length === 0
+  const [open, setOpen] = useState(false)
 
   if (visible === false) {
     return null
   }
-  const isValid = errors.length === 0
-  const [open, setOpen] = useState(false)
+
   const value: string = typeof data === 'string' ? data : ''
 
   const shell = (children: ReactNode) => (
