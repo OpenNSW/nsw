@@ -37,14 +37,14 @@ To use the custom renderers, register them inside the `<JsonForms>` provider in 
 
 ```tsx
 import { JsonForms } from '@jsonforms/react'
-import { 
-  materialCells, // fallback cells 
+import {
+  materialCells, // fallback cells
 } from '@jsonforms/material-renderers' // or other fallbacks
 import openNswRenderers from '@opennsw/jsonforms-renderers'
 
 function App() {
   const [data, setData] = useState({})
-  
+
   return (
     <JsonForms
       schema={schema}
