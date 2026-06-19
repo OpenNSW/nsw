@@ -1,0 +1,94 @@
+name: Release - Publish @opennsw/jsonforms-renderers
+
+# Publishes @opennsw/jsonforms-renderers to the npm registry when a release tag
+# is pushed.
+#
+# How to cut a release:
+#   1. Bump "version" in portals/packages/jsonforms-renderers/package.json and
+#      merge it to main.
+#   2. Tag that commit and push the tag, e.g.:
+#        git tag jsonforms-renderers-v0.3.0
+#        git push origin jsonforms-renderers-v0.3.0
+#   3. This workflow verifies the tag matches package.json, builds, and publishes.
+#
+# The package-specific tag prefix keeps this independent of the v*.*.* tags that
+# release.yml uses to publish Docker images.
+#
+# Authentication: npm Trusted Publishing via GitHub OIDC — no NPM_TOKEN secret.
+# One-time setup on npmjs.com: open the package's Settings -> Trusted Publisher
+# and register GitHub Actions with repo `mushrafmim/nsw` and workflow file
+# `jsonforms-renderers-release.yml`. `id-token: write` + a recent npm CLI also
+# attach build provenance (the verified badge on npmjs.com).
+
+on:
+  push:
+    tags:
+      - 'jsonforms-renderers-v*.*.*'
+
+# Don't run two publishes of this package concurrently.
+concurrency:
+  group: jsonforms-renderers-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Build and Publish to npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # OIDC trusted publishing + provenance signing
+    defaults:
+      run:
+        working-directory: ./portals
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+        with:
+          version: 11.1.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'pnpm'
+          cache-dependency-path: './portals/pnpm-lock.yaml'
+
+      # Trusted Publishing / OIDC requires npm CLI >= 11.5.1. The npm bundled
+      # with Node 22.18 is older, so upgrade it before publishing.
+      - name: Upgrade npm (OIDC trusted publishing support)
+        run: npm install --global npm@latest
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Fail early if the pushed tag doesn't match the version in package.json.
+      # Prevents publishing a version that wasn't actually committed.
+      - name: Verify tag matches package version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#jsonforms-renderers-v}"
+          PKG_VERSION="$(node -p "require('./packages/jsonforms-renderers/package.json').version")"
+          echo "Tag version:     $TAG_VERSION"
+          echo "Package version: $PKG_VERSION"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Tag ($TAG_VERSION) does not match package.json version ($PKG_VERSION)."
+            exit 1
+          fi
+
+      - name: Type check
+        run: pnpm --filter @opennsw/jsonforms-renderers run type-check
+
+      - name: Build package
+        run: pnpm --filter @opennsw/jsonforms-renderers run build
+
+      # Sanity-check the publishable tarball (no real upload).
+      - name: Publish dry run
+        working-directory: ./portals/packages/jsonforms-renderers
+        run: npm publish --provenance --access public --dry-run
+
+      - name: Publish to npm
+        working-directory: ./portals/packages/jsonforms-renderers
+        run: npm publish --provenance --access public

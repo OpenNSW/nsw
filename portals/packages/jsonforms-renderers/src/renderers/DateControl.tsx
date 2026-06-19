@@ -8,26 +8,11 @@ import {
   rankWith,
 } from '@jsonforms/core'
 import { withJsonFormsControlProps } from '@jsonforms/react'
-import { TextField, Text, Flex, Box, Popover, Button } from '@radix-ui/themes'
-import { CalendarIcon } from '@radix-ui/react-icons'
-import { useState, type ReactNode } from 'react'
-import { useClearWhenHidden } from '../hooks/useClearWhenHidden'
-
-import { DayPicker } from 'react-day-picker'
-import 'react-day-picker/style.css'
+import { TextField, Text, Flex, Box } from '@radix-ui/themes'
+import { useEffect, type ReactNode } from 'react'
 import dayjs from 'dayjs'
 
 import { getErrorMessage } from '../utils/error'
-
-const toISODate = (d: Date) => dayjs(d).format('YYYY-MM-DD')
-
-// Parse with an explicit midnight so the string is read as local time — a bare
-// 'YYYY-MM-DD' is parsed as UTC and can shift the picked day by one.
-const fromISODate = (s?: string) => {
-  if (!s) return undefined
-  const d = dayjs(`${s}T00:00:00`)
-  return d.isValid() ? d.toDate() : undefined
-}
 
 // dayjs().format() defaults to RFC 3339 (e.g. 2026-06-05T12:30:00+05:30) with
 // seconds + local offset, which ajv's strict "date-time" format check requires.
@@ -73,15 +58,16 @@ export const DateControl = ({
   enabled,
   visible = true,
 }: ControlProps) => {
-  useClearWhenHidden(visible, path, handleChange)
-
-  const isValid = errors.length === 0
-  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    if (visible === false) {
+      handleChange(path, undefined)
+    }
+  }, [visible, path, handleChange])
 
   if (visible === false) {
     return null
   }
-
+  const isValid = errors.length === 0
   const value: string = typeof data === 'string' ? data : ''
 
   const shell = (children: ReactNode) => (
@@ -104,10 +90,9 @@ export const DateControl = ({
     )
   }
 
-  // date and date-time share the calendar; date-time appends a native time input.
+  // date and date-time share the same date input; date-time appends a native time input.
   const hasTime = schema.format === 'date-time'
   const [datePart = '', timeRaw = ''] = value.split('T')
-  const selected = fromISODate(datePart)
   // The native <input type="time"> only understands HH:MM(:SS); strip any
   // timezone suffix from the stored RFC 3339 value before feeding it back.
   const timeForInput = timeRaw.slice(0, 5)
@@ -122,28 +107,15 @@ export const DateControl = ({
 
   return shell(
     <Flex gap="2" align="center">
-      <Popover.Root open={open} onOpenChange={setOpen}>
-        <Popover.Trigger>
-          <Button id={path} type="button" variant="surface" color={!isValid ? 'red' : 'gray'} disabled={!enabled}>
-            <CalendarIcon />
-            {selected ? selected.toLocaleDateString() : 'Select date'}
-          </Button>
-        </Popover.Trigger>
-        <Popover.Content>
-          <DayPicker
-            mode="single"
-            captionLayout="dropdown"
-            startMonth={new Date(1900, 0)}
-            endMonth={new Date(new Date().getFullYear() + 100, 11)}
-            selected={selected}
-            defaultMonth={selected}
-            onSelect={(d) => {
-              commit(d ? toISODate(d) : '', timeForInput)
-              if (d) setOpen(false)
-            }}
-          />
-        </Popover.Content>
-      </Popover.Root>
+      <TextField.Root
+        type="date"
+        value={datePart}
+        disabled={!enabled}
+        color={!isValid ? 'red' : undefined}
+        onChange={(e) => commit(e.target.value, timeForInput)}
+        id={path}
+        style={{ flex: 1 }}
+      />
       {hasTime && (
         <TextField.Root
           type="time"
@@ -151,6 +123,7 @@ export const DateControl = ({
           disabled={!enabled || !datePart}
           color={!isValid ? 'red' : undefined}
           onChange={(e) => commit(datePart, e.target.value)}
+          style={{ flex: 1 }}
         />
       )}
     </Flex>,
@@ -159,4 +132,5 @@ export const DateControl = ({
 
 export const DateControlTester: RankedTester = rankWith(2, or(isDateControl, isDateTimeControl, isTimeControl))
 
-export default withJsonFormsControlProps(DateControl)
+const JsonFormsDateControl = withJsonFormsControlProps(DateControl)
+export default JsonFormsDateControl
