@@ -3,6 +3,8 @@ import NumberControl, { NumberControlTester } from './NumberControl'
 import BooleanControl, { BooleanControlTester } from './BooleanControl'
 import RadioControl, { RadioControlTester } from './RadioControl'
 import SelectControl, { SelectControlTester } from './SelectControl'
+import SearchSelectControl from './SearchSelectControl'
+import { SearchSelectControlTester } from './SearchSelectControlTester'
 import DateControl, { DateControlTester } from './DateControl'
 import {
   VerticalLayoutRenderer,
@@ -29,6 +31,7 @@ export const radixRenderers = [
   { tester: NumberControlTester, renderer: NumberControl },
   { tester: BooleanControlTester, renderer: BooleanControl },
   { tester: RadioControlTester, renderer: RadioControl },
+  { tester: SearchSelectControlTester, renderer: SearchSelectControl },
   { tester: SelectControlTester, renderer: SelectControl },
   { tester: DateControlTester, renderer: DateControl },
   { tester: VerticalLayoutTester, renderer: VerticalLayoutRenderer },
@@ -51,6 +54,8 @@ export * from './LayoutRenderers'
 export type { CategorizationLayoutProps }
 export { default as FileControl } from './FileControl'
 export * from './FileControlTester'
+export { default as SearchSelectControl } from './SearchSelectControl'
+export * from './SearchSelectControlTester'
 export { default as ArrayControl } from './ArrayControl'
 export * from './ArrayControlTester'
 export * from './LabelRenderer'
